@@ -1,0 +1,170 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% block title %}Shift Summary - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Shift Summary{% endblock breadcrumb %}
+
+{% block extrahead %}
+<style>
+  .summary-hero {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+    color: #fff;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(40,167,69,0.3);
+  }
+  .summary-hero h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .summary-hero p {
+    font-size: 1.1rem;
+    opacity: 0.95;
+    margin-bottom: 0;
+  }
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+  }
+  .metric-box {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    border-top: 4px solid #28a745;
+  }
+  .metric-box .value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #212529;
+    margin-bottom: 0.5rem;
+  }
+  .metric-box .label {
+    font-size: 0.9rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .handover-note {
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .handover-note h5 {
+    color: #856404;
+    margin-bottom: 1rem;
+  }
+  .handover-note p {
+    color: #856404;
+    margin-bottom: 0;
+    white-space: pre-line;
+  }
+  .action-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+  }
+  @media (max-width: 768px) {
+    .summary-hero h2 {
+      font-size: 1.75rem;
+    }
+    .metrics-grid {
+      grid-template-columns: 1fr;
+    }
+    .action-buttons {
+      flex-direction: column;
+    }
+  }
+</style>
+{% endblock extrahead %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <!-- Hero Section -->
+    <div class="summary-hero">
+      <h2><i class="fas fa-check-circle"></i> Shift Complete!</h2>
+      <p>Thank you for your service. Here's your shift summary.</p>
+    </div>
+
+    <!-- Shift Details -->
+    <div class="card mb-3">
+      <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="fas fa-clock"></i> Shift Details</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-6">
+            <p><strong>Started:</strong> {{ shift.shift_start|date:"M d, Y h:i A" }}</p>
+            <p><strong>Ended:</strong> {{ shift.shift_end|date:"M d, Y h:i A" }}</p>
+          </div>
+          <div class="col-md-6">
+            <p><strong>Duration:</strong> {{ metrics.duration_hours }} hours</p>
+            {% if shift.gate_post %}
+            <p><strong>Post:</strong> {{ shift.gate_post }}</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metrics Grid -->
+    <div class="metrics-grid">
+      <div class="metric-box">
+        <div class="value">{{ metrics.total_scans }}</div>
+        <div class="label">Total Scans</div>
+      </div>
+      <div class="metric-box">
+        <div class="value">{{ metrics.successful_scans }}</div>
+        <div class="label">Successful</div>
+      </div>
+      <div class="metric-box">
+        <div class="value">{{ metrics.denied_scans }}</div>
+        <div class="label">Denied</div>
+      </div>
+      <div class="metric-box">
+        <div class="value">{{ metrics.accuracy_rate }}%</div>
+        <div class="label">Accuracy</div>
+      </div>
+      <div class="metric-box">
+        <div class="value">{{ metrics.scans_per_hour }}</div>
+        <div class="label">Scans/Hour</div>
+      </div>
+      <div class="metric-box">
+        <div class="value">{{ metrics.incidents_reported }}</div>
+        <div class="label">Incidents</div>
+      </div>
+      <div class="metric-box">
+        <div class="value">{{ metrics.overrides_made }}</div>
+        <div class="label">Overrides</div>
+      </div>
+    </div>
+
+    <!-- Handover Note -->
+    {% if handover_note %}
+    <div class="handover-note">
+      <h5><i class="fas fa-sticky-note"></i> Handover Note</h5>
+      <p>{{ handover_note }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+      <a href="{% url 'guard-dashboard' %}" class="btn btn-success btn-lg">
+        <i class="fas fa-home"></i> Back to Dashboard
+      </a>
+      <a href="{% url 'guard-performance' %}" class="btn btn-outline-success btn-lg">
+        <i class="fas fa-chart-line"></i> View Performance
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock content %}

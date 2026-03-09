@@ -1,0 +1,44 @@
+{% extends 'base/base.html' %}
+{% block title %}Report result - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Report result{% endblock breadcrumb %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col-12">
+    <a href="{% url 'report-on-demand' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left mr-1"></i> New report</a>
+    <a href="{% url 'reports-hub' %}" class="btn btn-outline-primary ml-2">Reports hub</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h5 class="m-0">On-demand report: {{ date_from|date:"M d, Y" }} – {{ date_to|date:"M d, Y" }} (by {{ group_by }})</h5>
+  </div>
+  <div class="card-body p-0">
+    {% if data.rows %}
+    <div class="table-responsive">
+      <table class="table table-sm table-striped table-bordered mb-0">
+        <thead>
+          <tr>
+            {% for h in data.headers %}
+            <th>{{ h }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row_values in row_values %}
+          <tr>
+            {% for v in row_values %}
+            <td>{{ v }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted p-4 mb-0">No data for the selected date range and group.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock content %}

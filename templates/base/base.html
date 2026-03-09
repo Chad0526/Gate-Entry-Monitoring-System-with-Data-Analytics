@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+  {% load static %}
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+
+  <title>{% block title %} {% endblock title %}</title>
+  {% include 'base/header.html' %}
+  
+  {% block extrahead %}
+
+  {% endblock extrahead %}
+</head>
+<body class="hold-transition sidebar-mini layout-fixed layout-navbar-fixed">
+<div class="wrapper">
+  <!-- Navbar -->
+  {% include 'base/navbar.html' %}
+  <!-- /.navbar -->
+
+  <!-- Main Sidebar Container -->
+  {% include 'base/sidebar.html' %}
+
+  <!-- Content Wrapper. Contains page content -->
+  <div class="content-wrapper">
+    <!-- Content Header (Page header) -->
+    <div class="content-header">
+      <div class="container-fluid">
+        <div class="row mb-2">
+          <div class="col-sm-6">
+            <h4 class="m-0 text-dark">City College of Bayawan - Gate Entry</h4>
+          </div><!-- /.col -->
+          <div class="col-sm-6">
+            <ol class="breadcrumb float-sm-right">
+              <li class="breadcrumb-item"><a href="#">Home</a></li>
+              <li class="breadcrumb-item active">{% block breadcrumb %} {% endblock breadcrumb %}</li>
+            </ol>
+          </div><!-- /.col -->
+        </div><!-- /.row -->
+      </div><!-- /.container-fluid -->
+    </div>
+    <!-- /.content-header -->
+
+    <!-- Main content -->
+    <section class="content">
+      <div class="container-fluid">
+        {% if messages %}
+        {# Success/error messages: fade after 5s, no redirect (all admin/functionality pages). Override block message_redirect_url to set a redirect URL for a specific page. #}
+        <div class="row" id="django-messages-wrap" data-auto-redirect-after="5" data-redirect-url="{% block message_redirect_url %}{% endblock %}">
+          <div class="col-12">
+            {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show django-alert" role="alert">
+              {{ message }}
+              <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+        {% block content %}
+
+        {% endblock content %}
+      </div><!--/. container-fluid -->
+    </section>
+    <!-- /.content -->
+  </div>
+  <!-- /.content-wrapper -->
+
+  <!-- Control Sidebar -->
+  <aside class="control-sidebar control-sidebar-dark">
+    <!-- Control sidebar content goes here -->
+  </aside>
+  <!-- /.control-sidebar -->
+
+  <!-- Main Footer -->
+  {% include 'base/footer.html' %}
+</div>
+<!-- ./wrapper -->
+
+{% include 'base/confirm_modal.html' %}
+
+<!-- Clock In Required Modal -->
+<div class="modal fade" id="clockInRequiredModal" tabindex="-1" role="dialog" aria-labelledby="clockInRequiredModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 600px;">
+    <div class="modal-content" style="border-radius: 12px; border: none; box-shadow: 0 8px 30px rgba(0,0,0,0.15);">
+      <div class="modal-header" style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); color: #fff; border-radius: 12px 12px 0 0; border: none; padding: 0.75rem 1rem;">
+        <h6 class="modal-title" id="clockInRequiredModalLabel" style="font-weight: 600; display: flex; align-items: center; margin: 0; font-size: 0.95rem;">
+          <i class="fas fa-lock mr-2"></i>
+          Scanner Access Restricted
+        </h6>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="color: #fff; opacity: 0.9; padding: 0; margin: 0;">
+          <span aria-hidden="true" style="font-size: 1.5rem;">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" style="padding: 1.25rem;">
+        <div style="display: flex; align-items: center; gap: 1.5rem;">
+          <!-- Icon Section -->
+          <div style="flex-shrink: 0;">
+            <i class="fas fa-clock" style="font-size: 3.5rem; color: #f39c12;"></i>
+          </div>
+          <!-- Content Section -->
+          <div style="flex: 1;">
+            <h6 style="font-size: 1rem; font-weight: 600; color: #333; margin-bottom: 0.5rem;">
+              Please Clock In First
+            </h6>
+            <p style="color: #666; font-size: 0.85rem; line-height: 1.5; margin-bottom: 0.75rem;">
+              You must clock in to your shift before accessing the scanner.
+            </p>
+            <div style="background: #fff3cd; border-left: 3px solid #f39c12; padding: 0.5rem 0.75rem; border-radius: 6px;">
+              <small style="color: #856404; font-size: 0.8rem;">
+                <i class="fas fa-info-circle mr-1"></i>
+                <strong>Tip:</strong> Use the "Clock In" button on your dashboard.
+              </small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="border: none; padding: 0.75rem 1.25rem 1rem; justify-content: center;">
+        <small style="color: #999; font-size: 0.8rem;">
+          <i class="fas fa-info-circle mr-1"></i>This message will close automatically in <span id="clockInModalCountdown">3</span> seconds
+        </small>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% include 'base/js.html' %}
+<script>
+(function() {
+  var wrap = document.getElementById('django-messages-wrap');
+  if (!wrap) return;
+  var delay = parseInt(wrap.getAttribute('data-auto-redirect-after') || '5', 10) * 1000;
+  var redirectUrl = wrap.getAttribute('data-redirect-url') || '';
+  var timer = setTimeout(function() {
+    var alerts = wrap.querySelectorAll('.django-alert');
+    alerts.forEach(function(el) {
+      el.classList.remove('show');
+      el.style.transition = 'opacity 0.4s ease';
+      el.style.opacity = '0';
+    });
+    setTimeout(function() {
+      wrap.style.display = 'none';
+      if (redirectUrl) window.location.href = redirectUrl;
+    }, 450);
+  }, delay);
+  wrap.querySelectorAll('[data-dismiss="alert"]').forEach(function(btn) {
+    btn.addEventListener('click', function() { clearTimeout(timer); });
+  });
+})();
+</script>
+{% block extrascript %}
+
+{% endblock extrascript %}
+
+{% if user.is_authenticated %}
+<script>
+// Clock In Required Modal
+function showClockInRequiredModal() {
+  $('#clockInRequiredModal').modal('show');
+  
+  // Auto-close after 3 seconds with countdown
+  var countdown = 3;
+  var countdownEl = document.getElementById('clockInModalCountdown');
+  
+  var timer = setInterval(function() {
+    countdown--;
+    if (countdownEl) countdownEl.textContent = countdown;
+    
+    if (countdown <= 0) {
+      clearInterval(timer);
+      $('#clockInRequiredModal').modal('hide');
+    }
+  }, 1000);
+  
+  // Clear timer if user manually closes modal
+  $('#clockInRequiredModal').on('hidden.bs.modal', function() {
+    clearInterval(timer);
+  });
+}
+
+(function() {
+  var POLL_INTERVAL_MS = 25000;
+  var FIRST_POLL_DELAY_MS = 5000;
+  var apiUrl = '{% url "api-notification-count" %}';
+  var initialCount = parseInt('{{ unread_notifications_count|default:0 }}', 10) || 0;
+  var lastKnownCount = initialCount;
+  var originalTitle = document.title;
+
+  function showBrowserNotification(count) {
+    if (!window.Notification || Notification.permission !== 'granted') return;
+    try {
+      var n = new Notification('City College of Bayawan - Gate Entry', {
+        body: 'You have ' + count + ' new notification(s). Click the bell in the navbar to view.',
+        tag: 'ccb-notification'
+      });
+      n.onclick = function() { window.focus(); n.close(); };
+      setTimeout(function() { n.close(); }, 5000);
+    } catch (e) {}
+  }
+
+  function getNotificationLink() {
+    var dropdown = document.getElementById('notifications-dropdown');
+    return dropdown && dropdown.previousElementSibling;
+  }
+
+  function updateBadge(count) {
+    var link = getNotificationLink();
+    if (!link) return;
+    var badge = document.getElementById('notifications-badge');
+    if (count > 0) {
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.id = 'notifications-badge';
+        badge.className = 'badge badge-warning navbar-badge';
+        link.appendChild(badge);
+      }
+      badge.textContent = count;
+    } else if (badge && badge.parentNode) {
+      badge.parentNode.removeChild(badge);
+    }
+  }
+
+  function onNewNotification(count) {
+    updateBadge(count);
+    showBrowserNotification(count);
+    var link = getNotificationLink();
+    if (link) {
+      link.style.animation = 'none';
+      link.offsetHeight;
+      link.style.animation = 'notification-bell-pulse 0.6s ease 3';
+    }
+    if (count > 0) {
+      document.title = '(' + count + ') New notification – ' + originalTitle;
+      setTimeout(function() { document.title = originalTitle; }, 4000);
+    }
+  }
+
+  var hasPolledOnce = false;
+  function poll() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', apiUrl, true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState !== 4) return;
+      var prev = lastKnownCount;
+      try {
+        var data = JSON.parse(xhr.responseText || '{}');
+        var unread = parseInt(data.unread, 10) || 0;
+        lastKnownCount = unread;
+        if (hasPolledOnce && unread > prev) {
+          onNewNotification(unread);
+        } else {
+          updateBadge(unread);
+        }
+        hasPolledOnce = true;
+      } catch (e) {
+        updateBadge(prev);
+      }
+    };
+    xhr.onerror = function() {};
+    xhr.send();
+  }
+
+  var style = document.createElement('style');
+  style.textContent = '@keyframes notification-bell-pulse { 0%,100%{ transform: scale(1); } 50%{ transform: scale(1.15); } }';
+  document.head.appendChild(style);
+
+  setTimeout(function() {
+    poll();
+    setInterval(poll, POLL_INTERVAL_MS);
+  }, FIRST_POLL_DELAY_MS);
+})();
+</script>
+{% endif %}
+
+</body>
+</html>

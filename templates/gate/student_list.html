@@ -1,0 +1,311 @@
+{% extends 'base/base.html' %}
+{% block title %}Students - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Students{% endblock breadcrumb %}
+
+{% block extrahead %}
+<style>
+  #students-list-card .card-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+  #students-list-card .card-header .card-tools { margin-left: auto; display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: flex-end; }
+  #students-list-card .filter-row { padding: 0.75rem 1.25rem; background: #f8f9fa; border-bottom: 1px solid #dee2e6; }
+  #students-list-card .filter-row .form-group { margin-bottom: 0; margin-right: 1rem; }
+  #students-list-card .filter-row label { margin-right: 0.35rem; font-weight: 500; color: #495057; }
+  #students-list-card .search-row {
+    padding: 0.65rem 1.25rem;
+    background: linear-gradient(to bottom, #fffde7 0%, #fff9c4 100%);
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  #students-list-card .search-row .search-input-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 380px;
+  }
+  /* Horizontal scroll on mobile so table can be scrolled right */
+  #students-list-card .table-wrap {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -1px;
+  }
+  #students-list-card .table-wrap .table {
+    min-width: 720px;
+    margin-bottom: 0;
+  }
+  @media (max-width: 768px) {
+    #students-list-card .table-wrap .table { font-size: 0.875rem; }
+    #students-list-card .table-wrap .table th,
+    #students-list-card .table-wrap .table td { white-space: nowrap; padding: 0.5rem 0.4rem; }
+    #students-list-card .table-wrap .table .btn { font-size: 0.75rem; padding: 0.25rem 0.4rem; }
+  }
+  @media (max-width: 576px) {
+    #students-list-card .card-header { padding: 0.65rem 0.75rem; }
+    #students-list-card .card-header h5 { font-size: 0.95rem; width: 100%; }
+    #students-list-card .card-header .card-tools { width: 100%; margin-left: 0; justify-content: flex-start; }
+    #students-list-card .card-header .btn-sm { font-size: 0.8rem; padding: 0.35rem 0.5rem; }
+    #students-list-card .filter-row { padding: 0.5rem 0.75rem; }
+    #students-list-card .filter-row .form-group { margin-right: 0; margin-bottom: 0.5rem; }
+    #students-list-card .search-row { padding: 0.5rem 0.75rem; }
+    #students-list-card .search-row .search-input-wrap { max-width: none; min-width: 0; }
+  }
+  #students-list-card .search-row .search-input-wrap i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #858585;
+    font-size: 0.9rem;
+    pointer-events: none;
+  }
+  #students-list-card .search-row .search-input-wrap input {
+    padding-left: 36px;
+    border-radius: 8px;
+    border: 1px solid #e0d555;
+    background: #fff;
+    font-size: 0.95rem;
+  }
+  #students-list-card .search-row .search-input-wrap input:focus {
+    border-color: #28a745;
+    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.15);
+  }
+  #students-list-card .search-row .search-input-wrap input::placeholder {
+    color: #9e9e9e;
+  }
+  #students-list-card .search-row .btn-search {
+    border-radius: 8px;
+    font-weight: 500;
+  }
+</style>
+{% endblock extrahead %}
+
+{% block content %}
+<div class="row mb-2">
+  <div class="col-12">
+    <a href="{% url 'gate-analytics' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left mr-1"></i> Back</a>
+  </div>
+</div>
+<div class="row">
+  <div class="col-12">
+    <div class="card" id="students-list-card">
+      <div class="card-header">
+        <h5 class="m-0">{% if show_pending %}Pending approvals{% else %}Registered students (QR generated automatically){% endif %}</h5>
+        <div class="card-tools">
+          {% if show_pending %}
+          {% if pending_count > 0 %}
+          <form id="approve-all-pending-form" method="post" action="{% url 'gate-student-approve-all-pending' %}" class="d-inline mr-1">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-success"><i class="fas fa-check-double mr-1"></i> Approve all ({{ pending_count }})</button>
+          </form>
+          {% endif %}
+          <a href="{% url 'gate-student-list' %}" class="btn btn-sm btn-outline-secondary mr-1"><i class="fas fa-list mr-1"></i> Show all students</a>
+          {% else %}
+          <a href="{% url 'gate-student-list' %}?pending=1" class="btn btn-sm btn-outline-warning mr-1"><i class="fas fa-clock mr-1"></i> Pending approvals</a>
+          <a href="{% url 'gate-student-import' %}" class="btn btn-sm btn-success mr-1"><i class="fas fa-file-csv mr-1"></i> Import students (CSV)</a>
+          <a href="{% url 'gate-load-slip-upload' %}" class="btn btn-sm btn-success mr-1"><i class="fas fa-file-upload mr-1"></i> Import load slips (CSV/Excel)</a>
+          {% endif %}
+          <a href="{% url 'gate-student-export-csv' %}" class="btn btn-sm btn-outline-primary mr-1" title="Download all student data (CSV)"><i class="fas fa-download mr-1"></i> Export all (CSV)</a>
+          {% if students %}
+          <a href="{% url 'gate-student-eid-print-all' %}{% if filter_course or filter_year_level or filter_section or filter_sex or search_q %}?{% if filter_course %}course={{ filter_course }}&{% endif %}{% if filter_year_level %}year_level={{ filter_year_level }}&{% endif %}{% if filter_section %}section={{ filter_section }}&{% endif %}{% if filter_sex %}sex={{ filter_sex }}&{% endif %}{% if search_q %}q={{ search_q|urlencode }}{% endif %}{% endif %}" target="_blank" class="btn btn-sm btn-outline-primary mr-1"><i class="fas fa-print mr-1"></i> Print all e-ID</a>
+          <a href="{% url 'gate-student-eid-print-all' %}{% if filter_course or filter_year_level or filter_section or filter_sex or search_q %}?{% if filter_course %}course={{ filter_course }}&{% endif %}{% if filter_year_level %}year_level={{ filter_year_level }}&{% endif %}{% if filter_section %}section={{ filter_section }}&{% endif %}{% if filter_sex %}sex={{ filter_sex }}&{% endif %}{% if search_q %}q={{ search_q|urlencode }}&{% endif %}download=1{% else %}?download=1{% endif %}" target="_blank" class="btn btn-sm btn-outline-success mr-1"><i class="fas fa-download mr-1"></i> Download all e-ID</a>
+          {% endif %}
+          <a href="{% url 'gate-student-create' %}" class="btn btn-sm btn-primary"><i class="fas fa-plus mr-1"></i> Add student</a>
+        </div>
+      </div>
+      <div class="filter-row d-flex flex-wrap align-items-center">
+        <form method="get" action="{% url 'gate-student-list' %}" class="d-flex flex-wrap align-items-center">
+          {% if show_pending %}<input type="hidden" name="pending" value="1">{% endif %}
+          <div class="form-group mb-0 mr-2">
+            <label for="filter-course">Course</label>
+            <select name="course" id="filter-course" class="form-control form-control-sm" style="width: auto; min-width: 90px;">
+              <option value="">All</option>
+              {% for value, label in course_choices %}
+              <option value="{{ value }}" {% if filter_course == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group mb-0 mr-2">
+            <label for="filter-year">Year level</label>
+            <select name="year_level" id="filter-year" class="form-control form-control-sm" style="width: auto; min-width: 100px;">
+              <option value="">All</option>
+              {% for value, label in year_level_choices %}
+              <option value="{{ value }}" {% if filter_year_level == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group mb-0 mr-2">
+            <label for="filter-section">Section</label>
+            <select name="section" id="filter-section" class="form-control form-control-sm" style="width: auto; min-width: 70px;">
+              <option value="">All</option>
+              <option value="A" {% if filter_section == 'A' %}selected{% endif %}>A</option>
+              <option value="B" {% if filter_section == 'B' %}selected{% endif %}>B</option>
+              <option value="C" {% if filter_section == 'C' %}selected{% endif %}>C</option>
+            </select>
+          </div>
+          <div class="form-group mb-0 mr-2">
+            <label for="filter-sex">Sex</label>
+            <select name="sex" id="filter-sex" class="form-control form-control-sm" style="width: auto; min-width: 120px;">
+              <option value="">All</option>
+              {% for value, label in sex_choices %}
+              <option value="{{ value }}" {% if filter_sex == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="btn btn-sm btn-outline-secondary mr-1"><i class="fas fa-filter mr-1"></i> Apply</button>
+        </form>
+        {% if filter_course or filter_year_level or filter_section or filter_sex %}
+        <a href="{% if show_pending %}{% url 'gate-student-list' %}?pending=1{% else %}{% url 'gate-student-list' %}{% endif %}" class="btn btn-sm btn-link text-muted">Clear filters</a>
+        {% endif %}
+      </div>
+      <div class="search-row">
+        <form method="get" action="{% url 'gate-student-list' %}" class="d-flex align-items-center flex-wrap" style="gap: 0.5rem; width: 100%;">
+          {% if show_pending %}<input type="hidden" name="pending" value="1">{% endif %}
+          {% if filter_course %}<input type="hidden" name="course" value="{{ filter_course }}">{% endif %}
+          {% if filter_year_level %}<input type="hidden" name="year_level" value="{{ filter_year_level }}">{% endif %}
+          {% if filter_section %}<input type="hidden" name="section" value="{{ filter_section }}">{% endif %}
+          {% if filter_sex %}<input type="hidden" name="sex" value="{{ filter_sex }}">{% endif %}
+          <div class="search-input-wrap">
+            <i class="fas fa-search"></i>
+            <input type="text" name="q" value="{{ search_q|default:'' }}" class="form-control form-control-sm" placeholder="Search by student name or ID..." autocomplete="off">
+          </div>
+          <button type="submit" class="btn btn-sm btn-success btn-search"><i class="fas fa-search mr-1"></i> Search</button>
+          {% if search_q %}
+          <a href="{{ clear_search_url }}" class="btn btn-sm btn-outline-secondary">Clear search</a>
+          {% endif %}
+        </form>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-wrap">
+        <table class="table table-striped table-hover">
+          <thead>
+            <tr>
+              <th style="width:72px">QR code</th>
+              <th>Student ID</th>
+              <th>Name</th>
+              <th>Sex</th>
+              <th>Course / Year</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in students %}
+              <tr>
+                <td class="align-middle">
+                  <a href="{% url 'gate-student-qr' s.pk %}" target="_blank" title="Open full-size QR (for ID card print)" class="d-inline-block qr-cell-wrap">
+                    <img src="{% url 'gate-student-qr' s.pk %}?v=2" alt="QR {{ s.student_id }}" width="56" height="56" class="rounded border student-qr-img" style="image-rendering: pixelated; image-rendering: crisp-edges;" onerror="this.onerror=null; this.style.display='none'; var w=this.closest('.qr-cell-wrap'); if(w && !w.querySelector('.qr-fallback')) { var s=document.createElement('span'); s.className='qr-fallback d-inline-block rounded border bg-light text-center text-muted small'; s.style.width='56px'; s.style.height='56px'; s.style.lineHeight='56px'; s.style.fontSize='10px'; s.textContent='QR'; w.appendChild(s); }">
+                  </a>
+                </td>
+                <td class="align-middle"><code>{{ s.student_id }}</code></td>
+                <td class="align-middle">{{ s.get_full_name }}</td>
+                <td class="align-middle">{{ s.get_sex_display|default:"—" }}</td>
+                <td class="align-middle">{% if s.course or s.year_level or s.section %}{{ s.course }}{% if s.year_level %} / {{ s.get_year_level_display }}{% endif %}{% if s.section %} {{ s.section }}{% endif %}{% else %}—{% endif %}</td>
+                <td class="align-middle">{{ s.email|default:"—" }}</td>
+                <td class="align-middle">{% if s.account_status == 'APPROVED' %}<span class="badge badge-success">Approved</span>{% elif s.account_status == 'PENDING' %}<span class="badge badge-warning">Pending</span>{% elif s.account_status == 'REJECTED' %}<span class="badge badge-danger">Rejected</span>{% else %}<span class="badge badge-secondary">{{ s.get_account_status_display }}</span>{% endif %}</td>
+                <td class="align-middle">
+                  <a href="{% url 'gate-student-edit' s.pk %}{% if show_pending %}?from=pending{% endif %}" class="btn btn-sm btn-info" title="Edit"><i class="fas fa-edit"></i></a>
+                  <a href="{% url 'gate-load-slip-list' s.pk %}" class="btn btn-sm btn-outline-info" title="Load slips (class schedule)"><i class="fas fa-calendar-alt"></i></a>
+                  <button type="button" class="btn btn-sm btn-outline-primary student-eid-btn" title="View / print student e-ID card" data-card-url="{% url 'gate-student-eid' s.pk %}"><i class="fas fa-id-card mr-1"></i> e-ID</button>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="8" class="text-muted text-center">{% if show_pending %}No pending approvals. <a href="{% url 'gate-student-list' %}">Show all students</a>{% else %}No students. <a href="{% url 'gate-student-create' %}">Add one</a> or <a href="{% url 'gate-student-import' %}">Import CSV</a>{% endif %}.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Student e-ID card modal -->
+<div class="modal fade" id="studentEidCardModal" tabindex="-1" role="dialog" aria-labelledby="studentEidCardModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 400px;">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title" id="studentEidCardModalTitle">Student e-ID card</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body p-0 position-relative" style="min-height: 420px;">
+        <iframe id="studentEidCardIframe" src="" style="width:100%; height:420px; border:0;" title="Student e-ID card"></iframe>
+      </div>
+      <div class="modal-footer eid-action-bar py-3 px-4">
+        <a id="studentEidCardOpenNewTab" href="#" target="_blank" class="eid-action-btn" title="Open in new tab"><i class="fas fa-external-link-alt"></i></a>
+        <a id="studentEidCardDownload" href="#" download class="eid-action-btn" title="Download"><i class="fas fa-download"></i></a>
+        <button type="button" class="btn btn-sm btn-primary ml-auto" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<style>
+.eid-action-bar { background: linear-gradient(180deg, #e8e8e8 0%, #d8d8d8 100%) !important; border-top: 1px solid #ccc; border-radius: 0 0 12px 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.eid-action-btn { color: #555; padding: 6px 10px; border-radius: 8px; text-decoration: none; font-size: 1rem; transition: color 0.15s, background 0.15s; }
+.eid-action-btn:hover { color: #1a4d2e; background: rgba(0,0,0,0.06); }
+</style>
+{% endblock content %}
+
+{% block extrascript %}
+<script>
+(function() {
+  var modal = document.getElementById('studentEidCardModal');
+  var iframe = document.getElementById('studentEidCardIframe');
+  var openNewTabLink = document.getElementById('studentEidCardOpenNewTab');
+  var downloadLink = document.getElementById('studentEidCardDownload');
+
+  if (modal && iframe) {
+    document.querySelectorAll('.student-eid-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var url = this.getAttribute('data-card-url');
+        if (!url) return;
+        iframe.src = url;
+        if (openNewTabLink) openNewTabLink.href = url;
+        if (downloadLink) downloadLink.href = url;
+        $(modal).modal('show');
+      });
+    });
+    $(modal).on('hidden.bs.modal', function() { iframe.src = 'about:blank'; });
+  }
+})();
+</script>
+{% if show_pending and pending_count > 0 %}
+<script>
+(function() {
+  function initApproveAllConfirm() {
+    var form = document.getElementById('approve-all-pending-form');
+    if (!form) return;
+    if (typeof window.themeConfirm !== 'function') {
+      setTimeout(initApproveAllConfirm, 50);
+      return;
+    }
+    form.addEventListener('submit', function(e) {
+      if (window._approveAllPendingConfirmed) {
+        window._approveAllPendingConfirmed = false;
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      window.themeConfirm(
+        'Approve all {{ pending_count }} pending student(s)? They will appear in the main student list.',
+        function() {
+          window._approveAllPendingConfirmed = true;
+          form.submit();
+        }
+      );
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApproveAllConfirm);
+  } else {
+    initApproveAllConfirm();
+  }
+})();
+</script>
+{% endif %}
+{% endblock extrascript %}

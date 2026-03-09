@@ -1,0 +1,60 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Print all student e-ID cards — {{ site_name }}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 16px; font-family: 'Segoe UI', system-ui, sans-serif; background: #e8e8e8; }
+    .no-print { margin-bottom: 16px; }
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      max-width: 560px;
+    }
+    .card-slot {
+      width: 100%;
+      max-width: 288px;
+      min-height: 212px;
+      background: #fff;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #ddd;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+      page-break-inside: avoid;
+    }
+    .card-slot iframe {
+      width: 100%;
+      height: 420px;
+      border: 0;
+      display: block;
+    }
+    .card-slot:nth-child(4n) { page-break-after: always; }
+    .card-slot:last-child { page-break-after: auto; }
+    @media print {
+      @page { size: portrait; }
+      html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #fff; padding: 4mm; margin: 0; }
+      .no-print { display: none !important; }
+      .cards-grid { max-width: none; gap: 0.25in; grid-template-columns: repeat(2, 1fr); justify-items: center; }
+      .card-slot { max-width: 3in; min-height: 2in; box-shadow: none; border: 1px solid #ccc; }
+      .card-slot iframe { height: 4.25in; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print">
+    <button type="button" onclick="window.print();" style="padding: 8px 16px; font-size: 14px; cursor: pointer;">Print all e-ID cards</button>
+    <span style="margin-left: 12px; color: #666;">{{ students|length }} card(s). Use your browser's print dialog. Enable &quot;Background graphics&quot; for best result.</span>
+  </div>
+  <div class="cards-grid">
+  {% for student in students %}
+  <div class="card-slot">
+    <iframe src="{% url 'gate-student-eid' student.pk %}" title="e-ID {{ student.student_id }}"></iframe>
+  </div>
+  {% endfor %}
+  </div>
+</body>
+</html>

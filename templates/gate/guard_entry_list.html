@@ -1,0 +1,195 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% block title %}Gate Entries - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Gate Entries{% endblock breadcrumb %}
+
+{% block extrahead %}
+<style>
+  .filter-card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .filter-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    align-items: end;
+  }
+  .entry-table {
+    width: 100%;
+    background: #fff;
+  }
+  .entry-table th {
+    background: #28a745;
+    color: #fff;
+    padding: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+  }
+  .entry-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+  }
+  .entry-table tr:hover {
+    background: #f8f9fa;
+  }
+  .scan-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .scan-badge.in {
+    background: #28a745;
+    color: #fff;
+  }
+  .scan-badge.out {
+    background: #6c757d;
+    color: #fff;
+  }
+  .status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .status-badge.granted {
+    background: #d4edda;
+    color: #155724;
+  }
+  .status-badge.denied {
+    background: #f8d7da;
+    color: #721c24;
+  }
+  @media (max-width: 768px) {
+    .entry-table {
+      font-size: 0.85rem;
+    }
+    .entry-table th,
+    .entry-table td {
+      padding: 0.5rem;
+    }
+  }
+</style>
+{% endblock extrahead %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <!-- Filters -->
+    <div class="filter-card">
+      <form method="get" action="{% url 'guard-entry-list' %}">
+        <div class="filter-row">
+          <div class="form-group mb-0">
+            <label for="from_date">From Date</label>
+            <input type="date" class="form-control" id="from_date" name="from_date" value="{{ from_date|date:'Y-m-d' }}">
+          </div>
+          <div class="form-group mb-0">
+            <label for="to_date">To Date</label>
+            <input type="date" class="form-control" id="to_date" name="to_date" value="{{ to_date|date:'Y-m-d' }}">
+          </div>
+          <div class="form-group mb-0">
+            <label for="q">Search</label>
+            <input type="text" class="form-control" id="q" name="q" value="{{ search_query }}" placeholder="Student ID or name">
+          </div>
+          <div class="form-group mb-0">
+            <label for="scan_type">Scan Type</label>
+            <select class="form-control" id="scan_type" name="scan_type">
+              <option value="">All</option>
+              <option value="IN" {% if scan_type == 'IN' %}selected{% endif %}>IN</option>
+              <option value="OUT" {% if scan_type == 'OUT' %}selected{% endif %}>OUT</option>
+            </select>
+          </div>
+          <div class="form-group mb-0">
+            <button type="submit" class="btn btn-success btn-block">
+              <i class="fas fa-search"></i> Filter
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    {% if date_adjusted %}
+    <div class="alert alert-warning">
+      <i class="fas fa-exclamation-triangle"></i> Date range adjusted to last 7 days. Guards can only access recent history.
+    </div>
+    {% endif %}
+
+    <!-- Entries Table -->
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-list"></i> Gate Entries ({{ entries.paginator.count }} total)</h5>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="entry-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Student ID</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for entry in entries %}
+              <tr>
+                <td>{{ entry.timestamp|date:"M d, h:i A" }}</td>
+                <td>{{ entry.student.student_id|default:"—" }}</td>
+                <td>{{ entry.student.get_full_name|default:"—" }}</td>
+                <td>
+                  <span class="scan-badge {{ entry.scan_type|lower|default:'in' }}">
+                    {{ entry.scan_type|default:"IN" }}
+                  </span>
+                </td>
+                <td>
+                  <span class="status-badge {% if entry.granted %}granted{% else %}denied{% endif %}">
+                    {% if entry.granted %}GRANTED{% else %}DENIED{% endif %}
+                  </span>
+                </td>
+                <td>{{ entry.notes|default:"—" }}</td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="6" class="text-center text-muted py-4">
+                  No entries found
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% if entries.has_other_pages %}
+      <div class="card-footer">
+        <nav>
+          <ul class="pagination mb-0">
+            {% if entries.has_previous %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ entries.previous_page_number }}&from_date={{ from_date|date:'Y-m-d' }}&to_date={{ to_date|date:'Y-m-d' }}&q={{ search_query }}&scan_type={{ scan_type }}">Previous</a>
+            </li>
+            {% endif %}
+            <li class="page-item active">
+              <span class="page-link">Page {{ entries.number }} of {{ entries.paginator.num_pages }}</span>
+            </li>
+            {% if entries.has_next %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ entries.next_page_number }}&from_date={{ from_date|date:'Y-m-d' }}&to_date={{ to_date|date:'Y-m-d' }}&q={{ search_query }}&scan_type={{ scan_type }}">Next</a>
+            </li>
+            {% endif %}
+          </ul>
+        </nav>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock content %}

@@ -1,0 +1,386 @@
+{% load static %}
+<style>
+  /* Notification panel: professional, educational-style */
+  #notifications-dropdown {
+    width: 360px;
+    padding: 0;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  }
+  #notifications-dropdown .notif-header {
+    padding: 12px 16px;
+    font-weight: 600;
+    font-size: 1rem;
+    color: #2c3e50;
+    border-bottom: 1px solid #e9ecef;
+    background: #f8f9fa;
+    border-radius: 8px 8px 0 0;
+  }
+  #notifications-dropdown .notif-body {
+    max-height: 320px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  #notifications-dropdown .notif-section-title {
+    padding: 8px 16px 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6c757d;
+    background: #fff;
+  }
+  #notifications-dropdown .notif-item {
+    display: block;
+    padding: 10px 16px;
+    color: #495057;
+    text-decoration: none;
+    border: none;
+    border-left: 3px solid transparent;
+    background: #fff;
+    transition: background 0.15s ease, color 0.15s ease;
+    font-size: 0.9rem;
+  }
+  #notifications-dropdown .notif-item:hover {
+    background: #f1f3f5;
+    color: #212529;
+  }
+  #notifications-dropdown .notif-item.notification-unread {
+    border-left-color: #28a745;
+    background: #f8fff9;
+    font-weight: 500;
+    color: #212529;
+  }
+  #notifications-dropdown .notif-item.notification-unread:hover {
+    background: #e8f5e9;
+  }
+  #notifications-dropdown .notif-item.notification-read {
+    color: #868e96;
+    font-weight: 400;
+  }
+  #notifications-dropdown .notif-item.notification-read:hover {
+    color: #495057;
+  }
+  #notifications-dropdown .notif-item .notif-icon {
+    width: 28px;
+    text-align: center;
+    margin-right: 10px;
+    color: #6c757d;
+  }
+  #notifications-dropdown .notif-item.notification-unread .notif-icon { color: #28a745; }
+  #notifications-dropdown .notif-item .notif-label-right {
+    float: right;
+    font-size: 0.8rem;
+    color: #868e96;
+  }
+  /* Only the "Review" / action label is clickable; hover = green text only, no box */
+  #notifications-dropdown .notif-item .notif-label-right-link {
+    float: right;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-decoration: none;
+    padding: 0;
+    border-radius: 0;
+    transition: color 0.15s ease, text-decoration 0.15s ease;
+  }
+  #notifications-dropdown .notif-item .notif-label-right-link:hover {
+    color: #28a745;
+    text-decoration: underline;
+    background: transparent;
+  }
+  #notifications-dropdown .notif-item.notification-unread .notif-label-right-link {
+    color: #6c757d;
+  }
+  #notifications-dropdown .notif-item.notification-unread .notif-label-right-link:hover {
+    color: #28a745;
+    background: transparent;
+  }
+  /* Pending summary row: whole row not clickable, default cursor */
+  #notifications-dropdown .notif-item.notif-item-row-only {
+    cursor: default;
+    pointer-events: auto;
+  }
+  #notifications-dropdown .notif-item.notif-item-row-only:hover {
+    background: #f8fff9;
+    color: inherit;
+  }
+  #notifications-dropdown .notif-item.notif-item-row-only.notification-read:hover {
+    background: #fff;
+  }
+  #notifications-dropdown .notif-empty {
+    padding: 24px 16px;
+    text-align: center;
+    color: #868e96;
+    font-size: 0.9rem;
+  }
+  #notifications-dropdown .notif-empty .fa-bell {
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+    opacity: 0.5;
+  }
+  #notifications-dropdown .notif-footer {
+    padding: 10px 16px;
+    border-top: 1px solid #e9ecef;
+    background: #f8f9fa;
+    border-radius: 0 0 8px 8px;
+  }
+  #notifications-dropdown #notifications-see-all {
+    display: block;
+    text-align: center;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    background: #28a745;
+    color: #fff !important;
+    border-radius: 6px;
+    border: none;
+    text-decoration: none;
+    transition: background 0.15s ease;
+  }
+  #notifications-dropdown #notifications-see-all:hover {
+    background: #218838;
+    color: #fff !important;
+  }
+
+  /* User dropdown – matches notifications panel and CCB theme */
+  #user-dropdown {
+    width: 240px;
+    padding: 0;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    background: #fff;
+  }
+  #user-dropdown .user-dropdown-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    color: #212529;
+    text-decoration: none;
+    border: none;
+    border-left: 3px solid transparent;
+    background: #fff;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  #user-dropdown .user-dropdown-item:hover {
+    background: #f1f3f5;
+    color: #1e5631;
+    border-left-color: #28a745;
+  }
+  #user-dropdown .user-dropdown-item .user-dropdown-icon {
+    width: 28px;
+    text-align: center;
+    margin-right: 12px;
+    color: #6c757d;
+    font-size: 1rem;
+  }
+  #user-dropdown .user-dropdown-item:hover .user-dropdown-icon {
+    color: #28a745;
+  }
+  #user-dropdown .dropdown-divider {
+    margin: 0;
+    border-top: 1px solid #e9ecef;
+  }
+</style>
+<nav class="main-header navbar navbar-expand navbar-primary navbar-light">
+    <!-- Left navbar links -->
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
+      </li>
+    </ul>
+
+    <span class="navbar-text ml-3 font-weight-bold" style="color:#fff;">CCB - Gate Entry</span>
+
+    <!-- Right navbar links -->
+    <ul class="navbar-nav ml-auto">
+      {% if user_role == 'guard' %}
+      <!-- Guard Notifications Dropdown -->
+      <li class="nav-item dropdown">
+        <a class="nav-link" data-toggle="dropdown" href="#" aria-haspopup="true" aria-expanded="false">
+          <i class="far fa-bell"></i>
+          {% if guard_unread_count > 0 %}<span class="badge badge-{% if guard_has_urgent %}danger{% else %}warning{% endif %} navbar-badge" id="guard-notifications-badge">{{ guard_unread_count }}</span>{% endif %}
+        </a>
+        <div class="dropdown-menu dropdown-menu-right" id="notifications-dropdown">
+          <div class="notif-header">Guard Notifications</div>
+          {% if guard_notifications %}
+          <div class="notif-body">
+            {% for notification in guard_notifications %}
+            <a href="{% url 'guard-notifications' %}" class="notif-item notification-unread" data-notification-id="{{ notification.id }}">
+              <i class="fas {% if notification.priority == 'urgent' %}fa-exclamation-circle{% elif notification.priority == 'high' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} notif-icon" style="color: {% if notification.priority == 'urgent' %}#dc3545{% elif notification.priority == 'high' %}#ffc107{% else %}#17a2b8{% endif %};"></i>
+              <strong>{{ notification.title }}</strong>
+              <span class="notif-label-right">{{ notification.created_at|timesince }} ago</span>
+              <br>
+              <small style="color: #6c757d;">{{ notification.message|truncatewords:10 }}</small>
+            </a>
+            {% endfor %}
+          </div>
+          <div class="notif-footer">
+            <a href="{% url 'guard-notifications' %}" id="notifications-see-all">See all notifications</a>
+          </div>
+          {% else %}
+          <div class="notif-body">
+            <div class="notif-empty"><i class="far fa-bell"></i><br>No new notifications</div>
+          </div>
+          {% endif %}
+        </div>
+      </li>
+      {% endif %}
+      {% if user_role != 'guard' %}
+      <!-- Notifications Dropdown -->
+      <li class="nav-item dropdown">
+        <a class="nav-link" data-toggle="dropdown" href="#" aria-haspopup="true" aria-expanded="false">
+          <i class="far fa-bell"></i>
+          {% if unread_notifications_count %}<span class="badge badge-warning navbar-badge" id="notifications-badge">{{ unread_notifications_count }}</span>{% endif %}
+        </a>
+        <div class="dropdown-menu dropdown-menu-right" id="notifications-dropdown">
+          <div class="notif-header">Notifications</div>
+          {% if notification_all %}
+          <div class="notif-body">
+            {% for item in notification_all %}
+            {% if item.type == 'pending_summary' %}
+            <div class="notif-section-title">Pending approvals</div>
+            <div class="notif-item notif-item-row-only{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
+              <i class="fas {{ item.icon }} notif-icon"></i>
+              <strong>{{ item.label }}</strong>
+              <a href="{{ item.url }}" class="notif-label-right-link" data-notif-unread="{% if not item.is_read %}1{% endif %}">{{ item.label_right }}</a>
+            </div>
+            {% elif item.type == 'new_events_summary' %}
+            <div class="notif-section-title">New events</div>
+            <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
+              <i class="fas {{ item.icon }} notif-icon"></i>
+              <strong>{{ item.label }}</strong>
+              {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+            </a>
+            {% elif item.type == 'events_summary' %}
+            <div class="notif-section-title">Upcoming events</div>
+            <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
+              <i class="fas {{ item.icon }} notif-icon"></i>
+              <strong>{{ item.label }}</strong>
+              {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+            </a>
+            {% else %}
+            <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
+              <i class="fas {{ item.icon }} notif-icon"></i>
+              {{ item.label }}
+              {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+            </a>
+            {% endif %}
+            {% endfor %}
+          </div>
+          {% if notification_has_more %}
+          <div class="notif-footer">
+            <a href="#" id="notifications-see-all">See all notifications</a>
+          </div>
+          {% endif %}
+          {% else %}
+          <div class="notif-body">
+            <div class="notif-empty"><i class="far fa-bell"></i><br>No new notifications</div>
+          </div>
+          {% endif %}
+        </div>
+      </li>
+      <script>
+      (function() {
+        var dropdown = document.getElementById('notifications-dropdown');
+        var badge = document.getElementById('notifications-badge');
+        if (dropdown && badge) {
+          dropdown.querySelectorAll('a.notif-item.notification-unread[href]').forEach(function(link) {
+            link.addEventListener('click', function() {
+              var n = parseInt(badge.textContent, 10);
+              if (!isNaN(n) && n > 0) {
+                n -= 1;
+                if (n > 0) { badge.textContent = n; } else { badge.parentNode.removeChild(badge); }
+              }
+            });
+          });
+          dropdown.querySelectorAll('a.notif-label-right-link[data-notif-unread="1"]').forEach(function(link) {
+            link.addEventListener('click', function() {
+              var n = parseInt(badge.textContent, 10);
+              if (!isNaN(n) && n > 0) {
+                n -= 1;
+                if (n > 0) { badge.textContent = n; } else { badge.parentNode.removeChild(badge); }
+              }
+            });
+          });
+        }
+        var seeAll = document.getElementById('notifications-see-all');
+        if (seeAll && dropdown) {
+          seeAll.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropdown.querySelectorAll('.notification-item-collapsed').forEach(function(el) {
+              el.style.display = '';
+            });
+            seeAll.parentElement.style.display = 'none';
+            // Keep the notification card open (Bootstrap closes it on link click; re-open after)
+            var menu = document.getElementById('notifications-dropdown');
+            var dropdownParent = menu && menu.closest('.dropdown');
+            if (dropdownParent && typeof jQuery !== 'undefined') {
+              setTimeout(function() {
+                jQuery(dropdownParent).addClass('show');
+                jQuery(menu).addClass('show');
+              }, 0);
+            }
+          });
+        }
+      })();
+      </script>
+      {% endif %}
+      {% if user_role == 'guard' %}
+      <script>
+      (function() {
+        var dropdown = document.getElementById('notifications-dropdown');
+        var badge = document.getElementById('guard-notifications-badge');
+        if (dropdown && badge) {
+          dropdown.querySelectorAll('a.notif-item.notification-unread[href]').forEach(function(link) {
+            link.addEventListener('click', function() {
+              var n = parseInt(badge.textContent, 10);
+              if (!isNaN(n) && n > 0) {
+                n -= 1;
+                if (n > 0) { badge.textContent = n; } else { badge.parentNode.removeChild(badge); }
+              }
+            });
+          });
+        }
+      })();
+      </script>
+      {% endif %}
+      <!-- User dropdown -->
+      <li class="nav-item dropdown">
+        <a class="nav-link" data-toggle="dropdown" href="#" aria-haspopup="true" aria-expanded="false">
+          <i class="fas fa-users"></i>
+        </a>
+        <div class="dropdown-menu dropdown-menu-right" id="user-dropdown">
+          {% if user_role != 'guard' %}
+          <a href="{% url 'dashboard' %}" class="dropdown-item user-dropdown-item">
+            <i class="fas fa-tachometer-alt user-dropdown-icon"></i>
+            Dashboard
+          </a>
+          <div class="dropdown-divider"></div>
+          {% else %}
+          <a href="{% url 'gate-scan' %}" class="dropdown-item user-dropdown-item">
+            <i class="fas fa-qrcode user-dropdown-icon"></i>
+            Gate scan
+          </a>
+          <div class="dropdown-divider"></div>
+          {% endif %}
+          {% if user_role == 'admin' %}
+          <a href="{% url 'admin:index' %}" class="dropdown-item user-dropdown-item" target="_blank" rel="noopener">
+            <i class="fas fa-user-cog user-dropdown-icon"></i>
+            Admin
+          </a>
+          <div class="dropdown-divider"></div>
+          {% endif %}
+          <a href="{% url 'logout' %}" class="dropdown-item user-dropdown-item" id="navbar-logout-link" data-logout-url="{% url 'logout' %}">
+            <i class="fas fa-sign-out-alt user-dropdown-icon"></i>
+            Logout
+          </a>
+        </div>
+      </li>
+    </ul>
+  </nav>

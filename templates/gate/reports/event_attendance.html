@@ -1,0 +1,70 @@
+{% extends 'base/base.html' %}
+{% block title %}Reports – Event Attendance – {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Reports / Event Attendance{% endblock breadcrumb %}
+
+{% block content %}
+<h5 class="mb-3">Reports – Event Attendance</h5>
+
+{% include 'gate/reports/_filter_bar.html' %}
+
+{% if event %}
+<p class="text-muted small">Event: <strong>{{ event.name }}</strong></p>
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item"><a class="nav-link {% if tab == 'summary' %}active{% endif %}" href="?event_id={{ event.id }}&from_date={{ filter_date|date:'Y-m-d' }}&tab=summary">Summary</a></li>
+  <li class="nav-item"><a class="nav-link {% if tab == 'attendees' %}active{% endif %}" href="?event_id={{ event.id }}&from_date={{ filter_date|date:'Y-m-d' }}&tab=attendees">Attendees</a></li>
+  <li class="nav-item"><a class="nav-link {% if tab == 'timeline' %}active{% endif %}" href="?event_id={{ event.id }}&from_date={{ filter_date|date:'Y-m-d' }}&tab=timeline">Timeline</a></li>
+</ul>
+
+{% if tab == 'summary' %}
+<div class="card">
+  <div class="card-body">
+    <p>Total check-ins: <strong>{{ summary.total|default:0 }}</strong></p>
+    <p>Checked out: <strong>{{ summary.checked_out|default:0 }}</strong></p>
+  </div>
+</div>
+{% elif tab == 'attendees' %}
+<div class="card">
+  <div class="card-header"><h6 class="m-0">Attendees</h6></div>
+  <div class="card-body p-0">
+    {% if attendees %}
+    <table class="table table-sm table-striped mb-0">
+      <thead><tr><th>Student</th><th>Course/Section/Year</th><th>Check-in</th><th>Check-out</th></tr></thead>
+      <tbody>
+        {% for a in attendees %}
+        <tr>
+          <td>{{ a.student.student_id|default:"" }} {{ a.student.get_full_name|default:"" }}</td>
+          <td>{{ a.course_section_display }}</td>
+          <td>{{ a.checked_in_at|date:"M d, H:i" }}</td>
+          <td>{% if a.checked_out_at %}{{ a.checked_out_at|date:"M d, H:i" }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted p-3 mb-0">No attendees in the selected period.</p>
+    {% endif %}
+  </div>
+</div>
+{% elif tab == 'timeline' %}
+<div class="card">
+  <div class="card-header"><h6 class="m-0">Check-ins per 10 min</h6></div>
+  <div class="card-body p-0">
+    {% if timeline %}
+    <table class="table table-sm table-striped mb-0">
+      <thead><tr><th>Time bucket</th><th>Count</th></tr></thead>
+      <tbody>
+        {% for t in timeline %}
+        <tr><td>{{ t.bucket|date:"H:i" }}</td><td>{{ t.c }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted p-3 mb-0">No data.</p>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% else %}
+<div class="alert alert-info">Select an event in the filter above.</div>
+{% endif %}
+{% endblock content %}

@@ -1,0 +1,571 @@
+{% extends 'base/login_base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}Create Account - {{ site_name }}{% endblock title %}
+
+{% block content %}
+
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #FFEB3B 0%, #9ACD32 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 500px;
+    padding: 20px;
+    perspective: 1000px;
+  }
+
+  .register-box {
+    background: rgba(255, 255, 255, 0.97);
+    border-radius: 20px;
+    padding: 50px 40px;
+    box-shadow: 0 20px 60px rgba(154, 205, 50, 0.3);
+    animation: slideInLeft 0.8s ease-out;
+    backdrop-filter: blur(10px);
+    border: 2px solid #9ACD32;
+  }
+
+  @keyframes slideInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-100px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .register-header {
+    text-align: center;
+    margin-bottom: 35px;
+    animation: slideInRight 1s ease-out;
+  }
+
+  .register-header .register-logo {
+    display: block;
+    max-width: 80px;
+    max-height: 60px;
+    width: auto;
+    height: auto;
+    margin: 0 auto 15px;
+    object-fit: contain;
+  }
+
+  .register-header h1 {
+    color: #6B8E23;
+    font-size: 28px;
+    margin-bottom: 10px;
+    font-weight: 700;
+  }
+
+  .register-header p {
+    color: #9ACD32;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(100px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slideInLeftStaggered {
+    from {
+      opacity: 0;
+      transform: translateX(-60px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slideInRightStaggered {
+    from {
+      opacity: 0;
+      transform: translateX(60px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .form-group {
+    margin-bottom: 18px;
+    animation-duration: 0.6s;
+    animation-fill-mode: both;
+  }
+
+  .form-group:nth-child(1) {
+    animation: slideInRightStaggered 0.6s ease-out;
+    animation-delay: 0.2s;
+  }
+
+  .form-group:nth-child(2) {
+    animation: slideInLeftStaggered 0.6s ease-out;
+    animation-delay: 0.3s;
+  }
+
+  .form-group:nth-child(3) {
+    animation: slideInRightStaggered 0.6s ease-out;
+    animation-delay: 0.4s;
+  }
+
+  .form-group:nth-child(4) {
+    animation: slideInLeftStaggered 0.6s ease-out;
+    animation-delay: 0.5s;
+  }
+
+  .form-group:nth-child(5) {
+    animation: slideInRightStaggered 0.6s ease-out;
+    animation-delay: 0.6s;
+  }
+
+  label {
+    display: block;
+    color: #6B8E23;
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="tel"],
+  input[type="file"] {
+    width: 100%;
+    padding: 11px 15px;
+    border: 2px solid #FFEB3B;
+    border-radius: 10px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    outline: none;
+    background: rgba(255, 235, 59, 0.05);
+  }
+
+  input[type="text"]:focus,
+  input[type="email"]:focus,
+  input[type="password"]:focus,
+  input[type="tel"]:focus,
+  input[type="file"]:focus {
+    border-color: #9ACD32;
+    box-shadow: 0 0 0 4px rgba(154, 205, 50, 0.2);
+    transform: translateY(-2px);
+    background: rgba(255, 235, 59, 0.1);
+  }
+
+  input[type="text"]:hover,
+  input[type="email"]:hover,
+  input[type="password"]:hover,
+  input[type="tel"]:hover,
+  input[type="file"]:hover {
+    border-color: #9ACD32;
+    background: rgba(255, 235, 59, 0.08);
+  }
+
+  .password-strength {
+    margin-top: 6px;
+    height: 4px;
+    background: #e0e0e0;
+    border-radius: 2px;
+    overflow: hidden;
+    display: none;
+  }
+
+  .strength-bar {
+    height: 100%;
+    width: 0%;
+    transition: all 0.3s ease;
+    border-radius: 2px;
+  }
+
+  .strength-bar.weak {
+    width: 33%;
+    background: #D32F2F;
+  }
+
+  .strength-bar.medium {
+    width: 66%;
+    background: #FFEB3B;
+  }
+
+  .strength-bar.strong {
+    width: 100%;
+    background: #9ACD32;
+  }
+
+  .terms-checkbox {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    font-size: 13px;
+    animation: slideInLeftStaggered 0.6s ease-out 0.7s both;
+    color: #6B8E23;
+  }
+
+  .terms-checkbox input {
+    width: 16px;
+    height: 16px;
+    margin-right: 10px;
+    margin-top: 2px;
+    cursor: pointer;
+    flex-shrink: 0;
+    accent-color: #9ACD32;
+  }
+
+  .terms-checkbox label {
+    margin: 0;
+    font-weight: 400;
+    cursor: pointer;
+  }
+
+  .terms-checkbox a {
+    color: #9ACD32;
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .terms-checkbox a:hover {
+    text-decoration: underline;
+    color: #6B8E23;
+  }
+
+  .register-btn {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, #9ACD32 0%, #FFEB3B 100%);
+    color: #6B8E23;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    animation: slideInRightStaggered 0.6s ease-out 0.8s both;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(154, 205, 50, 0.3);
+  }
+
+  .register-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(154, 205, 50, 0.5);
+  }
+
+  .register-btn:active {
+    transform: translateY(-1px);
+  }
+
+  .register-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+
+  .register-btn:active::before {
+    width: 300px;
+    height: 300px;
+  }
+
+  .login-link {
+    text-align: center;
+    margin-top: 20px;
+    color: #6B8E23;
+    font-size: 14px;
+    animation: slideInRightStaggered 0.6s ease-out 0.9s both;
+  }
+
+  .login-link a {
+    color: #9ACD32;
+    text-decoration: none;
+    font-weight: 700;
+    transition: all 0.3s ease;
+  }
+
+  .login-link a:hover {
+    color: #6B8E23;
+    text-decoration: underline;
+  }
+
+  .error-message {
+    color: #D32F2F;
+    font-size: 12px;
+    margin-top: 4px;
+    display: none;
+    animation: slideInRight 0.4s ease-in-out;
+    font-weight: 500;
+  }
+
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .loader {
+    display: none;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(107, 142, 35, 0.3);
+    border-top-color: #6B8E23;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .register-btn.loading {
+    color: transparent;
+  }
+
+  .register-btn.loading .loader {
+    display: block;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .text-muted {
+    color: #9ACD32 !important;
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  .alert-danger {
+    background: rgba(211, 47, 47, 0.1);
+    border: 1px solid rgba(211, 47, 47, 0.3);
+    color: #D32F2F;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    animation: slideInRight 0.4s ease-in-out;
+  }
+</style>
+
+<div class="container">
+  <div class="register-box">
+    <div class="register-header">
+      <img src="{% static 'img/logo.png' %}" alt="Logo" class="register-logo">
+      <h1>Create Account</h1>
+      <p>Join us today and get started</p>
+    </div>
+
+    {% include 'snippets/messages.html' %}
+
+    <form method="post" action="{% url 'register' %}" enctype="multipart/form-data" id="register-form" onsubmit="handleRegister(event)">
+      {% csrf_token %}
+      
+      <div class="form-group">
+        <label for="id_first_name">First name <span class="text-danger">*</span></label>
+        {{ form.first_name }}
+        <div class="error-message" id="firstnameError"></div>
+        {% if form.first_name.errors %}<div class="error-message" style="display: block;">{{ form.first_name.errors.0 }}</div>{% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="id_last_name">Last name <span class="text-danger">*</span></label>
+        {{ form.last_name }}
+        <div class="error-message" id="lastnameError"></div>
+        {% if form.last_name.errors %}<div class="error-message" style="display: block;">{{ form.last_name.errors.0 }}</div>{% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="id_email">Email <span class="text-danger">*</span></label>
+        {{ form.email }}
+        <div class="error-message" id="emailError"></div>
+        {% if form.email.errors %}<div class="error-message" style="display: block;">{{ form.email.errors.0 }}</div>{% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="id_photo">Face photo <span class="text-danger">*</span></label>
+        {{ form.photo }}
+        <small class="text-muted">Upload a clear photo of your face (one person only).</small>
+        <div class="error-message" id="photoError"></div>
+        {% if form.photo.errors %}<div class="error-message" style="display: block;">{{ form.photo.errors.0 }}</div>{% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="id_student_id">Student ID (optional)</label>
+        {{ form.student_id }}
+        <small class="text-muted">If your school already assigned you an ID, enter it here.</small>
+        <div class="error-message" id="studentIdError"></div>
+        {% if form.student_id.errors %}<div class="error-message" style="display: block;">{{ form.student_id.errors.0 }}</div>{% endif %}
+      </div>
+
+      <div class="terms-checkbox">
+        <input type="checkbox" id="terms" name="terms" required>
+        <label for="terms">
+          I agree to the <a href="#terms">Terms of Service</a> and <a href="#privacy">Privacy Policy</a>
+        </label>
+      </div>
+
+      <button type="submit" class="register-btn" id="register-btn">
+        <span class="btn-text">Create Account</span>
+        <div class="loader"></div>
+      </button>
+    </form>
+
+    <div class="login-link">
+      Already have an account? <a href="{% url 'login' %}">Sign in</a>
+    </div>
+  </div>
+</div>
+
+{% endblock content %}
+
+{% block js %}
+<script>
+  function handleRegister(event) {
+    event.preventDefault();
+
+    const firstname = document.getElementById('id_first_name').value;
+    const lastname = document.getElementById('id_last_name').value;
+    const email = document.getElementById('id_email').value;
+    const photo = document.getElementById('id_photo').files[0];
+    const studentId = document.getElementById('id_student_id').value;
+    const terms = document.getElementById('terms').checked;
+
+    document.querySelectorAll('.error-message').forEach(el => {
+      if (!el.innerHTML.includes('{{ form')) {
+        el.style.display = 'none';
+      }
+    });
+
+    let isValid = true;
+
+    if (!firstname || firstname.trim().length < 2) {
+      const error = document.getElementById('firstnameError');
+      error.textContent = 'First name must be at least 2 characters';
+      error.style.display = 'block';
+      isValid = false;
+    }
+
+    if (!lastname || lastname.trim().length < 2) {
+      const error = document.getElementById('lastnameError');
+      error.textContent = 'Last name must be at least 2 characters';
+      error.style.display = 'block';
+      isValid = false;
+    }
+
+    if (!email || !email.includes('@')) {
+      const error = document.getElementById('emailError');
+      error.textContent = 'Please enter a valid email';
+      error.style.display = 'block';
+      isValid = false;
+    }
+
+    if (!photo) {
+      const error = document.getElementById('photoError');
+      error.textContent = 'Please upload a face photo';
+      error.style.display = 'block';
+      isValid = false;
+    }
+
+    if (!terms) {
+      alert('You must agree to the terms and conditions');
+      isValid = false;
+    }
+
+    if (!isValid) return;
+
+    const registerBtn = document.getElementById('register-btn');
+    registerBtn.classList.add('loading');
+
+    // Submit form normally after validation
+    setTimeout(() => {
+      document.getElementById('register-form').submit();
+    }, 500);
+  }
+
+  // Real-time validation
+  document.getElementById('id_first_name').addEventListener('blur', function() {
+    const error = document.getElementById('firstnameError');
+    if (this.value.trim().length < 2) {
+      error.textContent = 'First name must be at least 2 characters';
+      error.style.display = 'block';
+    } else {
+      error.style.display = 'none';
+    }
+  });
+
+  document.getElementById('id_last_name').addEventListener('blur', function() {
+    const error = document.getElementById('lastnameError');
+    if (this.value.trim().length < 2) {
+      error.textContent = 'Last name must be at least 2 characters';
+      error.style.display = 'block';
+    } else {
+      error.style.display = 'none';
+    }
+  });
+
+  document.getElementById('id_email').addEventListener('blur', function() {
+    const error = document.getElementById('emailError');
+    if (!this.value.includes('@')) {
+      error.textContent = 'Invalid email format';
+      error.style.display = 'block';
+    } else {
+      error.style.display = 'none';
+    }
+  });
+
+  document.getElementById('id_photo').addEventListener('change', function() {
+    const error = document.getElementById('photoError');
+    if (this.files[0]) {
+      const file = this.files[0];
+      if (!file.type.startsWith('image/')) {
+        error.textContent = 'Please upload an image file';
+        error.style.display = 'block';
+      } else if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        error.textContent = 'Image size must be less than 5MB';
+        error.style.display = 'block';
+      } else {
+        error.style.display = 'none';
+      }
+    } else {
+      error.textContent = 'Please upload a face photo';
+      error.style.display = 'block';
+    }
+  });
+</script>
+{% endblock %}

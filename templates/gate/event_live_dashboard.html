@@ -1,0 +1,89 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% block title %}Live Dashboard - {{ event.name }} - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Live Dashboard{% endblock breadcrumb %}
+
+{% block extrahead %}
+<meta http-equiv="refresh" content="5">
+<style>
+  .live-stat { font-size: 2rem; font-weight: 700; }
+  .live-capacity { font-size: 1.25rem; }
+</style>
+{% endblock extrahead %}
+
+{% block content %}
+<div class="row mb-2 no-print">
+  <div class="col-12">
+    <span class="badge badge-info">Auto-refresh every 5 seconds</span>
+    <a href="{% url 'event-attendance-report' event.id %}" class="btn btn-sm btn-outline-secondary ml-2">Full report</a>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-3 col-6 mb-3">
+    <div class="card bg-primary text-white">
+      <div class="card-body">
+        <div class="live-stat">{{ checked_in }}</div>
+        <div>Checked In</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6 mb-3">
+    <div class="card bg-success text-white">
+      <div class="card-body">
+        <div class="live-stat">{{ checked_out }}</div>
+        <div>Checked Out</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6 mb-3">
+    <div class="card bg-warning text-dark">
+      <div class="card-body">
+        <div class="live-stat">{{ currently_inside }}</div>
+        <div>Currently Inside</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6 mb-3">
+    <div class="card bg-secondary text-white">
+      <div class="card-body">
+        <div class="live-stat">{{ capacity }}</div>
+        <div>Capacity</div>
+        {% if capacity %}
+        <div class="live-capacity mt-1">({{ capacity_pct }}% full)</div>
+        <div class="progress mt-1" style="height:6px;">
+          <div class="progress-bar bg-{{ capacity_status }}" style="width:{{ capacity_pct }}%"></div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="m-0">Recent scans</h5>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-striped mb-0">
+          <thead><tr><th>Time</th><th>Student</th><th>Type</th><th>Result</th></tr></thead>
+          <tbody>
+            {% for log in recent %}
+            <tr>
+              <td>{{ log.scan_time|date:"H:i:s" }}</td>
+              <td>{% if log.student %}{{ log.student.student_id }} – {{ log.student.get_full_name }}{% else %}—{% endif %}</td>
+              <td>{{ log.scan_type }}</td>
+              <td><span class="badge {% if log.result == 'SUCCESS' %}badge-success{% else %}badge-warning{% endif %}">{{ log.result }}</span></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-muted">No scans yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

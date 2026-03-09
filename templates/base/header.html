@@ -1,0 +1,31 @@
+{% load static %}
+
+<!-- Font Awesome Icons -->
+<link rel="stylesheet" href="{% static 'plugins/fontawesome-free/css/all.min.css' %}">
+<!-- overlayScrollbars -->
+<link rel="stylesheet" href="{% static 'plugins/overlayScrollbars/css/OverlayScrollbars.min.css' %}">
+<!-- Theme style -->
+<link rel="stylesheet" href="{% static 'css/adminlte.min.css' %}">
+<!-- CCB theme: green navbar & sidebar (matches login page, educational standard) -->
+<link rel="stylesheet" href="{% static 'css/ccb-theme.css' %}">
+
+<!-- Google Font: educational, professional -->
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+
+<!-- Educational / formal typography (matches login: serif headings, sans-serif body) -->
+<style>
+    body, input, select, textarea, button, .form-control, .btn, .nav-link, .dropdown-item,
+    .breadcrumb, .card-title, .table, label, .form-group, .content-wrapper, .main-footer,
+    .navbar-text, .brand-link, .sidebar, .nav-sidebar .nav-link {
+        font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+    }
+    h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6,
+    .content-header h4, .card-header h5, .nav-header, .dropdown-header {
+        font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif !important;
+        font-weight: 600;
+    }
+    .btn {
+        font-weight: 600;
+        letter-spacing: 0.02em;
+    }
+</style>

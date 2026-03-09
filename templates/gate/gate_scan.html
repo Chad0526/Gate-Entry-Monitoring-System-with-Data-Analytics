@@ -1,0 +1,3865 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Scanner - {{ site_name|default:"City College of Bayawan" }}</title>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+:root{
+  --bg-start: #e8f5e9;
+  --bg-end:   #fffde7;
+  --card-bg: rgba(255,255,255,0.98);
+  --muted: #495057;
+  --accent: #28a745;
+  --accent-dark: #1e7e34;
+  --yellow: #ffc107;
+  --glass-border: rgba(40,167,69,0.12);
+  --shadow-1: 0 10px 30px rgba(30,94,32,0.08);
+}
+*{box-sizing:border-box; margin:0; padding:0}
+html,body{height:100%}
+body{
+  font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  color:#222;
+  padding:20px;
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  min-height:100vh;
+}
+.container{
+  width:100%;
+  max-width:1200px;
+  background: var(--card-bg);
+  border-radius:16px;
+  box-shadow: var(--shadow-1);
+  overflow:hidden;
+  margin-top:18px;
+}
+header{
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-dark) 100%);
+  color:#fff;
+  padding:18px 22px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.header-content{display:flex; align-items:center; gap:16px; width:100%}
+h1{font-size:20px; font-weight:600; display:flex; gap:10px; align-items:center}
+.logout-btn{
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  font-weight:600;
+  padding:9px 16px;
+  border-radius:999px;
+  text-decoration:none;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  border:1px solid rgba(255,255,255,0.25);
+  transition:all .18s ease;
+}
+.logout-btn:hover{transform:translateY(-2px); background: rgba(255,255,255,0.3); color:#fff}
+.logout-btn[href*="logout"]{
+  background: var(--yellow);
+  color: #1b5e20;
+  border-color: rgba(0,0,0,0.08);
+}
+.logout-btn[href*="logout"]:hover{ background: #e0a800; color: #1b5e20 }
+.header-actions{ display:flex; align-items:center; gap:12px; margin-left:auto; flex-shrink:0 }
+.header-user-role{ color:rgba(255,255,255,0.95); font-size:14px; font-weight:500 }
+.dashboard-link-btn{
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  font-weight:600;
+  padding:9px 16px;
+  border-radius:999px;
+  text-decoration:none;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  border:1px solid rgba(255,255,255,0.25);
+  transition:all .18s ease;
+}
+.dashboard-link-btn:hover{ transform:translateY(-2px); background: rgba(255,255,255,0.3); color:#fff }
+/* Guard / user dropdown */
+.header-user-dropdown{ position:relative; display:inline-block }
+.header-user-dropdown-trigger{
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+  font-weight:600;
+  padding:9px 16px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,0.3);
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+  font-size:14px;
+  transition:all .18s ease;
+}
+.header-user-dropdown-trigger:hover{ background: rgba(255,255,255,0.35); color:#fff }
+.header-user-dropdown-trigger .header-user-role-badge{ opacity:0.9; font-weight:500; font-size:13px }
+.header-user-dropdown-trigger .fa-chevron-down{ font-size:12px; transition:transform .2s ease }
+.header-user-dropdown.open .header-user-dropdown-trigger .fa-chevron-down{ transform:rotate(180deg) }
+.header-user-dropdown-menu{
+  position:absolute;
+  right:0;
+  top:100%;
+  margin-top:6px;
+  min-width:180px;
+  background:#fff;
+  border-radius:12px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.15);
+  padding:6px 0;
+  display:none;
+  z-index:1000;
+  border:1px solid rgba(0,0,0,0.08);
+}
+.header-user-dropdown.open .header-user-dropdown-menu{ display:block }
+.header-user-dropdown-menu a,
+.header-user-dropdown-menu button{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  width:100%;
+  padding:10px 16px;
+  text-align:left;
+  color:#333;
+  text-decoration:none;
+  font-size:14px;
+  font-weight:500;
+  background:0;
+  border:0;
+  cursor:pointer;
+  font-family:inherit;
+  transition:background .15s ease;
+}
+.header-user-dropdown-menu a:hover,
+.header-user-dropdown-menu button:hover{ background:rgba(0,0,0,0.06) }
+.header-user-dropdown-menu .logout-item{ color:#c62828 }
+.header-user-dropdown-menu .logout-item:hover{ background:rgba(198,40,40,0.08) }
+.main-content{
+  padding:28px;
+  display:flex;
+  flex-direction:row;
+  align-items:flex-start;
+  gap:28px;
+  flex-wrap:wrap;
+}
+.main-content .scan-column{
+  flex:1 1 420px;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:12px;
+}
+.main-content .info-column{
+  flex:1 1 380px;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+}
+.scanner-container{ width:100%; max-width:100%; display:flex; flex-direction:column; align-items:center; gap:12px; box-sizing:border-box; overflow:hidden }
+#reader{
+  width:100%;
+  min-width:0;
+  max-width:520px;
+  min-height:300px;
+  height:auto;
+  background: linear-gradient(180deg, rgba(248,249,250,1), rgba(244,246,247,1));
+  border-radius:12px;
+  overflow:hidden;
+  box-sizing:border-box;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  position:relative;
+}
+#reader video{ transform: scaleX(-1); width:100%; height:100%; object-fit:cover; display:block; }
+#reader__scan_region,
+#reader__dashboard{ background: transparent; }
+#reader__dashboard_section_csr button{ margin: 8px 4px; }
+.camera-control-row{
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+}
+.camera-controls{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.camera-select{
+  min-width:170px;
+  max-width:220px;
+  padding:6px 10px;
+  border-radius:8px;
+  border:1px solid #ced4da;
+  background:#fff;
+  color:#333;
+}
+.camera-help-note{
+  display:none;
+  font-size:12px;
+  color:#856404;
+  text-align:center;
+}
+.scanner-text{ color:var(--muted); font-size:15px; font-weight:500; text-align:center }
+.scan-result-card{
+  width:100%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,250,250,0.98));
+  border-radius:12px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.04);
+  overflow:hidden;
+}
+.scan-result-head{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:12px 14px;
+  border-bottom:1px solid rgba(40,167,69,0.2);
+  background: linear-gradient(90deg, #eef9ef 0%, #fff 100%);
+  color:var(--accent);
+  font-weight:700;
+  font-size:18px;
+}
+.scan-result-head i,
+.live-entries-head h3 i{ font-size:16px; }
+.scan-result-body{ padding:12px; }
+#result{
+  width:100%;
+  max-width:100%;
+  min-height:56px;
+  padding:14px 16px;
+  border-radius:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  font-size:15px;
+  transition:all .22s ease;
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,249,250,0.98));
+  border:1px solid rgba(0,0,0,0.04);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.04);
+}
+#result.success{ background: linear-gradient(180deg,#e9f7ef,#e6f4ee); color:#126033; border:1px solid rgba(19,140,79,0.12) }
+#result.error{ background: linear-gradient(180deg,#fff0f0,#fff2f2); color:#7f1d1d; border:1px solid rgba(192,57,43,0.08) }
+#result.info{ background: linear-gradient(180deg,#e8f5e9,#e6f4ee); color:#1b5e20; border:1px solid rgba(40,167,69,0.2) }
+#result.warning{ background: linear-gradient(180deg,#fff8e6,#fff3cd); color:#856404; border:1px solid rgba(255,193,7,0.3) }
+.result-schedule-hint{
+  width:100%; max-width:100%; margin-top:8px; padding:10px 14px; border-radius:10px;
+  background: rgba(40,167,69,0.08); border:1px solid rgba(40,167,69,0.2);
+  font-size:14px; color:#1b5e20; line-height:1.45;
+}
+.result-schedule-hint .next-suggested{ font-weight:600; margin-top:6px; }
+.require-reason-panel{
+  width:100%; max-width:100%; margin-top:12px; padding:14px; border-radius:12px;
+  background: #fff8e6; border:1px solid rgba(255,193,7,0.4);
+}
+.require-reason-panel .require-reason-label{ font-size:14px; font-weight:600; color:#856404; margin:0 0 10px 0; }
+.require-reason-panel .input-group{ margin-bottom:10px; }
+.require-reason-panel .btn-cancel-reason{ padding:8px 14px; border-radius:8px; border:1px solid #ccc; background:#fff; color:#555; cursor:pointer; font-size:14px; }
+.require-reason-panel .btn-cancel-reason:hover{ background:#f5f5f5; }
+.manual-input{
+  width:100%;
+  max-width:100%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,250,250,0.98));
+  border-radius:12px;
+  padding:14px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.04);
+}
+.manual-input h3{ color:var(--accent); margin-bottom:10px; display:flex; gap:8px; align-items:center }
+.input-group{ display:flex; gap:10px; flex-wrap:wrap; }
+.input-group input{
+  flex:1; min-width:120px; padding:11px 14px; border-radius:8px; border:1px solid #ddd; font-size:15px;
+  background: #f0f8f0;
+  outline:none; transition:box-shadow .14s ease, border-color .14s ease;
+}
+.input-group input:focus{ box-shadow: 0 0 0 3px rgba(40,167,69,0.15); border-color:var(--accent) }
+.input-group select{
+  padding:11px 14px; border-radius:8px; border:1px solid #ddd; font-size:15px; min-width:120px;
+  background: #f0f8f0;
+}
+.input-group button{
+  padding:10px 14px; border-radius:8px; border:none; background:var(--accent); color:#fff; cursor:pointer;
+  display:inline-flex; align-items:center; gap:8px; font-weight:600;
+}
+.input-group button:hover{ background: var(--accent-dark); transform:translateY(-1px) }
+.instructions{
+  width:100%;
+  max-width:100%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(250,250,250,0.97));
+  border-radius:12px;
+  padding:14px 16px;
+  margin-bottom:0;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.04);
+}
+.instructions h3{ color:var(--accent); display:flex; gap:8px; align-items:center; margin-bottom:10px }
+.instructions ol{ padding-left:18px; line-height:1.6; color:var(--muted) }
+.scan-column .manual-input{ width:100%; max-width:520px; }
+.live-entries{
+  width:100%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,250,250,0.98));
+  border-radius:12px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.04);
+  overflow:hidden;
+  transition: box-shadow .18s ease, transform .18s ease;
+}
+.live-entries.compact-empty{ box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+.live-entries-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:12px 14px;
+  border-bottom:1px solid rgba(40,167,69,0.2);
+  background: linear-gradient(90deg, #eef9ef 0%, #fff 100%);
+}
+.live-entries-head h3{
+  margin:0;
+  color:var(--accent);
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:18px;
+}
+.live-entries-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.live-entries-refresh{
+  border:1px solid rgba(40,167,69,0.35);
+  color:#1e5631;
+  background:#fff;
+  border-radius:8px;
+  padding:6px 10px;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+.live-entries-refresh:hover{ background:#e8f5e9; }
+.live-entries-toggle{
+  border:1px solid rgba(40,167,69,0.35);
+  border-radius:8px;
+  background:#fff;
+  color:#1e5631;
+  font-size:13px;
+  font-weight:700;
+  padding:6px 10px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+.live-entries-toggle i{ font-size:12px; }
+.live-entries-toggle.on{
+  background:#e8f5e9;
+  color:#1e5631;
+  border-color:rgba(40,167,69,0.45);
+}
+.live-entries-toggle.off{
+  background:#f8f9fa;
+  color:#6c757d;
+  border-color:rgba(108,117,125,0.35);
+}
+.live-entries-toggle:hover{ transform:translateY(-1px); }
+.live-entries-interval{
+  border:1px solid rgba(40,167,69,0.25);
+  border-radius:8px;
+  background:#fff;
+  color:#1e5631;
+  font-size:13px;
+  font-weight:600;
+  padding:6px 8px;
+  min-width:72px;
+}
+.live-entries-interval:focus{
+  outline:none;
+  border-color:#28a745;
+  box-shadow:0 0 0 2px rgba(40,167,69,0.15);
+}
+.live-entries-frame{
+  width:100%;
+  min-height:180px;
+  height:360px;
+  border:0;
+  display:block;
+  background:#fff;
+  transition:height .16s ease;
+  will-change:height;
+}
+.live-entries-goto-scanner{ display:none }
+.live-entries-meta{
+  padding:8px 12px;
+  font-size:12px;
+  color:#6c757d;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:10px;
+  border-top:1px solid rgba(0,0,0,0.06);
+}
+.status-indicator{ display:flex; gap:8px; align-items:center; color:var(--muted); font-size:14px }
+.status-dot{ width:10px; height:10px; border-radius:50%; background:#28a745; box-shadow:0 4px 8px rgba(40,167,69,0.12) }
+.scanning .status-dot{ background:#ffc107; animation:pulse 1.5s infinite }
+@keyframes pulse{ 0%{opacity:1}50%{opacity:.45}100%{opacity:1} }
+.notification-center{
+  position:fixed;
+  top:20px;
+  right:20px;
+  display:flex;
+  flex-direction:column;
+  gap:15px;
+  z-index:2000;
+  max-width:350px;
+  pointer-events:none;
+  padding:0 12px;
+}
+.notification{
+  pointer-events:auto;
+  width:100%;
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+  padding:14px;
+  border-radius:14px;
+  border:1px solid var(--glass-border);
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  box-shadow: 0 12px 40px rgba(6,10,20,0.28);
+  transition: transform .22s cubic-bezier(.2,.9,.3,1), opacity .22s ease;
+  transform-origin: top center;
+  animation: slideIn 420ms cubic-bezier(.22,.61,.36,1) both;
+}
+.notification-icon{
+  flex-shrink:0;
+  font-size:18px;
+  width:38px;height:38px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  background: rgba(255,255,255,0.06);
+  color:inherit;
+}
+.notification-content{ display:flex; flex-direction:column; gap:6px; min-width:0; flex:1 }
+.notification-title{ font-weight:700; font-size:13px; letter-spacing:.6px; text-transform:uppercase; }
+.notification-message{ font-size:13px; opacity:.95; line-height:1.35; color:inherit }
+.notification-time{ font-size:12px; opacity:.8; display:flex; gap:6px; align-items:center }
+.notification-close{
+  margin-left:8px;
+  background: rgba(255,255,255,0.06);
+  border: none; width:34px; height:34px; border-radius:8px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  color:inherit; flex-shrink:0;
+  transition:transform .12s ease, background .12s ease;
+}
+.notification-close:hover{ transform:scale(1.07); background: rgba(255,255,255,0.10) }
+.notification.in{
+  background: linear-gradient(180deg, rgba(46,204,113,0.10), rgba(46,204,113,0.04));
+  border:1px solid rgba(46,204,113,0.12);
+  border-left:6px solid rgba(39,174,96,0.92);
+  color:#052f17;
+}
+.notification.out{
+  background: linear-gradient(180deg, rgba(40,167,69,0.08), rgba(40,167,69,0.03));
+  border:1px solid rgba(40,167,69,0.15);
+  border-left:6px solid var(--accent);
+  color:#0d3d1a;
+}
+.notification.error{
+  background: linear-gradient(180deg, rgba(220,53,69,0.08), rgba(220,53,69,0.03));
+  border:1px solid rgba(220,53,69,0.15);
+  border-left:6px solid #dc3545;
+  color:#3b0b08;
+}
+.notification.warning{
+  background: linear-gradient(180deg, rgba(255,193,7,0.12), rgba(255,193,7,0.04));
+  border:1px solid rgba(255,193,7,0.25);
+  border-left:6px solid var(--yellow);
+  color:#3b2b00;
+}
+.notification.info{
+  background: linear-gradient(180deg, rgba(40,167,69,0.08), rgba(40,167,69,0.03));
+  border:1px solid rgba(40,167,69,0.12);
+  border-left:6px solid var(--accent);
+  color:#0d3d1a;
+}
+.notification.hiding{ animation: slideOut 380ms cubic-bezier(.55,.06,.68,.19) both; }
+@keyframes slideIn{
+  from{ transform: translateY(-18px) scale(.985); opacity:0 }
+  to  { transform: translateY(0) scale(1); opacity:1 }
+}
+@keyframes slideOut{
+  from{ transform: translateY(0) scale(1); opacity:1 }
+  to  { transform: translateY(-18px) scale(.98); opacity:0 }
+}
+/* ------------------------- Student info popup (compact) ------------------------- */
+.student-popup-overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,0.5);
+  display:flex; align-items:center; justify-content:center;
+  z-index:3000; padding:12px;
+  opacity:0; visibility:hidden; transition:opacity .25s ease, visibility .25s ease;
+}
+.student-popup-overlay.show{ opacity:1; visibility:visible }
+.student-popup{
+  background:var(--card-bg);
+  border-radius:12px;
+  box-shadow:0 12px 40px rgba(0,0,0,0.25);
+  max-width:380px; width:100%;
+  max-height:90vh;
+  overflow:auto;
+  transform:scale(0.95); transition:transform .25s cubic-bezier(.22,.61,.36,1);
+}
+.student-popup-overlay.show .student-popup{ transform:scale(1) }
+.student-popup-header{
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-dark) 100%);
+  color:#fff; padding:10px 14px;
+  display:flex; align-items:center; justify-content:space-between;
+  flex-shrink:0;
+}
+.student-popup-header h2{ font-size:15px; font-weight:600; display:flex; align-items:center; gap:6px; margin:0 }
+.student-popup-close{
+  background:rgba(255,255,255,0.2); border:none; color:#fff; width:30px; height:30px;
+  border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:background .2s ease; flex-shrink:0;
+}
+.student-popup-close:hover{ background:rgba(255,255,255,0.3) }
+.student-popup-body{ padding:12px 14px; }
+.student-popup-top{ display:flex; gap:12px; align-items:flex-start; margin-bottom:10px; }
+.student-popup-photo-wrap{ flex-shrink:0; width:72px; }
+.student-popup-photo{
+  width:72px; height:72px; border-radius:10px;
+  object-fit:cover; display:block;
+  border:2px solid rgba(40,167,69,0.4);
+  background: linear-gradient(180deg, #f0f8f0, #e8f5e9);
+}
+.student-popup-photo[style*="display: none"] ~ .student-popup-badge{ margin-top:0; }
+.student-popup-badge{
+  display:inline-block; padding:4px 10px; border-radius:6px;
+  font-size:11px; font-weight:700; letter-spacing:0.03em; margin-top:6px;
+  background:#28a745; color:#fff; text-align:center;
+}
+.student-popup-badge.denied{ background:#dc3545; color:#fff; }
+.student-popup-info{ flex:1; min-width:0; }
+.student-popup-name{ font-size:16px; font-weight:600; color:#1a1a1a; margin-bottom:2px; line-height:1.25 }
+.student-popup-id{ font-size:12px; color:var(--muted); margin-bottom:2px }
+.student-popup-course{ font-size:11px; color:#555; margin-bottom:6px }
+.student-popup-details{
+  list-style:none; padding:0; margin:0;
+  border-top:1px solid rgba(0,0,0,0.06); padding-top:8px; margin-top:6px;
+}
+.student-popup-details li{
+  display:flex; align-items:center; gap:8px; padding:3px 0;
+  font-size:12px; color:#333;
+}
+.student-popup-details li i{ width:16px; color:var(--accent); text-align:center; font-size:11px }
+.student-popup-status{
+  margin-top:8px; padding:8px 10px; border-radius:8px; text-align:center;
+  font-weight:600; font-size:12px;
+}
+.student-popup-status.in{ background:#e8f5e9; color:#1b5e20 }
+.student-popup-status.out{ background:#e8f5e9; color:#2e7d32 }
+.student-popup-status.duplicate{ background:#fff9c4; color:#5d4e00; border:1px solid var(--yellow) }
+.student-popup-header.duplicate{ background: linear-gradient(90deg, var(--yellow) 0%, #e0a800 100%); color:#1b5e20; }
+.popup-early-out-form{ margin-top:10px; padding-top:10px; border-top:1px solid rgba(0,0,0,0.08); display:none }
+.popup-early-out-form.show{ display:block }
+.popup-early-out-form label{ display:block; font-size:12px; font-weight:600; color:#333; margin-bottom:4px }
+.popup-early-out-form textarea{
+  width:100%; min-height:60px; padding:8px 10px; border:1px solid #ddd; border-radius:6px;
+  font-size:13px; font-family:inherit; resize:vertical; box-sizing:border-box;
+}
+.popup-early-out-form .form-actions{ margin-top:8px; display:flex; gap:6px; flex-wrap:wrap }
+.popup-early-out-form .form-actions button{ padding:6px 12px; border-radius:6px; font-weight:600; font-size:12px; cursor:pointer; border:none }
+.visitor-modal-overlay{ position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px }
+.visitor-modal{ background:#fff; border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,0.2); max-width:420px; width:100%; max-height:90vh; overflow:auto }
+.visitor-modal .visitor-modal-header{ background:linear-gradient(to right, var(--accent), var(--accent-dark)); color:#fff; padding:14px 18px; border-radius:12px 12px 0 0; display:flex; align-items:center; justify-content:space-between }
+.visitor-modal .visitor-modal-header h5{ margin:0; font-weight:600; font-size:1.1rem }
+.visitor-modal .visitor-modal-close{ background:none; border:none; color:#fff; font-size:1.25rem; cursor:pointer; padding:0 4px; line-height:1; opacity:0.9 }
+.visitor-modal .visitor-modal-close:hover{ opacity:1 }
+.visitor-modal .visitor-modal-body{ padding:18px }
+.visitor-modal .form-group{ margin-bottom:12px }
+.visitor-modal .form-group label{ display:block; margin-bottom:4px; font-weight:500; font-size:0.9rem }
+.visitor-modal .form-control{ width:100%; padding:8px 12px; border:1px solid #dee2e6; border-radius:6px; font-size:14px }
+.visitor-modal .form-actions{ margin-top:12px; display:flex; gap:8px; justify-content:flex-end }
+.visitor-modal .btn{ padding:8px 16px; border-radius:6px; font-weight:600; cursor:pointer; border:none }
+.visitor-modal .btn-secondary{ background:#6c757d; color:#fff }
+.visitor-modal .btn-success{ background:var(--accent); color:#fff }
+.visitor-modal .btn-warning{ background:#ff9800; color:#fff }
+.visitor-modal .alert{ padding:12px; border-radius:8px; margin-bottom:12px; display:flex; align-items:flex-start; gap:10px; }
+.visitor-modal .alert-warning{ background:#fff3cd; color:#856404; border:1px solid #ffc107; }
+.visitor-modal .alert i{ flex-shrink:0; margin-top:2px; }
+.d-flex{ display:flex }.gap-2{ gap:8px }.justify-content-end{ justify-content:flex-end }.mt-3{ margin-top:1rem }.mb-1{ margin-bottom:0.25rem }.mb-2{ margin-bottom:0.5rem }.text-muted{ color:#6c757d }.small{ font-size:0.875rem }
+.popup-btn-submit-out{ background:#28a745; color:#fff }
+.popup-btn-submit-out:hover{ background:#218838 }
+.popup-btn-back{ background:#e9ecef; color:#333 }
+.popup-btn-back:hover{ background:#dee2e6 }
+.popup-in-class-notice{
+  margin-bottom:8px; padding:8px 10px; border-radius:6px; font-size:12px; font-weight:500;
+}
+.popup-in-class-notice.warning{ background:#fff3cd; color:#856404; border:1px solid #ffc107 }
+.popup-in-class-notice.error{ background:#f8d7da; color:#721c24; border:1px solid #f5c6cb }
+.popup-in-class-notice.info{ background:#cce5ff; color:#004085; border:1px solid #b8daff }
+.popup-schedule-status{
+  margin-top:6px; padding:6px 10px; border-radius:6px; font-size:11px; font-weight:600;
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+}
+.popup-schedule-status.schedule-warning{ background:#fff3cd; color:#856404; border:1px solid #ffc107 }
+.popup-schedule-status.schedule-ok{ background:#d4edda; color:#155724; border:1px solid #c3e6cb }
+.popup-schedule-status.schedule-info{ background:#cce5ff; color:#004085; border:1px solid #b8daff }
+.popup-schedule-status i{ flex-shrink:0; font-size:12px; }
+/* ------------------------- Entries popup (guard) ------------------------- */
+.entries-popup-overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,0.45);
+  display:flex; align-items:center; justify-content:center;
+  z-index:2500; padding:24px;
+  opacity:0; visibility:hidden; transition:opacity .25s ease, visibility .25s ease;
+}
+.entries-popup-overlay.show{ opacity:1; visibility:visible }
+.entries-popup{
+  background:#fff;
+  border-radius:16px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.2);
+  width:100%;
+  max-width:900px;
+  max-height:90vh;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  transform:scale(0.95); transition:transform .25s cubic-bezier(.22,.61,.36,1);
+}
+.entries-popup-overlay.show .entries-popup{ transform:scale(1) }
+.entries-popup-header{
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-dark) 100%);
+  color:#fff; padding:14px 20px;
+  display:flex; align-items:center; justify-content:space-between;
+  flex-shrink:0;
+}
+.entries-popup-header h2{ font-size:18px; font-weight:600; display:flex; align-items:center; gap:8px; margin:0 }
+.entries-popup-close{
+  background:rgba(255,255,255,0.25); border:none; color:#fff; width:36px; height:36px;
+  border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:background .2s ease;
+}
+.entries-popup-close:hover{ background:rgba(255,255,255,0.4) }
+.entries-popup-body{ flex:1; min-height:0; display:flex; flex-direction:column; }
+.entries-popup-body iframe{ width:100%; height:70vh; min-height:320px; border:none; display:block }
+/* Offline banner */
+.offline-banner{
+  display:none; position:fixed; top:0; left:0; right:0; z-index:2000;
+  background:linear-gradient(90deg, #ffc107 0%, #ff9800 100%); color:#1b5e20;
+  padding:12px 20px; font-weight:600; font-size:14px;
+  flex-wrap:wrap; align-items:center; justify-content:center; gap:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.15);
+}
+.offline-banner.show{ display:flex }
+.offline-banner .offline-msg{ flex:1 1 auto; text-align:center; }
+.offline-banner .pending-count{
+  background:rgba(0,0,0,0.2); padding:6px 14px; border-radius:999px;
+  font-weight:700; white-space:nowrap;
+}
+.offline-banner.pending-sync{ background:linear-gradient(90deg, #fff59d 0%, #fff9c4 100%); }
+/* Header badge: pending sync count (visible when queue > 0) */
+.header-pending-sync{
+  display:none; align-items:center; gap:6px; padding:6px 12px; border-radius:999px;
+  background:rgba(255,255,255,0.25); font-size:13px; font-weight:600;
+}
+.header-pending-sync.show{ display:inline-flex }
+.header-pending-sync .num{ font-weight:700; }
+/* Event selector banner */
+.event-selector-bar{
+  background:linear-gradient(90deg, #fff9c4 0%, #fff59d 100%); border-bottom:1px solid rgba(255,235,59,0.3);
+  padding:12px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
+}
+.event-selector-bar .event-label{ font-weight:600; color:#1b5e20; font-size:14px; display:flex; align-items:center; gap:6px; }
+.event-selector-bar select{ padding:6px 12px; border-radius:8px; border:1px solid rgba(27,94,32,0.2); background:#fff; color:#333; font-size:14px; min-width:200px; }
+.event-selector-bar select:focus{ outline:none; border-color:#28a745; }
+.event-current-badge{ background:rgba(40,167,69,0.15); color:#1e5631; padding:6px 14px; border-radius:999px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px; border:1px solid rgba(40,167,69,0.2); }
+.event-attendees-btn{ display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:8px; border:1px solid rgba(40,167,69,0.35); background:#fff; color:#1e5631; font-weight:600; font-size:13px; cursor:pointer; transition:all .18s ease; }
+.event-attendees-btn:hover{ background:#e8f5e9; border-color:#28a745; transform:translateY(-1px); }
+@media (max-width:900px){
+  .main-content{ flex-direction:column; align-items:center }
+  .main-content .scan-column,
+  .main-content .info-column{ flex:1 1 100%; max-width:520px }
+}
+@media (max-width:768px){
+  body{ padding:10px; min-height:100vh; overflow-y:auto; overflow-x:hidden }
+  .container{ overflow:visible; margin-bottom:24px; max-width:100% !important; overflow-x:hidden }
+  header{ padding:12px 14px }
+  header .header-content{ flex-wrap:wrap }
+  h1{ font-size:1rem }
+  .main-content{ padding:14px; flex-direction:column; align-items:stretch; overflow-x:hidden; max-width:100% }
+  .main-content .scan-column{ order:1 }
+  .main-content .info-column{ order:2 }
+  .main-content .scan-column,
+  .main-content .info-column{ max-width:none }
+  .scan-column{ padding:0 4px; box-sizing:border-box; max-width:100%; overflow-x:hidden; min-width:0 }
+  /* Scanner first on mobile; stable height so QR frame isn’t clipped */
+  #reader{
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    aspect-ratio:auto !important;
+    height:clamp(240px, 45vh, 380px) !important;
+    box-sizing:border-box;
+    overflow:hidden;
+    border-radius:12px;
+  }
+  /* Force scan region to fill #reader (no flex centering – it can shift the overlay) */
+  #reader__scan_region{
+    width:100% !important;
+    max-width:100% !important;
+    height:100% !important;
+    overflow:hidden !important;
+    min-width:0 !important;
+    min-height:0;
+  }
+  #reader *{ max-width:100% !important; box-sizing:border-box }
+  #reader__scan_region #qr-shaded-region{ max-width:100%; box-sizing:border-box }
+  #reader video,
+  #reader__scan_region video{
+    width:100% !important;
+    height:100% !important;
+    object-fit:cover !important;
+    display:block !important;
+  }
+  .scanner-container{
+    max-width:100%; width:100%; box-sizing:border-box; overflow:hidden; min-width:0;
+    position:sticky; top:10px; z-index:50;
+    background:var(--card-bg, #fff);
+    padding-bottom:10px;
+  }
+  .camera-controls{ width:100%; justify-content:center; }
+  .camera-select{ min-width:140px; max-width:190px; }
+  .scanner-text{ font-size:13px; padding:0 8px }
+  .manual-input{ max-width:none }
+  .notification{ padding:12px; border-radius:12px }
+  .input-group button{ padding:9px 12px }
+  .live-entries{ width:100%; min-height:0 }
+  .live-entries-frame{ min-height:220px; height:280px }
+  .live-entries-head{ flex-wrap:wrap; gap:8px }
+  .live-entries-actions{ flex-wrap:wrap }
+  .live-entries-goto-scanner{
+    display:inline-block !important;
+    margin-left:auto;
+    font-weight:600;
+    color:var(--accent);
+    text-decoration:none;
+    padding:6px 12px;
+    border-radius:8px;
+    border:1px solid rgba(40,167,69,0.35);
+    background:#e8f5e9;
+  }
+  .live-entries-goto-scanner:hover{ background:#c8e6c9; color:#1e7e34 }
+  .instructions{ display:none }
+}
+@media (max-width:480px){
+  .main-content{ padding:10px }
+  .scan-column{ padding:0 2px }
+  #reader{ height:clamp(220px, 42vh, 320px) !important }
+  .live-entries-frame{ min-height:200px; height:240px }
+}
+  </style>
+</head>
+<body>
+{% include 'base/confirm_modal.html' %}
+    <!-- Offline / pending sync: clear messaging so guards see status and queue -->
+    <div class="offline-banner" id="offlineBanner" aria-live="polite" role="status">
+        <i class="fas fa-wifi fa-slash" id="offlineBannerIcon" aria-hidden="true"></i>
+        <span class="offline-msg" id="offlineBannerMsg">You're offline. Scans are saved on this device and will sync when you're back online.</span>
+        <span class="pending-count" id="offlinePendingCount" aria-label="Scans pending sync"></span>
+    </div>
+    <!-- Student info popup (shown on successful scan) -->
+    <div class="student-popup-overlay" id="studentPopupOverlay">
+        <div class="student-popup">
+            <div class="student-popup-header">
+                <h2><i class="fas fa-user-check"></i> Scan successful</h2>
+                <button type="button" class="student-popup-close" id="studentPopupClose" aria-label="Close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="student-popup-body">
+                <div class="student-popup-top">
+                    <div class="student-popup-photo-wrap">
+                        <img class="student-popup-photo" id="studentPopupPhoto" src="" alt="Student photo" style="display:none;">
+                        <div class="student-popup-badge" id="studentPopupBadge">ALLOWED</div>
+                    </div>
+                    <div class="student-popup-info">
+                        <div class="student-popup-name" id="studentPopupName"></div>
+                        <div class="student-popup-id" id="studentPopupId"></div>
+                        <div class="student-popup-course" id="studentPopupCourse"></div>
+                        <ul class="student-popup-details">
+                            <li><i class="fas fa-envelope"></i> <span id="studentPopupEmail"></span></li>
+                            <li><i class="fas fa-sign-in-alt"></i> <span id="studentPopupScanType"></span></li>
+                            <li><i class="fas fa-clock"></i> <span id="studentPopupTime"></span></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="student-popup-status in" id="studentPopupStatus"></div>
+                <div class="popup-schedule-status" id="popupScheduleStatus" style="display:none;" aria-live="polite"></div>
+                <div class="popup-early-out-form" id="popupRegistrationForm" style="display:none;">
+                    <label for="popupRegFirstName">First name</label>
+                    <textarea id="popupRegFirstName" style="min-height:44px; resize:none;" placeholder="First name"></textarea>
+                    <label for="popupRegLastName" style="margin-top:10px;">Last name</label>
+                    <textarea id="popupRegLastName" style="min-height:44px; resize:none;" placeholder="Last name"></textarea>
+                    <label for="popupRegSex" style="margin-top:10px;">Sex / Gender</label>
+                    <select id="popupRegSex" style="min-height:44px; width:100%;">
+                        <option value="">-- Select sex/gender --</option>
+                        <option value="MALE">Male</option>
+                        <option value="FEMALE">Female</option>
+                        <option value="OTHER">Other</option>
+                        <option value="PREFER_NOT">Prefer not to say</option>
+                    </select>
+                    <label for="popupRegEmail" style="margin-top:10px;">Email (optional)</label>
+                    <textarea id="popupRegEmail" style="min-height:44px; resize:none;" placeholder="Email"></textarea>
+                    <div class="form-actions">
+                        <button type="button" class="popup-btn-back" id="popupBtnRegCancel"><i class="fas fa-times"></i> Cancel</button>
+                        <button type="button" class="popup-btn-submit-out" id="popupBtnRegSubmit"><i class="fas fa-check"></i> Register</button>
+                    </div>
+                </div>
+                <div class="popup-early-out-form" id="popupEarlyOutForm">
+                    <div class="popup-in-class-notice" id="popupInClassNotice" style="display:none;"></div>
+                    <label for="popupOutReason">Reason for early out (required for reports)</label>
+                    <textarea id="popupOutReason" placeholder="e.g. Emergency, appointment, left early... (min. 5 characters during class hours)"></textarea>
+                    <div class="form-actions">
+                        <button type="button" class="popup-btn-back" id="popupBtnBack"><i class="fas fa-arrow-left"></i> Back</button>
+                        <button type="button" class="popup-btn-submit-out" id="popupBtnSubmitOut"><i class="fas fa-check"></i> Submit</button>
+                    </div>
+  </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification-center" id="notificationCenter"></div>
+
+    <!-- Event attendees popup (when tracking an event) -->
+    <div class="entries-popup-overlay" id="eventAttendeesPopupOverlay">
+        <div class="entries-popup" onclick="event.stopPropagation()">
+            <div class="entries-popup-header">
+                <h2><i class="fas fa-users"></i> Event attendees</h2>
+                <button type="button" class="entries-popup-close" id="eventAttendeesPopupClose" aria-label="Close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="entries-popup-body">
+                <iframe id="eventAttendeesIframe" src="about:blank" title="Event attendees"></iframe>
+            </div>
+        </div>
+    </div>
+    <!-- Visitor check-in modal (reusable pass VIS-xxx scanned when AVAILABLE) -->
+    <div class="visitor-modal-overlay" id="visitorCheckinModalOverlay" style="display:none;">
+        <div class="visitor-modal" onclick="event.stopPropagation()">
+            <div class="visitor-modal-header">
+                <h5><i class="fas fa-user-plus"></i> Visitor check-in</h5>
+                <button type="button" class="visitor-modal-close" id="visitorCheckinModalClose" aria-label="Close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="visitor-modal-body">
+                <p class="text-muted small mb-2">Pass: <strong id="visitorCheckinPassCode"></strong></p>
+                <input type="hidden" id="visitorCheckinPassCodeInput" name="pass_code">
+                <div class="form-group">
+                    <label>Full name *</label>
+                    <input type="text" id="visitorCheckinFullName" class="form-control" required placeholder="e.g. Juan Dela Cruz">
+                </div>
+                <div class="form-group">
+                    <label>Purpose</label>
+                    <input type="text" id="visitorCheckinPurpose" class="form-control" placeholder="e.g. Meeting, delivery">
+                </div>
+                <div class="form-group">
+                    <label>Department / office</label>
+                    <select id="visitorCheckinDepartment" class="form-control">
+                        <option value="">-- Select --</option>
+                        {% for value, label in campus_departments %}
+                        {% if value %}<option value="{{ value }}">{{ label }}</option>{% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>ID type (optional)</label>
+                    <input type="text" id="visitorCheckinIdType" class="form-control" placeholder="e.g. Government ID">
+                </div>
+                <div class="form-group">
+                    <label>ID number (optional)</label>
+                    <input type="text" id="visitorCheckinIdNumber" class="form-control" placeholder="ID number">
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="visitorCheckinNotes" class="form-control" rows="2" placeholder="Optional"></textarea>
+                </div>
+                <div class="form-actions d-flex gap-2 justify-content-end mt-3">
+                    <button type="button" class="btn btn-secondary" id="visitorCheckinCancel">Cancel</button>
+                    <button type="button" class="btn btn-success" id="visitorCheckinSubmit"><i class="fas fa-check"></i> Check in</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Visitor check-out modal (reusable pass scanned when IN_USE) -->
+    <div class="visitor-modal-overlay" id="visitorCheckoutModalOverlay" style="display:none;">
+        <div class="visitor-modal" onclick="event.stopPropagation()">
+            <div class="visitor-modal-header">
+                <h5><i class="fas fa-sign-out-alt"></i> Visitor check-out</h5>
+                <button type="button" class="visitor-modal-close" id="visitorCheckoutModalClose" aria-label="Close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="visitor-modal-body">
+                <input type="hidden" id="visitorCheckoutPassCodeInput" name="pass_code">
+                <input type="hidden" id="visitorCheckoutVisitId" name="visit_id">
+                <p class="mb-2"><strong id="visitorCheckoutName"></strong></p>
+                <p class="text-muted small mb-1">Department: <span id="visitorCheckoutDepartment"></span></p>
+                <p class="text-muted small mb-2">Checked in at: <span id="visitorCheckoutTime"></span></p>
+                <div class="form-actions d-flex gap-2 justify-content-end mt-3">
+                    <button type="button" class="btn btn-secondary" id="visitorCheckoutCancel">Cancel</button>
+                    <button type="button" class="btn btn-success" id="visitorCheckoutSubmit"><i class="fas fa-check"></i> Check out</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event Early Out Modal (different from daily gate entry) -->
+    <div class="visitor-modal-overlay" id="eventEarlyOutModalOverlay" style="display:none;">
+        <div class="visitor-modal" onclick="event.stopPropagation()">
+            <div class="visitor-modal-header" style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);">
+                <h5><i class="fas fa-calendar-times"></i> Leaving Event Early</h5>
+                <button type="button" class="visitor-modal-close" id="eventEarlyOutModalClose" aria-label="Close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="visitor-modal-body">
+                <div class="alert alert-warning" style="border-left: 4px solid #ff9800;">
+                    <i class="fas fa-info-circle"></i>
+                    <strong id="eventEarlyOutStudentName"></strong> is leaving before the event ends.
+                </div>
+                <p class="text-muted small mb-2">
+                    Event: <strong id="eventEarlyOutEventName"></strong><br>
+                    Event ends: <strong id="eventEarlyOutEventEnd"></strong>
+                </p>
+                <input type="hidden" id="eventEarlyOutStudentId">
+                <input type="hidden" id="eventEarlyOutEventId">
+                <input type="hidden" id="eventEarlyOutQr">
+                <div class="form-group">
+                    <label>Reason for leaving early *</label>
+                    <textarea id="eventEarlyOutReason" class="form-control" rows="3" required placeholder="e.g. Emergency, not feeling well, prior commitment..." style="resize: vertical;"></textarea>
+                    <small class="form-text text-muted">This reason will be recorded for event attendance reports.</small>
+                </div>
+                <div class="form-actions d-flex gap-2 justify-content-end mt-3">
+                    <button type="button" class="btn btn-secondary" id="eventEarlyOutCancel">Cancel</button>
+                    <button type="button" class="btn btn-warning" id="eventEarlyOutSubmit"><i class="fas fa-check"></i> Submit & Check Out</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1><i class="fas fa-qrcode"></i> QR Code Scanner</h1>
+                <div class="header-actions">
+                    <span class="header-pending-sync" id="headerPendingSync" title="Scans saved offline waiting to sync">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span class="num" id="headerPendingSyncNum">0</span> pending sync
+                    </span>
+                    <div class="header-user-dropdown" id="headerUserDropdown">
+                        <button type="button" class="header-user-dropdown-trigger" id="headerUserDropdownTrigger" aria-expanded="false" aria-haspopup="true">
+                            <i class="fas fa-user-shield"></i>
+                            <span>{{ request.user.get_full_name|default:request.user.username }}{% if user_role == 'guard' %} <span class="header-user-role-badge">(Guard)</span>{% endif %}</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="header-user-dropdown-menu" id="headerUserDropdownMenu" role="menu">
+                            <a href="{% if user_role == 'guard' %}{% url 'guard-dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" role="menuitem"><i class="fas fa-th-large"></i> Dashboard</a>
+                            <button type="button" id="gate-scan-help-btn" role="menuitem" title="Help"><i class="fas fa-question-circle"></i> Help</button>
+                            <a href="{% url 'logout' %}" class="logout-item" role="menuitem" id="gate-scan-logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                        </div>
+                    </div>
+              </div>
+            </div>
+        </header>
+
+        <!-- Event selector: Show on-campus events for all users (guards can scan students for events) -->
+        {% if active_events %}
+        <div class="event-selector-bar">
+            <div class="event-label">
+                <i class="fas fa-calendar-check"></i>
+                <span>Tracking event:</span>
+            </div>
+            <select id="eventSelector">
+                <option value="">Daily Gate Entry (No event)</option>
+                {% for event in active_events %}
+                <option value="{{ event.id }}">{{ event.name }} ({{ event.start_date|date:"M d" }} - {{ event.end_date|date:"M d, Y" }})</option>
+                {% endfor %}
+            </select>
+            <div class="event-current-badge" id="currentEventBadge" style="display:none;">
+                <i class="fas fa-flag"></i>
+                <span id="currentEventName"></span>
+            </div>
+            {% if user_role != 'guard' %}
+            <button type="button" id="eventAttendeesBtn" class="event-attendees-btn" style="display:none;" title="View event attendees">
+                <i class="fas fa-users"></i> Event attendees
+            </button>
+            {% endif %}
+            <button id="scanModeBtn" class="btn btn-success" onclick="toggleScanMode()" style="margin-left:auto; font-weight:600;">
+                <i class="fas fa-sign-in-alt"></i>
+                <span id="scanModeLabel">IN</span>
+            </button>
+        </div>
+        {% endif %}
+
+        <div class="main-content">
+            <div class="scan-column" id="gate-scan-scanner">
+                <div class="scanner-container">
+                    <div id="reader"></div>
+                    <div class="camera-control-row">
+                        <div class="camera-controls">
+                            <select id="gateCameraPreference" class="camera-select" title="Choose camera">
+                                <option value="back" selected>Back camera (recommended)</option>
+                                <option value="front">Front camera</option>
+                                <option value="auto">Auto camera</option>
+                            </select>
+                            <button type="button" id="gateStartCameraBtn" class="btn btn-primary btn-sm">
+                                <i class="fas fa-camera"></i> Start camera
+                            </button>
+                            <button type="button" id="gateSwitchCameraBtn" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-sync-alt"></i> Switch
+                            </button>
+                        </div>
+                        <div id="gateCameraHelp" class="camera-help-note"></div>
+                    </div>
+                    <p class="scanner-text">Position the QR code within the frame</p>
+                    <div class="status-indicator">
+                        <div class="status-dot"></div>
+                        <span>Scanner ready</span>
+                    </div>
+                </div>
+                <div class="manual-input">
+                    <h3><i class="fas fa-keyboard"></i> Manual Entry (Student)</h3>
+                    <p id="manualEntryEventHint" class="small text-muted mb-2" style="display:none;"></p>
+                    <div class="input-group">
+                        <input type="text" id="manualInput" placeholder="Enter Student ID">
+                        <span id="manualStatusWrap">
+                        <select id="manualStatus">
+                            <option value="">-- Select Status --</option>
+                            <option value="IN">IN</option>
+                            <option value="OUT">OUT</option>
+                        </select>
+                        </span>
+                        <input type="time" id="manualTime">
+                        <button id="manualSubmit"><i class="fas fa-paper-plane"></i> Submit</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-column">
+                <div class="scan-result-card" style="display:none;">
+                    <div class="scan-result-head">
+                        <i class="fas fa-wave-square"></i> Scan Results
+                    </div>
+                    <div class="scan-result-body">
+                <div id="result">Scan result will appear here</div>
+                <div id="resultScheduleHint" class="result-schedule-hint" style="display:none;"></div>
+                <div id="requireReasonPanel" class="require-reason-panel" style="display:none;">
+                    <p class="require-reason-label">Reason required to allow exit. Select and submit:</p>
+                    <div class="input-group">
+                        <select id="outReasonSelect">
+                            <option value="">-- Select reason --</option>
+                            <option value="EMERGENCY">Emergency</option>
+                            <option value="CLINIC">Clinic / Health</option>
+                            <option value="OFFICIAL_BUSINESS">Official business</option>
+                            <option value="OVERRIDE_BY_GUARD">Override by guard</option>
+                            <option value="OTHER">Other</option>
+                        </select>
+                        <input type="text" id="outReasonText" placeholder="Optional details" maxlength="200">
+                        <button type="button" id="submitWithReasonBtn"><i class="fas fa-check"></i> Submit with reason</button>
+                    </div>
+                    <button type="button" id="cancelReasonBtn" class="btn-cancel-reason">Cancel</button>
+                </div>
+            </div>
+                </div>
+                <div class="live-entries" id="liveEntriesPanel">
+                    <div class="live-entries-head">
+                        <h3 id="live-entries-anchor"><i class="fas fa-door-open"></i> Live Entries</h3>
+                        <div class="live-entries-actions">
+                            <select id="liveEntriesRefreshInterval" class="live-entries-interval" title="Auto refresh interval (seconds)">
+                                <option value="5" selected>5s</option>
+                                <option value="10">10s</option>
+                                <option value="15">15s</option>
+                        </select>
+                            <button type="button" class="live-entries-toggle on" id="liveEntriesAutoToggleBtn" title="Hide filters: ON hides filters, OFF shows filters">
+                                <i class="fas fa-eye-slash"></i> Hide Filters ON
+                            </button>
+                            <button type="button" class="live-entries-refresh" id="liveEntriesRefreshBtn" title="Refresh now">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <iframe id="liveEntriesIframe" class="live-entries-frame" src="{% url 'gate-entry-list' %}?embed=1" title="Live gate entries"></iframe>
+                    <div class="live-entries-meta">
+                        Hide filters: <span id="liveEntriesAutoStatus">ON</span> (ON hides filters, OFF shows filters). Interval: every <span id="liveEntriesIntervalLabel">5</span> seconds. Last refresh: <span id="liveEntriesLastRefresh">--:--:--</span>
+                        <a href="#gate-scan-scanner" class="live-entries-goto-scanner" id="liveEntriesGotoScanner" aria-label="Scroll to scanner">↓ Go to scanner</a>
+                    </div>
+                </div>
+                <div class="instructions">
+                    <h3><i class="fas fa-info-circle"></i> Instructions</h3>
+                    <ol>
+                        <li>Ensure the QR code is clearly visible within the scanner frame</li>
+                        <li>Hold your device steady for accurate scanning</li>
+                        <li>The system will automatically process valid student ID QR codes</li>
+                        <li>Results will be displayed in the scan area after scanning</li>
+                        <li>Use manual entry if QR code is not scanning properly</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+(function() {
+  // -------------------------
+  // Device ID Management (stable UUID for tracking)
+  // -------------------------
+  function getOrCreateDeviceId() {
+    var deviceId = localStorage.getItem('scanner_device_id');
+    if (!deviceId) {
+      // Generate UUID v4
+      deviceId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+      localStorage.setItem('scanner_device_id', deviceId);
+      console.log('Generated new device ID:', deviceId);
+    }
+    return deviceId;
+  }
+  
+  var DEVICE_ID = getOrCreateDeviceId();
+
+  // Guard help modal
+  (function() {
+    var overlay = document.getElementById('guardHelpModalOverlay');
+    var closeBtn = document.getElementById('guardHelpModalClose');
+    function show() {
+      if (overlay) {
+        overlay.style.display = 'flex';
+        overlay.classList.add('show');
+        overlay.setAttribute('aria-hidden', 'false');
+      }
+    }
+    function hide() {
+      if (overlay) {
+        overlay.style.display = 'none';
+        overlay.classList.remove('show');
+        overlay.setAttribute('aria-hidden', 'true');
+      }
+    }
+    var helpBtn = document.getElementById('gate-scan-help-btn');
+    var inlineBtn = document.getElementById('gateHelpInlineBtn');
+    if (helpBtn) helpBtn.addEventListener('click', show);
+    if (inlineBtn) inlineBtn.addEventListener('click', show);
+    if (closeBtn) closeBtn.addEventListener('click', hide);
+    if (overlay) overlay.addEventListener('click', function(e) { if (e.target === overlay) hide(); });
+  })();
+
+  // Guard / user dropdown: toggle on trigger, close on outside click
+  (function() {
+    var dropdown = document.getElementById('headerUserDropdown');
+    var trigger = document.getElementById('headerUserDropdownTrigger');
+    var menu = document.getElementById('headerUserDropdownMenu');
+    if (!dropdown || !trigger || !menu) return;
+    function open() {
+      dropdown.classList.add('open');
+      trigger.setAttribute('aria-expanded', 'true');
+    }
+    function close() {
+      dropdown.classList.remove('open');
+      trigger.setAttribute('aria-expanded', 'false');
+    }
+    function toggle() {
+      if (dropdown.classList.contains('open')) close(); else open();
+    }
+    trigger.addEventListener('click', function(e) {
+      e.stopPropagation();
+      toggle();
+    });
+    document.addEventListener('click', function() {
+      close();
+    });
+    menu.addEventListener('click', function(e) {
+      e.stopPropagation();
+      close();
+    });
+  })();
+
+  function escapeHtml(str) {
+    if (str == null) return '';
+    var div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // -------------------------
+  // Scan mode toggle (IN/OUT)
+  // -------------------------
+  var currentScanMode = localStorage.getItem('event_scan_mode') || 'IN';
+  
+  function setScanMode(mode) {
+    currentScanMode = (mode === 'OUT') ? 'OUT' : 'IN';
+    localStorage.setItem('event_scan_mode', currentScanMode);
+    var label = document.getElementById('scanModeLabel');
+    var btn = document.getElementById('scanModeBtn');
+    if (label) label.textContent = currentScanMode;
+    if (btn) {
+      btn.className = currentScanMode === 'IN' ? 'btn btn-success' : 'btn btn-danger';
+      var icon = btn.querySelector('i');
+      if (icon) {
+        icon.className = currentScanMode === 'IN' ? 'fas fa-sign-in-alt' : 'fas fa-sign-out-alt';
+      }
+    }
+  }
+  
+  window.toggleScanMode = function() {
+    setScanMode(currentScanMode === 'IN' ? 'OUT' : 'IN');
+  };
+  
+  // Initialize scan mode button
+  setScanMode(currentScanMode);
+
+  // -------------------------
+  // Event selector (for tracking attendance at college events)
+  // -------------------------
+  var selectedEventId = null;
+  var selectedEventName = '';
+  var eventSelector = document.getElementById('eventSelector');
+  var eventBadge = document.getElementById('currentEventBadge');
+  var eventBadgeName = document.getElementById('currentEventName');
+  var scanModeBtn = document.getElementById('scanModeBtn');
+  
+  var eventAttendeesBtn = document.getElementById('eventAttendeesBtn');
+  var eventAttendeesPopupOverlay = document.getElementById('eventAttendeesPopupOverlay');
+  var eventAttendeesIframe = document.getElementById('eventAttendeesIframe');
+  var manualEntryEventHint = document.getElementById('manualEntryEventHint');
+
+  function getTodayISO() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function updateEventTrackingUI() {
+    if (selectedEventId) {
+      eventBadge.style.display = 'inline-flex';
+      eventBadgeName.textContent = selectedEventName.split('(')[0].trim();
+      if (scanModeBtn) scanModeBtn.style.display = 'inline-flex';
+      if (eventAttendeesBtn) eventAttendeesBtn.style.display = 'inline-flex';
+      if (manualEntryEventHint) {
+        manualEntryEventHint.textContent = 'Records to event: ' + selectedEventName.split('(')[0].trim();
+        manualEntryEventHint.style.display = 'block';
+      }
+      var manualStatusWrap = document.getElementById('manualStatusWrap');
+      var manualStatusAuto = document.getElementById('manualStatusAuto');
+      if (manualStatusWrap) manualStatusWrap.style.display = '';
+      if (manualStatusAuto) manualStatusAuto.style.display = 'none';
+    } else {
+      eventBadge.style.display = 'none';
+      eventBadgeName.textContent = '';
+      if (scanModeBtn) scanModeBtn.style.display = 'none';
+      if (eventAttendeesBtn) eventAttendeesBtn.style.display = 'none';
+      if (eventAttendeesPopupOverlay) eventAttendeesPopupOverlay.classList.remove('show');
+      if (eventAttendeesIframe) eventAttendeesIframe.src = 'about:blank';
+      if (manualEntryEventHint) manualEntryEventHint.style.display = 'none';
+      // Daily gate: hide IN/OUT dropdown only (no "Auto" label)
+      var manualStatusWrap = document.getElementById('manualStatusWrap');
+      if (manualStatusWrap) manualStatusWrap.style.display = 'none';
+    }
+  }
+
+  if (eventSelector) {
+    eventSelector.addEventListener('change', function() {
+      var opt = eventSelector.options[eventSelector.selectedIndex];
+      selectedEventId = eventSelector.value || null;
+      selectedEventName = opt.text || '';
+      updateEventTrackingUI();
+    });
+    var opt = eventSelector.options[eventSelector.selectedIndex];
+    if (opt && eventSelector.value) {
+      selectedEventId = eventSelector.value;
+      selectedEventName = opt.text || '';
+    }
+    updateEventTrackingUI(); // Apply initial state (e.g. Daily Gate = auto IN/OUT, hide toggle)
+  }
+
+  function refreshEventAttendeesIframe() {
+    if (selectedEventId && eventAttendeesIframe && eventAttendeesIframe.src && eventAttendeesIframe.src !== 'about:blank') {
+      eventAttendeesIframe.src = eventAttendeesIframe.src;
+    }
+  }
+
+  // -------------------------
+  // Event-aware offline duplicate detection
+  // -------------------------
+  function isOfflineDuplicateEvent(student_id, event_id, scan_type) {
+    if (!event_id) return false;  // Not an event scan
+    var key = 'evtdup:' + event_id + ':' + student_id + ':' + scan_type;
+    return !!localStorage.getItem(key);
+  }
+  
+  function markOfflineEventScan(student_id, event_id, scan_type) {
+    if (!event_id) return;
+    var key = 'evtdup:' + event_id + ':' + student_id + ':' + scan_type;
+    localStorage.setItem(key, String(Date.now()));
+  }
+  
+  function clearOfflineEventMark(student_id, event_id, scan_type) {
+    if (!event_id) return;
+    var key = 'evtdup:' + event_id + ':' + student_id + ':' + scan_type;
+    localStorage.removeItem(key);
+  }
+
+  // -------------------------
+  // Offline support: local database (IndexedDB) — scans stored offline, sync to server when online
+  // -------------------------
+  var OFFLINE_DB_NAME = 'GateOfflineDB';
+  var OFFLINE_DB_VERSION = 1;
+  var OFFLINE_STORE = 'scans';
+  var OFFLINE_QUEUE_MAX = 500;  // Soft cap to prevent massive queues
+  var _offlineQueueCache = [];
+
+  function openOfflineDB() {
+    return new Promise(function(resolve, reject) {
+      var r = indexedDB.open(OFFLINE_DB_NAME, OFFLINE_DB_VERSION);
+      r.onerror = function() { reject(r.error); };
+      r.onsuccess = function() { resolve(r.result); };
+      r.onupgradeneeded = function(e) {
+        var db = e.target.result;
+        if (!db.objectStoreNames.contains(OFFLINE_STORE)) {
+          db.createObjectStore(OFFLINE_STORE, { keyPath: 'id', autoIncrement: true });
+        }
+      };
+    });
+  }
+
+  function getOfflineQueue() {
+    return _offlineQueueCache;
+  }
+
+  function getTodayDateString() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function getLocalDateString(isoOrDate) {
+    var d = new Date(isoOrDate);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function isOfflineDuplicate(student_id) {
+    var today = getTodayDateString();
+    var forStudent = _offlineQueueCache.filter(function(r) {
+      return r.student_id === student_id && getLocalDateString(r.client_ts) === today;
+    });
+    forStudent.sort(function(a, b) { return (b.client_ts || '').localeCompare(a.client_ts || ''); });
+    var latest = forStudent[0];
+    return latest && (latest.status || latest.manual_status || 'IN') !== 'OUT';
+  }
+
+  function loadOfflineQueueFromDB(callback) {
+    openOfflineDB().then(function(db) {
+      var tx = db.transaction(OFFLINE_STORE, 'readonly');
+      var req = tx.objectStore(OFFLINE_STORE).getAll();
+      req.onsuccess = function() {
+        var list = req.result || [];
+        list.forEach(function(r) { r.status = r.status || r.manual_status || 'IN'; });
+        _offlineQueueCache = list;
+        if (callback) callback(_offlineQueueCache);
+      };
+      req.onerror = function() { if (callback) callback([]); };
+      db.close();
+    }).catch(function() { if (callback) callback([]); });
+  }
+
+  function addToOfflineQueue(item, callback) {
+    // Check queue size limit
+    if (_offlineQueueCache.length >= OFFLINE_QUEUE_MAX) {
+      if (callback) callback(true);
+      showNotification('Offline queue is full (' + OFFLINE_QUEUE_MAX + ' items). Please sync to server.', 'error');
+      return;
+    }
+    
+    var status = (item.manual_status || item.scan_type || 'IN').toUpperCase();
+    if (status !== 'OUT') status = 'IN';
+    
+    // Event-aware duplicate checking
+    if (item.event_id) {
+      // For event scans: check if already queued for this event+student+type
+      var student_id = item.qr || item.student_id;
+      if (isOfflineDuplicateEvent(student_id, item.event_id, status)) {
+        if (callback) callback(true);
+        return;
+      }
+    } else {
+      // For daily gate scans: check duplicates locally (student ID only)
+      if (!item.qr || !item.qr.startsWith('EVT:')) {
+        var student_id = item.qr || item.student_id;
+        if (isOfflineDuplicate(student_id)) {
+          if (callback) callback(true);
+          return;
+        }
+      }
+    }
+    
+    var record = {
+      qr: item.qr || item.student_id,
+      student_id: item.student_id || null,
+      status: status,
+      manual_status: item.manual_status || null,
+      scan_type: item.scan_type || null,
+      local_time: item.local_time || null,
+      event_id: item.event_id || null,
+      client_ts: item.client_ts || new Date().toISOString()
+    };
+    openOfflineDB().then(function(db) {
+      var tx = db.transaction(OFFLINE_STORE, 'readwrite');
+      var store = tx.objectStore(OFFLINE_STORE);
+      var req = store.add(record);
+      req.onsuccess = function() {
+        record.id = req.result;
+        _offlineQueueCache.push(record);
+        updateOfflineBanner();
+        // Mark as queued to prevent duplicates
+        if (item.event_id) {
+          var student_id = item.qr || item.student_id;
+          markOfflineEventScan(student_id, item.event_id, status);
+        }
+        if (callback) callback(false);
+      };
+      req.onerror = function() { if (callback) callback(true); };
+      tx.oncomplete = function() { db.close(); };
+    }).catch(function() { if (callback) callback(true); });
+  }
+
+  function removeOfflineRecord(id, callback) {
+    openOfflineDB().then(function(db) {
+      var tx = db.transaction(OFFLINE_STORE, 'readwrite');
+      tx.objectStore(OFFLINE_STORE).delete(id);
+      tx.oncomplete = function() {
+        _offlineQueueCache = _offlineQueueCache.filter(function(r) { return r.id !== id; });
+        if (callback) callback();
+        db.close();
+      };
+    }).catch(function() { if (callback) callback(); });
+  }
+
+  function getCsrfFromCookie() {
+    var match = document.cookie.match(/\bcsrftoken=([^;]+)/);
+    return match ? match[1].trim() : '';
+  }
+
+  function updateOfflineBanner() {
+    var banner = document.getElementById('offlineBanner');
+    var msgEl = document.getElementById('offlineBannerMsg');
+    var iconEl = document.getElementById('offlineBannerIcon');
+    var countEl = document.getElementById('offlinePendingCount');
+    var headerBadge = document.getElementById('headerPendingSync');
+    var headerNum = document.getElementById('headerPendingSyncNum');
+    if (!banner) return;
+    var q = _offlineQueueCache;
+    var isOffline = !navigator.onLine;
+
+    // Header badge: always show pending count when queue > 0 so guards see what's queued
+    if (headerBadge && headerNum) {
+      if (q.length > 0) {
+        headerBadge.classList.add('show');
+        headerNum.textContent = q.length;
+      } else {
+        headerBadge.classList.remove('show');
+      }
+    }
+
+    // Warn if queue is getting large
+    if (q.length > OFFLINE_QUEUE_MAX * 0.8) {
+      showNotification('Offline queue has ' + q.length + ' items. Sync soon!', 'warning');
+    }
+
+    if (isOffline) {
+      banner.classList.add('show');
+      banner.classList.remove('pending-sync');
+      if (iconEl) {
+        iconEl.className = 'fas fa-wifi fa-slash';
+        iconEl.setAttribute('aria-hidden', 'true');
+      }
+      if (msgEl) msgEl.textContent = "You're offline. Scans are saved on this device and will sync when you're back online.";
+      if (countEl) {
+        if (q.length >= OFFLINE_QUEUE_MAX) {
+          countEl.textContent = q.length + ' scan(s) pending (queue full — sync when online)';
+        } else {
+          countEl.textContent = q.length ? q.length + ' scan(s) pending sync' : 'No scans pending';
+        }
+      }
+    } else {
+      if (q.length > 0) {
+        banner.classList.add('show', 'pending-sync');
+        if (iconEl) {
+          iconEl.className = 'fas fa-cloud-upload-alt';
+          iconEl.setAttribute('aria-hidden', 'true');
+        }
+        if (msgEl) msgEl.textContent = 'Syncing to server…';
+        if (countEl) countEl.textContent = q.length + ' scan(s) remaining';
+      } else {
+        banner.classList.remove('show', 'pending-sync');
+        if (countEl) countEl.textContent = '';
+      }
+    }
+  }
+
+  function syncOfflineQueue() {
+    if (!navigator.onLine) return;
+    if (_offlineQueueCache.length === 0) {
+      updateOfflineBanner();
+      return;
+    }
+    var csrf = getCsrfFromCookie();
+    var saveScanUrl = "{% url 'save_scan' %}";
+    var eventScanUrl = "{% url 'scan_event_qr' %}";
+    
+    function sendNext() {
+      if (_offlineQueueCache.length === 0) {
+        updateOfflineBanner();
+        showNotification('All offline scans synced to server.', 'info');
+        refreshLiveEntriesPanel();
+        return;
+      }
+      var item = _offlineQueueCache[0];
+      var url = saveScanUrl;
+      var body = { csrfmiddlewaretoken: csrf };
+      
+      // Route to correct endpoint
+      if (item.event_id) {
+        // Event attendance scan
+        url = eventScanUrl;
+        body.event_id = item.event_id;
+        body.qr = item.qr || item.student_id;
+        // Enforce IN/OUT only for scan_type
+        var st = (item.scan_type || item.status || 'IN').toUpperCase();
+        body.scan_type = (st === 'OUT') ? 'OUT' : 'IN';
+        body.device_id = DEVICE_ID + '-OFFLINE';
+        if (item.client_ts) body.client_scan_time = item.client_ts;
+      } else {
+        // Daily gate entry
+        body.student_id = item.qr || item.student_id;
+        var status = item.manual_status || item.status || 'IN';
+        if (status) body.manual_status = status;
+        if (item.local_time) body.local_time = item.local_time;
+      }
+      
+      updateOfflineBanner();
+      $.post(url, body)
+        .done(function(response) {
+          var result = response.result || '';
+          var student_id = item.qr || item.student_id;
+          
+          // Clear offline mark on success or duplicate (don't retry these)
+          if (item.event_id && (result === 'SUCCESS' || result === 'DUPLICATE' || result === 'NOT_CHECKED_IN')) {
+            clearOfflineEventMark(student_id, item.event_id, body.scan_type);
+          }
+          
+          // Play appropriate feedback
+          if ((response.success || response.ok) && result === 'SUCCESS') {
+            playSuccessBeep && playSuccessBeep();
+            var name = response.student_name || (response.student && response.student.name) || '';
+            showNotification(name + ' synced to server.', 'info');
+          } else if (result === 'DUPLICATE' || result === 'NOT_CHECKED_IN') {
+            // Don't play error for expected states
+            console.log('Offline scan was duplicate or not checked in:', item.id);
+          }
+          
+          // Remove from queue and continue
+          removeOfflineRecord(item.id, sendNext);
+        })
+        .fail(function(xhr) {
+          console.error('Sync failed for item', item.id, xhr);
+          // Don't block queue: remove this item and continue with next
+          // (Failed items won't be retried to prevent infinite loops)
+          showNotification('Some scans could not sync. Check network.', 'warning');
+          removeOfflineRecord(item.id, sendNext);
+        });
+    }
+    sendNext();
+  }
+
+  window.addEventListener('online', function() {
+    loadOfflineQueueFromDB(function() {
+      updateOfflineBanner();
+      if (_offlineQueueCache.length > 0) syncOfflineQueue();
+    });
+  });
+  window.addEventListener('offline', function() {
+    updateOfflineBanner();
+  });
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register("{% url 'gate-scan-sw' %}?v=1", { scope: '/gate/' })
+      .then(function() {})
+      .catch(function() {});
+  }
+
+  loadOfflineQueueFromDB(function() {
+    updateOfflineBanner();
+    if (navigator.onLine && _offlineQueueCache.length > 0) syncOfflineQueue();
+  });
+
+  // -------------------------
+  // Live entries panel (right side)
+  // -------------------------
+  var entriesPopupUrl = "{% url 'gate-entry-list' %}?embed=1";
+  var liveEntriesPanel = document.getElementById('liveEntriesPanel');
+  var liveEntriesIframe = document.getElementById('liveEntriesIframe');
+  var liveEntriesRefreshBtn = document.getElementById('liveEntriesRefreshBtn');
+  var liveEntriesAutoToggleBtn = document.getElementById('liveEntriesAutoToggleBtn');
+  var liveEntriesAutoStatus = document.getElementById('liveEntriesAutoStatus');
+  var liveEntriesIntervalSelect = document.getElementById('liveEntriesRefreshInterval');
+  var liveEntriesIntervalLabel = document.getElementById('liveEntriesIntervalLabel');
+  var liveEntriesLastRefresh = document.getElementById('liveEntriesLastRefresh');
+  var LIVE_ENTRIES_REFRESH_KEY = 'live_entries_refresh_sec';
+  var LIVE_ENTRIES_AUTO_KEY = 'live_entries_auto_enabled';
+  var liveEntriesRefreshSeconds = 5;
+  var liveEntriesAutoEnabled = true;
+  var liveEntriesRefreshTimer = null;
+
+  function isValidLiveEntriesRefreshValue(value) {
+    return value === '5' || value === '10' || value === '15';
+  }
+
+  function readLiveEntriesRefreshSeconds() {
+    var saved = localStorage.getItem(LIVE_ENTRIES_REFRESH_KEY);
+    if (isValidLiveEntriesRefreshValue(saved)) return parseInt(saved, 10);
+    return 5;
+  }
+
+  function readLiveEntriesAutoEnabled() {
+    var saved = localStorage.getItem(LIVE_ENTRIES_AUTO_KEY);
+    if (saved === '0' || saved === 'false') return false;
+    if (saved === '1' || saved === 'true') return true;
+    return true;
+  }
+
+  function getLiveEntriesActiveTab() {
+    if (!liveEntriesIframe) return '';
+    try {
+      var doc = liveEntriesIframe.contentWindow && liveEntriesIframe.contentWindow.document;
+      if (!doc) return '';
+      var active = doc.querySelector('.entries-tabs a.active');
+      return active ? (active.getAttribute('data-tab') || '') : '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function markLiveEntriesRefresh() {
+    if (!liveEntriesLastRefresh) return;
+    liveEntriesLastRefresh.textContent = new Date().toLocaleTimeString();
+  }
+
+  function fitLiveEntriesFrameHeight() {
+    if (!liveEntriesIframe) return;
+    try {
+      var doc = liveEntriesIframe.contentWindow && liveEntriesIframe.contentWindow.document;
+      if (!doc) return;
+      var body = doc.body;
+      var html = doc.documentElement;
+      if (!body || !html) return;
+      var contentHeight = Math.max(
+        body.scrollHeight || 0,
+        body.offsetHeight || 0,
+        html.clientHeight || 0,
+        html.scrollHeight || 0,
+        html.offsetHeight || 0
+      );
+      var activeTab = 'entries';
+      var activeTabEl = doc.querySelector('.entries-tabs a.active');
+      if (activeTabEl) activeTab = activeTabEl.getAttribute('data-tab') || 'entries';
+      var activePane = doc.getElementById('pane-' + activeTab);
+      var isEmpty = false;
+      if (activePane) {
+        var tbody = activePane.querySelector('tbody');
+        if (tbody) {
+          var rows = tbody.querySelectorAll('tr');
+          var emptyCell = tbody.querySelector('tr td[colspan]');
+          isEmpty = !!emptyCell && rows.length === 1;
+        }
+      }
+      if (liveEntriesPanel) {
+        liveEntriesPanel.classList.toggle('compact-empty', isEmpty);
+      }
+      // Smooth collapse when empty; expand as data grows.
+      var minHeight = window.innerWidth <= 768 ? 170 : 180;
+      var maxHeight = Math.max(300, Math.floor(window.innerHeight * 0.72));
+      var emptyTarget = window.innerWidth <= 768 ? 190 : 220;
+      var target = isEmpty ? emptyTarget : Math.min(maxHeight, Math.max(minHeight, contentHeight + 4));
+      var current = parseInt(liveEntriesIframe.style.height || '0', 10) || 0;
+      if (Math.abs(current - target) > 1) {
+        liveEntriesIframe.style.height = target + 'px';
+      }
+    } catch (e) {
+      // Ignore (safe fallback is CSS height)
+    }
+  }
+
+  function updateLiveEntriesIntervalLabel() {
+    if (!liveEntriesIntervalLabel) return;
+    liveEntriesIntervalLabel.textContent = String(liveEntriesRefreshSeconds);
+  }
+
+  function updateLiveEntriesAutoUI() {
+    if (liveEntriesAutoStatus) {
+      liveEntriesAutoStatus.textContent = liveEntriesAutoEnabled ? 'ON' : 'OFF';
+    }
+    if (liveEntriesAutoToggleBtn) {
+      liveEntriesAutoToggleBtn.classList.remove('on', 'off');
+      liveEntriesAutoToggleBtn.classList.add(liveEntriesAutoEnabled ? 'on' : 'off');
+      liveEntriesAutoToggleBtn.innerHTML = '<i class="fas fa-eye-slash"></i> Hide Filters ' + (liveEntriesAutoEnabled ? 'ON' : 'OFF');
+    }
+  }
+
+  function refreshLiveEntriesPanel(forceRefresh, preferredTab) {
+    if (!liveEntriesIframe || !navigator.onLine) return;
+    if (!forceRefresh && !liveEntriesAutoEnabled) return;
+    var tab = preferredTab || getLiveEntriesActiveTab();
+    var nextUrl = entriesPopupUrl;
+    if (liveEntriesAutoEnabled) nextUrl += '&hide_controls=1';
+    if (tab) nextUrl += '&tab=' + encodeURIComponent(tab);
+    nextUrl += '&_ts=' + Date.now();
+    liveEntriesIframe.src = nextUrl;
+    markLiveEntriesRefresh();
+  }
+
+  function restartLiveEntriesAutoRefresh() {
+    if (liveEntriesRefreshTimer) {
+      clearInterval(liveEntriesRefreshTimer);
+      liveEntriesRefreshTimer = null;
+    }
+    if (!liveEntriesIframe || !liveEntriesAutoEnabled) return;
+    liveEntriesRefreshTimer = setInterval(function() {
+      refreshLiveEntriesPanel();
+    }, liveEntriesRefreshSeconds * 1000);
+  }
+
+  if (liveEntriesRefreshBtn) {
+    liveEntriesRefreshBtn.addEventListener('click', function() {
+      refreshLiveEntriesPanel(true);
+    });
+  }
+  if (liveEntriesAutoToggleBtn) {
+    liveEntriesAutoEnabled = readLiveEntriesAutoEnabled();
+    liveEntriesAutoToggleBtn.addEventListener('click', function() {
+      liveEntriesAutoEnabled = !liveEntriesAutoEnabled;
+      localStorage.setItem(LIVE_ENTRIES_AUTO_KEY, liveEntriesAutoEnabled ? '1' : '0');
+      updateLiveEntriesAutoUI();
+      restartLiveEntriesAutoRefresh();
+      refreshLiveEntriesPanel(true);
+    });
+  } else {
+    liveEntriesAutoEnabled = readLiveEntriesAutoEnabled();
+  }
+  if (liveEntriesIntervalSelect) {
+    liveEntriesRefreshSeconds = readLiveEntriesRefreshSeconds();
+    liveEntriesIntervalSelect.value = String(liveEntriesRefreshSeconds);
+    liveEntriesIntervalSelect.addEventListener('change', function() {
+      var next = String(liveEntriesIntervalSelect.value || '');
+      if (!isValidLiveEntriesRefreshValue(next)) return;
+      liveEntriesRefreshSeconds = parseInt(next, 10);
+      localStorage.setItem(LIVE_ENTRIES_REFRESH_KEY, next);
+      updateLiveEntriesIntervalLabel();
+      restartLiveEntriesAutoRefresh();
+      if (liveEntriesAutoEnabled) refreshLiveEntriesPanel(true);
+    });
+  }
+  updateLiveEntriesIntervalLabel();
+  updateLiveEntriesAutoUI();
+  if (liveEntriesIframe) {
+    liveEntriesIframe.addEventListener('load', function() {
+      markLiveEntriesRefresh();
+      fitLiveEntriesFrameHeight();
+      // Re-fit after internal tab switch (entries / visitors / incidents)
+      try {
+        var doc = liveEntriesIframe.contentWindow && liveEntriesIframe.contentWindow.document;
+        if (doc && !doc.__liveEntriesTabResizeBound) {
+          doc.__liveEntriesTabResizeBound = true;
+          doc.addEventListener('click', function(e) {
+            var tabBtn = e.target && e.target.closest ? e.target.closest('.entries-tabs a') : null;
+            if (tabBtn) setTimeout(fitLiveEntriesFrameHeight, 0);
+          });
+        }
+      } catch (e) {}
+    });
+    restartLiveEntriesAutoRefresh();
+    refreshLiveEntriesPanel(true);
+  }
+  window.addEventListener('resize', function() {
+    fitLiveEntriesFrameHeight();
+  });
+
+  // -------------------------
+  // Incidents nav removed; incidents are in Entries modal (Incidents tab) if needed
+  // -------------------------
+
+  // -------------------------
+  // Event attendees popup (when tracking an event: button opens modal table)
+  // -------------------------
+  var eventAttendeesPopupClose = document.getElementById('eventAttendeesPopupClose');
+  if (eventAttendeesBtn) {
+    eventAttendeesBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (!selectedEventId) return;
+      var url = "{% url 'gate-event-attendees-embed' %}?event_id=" + encodeURIComponent(selectedEventId) + "&from_date=" + getTodayISO();
+      if (eventAttendeesIframe) eventAttendeesIframe.src = url;
+      if (eventAttendeesPopupOverlay) eventAttendeesPopupOverlay.classList.add('show');
+    });
+  }
+  if (eventAttendeesPopupClose) {
+    eventAttendeesPopupClose.addEventListener('click', function() {
+      if (eventAttendeesPopupOverlay) eventAttendeesPopupOverlay.classList.remove('show');
+      if (eventAttendeesIframe) eventAttendeesIframe.src = 'about:blank';
+    });
+  }
+  if (eventAttendeesPopupOverlay) {
+    eventAttendeesPopupOverlay.addEventListener('click', function(e) {
+      if (e.target === eventAttendeesPopupOverlay) {
+        eventAttendeesPopupOverlay.classList.remove('show');
+        if (eventAttendeesIframe) eventAttendeesIframe.src = 'about:blank';
+      }
+    });
+  }
+
+  // -------------------------
+  // Notification System
+  // -------------------------
+  function showNotification(message, type, title, time) {
+    type = type || 'info';
+    var icons = {
+      in: 'fa-sign-in-alt',
+      out: 'fa-sign-out-alt',
+      error: 'fa-exclamation-circle',
+      warning: 'fa-exclamation-triangle',
+      info: 'fa-info-circle'
+    };
+    var displayTime = time || new Date().toLocaleTimeString();
+    var titleText = type === 'in' ? 'CHECKED IN' : type === 'out' ? 'CHECKED OUT' : type.toUpperCase();
+
+    var el = document.createElement('div');
+    el.className = 'notification ' + type;
+    el.innerHTML =
+      '<i class="fas ' + (icons[type] || icons.info) + ' notification-icon"></i>' +
+      '<div class="notification-content">' +
+        '<div class="notification-title">' + titleText + '</div>' +
+        '<div class="notification-message">' + message + '</div>' +
+        '<div class="notification-time"><i class="far fa-clock"></i> ' + displayTime + '</div>' +
+      '</div>' +
+      '<button class="notification-close" type="button"><i class="fas fa-times"></i></button>';
+
+    var center = document.getElementById('notificationCenter');
+    center.appendChild(el);
+
+    el.querySelector('.notification-close').addEventListener('click', function() {
+      el.classList.add('hiding');
+      setTimeout(function() { if (el.parentNode) el.remove(); }, 400);
+    });
+
+    setTimeout(function() {
+      if (el.parentNode) {
+        el.classList.add('hiding');
+        setTimeout(function() { if (el.parentNode) el.remove(); }, 400);
+      }
+    }, 2600);
+
+    var all = center.querySelectorAll('.notification');
+    if (all.length > 5) {
+      all[0].classList.add('hiding');
+      setTimeout(function() { if (all[0].parentNode) all[0].remove(); }, 400);
+    }
+  }
+
+  var isProcessingScan = false;
+  var duplicateScanStudentId = null;
+  var duplicateScanInLunchWindow = false;
+  var duplicateScanAllClassesDone = false;
+  var lastScanStudentId = null;
+  var pendingRegistrationStudentId = null;
+
+  // -------------------------
+  // Student info popup (shown on successful scan)
+  // -------------------------
+  function showStudentPopup(response) {
+    var student = response.student || {};
+    var overlay = document.getElementById('studentPopupOverlay');
+    var headerEl = overlay.querySelector('.student-popup-header');
+    var statusEl = document.getElementById('studentPopupStatus');
+    var formEl = document.getElementById('popupEarlyOutForm');
+    var regEl = document.getElementById('popupRegistrationForm');
+
+    var badgeEl = document.getElementById('studentPopupBadge');
+    if (badgeEl) {
+      badgeEl.textContent = (response.result === 'ALLOWED' || response.ok || response.success) ? 'ALLOWED' : (response.denied ? 'DENIED' : '');
+      badgeEl.className = 'student-popup-badge' + (response.denied ? ' denied' : '');
+      badgeEl.style.display = (response.not_registered || response.inactive) ? 'none' : 'inline-block';
+    }
+    document.getElementById('studentPopupName').textContent = response.student_name || (student.first_name + ' ' + student.last_name).trim() || '—';
+    document.getElementById('studentPopupId').textContent = 'ID: ' + (student.student_id || '—');
+    var courseParts = [student.course_or_section || '', student.year_level || ''].filter(Boolean);
+    var courseEl = document.getElementById('studentPopupCourse');
+    if (courseEl) courseEl.textContent = courseParts.length ? courseParts.join(' · ') : '';
+    document.getElementById('studentPopupEmail').textContent = student.email || 'No email';
+    var scanTypeEl = document.getElementById('studentPopupScanType');
+    if (scanTypeEl) scanTypeEl.textContent = (response.status === 'OUT' ? 'OUT' : 'IN');
+    document.getElementById('studentPopupTime').textContent = response.time || new Date().toLocaleTimeString();
+    if (regEl) regEl.style.display = 'none';
+    pendingRegistrationStudentId = null;
+    if (response.require_reason) {
+      headerEl.querySelector('h2').innerHTML = '<i class="fas fa-pen-square"></i> Enter reason for early exit';
+      headerEl.classList.add('duplicate');
+      statusEl.textContent = response.message || 'Student has ongoing class. Enter a valid reason below to allow exit (for proof/audit).';
+      statusEl.className = 'student-popup-status duplicate';
+      formEl.classList.add('show');
+      formEl.style.display = 'block';
+      document.getElementById('popupOutReason').value = '';
+      document.getElementById('popupOutReason').placeholder = 'e.g. Emergency, clinic, appointment, official business... (required for proof)';
+      var scheduleStatusEl = document.getElementById('popupScheduleStatus');
+      if (scheduleStatusEl && (response.schedule_hint || response.deny_reason)) {
+        scheduleStatusEl.style.display = 'flex';
+        scheduleStatusEl.innerHTML = '<i class="fas fa-info-circle"></i> <span>' + escapeHtml(response.schedule_hint || response.deny_reason || '') + '</span>';
+        scheduleStatusEl.className = 'popup-schedule-status schedule-warning';
+      } else if (scheduleStatusEl) {
+        scheduleStatusEl.style.display = 'none';
+      }
+      duplicateScanStudentId = null;
+      duplicateScanInLunchWindow = false;
+      duplicateScanAllClassesDone = response.all_classes_done || false;
+      if (badgeEl) {
+        badgeEl.textContent = 'REASON REQUIRED';
+        badgeEl.className = 'student-popup-badge denied';
+        badgeEl.style.display = 'inline-block';
+      }
+      if (window._pendingReasonScan) {
+        var sid = student.student_id || response.student_id || (document.getElementById('studentPopupId') ? document.getElementById('studentPopupId').textContent.replace(/^ID:\s*/, '').trim() : '');
+        if (sid) window._pendingReasonScan.student_id = sid;
+      }
+    } else if (response.denied && !response.already_scanned) {
+      headerEl.querySelector('h2').innerHTML = '<i class="fas fa-exclamation-circle"></i> Exit not allowed';
+      headerEl.classList.add('duplicate');
+      statusEl.textContent = response.message || 'Scan not allowed.';
+      statusEl.className = 'student-popup-status duplicate';
+      formEl.classList.add('show');
+      formEl.style.display = 'block';
+      document.getElementById('popupOutReason').value = '';
+      document.getElementById('popupOutReason').placeholder = 'Enter a valid reason for early exit (for proof/audit), then click Submit.';
+      var scheduleStatusEl = document.getElementById('popupScheduleStatus');
+      if (scheduleStatusEl && (response.schedule_hint || response.deny_reason)) {
+        scheduleStatusEl.style.display = 'flex';
+        scheduleStatusEl.innerHTML = '<i class="fas fa-info-circle"></i> <span>' + escapeHtml(response.schedule_hint || response.deny_reason || '') + '</span>';
+        scheduleStatusEl.className = 'popup-schedule-status schedule-warning';
+      } else if (scheduleStatusEl) {
+        scheduleStatusEl.style.display = 'none';
+      }
+      duplicateScanStudentId = null;
+      duplicateScanInLunchWindow = false;
+      duplicateScanAllClassesDone = response.all_classes_done || false;
+      var sid = student.student_id || response.student_id || (document.getElementById('studentPopupId') ? document.getElementById('studentPopupId').textContent.replace(/^ID:\s*/, '').trim() : '');
+      window._pendingReasonScan = { student_id: sid || '', manual_status: 'OUT' };
+    } else if (response.already_scanned) {
+      headerEl.querySelector('h2').innerHTML = '<i class="fas fa-exclamation-triangle"></i> Already scanned today';
+      headerEl.classList.add('duplicate');
+      statusEl.textContent = 'First scan at ' + (response.first_scan_time || '—') + '. No duplicate recorded.';
+      statusEl.className = 'student-popup-status duplicate';
+      formEl.classList.add('show');
+      formEl.style.display = 'block';
+      document.getElementById('popupOutReason').value = '';
+      duplicateScanStudentId = student.student_id || null;
+      duplicateScanInLunchWindow = response.in_lunch_exit_window || false;
+      duplicateScanAllClassesDone = response.all_classes_done || false;
+      
+      // IMPORTANT: Only show class schedule messages for DAILY GATE scans, not event scans
+      var scheduleStatusEl = document.getElementById('popupScheduleStatus');
+      if (scheduleStatusEl && !response.event_attendance) {
+        // Daily gate scan - show class schedule messages
+        scheduleStatusEl.style.display = 'flex';
+        if (response.in_lunch_exit_window) {
+          scheduleStatusEl.innerHTML = '<i class="fas fa-info-circle"></i> <span>Based on class schedule: Lunch break (11:59 AM–12:59 PM) — exit allowed without reason.</span>';
+          scheduleStatusEl.className = 'popup-schedule-status schedule-info';
+        } else if (response.all_classes_done) {
+          if (response.all_classes_done_based_on_schedule) {
+          scheduleStatusEl.innerHTML = '<i class="fas fa-check-circle"></i> <span>Based on class schedule: All classes done for today — exit allowed without reason.</span>';
+          } else {
+            scheduleStatusEl.innerHTML = '<i class="fas fa-info-circle"></i> <span>No class schedule on file; exit allowed without reason.</span>';
+          }
+          scheduleStatusEl.className = 'popup-schedule-status schedule-ok';
+        } else if (response.in_class_now && response.class_until) {
+          scheduleStatusEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Based on class schedule: Still class hours (class until ' + (response.class_until || '—') + '). Valid reason required for early exit.</span>';
+          scheduleStatusEl.className = 'popup-schedule-status schedule-warning';
+        } else {
+          scheduleStatusEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Based on class schedule: Classes not yet finished for the day. Valid reason required for early exit.</span>';
+          scheduleStatusEl.className = 'popup-schedule-status schedule-warning';
+        }
+      } else if (scheduleStatusEl) {
+        // Event scan - hide class schedule messages
+        scheduleStatusEl.style.display = 'none';
+      }
+      
+      var inClassNotice = document.getElementById('popupInClassNotice');
+      if (inClassNotice && !response.event_attendance) {
+        // Daily gate scan - show class schedule notice
+        if (response.in_lunch_exit_window) {
+          inClassNotice.textContent = 'Lunch break (11:59 AM–12:59 PM): exit allowed without reason.';
+          inClassNotice.style.display = 'block';
+          inClassNotice.className = 'popup-in-class-notice info';
+        } else if (response.all_classes_done) {
+          inClassNotice.textContent = response.all_classes_done_based_on_schedule
+            ? 'All classes done for today: exit allowed without reason.'
+            : 'No class schedule on file; exit allowed without reason.';
+          inClassNotice.style.display = 'block';
+          inClassNotice.className = 'popup-in-class-notice info';
+        } else if (response.in_class_now && response.class_until) {
+          inClassNotice.textContent = 'Student has class until ' + response.class_until + '. Valid reason required for early exit (guard approval).';
+          inClassNotice.style.display = 'block';
+          inClassNotice.className = 'popup-in-class-notice warning';
+        } else {
+          inClassNotice.textContent = 'Classes not yet finished for the day. Valid reason required for early exit (guard approval).';
+          inClassNotice.style.display = 'block';
+          inClassNotice.className = 'popup-in-class-notice warning';
+        }
+      } else if (inClassNotice) {
+        // Event scan - hide class schedule notice
+        inClassNotice.style.display = 'none';
+      }
+    } else if (response.not_registered || response.inactive) {
+      if (response.inactive) {
+        headerEl.querySelector('h2').innerHTML = '<i class="fas fa-user-lock"></i> Activation Required';
+        document.getElementById('studentPopupName').textContent = 'Activation Required';
+        if (regEl) regEl.style.display = 'none';
+        pendingRegistrationStudentId = null;
+      } else {
+        headerEl.querySelector('h2').innerHTML = '<i class="fas fa-user-plus"></i> Registration required';
+        document.getElementById('studentPopupName').textContent = 'Registration required';
+        pendingRegistrationStudentId = response.student_id || null;
+        if (regEl) regEl.style.display = 'block';
+      }
+      headerEl.classList.add('duplicate');
+      statusEl.textContent = response.message || (response.inactive ? 'Student is registered but not active (pending approval).' : 'Student is not registered.');
+      if (response.inactive) {
+        statusEl.textContent = statusEl.textContent + ' An admin can reactivate the account in Gate → Students.';
+      }
+      statusEl.className = 'student-popup-status duplicate';
+      formEl.classList.remove('show');
+      var scheduleStatusEl = document.getElementById('popupScheduleStatus');
+      if (scheduleStatusEl) scheduleStatusEl.style.display = 'none';
+      duplicateScanStudentId = null;
+      duplicateScanInLunchWindow = false;
+      duplicateScanAllClassesDone = false;
+      document.getElementById('studentPopupId').textContent = 'ID: ' + (response.student_id || '—');
+      document.getElementById('studentPopupEmail').textContent = '—';
+    } else if (response.registered) {
+      headerEl.querySelector('h2').innerHTML = '<i class="fas fa-user-clock"></i> Registration submitted';
+      headerEl.classList.add('duplicate');
+      statusEl.textContent = response.message || 'Registration submitted.';
+      statusEl.className = 'student-popup-status duplicate';
+      formEl.classList.remove('show');
+      var scheduleStatusEl = document.getElementById('popupScheduleStatus');
+      if (scheduleStatusEl) scheduleStatusEl.style.display = 'none';
+      duplicateScanStudentId = null;
+      duplicateScanInLunchWindow = false;
+      duplicateScanAllClassesDone = false;
+      pendingRegistrationStudentId = null;
+    } else {
+      headerEl.querySelector('h2').innerHTML = '<i class="fas fa-user-check"></i> Scan successful';
+      headerEl.classList.remove('duplicate');
+      statusEl.textContent = (response.status === 'OUT' ? 'Checked out' : 'Checked in') + ' at ' + (response.time || '');
+      statusEl.className = 'student-popup-status ' + (response.status === 'OUT' ? 'out' : 'in');
+      formEl.classList.remove('show');
+      var scheduleStatusEl = document.getElementById('popupScheduleStatus');
+      if (scheduleStatusEl) {
+        if (response.forced_out_no_in) {
+          scheduleStatusEl.style.display = 'flex';
+          scheduleStatusEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span><strong>Forced OUT</strong> recorded (no prior IN today). Guard reason saved for audit.</span>';
+          scheduleStatusEl.className = 'popup-schedule-status schedule-warning';
+        } else if (response.status === 'OUT' && response.all_classes_done) {
+          scheduleStatusEl.style.display = 'flex';
+          scheduleStatusEl.innerHTML = '<i class="fas fa-check-circle"></i> <span><strong>All classes are done</strong> (per your load slip). You can now exit without a valid reason.</span>';
+          scheduleStatusEl.className = 'popup-schedule-status schedule-ok';
+        } else if (response.schedule_hint && (response.schedule_based !== false)) {
+          scheduleStatusEl.style.display = 'flex';
+          scheduleStatusEl.innerHTML = '<i class="fas fa-calendar-alt"></i> <span>Based on your load slip: ' + escapeHtml(response.schedule_hint) + '</span>';
+          scheduleStatusEl.className = 'popup-schedule-status schedule-info';
+        } else {
+          scheduleStatusEl.style.display = 'none';
+        }
+      }
+      duplicateScanStudentId = null;
+      duplicateScanInLunchWindow = false;
+      duplicateScanAllClassesDone = false;
+      lastScanStudentId = student.student_id || null;
+    }
+    var photoEl = document.getElementById('studentPopupPhoto');
+    if (student.photo_url) {
+      photoEl.src = student.photo_url;
+      photoEl.style.display = 'block';
+      photoEl.onerror = function() { photoEl.style.display = 'none'; };
+    } else {
+      photoEl.style.display = 'none';
+    }
+    overlay.classList.add('show');
+    if (!response.already_scanned && !response.require_reason && !response.denied && !response.not_registered && !response.inactive) {
+      setTimeout(function() {
+        if (overlay.classList.contains('show')) overlay.classList.remove('show');
+      }, 5000);
+    }
+  }
+
+  function closeStudentPopup() {
+    document.getElementById('studentPopupOverlay').classList.remove('show');
+    document.getElementById('popupEarlyOutForm').classList.remove('show');
+    var scheduleStatusEl = document.getElementById('popupScheduleStatus');
+    if (scheduleStatusEl) scheduleStatusEl.style.display = 'none';
+    document.getElementById('popupOutReason').value = '';
+    var regEl = document.getElementById('popupRegistrationForm');
+    if (regEl) regEl.style.display = 'none';
+    var fn = document.getElementById('popupRegFirstName');
+    var ln = document.getElementById('popupRegLastName');
+    var sx = document.getElementById('popupRegSex');
+    var em = document.getElementById('popupRegEmail');
+    if (fn) fn.value = '';
+    if (ln) ln.value = '';
+    if (sx) sx.value = '';
+    if (em) em.value = '';
+    duplicateScanStudentId = null;
+    duplicateScanInLunchWindow = false;
+    duplicateScanAllClassesDone = false;
+    pendingRegistrationStudentId = null;
+  }
+
+  document.getElementById('studentPopupClose').addEventListener('click', closeStudentPopup);
+  document.getElementById('studentPopupOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeStudentPopup();
+  });
+
+  document.getElementById('popupBtnBack').addEventListener('click', function() {
+    document.getElementById('popupEarlyOutForm').classList.remove('show');
+    document.getElementById('popupEarlyOutForm').style.display = 'none';
+    document.getElementById('popupOutReason').value = '';
+    closeStudentPopup();
+  });
+
+  document.getElementById('popupBtnRegCancel').addEventListener('click', closeStudentPopup);
+
+  document.getElementById('popupBtnRegSubmit').addEventListener('click', function() {
+    if (!pendingRegistrationStudentId) {
+      showNotification('Session expired. Please scan again.', 'error');
+      return;
+    }
+    var firstName = (document.getElementById('popupRegFirstName').value || '').trim();
+    var lastName = (document.getElementById('popupRegLastName').value || '').trim();
+    var sex = (document.getElementById('popupRegSex').value || '').trim();
+    var email = (document.getElementById('popupRegEmail').value || '').trim();
+    if (!firstName || !lastName) {
+      showNotification('Please enter first name and last name.', 'warning');
+      return;
+    }
+    if (!sex) {
+      showNotification('Please select sex/gender.', 'warning');
+      return;
+    }
+    var btn = this;
+    btn.disabled = true;
+    $.post("{% url 'gate-register-student' %}", {
+      student_id: pendingRegistrationStudentId,
+      first_name: firstName,
+      last_name: lastName,
+      sex: sex,
+      email: email,
+      csrfmiddlewaretoken: "{{ csrf_token }}"
+    }, function(response) {
+      btn.disabled = false;
+      if (response && response.registered) {
+        playSuccessBeep();
+        showNotification(response.message, 'info', response.student_name, response.time);
+        showStudentPopup(response);
+      } else {
+        showNotification(response.message || 'Registration failed.', 'error');
+      }
+    }).fail(function(xhr) {
+      btn.disabled = false;
+      var msg = 'Registration failed.';
+      if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
+      showNotification(msg, 'error');
+    });
+  });
+
+  document.getElementById('popupBtnSubmitOut').addEventListener('click', function() {
+    var reason = document.getElementById('popupOutReason').value.trim();
+    var pending = window._pendingReasonScan;
+    if (pending) {
+      if (!pending.student_id) {
+        var idEl = document.getElementById('studentPopupId');
+        if (idEl) pending.student_id = idEl.textContent.replace(/^ID:\s*/, '').trim();
+      }
+    }
+    if (pending && pending.student_id) {
+      if (!reason || reason.length < 2) {
+        showNotification('Please enter a valid reason for early exit (for proof/audit).', 'warning');
+        return;
+      }
+      var btn = this;
+      btn.disabled = true;
+      var postData = {
+        student_id: String(pending.student_id),
+        manual_status: pending.manual_status || 'OUT',
+        out_reason: reason,
+        reason: reason,
+        device_id: DEVICE_ID,
+        csrfmiddlewaretoken: "{{ csrf_token }}"
+      };
+      if (typeof selectedEventId !== 'undefined' && selectedEventId) postData.event_id = selectedEventId;
+      $.post("{% url 'save_scan' %}", postData, function(response) {
+        btn.disabled = false;
+        window._pendingReasonScan = null;
+        document.getElementById('requireReasonPanel').style.display = 'none';
+        if (response.success) {
+          playSuccessBeep();
+          closeStudentPopup();
+          document.getElementById('result').innerHTML = escapeHtml(response.message || '');
+          document.getElementById('result').className = 'success';
+          if (response.schedule_hint && document.getElementById('resultScheduleHint')) {
+            document.getElementById('resultScheduleHint').innerHTML = '<span>' + escapeHtml(response.schedule_hint) + '</span>';
+            document.getElementById('resultScheduleHint').style.display = 'block';
+          }
+          showNotification(response.message, 'out', response.student_name, response.time || new Date().toLocaleTimeString());
+          refreshLiveEntriesPanel(true, 'entries');
+        } else {
+          showNotification(response.message || 'Exit not allowed.', 'error');
+        }
+        isProcessingScan = false;
+        document.querySelector('.status-indicator').classList.remove('scanning');
+        document.querySelector('.status-indicator span').textContent = 'Scanner ready';
+      }).fail(function(xhr) {
+        btn.disabled = false;
+        var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Request failed. Please try again.';
+        showNotification(msg, 'error');
+      });
+      return;
+    }
+    if (!reason && !duplicateScanInLunchWindow && !duplicateScanAllClassesDone) {
+      showNotification('Please enter a reason for early out (guard approval).', 'warning');
+      return;
+    }
+    if (!duplicateScanStudentId) {
+      showNotification('Session expired. Please scan again.', 'error');
+      return;
+    }
+    var btn = this;
+    btn.disabled = true;
+    $.post("{% url 'record_early_out' %}", {
+      student_id: duplicateScanStudentId,
+      reason: reason,
+      csrfmiddlewaretoken: "{{ csrf_token }}"
+    }, function(response) {
+      btn.disabled = false;
+      if (response.success) {
+        playSuccessBeep();
+        showNotification(response.message, 'out', response.student_name, response.time);
+        closeStudentPopup();
+        refreshLiveEntriesPanel(true, 'entries');
+      } else {
+        showNotification(response.message || 'Failed to record early out.', 'error');
+      }
+    }).fail(function(xhr) {
+      btn.disabled = false;
+      var msg = 'Failed to record early out.';
+      var data = xhr.responseJSON || {};
+      if (data.message) msg = data.message;
+      showNotification(msg, 'error');
+      if (data.blocked_during_class) {
+        var notice = document.getElementById('popupInClassNotice');
+        if (notice) {
+          notice.textContent = msg;
+          notice.style.display = 'block';
+          notice.className = 'popup-in-class-notice error';
+        }
+      }
+    });
+  });
+
+  // -------------------------
+  // Beep on successful scan (Web Audio API)
+  // -------------------------
+  function playSuccessBeep() {
+    try {
+      var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      var oscillator = audioContext.createOscillator();
+      var gainNode = audioContext.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.15);
+    } catch (e) {}
+  }
+
+  function playErrorBeep() {
+    try {
+      var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      function playTone(freq, startTime) {
+        var osc = audioContext.createOscillator();
+        var gain = audioContext.createGain();
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.frequency.value = freq;
+        osc.type = 'square';
+        gain.gain.setValueAtTime(0.15, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.12);
+        osc.start(startTime);
+        osc.stop(startTime + 0.12);
+      }
+      var t = audioContext.currentTime;
+      playTone(300, t);
+      setTimeout(function() {
+        playTone(250, audioContext.currentTime);
+      }, 220);
+    } catch (e) {}
+  }
+
+  // -------------------------
+  // Reusable visitor pass: check-in / check-out modals
+  // -------------------------
+  function openVisitorCheckinModal(passCode) {
+    document.getElementById('visitorCheckinPassCode').textContent = passCode || '';
+    document.getElementById('visitorCheckinPassCodeInput').value = passCode || '';
+    document.getElementById('visitorCheckinFullName').value = '';
+    document.getElementById('visitorCheckinPurpose').value = '';
+    document.getElementById('visitorCheckinDepartment').value = '';
+    document.getElementById('visitorCheckinIdType').value = '';
+    document.getElementById('visitorCheckinIdNumber').value = '';
+    document.getElementById('visitorCheckinNotes').value = '';
+    document.getElementById('visitorCheckinModalOverlay').style.display = 'flex';
+  }
+  function closeVisitorCheckinModal() {
+    document.getElementById('visitorCheckinModalOverlay').style.display = 'none';
+  }
+  function openVisitorCheckoutModal(passCode, visitId, visit) {
+    document.getElementById('visitorCheckoutPassCodeInput').value = passCode || '';
+    document.getElementById('visitorCheckoutVisitId').value = visitId || '';
+    document.getElementById('visitorCheckoutName').textContent = (visit && visit.full_name) || '—';
+    document.getElementById('visitorCheckoutDepartment').textContent = (visit && visit.department) || '—';
+    document.getElementById('visitorCheckoutTime').textContent = (visit && visit.checked_in_time) || (visit && visit.checked_in_at) || '—';
+    document.getElementById('visitorCheckoutModalOverlay').style.display = 'flex';
+  }
+  function closeVisitorCheckoutModal() {
+    document.getElementById('visitorCheckoutModalOverlay').style.display = 'none';
+  }
+
+  document.getElementById('visitorCheckinModalClose').addEventListener('click', closeVisitorCheckinModal);
+  document.getElementById('visitorCheckinCancel').addEventListener('click', closeVisitorCheckinModal);
+  document.getElementById('visitorCheckoutModalClose').addEventListener('click', closeVisitorCheckoutModal);
+  document.getElementById('visitorCheckoutCancel').addEventListener('click', closeVisitorCheckoutModal);
+
+  document.getElementById('visitorCheckinModalOverlay').addEventListener('click', function(e) { if (e.target === this) closeVisitorCheckinModal(); });
+  document.getElementById('visitorCheckoutModalOverlay').addEventListener('click', function(e) { if (e.target === this) closeVisitorCheckoutModal(); });
+
+  // Event Early Out Modal handlers
+  function closeEventEarlyOutModal() {
+    document.getElementById('eventEarlyOutModalOverlay').classList.remove('show');
+    setTimeout(function() {
+      document.getElementById('eventEarlyOutModalOverlay').style.display = 'none';
+      document.getElementById('eventEarlyOutReason').value = '';
+    }, 250);
+  }
+
+  document.getElementById('eventEarlyOutModalClose').addEventListener('click', closeEventEarlyOutModal);
+  document.getElementById('eventEarlyOutCancel').addEventListener('click', closeEventEarlyOutModal);
+  document.getElementById('eventEarlyOutModalOverlay').addEventListener('click', function(e) { 
+    if (e.target === this) closeEventEarlyOutModal(); 
+  });
+
+  document.getElementById('eventEarlyOutSubmit').addEventListener('click', function() {
+    var reason = (document.getElementById('eventEarlyOutReason').value || '').trim();
+    if (!reason) {
+      showNotification('Please provide a reason for leaving early.', 'error');
+      return;
+    }
+    if (reason.length < 5) {
+      showNotification('Reason must be at least 5 characters.', 'error');
+      return;
+    }
+
+    var eventId = document.getElementById('eventEarlyOutEventId').value;
+    var qr = document.getElementById('eventEarlyOutQr').value;
+    var btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+    // Re-submit the scan with early_out_reason
+    var postData = {
+      event_id: eventId,
+      qr: qr,
+      scan_type: 'OUT',
+      early_out_reason: reason,
+      device_id: DEVICE_ID,
+      csrfmiddlewaretoken: "{{ csrf_token }}"
+    };
+
+    $.post("{% url 'scan_event_qr' %}", postData, function(response) {
+      closeEventEarlyOutModal();
+      var resultDiv = document.getElementById('result');
+      var currentTime = new Date().toLocaleTimeString();
+
+      if (response.ok && response.result === 'SUCCESS') {
+        playSuccessBeep();
+        resultDiv.innerHTML = response.message;
+        resultDiv.className = 'success';
+        showNotification(response.message, 'out', response.student.name, response.time || currentTime);
+        showStudentPopup({
+          success: true,
+          status: 'OUT',
+          time: response.time,
+          student_name: response.student.name,
+          student: response.student,
+          event_attendance: true
+        });
+        if (typeof refreshEventAttendeesIframe === 'function') refreshEventAttendeesIframe();
+        refreshLiveEntriesPanel();
+      } else {
+        playErrorBeep();
+        resultDiv.innerHTML = response.message || 'Checkout failed';
+        resultDiv.className = 'error';
+        showNotification(response.message || 'Checkout failed', 'error');
+      }
+    }).fail(function(xhr) {
+      playErrorBeep();
+      var msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Network error. Please try again.';
+      showNotification(msg, 'error');
+    }).always(function() {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-check"></i> Submit & Check Out';
+    });
+  });
+
+  document.getElementById('visitorCheckinSubmit').addEventListener('click', function() {
+    var passCode = document.getElementById('visitorCheckinPassCodeInput').value;
+    var fullName = (document.getElementById('visitorCheckinFullName').value || '').trim();
+    if (!fullName) { showNotification('Full name is required.', 'error'); return; }
+    var formData = new FormData();
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    formData.append('pass_code', passCode);
+    formData.append('full_name', fullName);
+    formData.append('purpose', document.getElementById('visitorCheckinPurpose').value);
+    formData.append('department', document.getElementById('visitorCheckinDepartment').value);
+    formData.append('id_type', document.getElementById('visitorCheckinIdType').value);
+    formData.append('id_number', document.getElementById('visitorCheckinIdNumber').value);
+    formData.append('notes', document.getElementById('visitorCheckinNotes').value);
+    var btn = this;
+    btn.disabled = true;
+    $.ajax({
+      url: "{% url 'visitor-checkin-submit' %}",
+      type: 'POST',
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function(response) {
+        closeVisitorCheckinModal();
+        if (response.success) {
+          playSuccessBeep();
+          document.getElementById('result').innerHTML = (response.message || 'Visitor checked in.');
+          document.getElementById('result').className = 'success';
+          showNotification(response.message || 'Visitor checked in.', 'success', response.pass_code, response.time);
+          refreshLiveEntriesPanel(true, 'visitors');
+        } else {
+          showNotification(response.message || 'Check-in failed.', 'error');
+        }
+      },
+      error: function(xhr) {
+        var msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Check-in failed.';
+        showNotification(msg, 'error');
+      },
+      complete: function() { btn.disabled = false; }
+    });
+  });
+
+  document.getElementById('visitorCheckoutSubmit').addEventListener('click', function() {
+    var passCode = document.getElementById('visitorCheckoutPassCodeInput').value;
+    var visitId = document.getElementById('visitorCheckoutVisitId').value;
+    var formData = new FormData();
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    formData.append('pass_code', passCode);
+    formData.append('visit_id', visitId);
+    var btn = this;
+    btn.disabled = true;
+    $.ajax({
+      url: "{% url 'visitor-checkout-submit' %}",
+      type: 'POST',
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function(response) {
+        closeVisitorCheckoutModal();
+        if (response.success) {
+          playSuccessBeep();
+          document.getElementById('result').innerHTML = (response.message || 'Visitor checked out.');
+          document.getElementById('result').className = 'success';
+          showNotification(response.message || 'Visitor checked out.', 'success', '', response.time);
+          refreshLiveEntriesPanel(true, 'visitors');
+        } else {
+          showNotification(response.message || 'Check-out failed.', 'error');
+        }
+      },
+      error: function(xhr) {
+        var msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Check-out failed.';
+        showNotification(msg, 'error');
+      },
+      complete: function() { btn.disabled = false; }
+    });
+  });
+
+  // -------------------------
+  // Parse QR code: detect type (student ID or event token)
+  // -------------------------
+  function parseStudentId(decodedText) {
+    var text = (decodedText || '').trim();
+    if (!text) return '';
+    // If it's an event token QR (EVT:...), return as-is for event scanning.
+    if (text.toUpperCase().indexOf('EVT:') === 0) return text;
+
+    // Parse line-based payloads first (supports "ID:xxx", visitor codes, and mixed-case prefixes).
+    var lines = text.split(/\r?\n/);
+    for (var i = 0; i < lines.length; i++) {
+      var line = (lines[i] || '').trim();
+      if (!line) continue;
+      var upper = line.toUpperCase();
+      if (upper.indexOf('ID:') === 0) return line.slice(3).trim();
+      if (upper.indexOf('STU:') === 0) return line.slice(4).trim();
+      if (upper.indexOf('VISITOR-') === 0) return 'VISITOR-' + line.slice(8);
+      if (upper.indexOf('VIS-') === 0) return 'VIS-' + line.slice(4);
+    }
+
+    // Support full URL payloads that embed visitor codes (e.g. .../VIS-001 or ?code=VIS-001).
+    var visitorMatch = text.match(/(?:^|[^A-Z0-9_])(VIS-\d{1,6}|VISITOR-[A-Za-z0-9_-]{6,64})(?:$|[^A-Z0-9_-])/i);
+    if (visitorMatch && visitorMatch[1]) {
+      var code = visitorMatch[1];
+      if (code.toUpperCase().indexOf('VISITOR-') === 0) return 'VISITOR-' + code.slice(8);
+      if (code.toUpperCase().indexOf('VIS-') === 0) return 'VIS-' + code.slice(4);
+    }
+
+    // Support "STU:xxx" format too.
+    if (text.toUpperCase().indexOf('STU:') === 0) return text.slice(4).trim();
+    return text;
+  }
+
+  function getCurrentEventId() {
+    var sel = document.getElementById('eventSelector');
+    if (!sel || !sel.value) return null;
+    var v = String(sel.value).trim();
+    return v === '' ? null : v;
+  }
+
+  function onScanSuccess(decodedText, decodedResult) {
+    if (isProcessingScan) return;
+    isProcessingScan = true;
+
+    var statusIndicator = document.querySelector('.status-indicator');
+    statusIndicator.classList.add('scanning');
+    statusIndicator.querySelector('span').textContent = 'Processing QR code...';
+
+    var parsedQr = parseStudentId(decodedText);
+    if (!parsedQr) {
+      playErrorBeep();
+      document.getElementById('result').innerHTML = 'Invalid QR format';
+      document.getElementById('result').className = 'error';
+      showNotification('Invalid QR code format.', 'error');
+      setTimeout(function() {
+        statusIndicator.classList.remove('scanning');
+        statusIndicator.querySelector('span').textContent = 'Scanner ready';
+        isProcessingScan = false;
+      }, 2000);
+      return;
+    }
+
+    var eventIdAtScan = getCurrentEventId();
+    processStudentId(parsedQr, statusIndicator, eventIdAtScan);
+  }
+
+  function processStudentId(qr_or_student_id, statusIndicator, eventIdAtScan) {
+    var currentEventId = (eventIdAtScan !== undefined && eventIdAtScan !== null) ? String(eventIdAtScan).trim() : getCurrentEventId();
+    if (currentEventId === '') currentEventId = null;
+    var isEventScan = currentEventId && currentEventId.length > 0;
+    var isEventToken = qr_or_student_id.startsWith('EVT:');
+    
+    if (!navigator.onLine) {
+      var queueItem = {
+        qr: qr_or_student_id,
+        event_id: currentEventId,
+        scan_type: currentScanMode,  // Use current scan mode instead of hardcoded 'IN'
+        client_ts: new Date().toISOString()
+      };
+      addToOfflineQueue(queueItem, function(isDuplicate) {
+        if (isDuplicate) {
+          playErrorBeep();
+          document.getElementById('result').innerHTML = 'Already scanned. No duplicate recorded.';
+          document.getElementById('result').className = 'warning';
+          showNotification('Already scanned. No duplicate recorded.', 'warning');
+        } else {
+          playSuccessBeep();
+          var n = _offlineQueueCache.length;
+          document.getElementById('result').innerHTML = 'Saved offline' + (n ? ' (' + n + ' scan(s) pending sync). ' : '. ') + 'Will sync when online.';
+          document.getElementById('result').className = 'success';
+          showNotification('Scan saved to local database. Will sync to server when back online.', 'info');
+        }
+        statusIndicator.classList.remove('scanning');
+        statusIndicator.querySelector('span').textContent = 'Scanner ready';
+        isProcessingScan = false;
+      });
+      return;
+    }
+    
+    // ONLINE: Route to correct endpoint
+    if (isEventScan || isEventToken) {
+      // Event attendance scan (token or student ID) – use current dropdown value
+      var postData = {
+        event_id: currentEventId,
+        qr: qr_or_student_id,
+        scan_type: currentScanMode,  // Use current scan mode instead of hardcoded 'IN'
+        device_id: DEVICE_ID,
+        csrfmiddlewaretoken: "{{ csrf_token }}"
+      };
+      
+      $.post("{% url 'scan_event_qr' %}", postData, function(response) {
+        var resultDiv = document.getElementById('result');
+        var currentTime = new Date().toLocaleTimeString();
+        
+        if (response.ok && response.result === 'SUCCESS') {
+          playSuccessBeep();
+          resultDiv.innerHTML = response.message;
+          resultDiv.className = 'success';
+          showNotification(response.message, response.scan_type === 'IN' ? 'in' : 'out', response.student.name, response.time || currentTime);
+          // Show student popup with event info
+          showStudentPopup({
+            success: true,
+            status: response.scan_type,
+            time: response.time,
+            student_name: response.student.name,
+            student: response.student,
+            event_attendance: true
+          });
+        } else if (response.require_event_reason || response.result === 'REQUIRE_EVENT_REASON') {
+          // Student is leaving event early - show event early-out modal (NOT the daily gate popup)
+          console.log('[EVENT EARLY OUT] Detected require_event_reason:', response);
+          playErrorBeep();
+          resultDiv.innerHTML = response.message || 'Reason required for early checkout';
+          resultDiv.className = 'warning';
+          showNotification(response.message || 'Reason required', 'warning');
+          
+          // Populate modal with event and student info
+          document.getElementById('eventEarlyOutStudentName').textContent = response.student?.name || '';
+          document.getElementById('eventEarlyOutEventName').textContent = response.event?.name || '';
+          document.getElementById('eventEarlyOutEventEnd').textContent = response.event?.end_time || '';
+          document.getElementById('eventEarlyOutStudentId').value = response.student?.student_id || '';
+          document.getElementById('eventEarlyOutEventId').value = selectedEventId;
+          document.getElementById('eventEarlyOutQr').value = qr_or_student_id;
+          document.getElementById('eventEarlyOutReason').value = '';
+          
+          // Show the event early-out modal
+          var eventModal = document.getElementById('eventEarlyOutModalOverlay');
+          eventModal.style.display = 'flex';
+          setTimeout(function() {
+            eventModal.classList.add('show');
+            console.log('[EVENT EARLY OUT] Modal shown');
+          }, 10);
+          
+          // Reset scanner state
+          setTimeout(function() {
+            statusIndicator.classList.remove('scanning');
+            statusIndicator.querySelector('span').textContent = 'Scanner ready';
+            isProcessingScan = false;
+          }, 500);
+          
+          // IMPORTANT: Do NOT call showStudentPopup() here - we're showing the event modal instead
+          console.log('[EVENT EARLY OUT] Exiting early to prevent daily gate popup');
+          return; // Exit early to prevent showing the daily gate popup
+        } else {
+          // Handle errors/duplicates
+          playErrorBeep();
+          resultDiv.innerHTML = response.message || 'Scan failed';
+          resultDiv.className = response.color === 'warning' ? 'warning' : 'error';
+          showNotification(response.message || 'Scan failed', response.color === 'warning' ? 'warning' : 'error');
+          
+          if (response.result === 'DUPLICATE' || response.result === 'NOT_CHECKED_IN') {
+            // Show student info even for duplicates - but mark as event attendance to prevent class schedule messages
+            showStudentPopup({
+              already_scanned: true,
+              message: response.message,
+              student_name: response.student?.name || '',
+              student: response.student || {},
+              first_scan_time: response.checked_in_at || '',
+              time: currentTime,
+              event_attendance: true  // IMPORTANT: Prevent class schedule messages for event scans
+            });
+          }
+        }
+        
+        setTimeout(function() {
+          statusIndicator.classList.remove('scanning');
+          statusIndicator.querySelector('span').textContent = 'Scanner ready';
+          isProcessingScan = false;
+        }, 2000);
+        if (response.ok && typeof refreshEventAttendeesIframe === 'function') refreshEventAttendeesIframe();
+        if (response.ok) refreshLiveEntriesPanel();
+      }).fail(function(xhr) {
+        playErrorBeep();
+        var msg = (xhr.status >= 500) ? 'Server error. Please try again or contact support.' : 'Network error. Please check your connection.';
+        if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
+        showNotification(msg, 'error');
+        statusIndicator.classList.remove('scanning');
+        statusIndicator.querySelector('span').textContent = 'Scanner ready';
+        isProcessingScan = false;
+      });
+      return;
+    }
+    
+    // DAILY GATE ENTRY (no event selected)
+    showNotification('Processing student ID: ' + qr_or_student_id, 'info');
+
+    var postData = {
+      student_id: qr_or_student_id,
+      device_id: DEVICE_ID,
+      csrfmiddlewaretoken: "{{ csrf_token }}"
+    };
+    // Daily gate: do not send manual_status — backend will auto-set IN or OUT from current state
+    if (selectedEventId) postData.manual_status = currentScanMode;
+
+    $.post("{% url 'save_scan' %}", postData, function(response) {
+      var resultDiv = document.getElementById('result');
+      var hintDiv = document.getElementById('resultScheduleHint');
+      var reasonPanel = document.getElementById('requireReasonPanel');
+      var currentTime = new Date().toLocaleTimeString();
+      hintDiv.style.display = 'none';
+      hintDiv.innerHTML = '';
+      reasonPanel.style.display = 'none';
+
+      function showScheduleHint() {
+        if (response.schedule_hint || response.next_suggested) {
+          var html = '';
+          if (response.schedule_hint) html += '<span>' + escapeHtml(response.schedule_hint) + '</span>';
+          if (response.next_suggested) html += '<div class="next-suggested">Next: ' + escapeHtml(response.next_suggested) + '</div>';
+          hintDiv.innerHTML = html;
+          hintDiv.style.display = 'block';
+        }
+      }
+
+      if (response.need_visitor_checkin) {
+        // play sound to acknowledge visitor code scan
+        playSuccessBeep && playSuccessBeep();
+        resultDiv.innerHTML = escapeHtml(response.message || 'Visitor check-in');
+        resultDiv.className = 'info';
+        openVisitorCheckinModal(response.pass_code);
+        refreshLiveEntriesPanel(true, 'visitors');
+        setTimeout(function() { statusIndicator.classList.remove('scanning'); statusIndicator.querySelector('span').textContent = 'Scanner ready'; isProcessingScan = false; }, 500);
+        return;
+      }
+      if (response.need_visitor_checkout) {
+        // beep when scanning visitor code for checkout as well
+        playSuccessBeep && playSuccessBeep();
+        resultDiv.innerHTML = escapeHtml(response.message || 'Visitor check-out');
+        resultDiv.className = 'info';
+        openVisitorCheckoutModal(response.pass_code, response.visit_id, response.visit || {});
+        refreshLiveEntriesPanel(true, 'visitors');
+        setTimeout(function() { statusIndicator.classList.remove('scanning'); statusIndicator.querySelector('span').textContent = 'Scanner ready'; isProcessingScan = false; }, 500);
+        return;
+      }
+      if (response.duplicate) {
+        playErrorBeep();
+        resultDiv.innerHTML = escapeHtml(response.message || 'Duplicate scan.');
+        resultDiv.className = 'warning';
+        showNotification(response.message || 'Duplicate scan.', 'warning');
+        setTimeout(function() { statusIndicator.classList.remove('scanning'); statusIndicator.querySelector('span').textContent = 'Scanner ready'; isProcessingScan = false; }, 2000);
+        return;
+      }
+
+      if (response.success) {
+        playSuccessBeep();
+        resultDiv.innerHTML = escapeHtml(response.message);
+        resultDiv.className = response.color === 'success' ? 'success' : 'info';
+        showScheduleHint();
+        showStudentPopup(response);
+        if (response.status === 'IN') {
+          showNotification(response.message, 'in', response.student_name, response.time || currentTime);
+        } else if (response.status === 'OUT') {
+          showNotification(response.message, 'out', response.student_name, response.time || currentTime);
+        } else {
+          showNotification(response.message, 'info', 'Success', response.time || currentTime);
+        }
+      } else if (response.require_reason) {
+        playErrorBeep();
+        resultDiv.innerHTML = escapeHtml(response.message);
+        resultDiv.className = 'warning';
+        showScheduleHint();
+        if (response.deny_reason) hintDiv.innerHTML = (hintDiv.innerHTML || '') + '<div class="next-suggested">' + escapeHtml(response.deny_reason) + '</div>';
+        window._pendingReasonScan = { student_id: qr_or_student_id, manual_status: response.next_suggested || 'OUT' };
+        reasonPanel.style.display = 'block';
+        document.getElementById('outReasonSelect').value = '';
+        document.getElementById('outReasonText').value = '';
+        if (response.student_name || (response.student && response.student.student_id)) {
+          showStudentPopup(response);
+        }
+        showNotification(response.message, 'warning', 'Reason required', currentTime);
+      } else if (response.not_registered || response.inactive) {
+        playErrorBeep();
+        resultDiv.innerHTML = escapeHtml(response.message);
+        resultDiv.className = 'warning';
+        showStudentPopup(response);
+        showNotification(response.message, 'warning', response.inactive ? 'Activation Required' : 'Registration required', currentTime);
+      } else if (response.already_scanned) {
+        playErrorBeep();
+        resultDiv.innerHTML = escapeHtml(response.message);
+        resultDiv.className = 'warning';
+        showStudentPopup(response);
+        showNotification(response.message, 'warning', 'Already scanned', response.first_scan_time || currentTime);
+      } else {
+        playErrorBeep();
+        resultDiv.innerHTML = escapeHtml(response.message);
+        resultDiv.className = 'error';
+        if (response.schedule_hint || response.deny_reason) {
+          showScheduleHint();
+          if (response.deny_reason) hintDiv.innerHTML = (hintDiv.innerHTML || '') + '<div class="next-suggested">' + escapeHtml(response.deny_reason) + '</div>';
+        }
+        if (response.student_name || (response.student && response.student.student_id)) {
+          showStudentPopup(response);
+        }
+        showNotification(response.message, response.color === 'warning' ? 'warning' : 'error', 'Error', response.time || currentTime);
+      }
+
+      setTimeout(function() {
+        statusIndicator.classList.remove('scanning');
+        statusIndicator.querySelector('span').textContent = 'Scanner ready';
+        if (!response.require_reason) isProcessingScan = false;
+      }, response.require_reason ? 0 : 2000);
+      if (response.success) {
+        refreshLiveEntriesPanel(true, 'entries');
+      } else {
+        refreshLiveEntriesPanel();
+      }
+    }).fail(function(xhr) {
+      playErrorBeep();
+      var msg = (xhr && xhr.status >= 500) ? 'Server error. Please try again or contact support.' : 'Network error. Please check your connection.';
+      showNotification(msg, 'error');
+      statusIndicator.classList.remove('scanning');
+      statusIndicator.querySelector('span').textContent = 'Scanner ready';
+      isProcessingScan = false;
+    });
+  }
+
+  // -------------------------
+  // Initialize QR Scanner (robust mobile camera handling)
+  // -------------------------
+  var html5QrcodeInstance = null;
+  var scannerRunning = false;
+  var scannerStarting = false;
+  var scannerSwitching = false;
+  var availableCameras = [];
+  var activeCameraId = null;
+  var SCANNER_CDN_URLS = [
+    'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
+    'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js'
+  ];
+  function loadScannerScript(url, done) {
+    var script = document.createElement('script');
+    script.src = url;
+    script.onload = function() { done(true); };
+    script.onerror = function() { done(false); };
+    document.head.appendChild(script);
+  }
+  function isElementVisible(el) {
+    return !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+  }
+  function getCameraPreference() {
+    var sel = document.getElementById('gateCameraPreference');
+    var v = (sel && sel.value) ? String(sel.value).trim().toLowerCase() : 'back';
+    if (v !== 'front' && v !== 'back' && v !== 'auto') v = 'back';
+    return v;
+  }
+  function setCameraPreference(v) {
+    try { localStorage.setItem('gate_scan_camera_pref', v); } catch (e) {}
+  }
+  function cameraLabelLooksBack(label) {
+    var s = String(label || '').toLowerCase();
+    return /back|rear|environment|traseira|trasera|hinten|後置|后置|背面/.test(s);
+  }
+  function cameraLabelLooksFront(label) {
+    var s = String(label || '').toLowerCase();
+    return /front|user|selfie|frontal|前置|face/.test(s);
+  }
+  function inferPreferenceFromCameraLabel(label) {
+    if (cameraLabelLooksFront(label)) return 'front';
+    if (cameraLabelLooksBack(label)) return 'back';
+    return 'auto';
+  }
+  function qrBoxByViewport(viewfinderWidth, viewfinderHeight) {
+    var isMobile = window.innerWidth <= 768 || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
+    var ratio = isMobile ? 0.78 : 0.7;
+    var size = Math.min(viewfinderWidth, viewfinderHeight) * ratio;
+    if (isMobile) size = Math.max(168, Math.round(size));
+    return { width: Math.round(size), height: Math.round(size) };
+  }
+  function showBrowserHelpIfNeeded() {
+    var helpEl = document.getElementById('gateCameraHelp');
+    if (!helpEl) return;
+    var ua = navigator.userAgent || '';
+    var inApp = /FBAN|FBAV|Messenger|Instagram|Line\/|Line|MiuiBrowser|wv|FB_IAB/i.test(ua);
+    if (inApp) {
+      helpEl.style.display = 'block';
+      helpEl.innerHTML = 'In-app browser detected. If camera fails, open this page in Chrome or Safari.';
+      return;
+    }
+    if (!window.isSecureContext) {
+      helpEl.style.display = 'block';
+      helpEl.innerHTML = 'Camera requires HTTPS or localhost. Open the secure URL.';
+      return;
+    }
+    helpEl.style.display = 'none';
+    helpEl.innerHTML = '';
+  }
+  function updateExternalCameraButtonState() {
+    var extBtn = document.getElementById('gateStartCameraBtn');
+    var swBtn = document.getElementById('gateSwitchCameraBtn');
+    if (!extBtn) return;
+    if (scannerRunning) {
+      extBtn.disabled = true;
+      extBtn.classList.remove('btn-primary');
+      extBtn.classList.add('btn-success');
+      extBtn.innerHTML = '<i class="fas fa-check-circle"></i> Camera running';
+    } else {
+      extBtn.disabled = scannerStarting;
+      extBtn.classList.remove('btn-success');
+      extBtn.classList.add('btn-primary');
+      extBtn.innerHTML = scannerStarting ? '<i class="fas fa-spinner fa-spin"></i> Starting...' : '<i class="fas fa-camera"></i> Start camera';
+    }
+    if (swBtn) {
+      swBtn.disabled = scannerStarting || scannerSwitching || !scannerRunning;
+    }
+  }
+  function fitScanRegionToReader() {
+    var reader = document.getElementById('reader');
+    var scanRegion = document.getElementById('reader__scan_region');
+    if (!reader || !scanRegion || window.innerWidth > 768) return;
+    // On mobile: force reader and scan region to 100% width so they can't overflow (override library inline styles)
+    reader.style.setProperty('width', '100%', 'important');
+    reader.style.setProperty('max-width', '100%', 'important');
+    scanRegion.style.setProperty('width', '100%', 'important');
+    scanRegion.style.setProperty('max-width', '100%', 'important');
+    scanRegion.style.transform = '';
+    scanRegion.style.transformOrigin = '';
+    // Constrain any child the library might size (e.g. video wrapper, qr-shaded-region)
+    var children = scanRegion.querySelectorAll('*');
+    for (var i = 0; i < children.length; i++) {
+      children[i].style.setProperty('max-width', '100%', 'important');
+    }
+  }
+  function scheduleFitScanRegionToReader() {
+    function run() { fitScanRegionToReader(); }
+    setTimeout(run, 100);
+    setTimeout(run, 400);
+    setTimeout(run, 1000);
+    setTimeout(run, 2500);
+    // Keep forcing for a few seconds in case library applies styles after video starts
+    var count = 0;
+    var id = setInterval(function() {
+      run();
+      if (++count >= 8) clearInterval(id);
+    }, 500);
+    window.addEventListener('resize', function onResize() {
+      clearTimeout(window._fitScanRegionResize);
+      window._fitScanRegionResize = setTimeout(run, 150);
+    });
+  }
+  function stopScanner(done) {
+    if (!html5QrcodeInstance || !scannerRunning) {
+      if (typeof done === 'function') done();
+      return;
+    }
+    html5QrcodeInstance.stop().then(function() {
+      scannerRunning = false;
+      activeCameraId = null;
+      if (typeof done === 'function') done();
+    }).catch(function() {
+      scannerRunning = false;
+      activeCameraId = null;
+      if (typeof done === 'function') done();
+    });
+  }
+  function getCameraCandidates(pref, cameras) {
+    var list = [];
+    var frontIds = [];
+    var backIds = [];
+    var unknownIds = [];
+    for (var i = 0; i < cameras.length; i++) {
+      var c = cameras[i];
+      var label = (c.label || c.id || '').toString();
+      if (cameraLabelLooksBack(label)) backIds.push(c.id);
+      else if (cameraLabelLooksFront(label)) frontIds.push(c.id);
+      else unknownIds.push(c.id);
+    }
+    var ids = [];
+    if (pref === 'front') {
+      ids = frontIds.concat(unknownIds, backIds);
+    } else if (pref === 'back') {
+      ids = backIds.concat(unknownIds.slice().reverse(), frontIds);
+    } else {
+      if (activeCameraId) ids.push(activeCameraId);
+      ids = ids.concat(backIds, frontIds, unknownIds);
+    }
+    var seen = {};
+    for (var j = 0; j < ids.length; j++) {
+      var id = ids[j];
+      if (id && !seen[id]) {
+        seen[id] = true;
+        list.push(id);
+      }
+    }
+    // Fallback to facingMode only after trying concrete device IDs
+    if (pref === 'back') {
+      list.push({ facingMode: { exact: 'environment' } });
+      list.push({ facingMode: 'environment' });
+    } else if (pref === 'front') {
+      list.push({ facingMode: { exact: 'user' } });
+      list.push({ facingMode: 'user' });
+    } else {
+      list.push({ facingMode: 'environment' });
+      list.push({ facingMode: 'user' });
+    }
+    return list;
+  }
+  function listCameras(done) {
+    if (typeof Html5Qrcode === 'undefined') { done([]); return; }
+    Html5Qrcode.getCameras().then(function(cams) {
+      if (cams && cams.length) { done(cams); return; }
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) {
+          try { stream.getTracks().forEach(function(t) { t.stop(); }); } catch (e) {}
+          return Html5Qrcode.getCameras();
+        }).then(function(c2) {
+          done(c2 || []);
+        }).catch(function() {
+          done([]);
+        });
+        return;
+      }
+      done([]);
+    }).catch(function() {
+      done([]);
+    });
+  }
+  function startScannerWithPreference(pref, done) {
+    if (scannerStarting) {
+      if (typeof done === 'function') done(false);
+      return;
+    }
+    if (typeof Html5Qrcode === 'undefined') {
+      showNotification('Scanner library is still loading. Please wait a moment.', 'warning');
+      if (typeof done === 'function') done(false);
+      return;
+    }
+    scannerStarting = true;
+    updateExternalCameraButtonState();
+    listCameras(function(cameras) {
+      availableCameras = cameras || [];
+      if (!availableCameras.length) {
+        scannerStarting = false;
+        updateExternalCameraButtonState();
+        showNotification('No camera found on this device/browser.', 'warning');
+        if (typeof done === 'function') done(false);
+        return;
+      }
+      var candidates = getCameraCandidates(pref, availableCameras);
+      var idx = 0;
+      function tryNext() {
+        if (idx >= candidates.length) {
+          scannerStarting = false;
+          updateExternalCameraButtonState();
+          showNotification('Could not start the selected camera. Try another browser (Chrome/Safari).', 'warning');
+          if (typeof done === 'function') done(false);
+          return;
+        }
+        var candidate = candidates[idx++];
+        var launch = function() {
+          if (!html5QrcodeInstance) html5QrcodeInstance = new Html5Qrcode('reader');
+          html5QrcodeInstance.start(
+            candidate,
+            { fps: 10, qrbox: qrBoxByViewport, disableFlip: false },
+            onScanSuccess,
+            function() {}
+          ).then(function() {
+            scannerRunning = true;
+            scannerStarting = false;
+            activeCameraId = (typeof candidate === 'string') ? candidate : null;
+            scheduleFitScanRegionToReader();
+            updateExternalCameraButtonState();
+            if (typeof done === 'function') done(true);
+          }).catch(function() {
+            tryNext();
+          });
+        };
+        stopScanner(launch);
+      }
+      tryNext();
+    });
+  }
+  function showScannerLoadError(readerEl) {
+    readerEl.innerHTML = '<p style="padding:20px;text-align:center;color:#856404;max-width:400px;margin:0 auto;">' +
+      'Scanner library could not load. Try: (1) Refresh the page, (2) Disable ad blocker or privacy extensions for this site, (3) Try another browser (Chrome/Firefox).</p>';
+  }
+  function startCameraFromExternalButton() {
+    startScannerWithPreference(getCameraPreference(), function() {});
+  }
+  function switchCameraFromExternalButton() {
+    if (scannerSwitching || scannerStarting) return;
+    scannerSwitching = true;
+    function finishSwitch() {
+      scannerSwitching = false;
+      updateExternalCameraButtonState();
+    }
+    function switchWithKnownCameras() {
+      var cams = [];
+      for (var i = 0; i < availableCameras.length; i++) {
+        if (availableCameras[i] && availableCameras[i].id) cams.push(availableCameras[i]);
+      }
+      if (cams.length > 1) {
+        var currentIdx = -1;
+        for (var j = 0; j < cams.length; j++) {
+          if (cams[j].id === activeCameraId) { currentIdx = j; break; }
+        }
+        var nextIdx = (currentIdx + 1) % cams.length;
+        var nextCam = cams[nextIdx];
+        activeCameraId = nextCam.id;
+        var prefSel = document.getElementById('gateCameraPreference');
+        if (prefSel) {
+          prefSel.value = inferPreferenceFromCameraLabel(nextCam.label || '');
+          setCameraPreference(prefSel.value);
+        }
+        startScannerWithPreference('auto', finishSwitch);
+        return;
+      }
+      var prefSelFallback = document.getElementById('gateCameraPreference');
+      var nextPref = (getCameraPreference() === 'back') ? 'front' : 'back';
+      if (prefSelFallback) prefSelFallback.value = nextPref;
+      setCameraPreference(nextPref);
+      startScannerWithPreference(nextPref, finishSwitch);
+    }
+    if (!availableCameras.length) {
+      listCameras(function(cams) {
+        availableCameras = cams || [];
+        switchWithKnownCameras();
+      });
+      return;
+    }
+    switchWithKnownCameras();
+  }
+  function initQrScanner() {
+    var readerEl = document.getElementById('reader');
+    if (!readerEl) return;
+    if (typeof Html5Qrcode !== 'undefined') {
+      updateExternalCameraButtonState();
+      return;
+    }
+    var tried = 0;
+    function tryNextCdn() {
+      if (tried >= SCANNER_CDN_URLS.length) {
+        showScannerLoadError(readerEl);
+        return;
+      }
+      var url = SCANNER_CDN_URLS[tried];
+      tried += 1;
+      loadScannerScript(url, function(ok) {
+        if (ok && typeof Html5Qrcode !== 'undefined') {
+          updateExternalCameraButtonState();
+        } else {
+          tryNextCdn();
+        }
+      });
+    }
+    var delay = (window.innerWidth <= 768 || navigator.maxTouchPoints) ? 450 : 200;
+    setTimeout(function() {
+      if (typeof Html5Qrcode !== 'undefined') {
+        updateExternalCameraButtonState();
+      } else {
+        tryNextCdn();
+      }
+    }, delay);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initQrScanner);
+  } else {
+    setTimeout(initQrScanner, 0);
+  }
+  var cameraPrefSelect = document.getElementById('gateCameraPreference');
+  if (cameraPrefSelect) {
+    try {
+      var savedPref = localStorage.getItem('gate_scan_camera_pref');
+      if (savedPref && (savedPref === 'front' || savedPref === 'back' || savedPref === 'auto')) {
+        cameraPrefSelect.value = savedPref;
+      }
+    } catch (e) {}
+    cameraPrefSelect.addEventListener('change', function() {
+      setCameraPreference(cameraPrefSelect.value);
+      if (scannerRunning) {
+        startScannerWithPreference(getCameraPreference(), function() {});
+      }
+    });
+  }
+  var externalStartBtn = document.getElementById('gateStartCameraBtn');
+  if (externalStartBtn) {
+    externalStartBtn.addEventListener('click', startCameraFromExternalButton);
+  }
+  var switchCameraBtn = document.getElementById('gateSwitchCameraBtn');
+  if (switchCameraBtn) {
+    switchCameraBtn.addEventListener('click', switchCameraFromExternalButton);
+  }
+  showBrowserHelpIfNeeded();
+  setInterval(updateExternalCameraButtonState, 1000);
+
+  // -------------------------
+  // Manual Entry
+  // -------------------------
+  document.getElementById('manualSubmit').addEventListener('click', function() {
+    var studentId = document.getElementById('manualInput').value.trim();
+    var status = document.getElementById('manualStatus').value;
+    var customTime = document.getElementById('manualTime').value;
+
+    if (!studentId) {
+      showNotification('Please enter a Student ID', 'warning');
+      return;
+    }
+    // For events, IN/OUT is required. For daily gate, system decides automatically.
+    if (selectedEventId && !status) {
+      showNotification('Please select IN or OUT', 'warning');
+      return;
+    }
+    if (!customTime) {
+      showNotification('Please select a time', 'warning');
+      return;
+    }
+    var statusLabel = selectedEventId ? status : 'Auto (IN/OUT)';
+    themeConfirm('Are you sure you want to submit this manual entry for Student ID ' + studentId + ' as ' + statusLabel + '?', function() {
+      doManualSubmit(studentId, status, customTime);
+    });
+  });
+
+  function doManualSubmit(studentId, status, customTime) {
+    if (isProcessingScan) {
+      showNotification('Please wait while the current scan is being processed', 'warning');
+      return;
+    }
+    isProcessingScan = true;
+
+    var statusIndicator = document.querySelector('.status-indicator');
+    statusIndicator.classList.add('scanning');
+    statusIndicator.querySelector('span').textContent = 'Processing manual input...';
+
+    var todayDate = new Date().toISOString().split('T')[0];
+    var fullDateTime = todayDate + 'T' + customTime + ':00';
+
+    if (!navigator.onLine) {
+      addToOfflineQueue({
+        student_id: studentId,
+        manual_status: status,
+        local_time: fullDateTime,
+        event_id: selectedEventId,
+        client_ts: new Date().toISOString()
+      }, function(isDuplicate) {
+        if (isDuplicate) {
+          playErrorBeep();
+          document.getElementById('result').innerHTML = 'Already scanned today. No duplicate recorded.';
+          document.getElementById('result').className = 'warning';
+          showNotification('Already scanned today. No duplicate recorded.', 'warning');
+        } else {
+          playSuccessBeep();
+          var n = _offlineQueueCache.length;
+          document.getElementById('result').innerHTML = 'Saved offline' + (n ? ' (' + n + ' scan(s) pending sync). ' : '. ') + 'Will sync when online.';
+          document.getElementById('result').className = 'success';
+          showNotification('Manual entry saved to local database. Will sync to server when back online.', 'info');
+        }
+        statusIndicator.classList.remove('scanning');
+        statusIndicator.querySelector('span').textContent = 'Scanner ready';
+        isProcessingScan = false;
+        document.getElementById('manualInput').value = '';
+        document.getElementById('manualStatus').value = '';
+        document.getElementById('manualTime').value = '';
+      });
+      return;
+    }
+
+    var postData = {
+      student_id: studentId,
+      local_time: fullDateTime,
+      device_id: DEVICE_ID,
+      csrfmiddlewaretoken: "{{ csrf_token }}"
+    };
+    if (selectedEventId) {
+      postData.event_id = selectedEventId;
+      postData.manual_status = status;
+    }
+    // Daily gate: omit manual_status so backend uses auto IN/OUT from current state
+
+    $.post("{% url 'save_scan' %}", postData, function(response) {
+      var resultDiv = document.getElementById('result');
+      var hintDiv = document.getElementById('resultScheduleHint');
+      var reasonPanel = document.getElementById('requireReasonPanel');
+      var currentTime = new Date().toLocaleTimeString();
+      hintDiv.style.display = 'none';
+      hintDiv.innerHTML = '';
+      reasonPanel.style.display = 'none';
+
+      function showScheduleHint() {
+        if (response.schedule_hint || response.next_suggested) {
+          var html = (response.schedule_hint ? '<span>' + escapeHtml(response.schedule_hint) + '</span>' : '') +
+            (response.next_suggested ? '<div class="next-suggested">Next: ' + escapeHtml(response.next_suggested) + '</div>' : '');
+          hintDiv.innerHTML = html;
+          hintDiv.style.display = 'block';
+        }
+      }
+
+      if (response.need_visitor_checkin) {
+        // beep to acknowledge offline-synced visitor code
+        playSuccessBeep && playSuccessBeep();
+        resultDiv.innerHTML = escapeHtml(response.message || 'Visitor check-in');
+        resultDiv.className = 'info';
+        openVisitorCheckinModal(response.pass_code);
+        refreshLiveEntriesPanel(true, 'visitors');
+        statusIndicator.classList.remove('scanning');
+        statusIndicator.querySelector('span').textContent = 'Scanner ready';
+        isProcessingScan = false;
+        return;
+      }
+      if (response.need_visitor_checkout) {
+        playSuccessBeep && playSuccessBeep();
+        resultDiv.innerHTML = escapeHtml(response.message || 'Visitor check-out');
+        resultDiv.className = 'info';
+        openVisitorCheckoutModal(response.pass_code, response.visit_id, response.visit || {});
+        refreshLiveEntriesPanel(true, 'visitors');
+        statusIndicator.classList.remove('scanning');
+        statusIndicator.querySelector('span').textContent = 'Scanner ready';
+        isProcessingScan = false;
+        return;
+      }
+      if (response.duplicate) {
+        playErrorBeep();
+        resultDiv.innerHTML = escapeHtml(response.message || 'Duplicate scan.');
+        resultDiv.className = 'warning';
+        showNotification(response.message || 'Duplicate scan.', 'warning');
+        statusIndicator.classList.remove('scanning');
+        statusIndicator.querySelector('span').textContent = 'Scanner ready';
+        isProcessingScan = false;
+        return;
+      }
+
+      if (response.success) {
+        playSuccessBeep();
+        resultDiv.innerHTML = escapeHtml(response.message);
+        resultDiv.className = response.color === 'success' ? 'success' : 'info';
+        showScheduleHint();
+        showStudentPopup(response);
+        if (response.status === 'IN') {
+          showNotification(response.message, 'in', response.student_name, response.time || currentTime);
+        } else if (response.status === 'OUT') {
+          showNotification(response.message, 'out', response.student_name, response.time || currentTime);
+        } else {
+          showNotification(response.message, 'info', 'Success', response.time || currentTime);
+        }
+      } else if (response.require_reason) {
+        playErrorBeep();
+        resultDiv.innerHTML = escapeHtml(response.message);
+        resultDiv.className = 'warning';
+        showScheduleHint();
+        if (response.deny_reason) hintDiv.innerHTML = (hintDiv.innerHTML || '') + '<div class="next-suggested">' + escapeHtml(response.deny_reason) + '</div>';
+        window._pendingReasonScan = { student_id: studentId, manual_status: status };
+        reasonPanel.style.display = 'block';
+        document.getElementById('outReasonSelect').value = '';
+        document.getElementById('outReasonText').value = '';
+        showNotification(response.message, 'warning', 'Reason required', currentTime);
+      } else if (response.not_registered || response.inactive) {
+        playErrorBeep();
+        resultDiv.innerHTML = escapeHtml(response.message);
+        resultDiv.className = 'warning';
+        showStudentPopup(response);
+        showNotification(response.message, 'warning', response.inactive ? 'Activation Required' : 'Registration required', currentTime);
+      } else if (response.already_scanned) {
+        playErrorBeep();
+        resultDiv.innerHTML = escapeHtml(response.message);
+        resultDiv.className = 'warning';
+        showStudentPopup(response);
+        showNotification(response.message, 'warning', 'Already scanned', response.first_scan_time || currentTime);
+      } else {
+        playErrorBeep();
+        resultDiv.innerHTML = escapeHtml(response.message);
+        resultDiv.className = 'error';
+        showScheduleHint();
+        if (response.deny_reason) hintDiv.innerHTML = (hintDiv.innerHTML || '') + '<div class="next-suggested">' + escapeHtml(response.deny_reason) + '</div>';
+        if (response.student_name || (response.student && response.student.student_id)) {
+          showStudentPopup(response);
+        }
+        showNotification(response.message, response.color === 'warning' ? 'warning' : 'error', 'Error', response.time || currentTime);
+      }
+
+      setTimeout(function() {
+        statusIndicator.classList.remove('scanning');
+        statusIndicator.querySelector('span').textContent = 'Scanner ready';
+        if (!response.require_reason) isProcessingScan = false;
+      }, response.require_reason ? 0 : 2000);
+      if (response.success && typeof refreshEventAttendeesIframe === 'function') refreshEventAttendeesIframe();
+      if (response.success) {
+        refreshLiveEntriesPanel(true, 'entries');
+      } else if (response.require_reason || response.not_registered || response.inactive) {
+        refreshLiveEntriesPanel();
+      }
+    }).fail(function(xhr) {
+      playErrorBeep();
+      var msg = (xhr && xhr.status >= 500) ? 'Server error. Please try again or contact support.' : 'Network error. Please check your connection.';
+      showNotification(msg, 'error');
+      statusIndicator.classList.remove('scanning');
+      statusIndicator.querySelector('span').textContent = 'Scanner ready';
+      isProcessingScan = false;
+    });
+
+    document.getElementById('manualInput').value = '';
+    document.getElementById('manualStatus').value = '';
+    document.getElementById('manualTime').value = '';
+  }
+
+  document.getElementById('manualInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      document.getElementById('manualSubmit').click();
+    }
+  });
+
+  // -------------------------
+  // Require-reason panel: submit with reason after policy returned require_reason
+  // -------------------------
+  document.getElementById('submitWithReasonBtn').addEventListener('click', function() {
+    var pending = window._pendingReasonScan;
+    if (!pending || !pending.student_id) return;
+    var code = document.getElementById('outReasonSelect').value.trim();
+    var text = document.getElementById('outReasonText').value.trim();
+    var reason = code ? (text ? code + ': ' + text : code) : text;
+    if (!reason) {
+      showNotification('Please select a reason or enter details.', 'warning');
+      return;
+    }
+    var postData = {
+      student_id: pending.student_id,
+      manual_status: pending.manual_status || 'OUT',
+      out_reason: reason,
+      device_id: DEVICE_ID,
+      csrfmiddlewaretoken: "{{ csrf_token }}"
+    };
+    if (selectedEventId) postData.event_id = selectedEventId;
+    var resultDiv = document.getElementById('result');
+    var hintDiv = document.getElementById('resultScheduleHint');
+    var reasonPanel = document.getElementById('requireReasonPanel');
+    $.post("{% url 'save_scan' %}", postData, function(response) {
+      reasonPanel.style.display = 'none';
+      window._pendingReasonScan = null;
+      if (response.success) {
+        playSuccessBeep();
+        resultDiv.innerHTML = escapeHtml(response.message);
+        resultDiv.className = 'success';
+        hintDiv.style.display = 'none';
+        hintDiv.innerHTML = '';
+        if (response.schedule_hint || response.next_suggested) {
+          var html = (response.schedule_hint ? '<span>' + escapeHtml(response.schedule_hint) + '</span>' : '') +
+            (response.next_suggested ? '<div class="next-suggested">Next: ' + escapeHtml(response.next_suggested) + '</div>' : '');
+          hintDiv.innerHTML = html;
+          hintDiv.style.display = 'block';
+        }
+        showNotification(response.message, response.status === 'OUT' ? 'out' : 'in', response.student_name, response.time || new Date().toLocaleTimeString());
+        refreshLiveEntriesPanel(true, 'entries');
+      } else {
+        playErrorBeep();
+        resultDiv.innerHTML = escapeHtml(response.message || 'Exit denied.');
+        resultDiv.className = 'error';
+        if (response.schedule_hint) {
+          hintDiv.innerHTML = '<span>' + escapeHtml(response.schedule_hint) + '</span>';
+          hintDiv.style.display = 'block';
+        }
+        showNotification(response.message || 'Exit denied.', 'error');
+      }
+      isProcessingScan = false;
+      document.querySelector('.status-indicator').classList.remove('scanning');
+      document.querySelector('.status-indicator span').textContent = 'Scanner ready';
+    }).fail(function() {
+      reasonPanel.style.display = 'none';
+      window._pendingReasonScan = null;
+      playErrorBeep();
+      showNotification('Network error.', 'error');
+      isProcessingScan = false;
+      document.querySelector('.status-indicator').classList.remove('scanning');
+      document.querySelector('.status-indicator span').textContent = 'Scanner ready';
+    });
+  });
+  document.getElementById('cancelReasonBtn').addEventListener('click', function() {
+    document.getElementById('requireReasonPanel').style.display = 'none';
+    window._pendingReasonScan = null;
+    isProcessingScan = false;
+    document.querySelector('.status-indicator').classList.remove('scanning');
+    document.querySelector('.status-indicator span').textContent = 'Scanner ready';
+  });
+})();
+</script>
+<script>
+(function() {
+  var logoutLink = document.getElementById('gate-scan-logout');
+  if (logoutLink && typeof themeConfirm === 'function') {
+    logoutLink.addEventListener('click', function(e) {
+      e.preventDefault();
+      var href = logoutLink.getAttribute('href');
+      themeConfirm('Are you sure you want to log out?', function() { window.location.href = href; });
+    });
+  }
+})();
+</script>
+
+<!-- Floating Notification Container for Gate Scan -->
+<div class="notification-popup-container" id="notificationContainer"></div>
+
+<style>
+  /* Floating Notification Popup */
+  .notification-popup-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    max-width: 400px;
+  }
+  
+  .notification-popup {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    margin-bottom: 12px;
+    overflow: hidden;
+    animation: slideIn 0.3s ease-out;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .notification-popup:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.2);
+  }
+  
+  .notification-popup.hiding {
+    animation: slideOut 0.3s ease-in forwards;
+  }
+  
+  .notification-popup.urgent {
+    border-left: 5px solid #ff9800;
+  }
+  
+  .notification-popup.high {
+    border-left: 5px solid #f39c12;
+  }
+  
+  .notification-popup.medium,
+  .notification-popup.normal,
+  .notification-popup.low {
+    border-left: 5px solid #28a745;
+  }
+  
+  .notification-popup-header {
+    padding: 14px 16px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #dee2e6;
+  }
+  
+  .notification-popup-header .title {
+    font-weight: 600;
+    font-size: 15px;
+    color: #212529;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .notification-popup-header .close-btn {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    color: #6c757d;
+    cursor: pointer;
+    padding: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  
+  .notification-popup-header .close-btn:hover {
+    background: rgba(0,0,0,0.05);
+    color: #212529;
+  }
+  
+  .notification-popup-body {
+    padding: 14px 16px;
+    color: #495057;
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-line;
+  }
+  
+  .notification-popup-footer {
+    padding: 10px 16px;
+    background: #f8f9fa;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: #6c757d;
+  }
+  
+  .priority-badge {
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+  }
+  
+  .priority-badge.urgent {
+    background: #ff9800;
+    color: white;
+  }
+  
+  .priority-badge.high {
+    background: #f39c12;
+    color: white;
+  }
+  
+  .priority-badge.medium,
+  .priority-badge.normal {
+    background: #17a2b8;
+    color: white;
+  }
+  
+  .priority-badge.low {
+    background: #6c757d;
+    color: white;
+  }
+  
+  @keyframes slideIn {
+    from {
+      transform: translateX(400px);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  @keyframes slideOut {
+    from {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(400px);
+      opacity: 0;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .notification-popup-container {
+      left: 10px;
+      right: 10px;
+      max-width: none;
+    }
+  }
+</style>
+
+<script>
+// Guard Notification Popup System for Gate Scan Page
+let lastNotificationCheck = new Date().toISOString();
+let shownNotifications = new Set();
+
+// Play notification sound based on priority
+function playNotificationSound(priority) {
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Different sounds for different priorities
+    if (priority === 'urgent') {
+      // Urgent: Three quick high beeps
+      oscillator.frequency.value = 880; // A5
+      gainNode.gain.value = 0.3;
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+      
+      setTimeout(() => {
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioContext.destination);
+        osc2.frequency.value = 880;
+        gain2.gain.value = 0.3;
+        osc2.start(audioContext.currentTime);
+        osc2.stop(audioContext.currentTime + 0.1);
+      }, 150);
+      
+      setTimeout(() => {
+        const osc3 = audioContext.createOscillator();
+        const gain3 = audioContext.createGain();
+        osc3.connect(gain3);
+        gain3.connect(audioContext.destination);
+        osc3.frequency.value = 880;
+        gain3.gain.value = 0.3;
+        osc3.start(audioContext.currentTime);
+        osc3.stop(audioContext.currentTime + 0.1);
+      }, 300);
+    } else if (priority === 'high') {
+      // High: Two medium beeps
+      oscillator.frequency.value = 659; // E5
+      gainNode.gain.value = 0.25;
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.15);
+      
+      setTimeout(() => {
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioContext.destination);
+        osc2.frequency.value = 659;
+        gain2.gain.value = 0.25;
+        osc2.start(audioContext.currentTime);
+        osc2.stop(audioContext.currentTime + 0.15);
+      }, 200);
+    } else {
+      // Normal/Medium/Low: Single gentle beep
+      oscillator.frequency.value = 523; // C5
+      gainNode.gain.value = 0.2;
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.2);
+    }
+  } catch (error) {
+    console.error('Error playing notification sound:', error);
+  }
+}
+
+function showNotificationPopup(notification) {
+  // Don't show if already shown
+  if (shownNotifications.has(notification.id)) {
+    return;
+  }
+  shownNotifications.add(notification.id);
+
+  // Play sound notification
+  playNotificationSound(notification.priority);
+
+  const container = document.getElementById('notificationContainer');
+  const popup = document.createElement('div');
+  popup.className = `notification-popup ${notification.priority}`;
+  popup.id = `notification-${notification.id}`;
+  
+  // Make entire popup clickable to navigate to notifications page
+  popup.onclick = function(e) {
+    // Don't navigate if clicking the close button
+    if (e.target.classList.contains('close-btn') || e.target.closest('.close-btn')) {
+      return;
+    }
+    window.location.href = '{% url "guard-notifications" %}';
+  };
+  
+  popup.innerHTML = `
+    <div class="notification-popup-header">
+      <div class="title"><i class="fas fa-bell"></i> ${escapeHtml(notification.title)}</div>
+      <button class="close-btn" onclick="event.stopPropagation(); closeNotificationPopup(${notification.id})">&times;</button>
+    </div>
+    <div class="notification-popup-body">
+      ${escapeHtml(notification.message)}
+    </div>
+    <div class="notification-popup-footer">
+      <span class="priority-badge ${notification.priority}">${notification.priority}</span>
+      <span>Click to view • Just now</span>
+    </div>
+  `;
+  
+  container.appendChild(popup);
+  
+  // Auto-hide after 10 seconds
+  setTimeout(() => {
+    closeNotificationPopup(notification.id);
+  }, 10000);
+}
+
+function closeNotificationPopup(notificationId) {
+  const popup = document.getElementById(`notification-${notificationId}`);
+  if (popup) {
+    popup.classList.add('hiding');
+    setTimeout(() => {
+      popup.remove();
+    }, 300);
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Poll for new notifications every 10 seconds
+function checkNewNotifications() {
+  const url = `{% url 'guard-check-new-notifications' %}?since=${encodeURIComponent(lastNotificationCheck)}`;
+  console.log('[Gate Scan Notifications] Checking for new notifications:', url);
+  
+  fetch(url)
+    .then(response => {
+      console.log('[Gate Scan Notifications] Response status:', response.status);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log('[Gate Scan Notifications] Response data:', data);
+      if (data.success && data.notifications && data.notifications.length > 0) {
+        console.log('[Gate Scan Notifications] Found', data.notifications.length, 'new notifications');
+        data.notifications.forEach(notification => {
+          showNotificationPopup(notification);
+        });
+        lastNotificationCheck = new Date().toISOString();
+      } else {
+        console.log('[Gate Scan Notifications] No new notifications');
+      }
+    })
+    .catch(error => {
+      console.error('[Gate Scan Notifications] Error:', error);
+      console.error('[Gate Scan Notifications] Error details:', error.message);
+    });
+}
+
+// Start polling for notifications
+setInterval(checkNewNotifications, 10000);
+// Check immediately on page load
+setTimeout(checkNewNotifications, 2000);
+console.log('[Gate Scan Notifications] Notification polling initialized');
+</script>
+
+</body>
+</html>

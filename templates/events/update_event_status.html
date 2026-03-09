@@ -1,0 +1,35 @@
+{% extends 'base/base.html' %}
+{% block title %}Update Event Status{% endblock title %}
+{% block breadcrumb %}Update Event Status{% endblock breadcrumb %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row">
+                        <div class="col-md-10">
+                            <h2>Update Event Status</h2>
+                        </div>
+                        <div class="col-md-2">
+                            <a class="btn btn-success" href="{% url 'event-list' %}">Event List</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if object %}
+                    <p class="text-muted mb-3">Event: <strong>{{ object.name }}</strong> (current: {{ object.get_status_display }})</p>
+                    {% endif %}
+                    <p class="small text-muted mb-3">You can set a Draft or Scheduled event to <strong>Active</strong> to make it available in the gate scanner &quot;Tracking event&quot; dropdown.</p>
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+                        <button class="btn btn-success ml-2" type="submit">Update</button>
+                        <a class="btn btn-outline-secondary ml-2" href="{% url 'event-list' %}">Cancel</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock content %}

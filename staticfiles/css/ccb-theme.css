@@ -1,0 +1,251 @@
+/**
+ * CCB Gate & Attendance – theme to match login page (green palette, educational standard).
+ * Typography: Source Serif 4 (headings), Source Sans 3 (body) – same as login.
+ */
+
+/* Typography – ensure navbar and sidebar use login fonts */
+.main-header .nav-link,
+.main-header .navbar-text,
+.main-sidebar .brand-link,
+.main-sidebar .nav-sidebar .nav-link,
+.main-sidebar .user-panel .info a,
+.main-sidebar .user-panel small,
+.main-sidebar .nav-header {
+  font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+.main-header .navbar-text {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Primary green from login (button & welcome panel) */
+:root {
+  --ccb-primary: #28a745;
+  --ccb-primary-dark: #1e7e34;
+  --ccb-sidebar: #1e5631;
+  --ccb-sidebar-dark: #163d23;
+  --ccb-accent: #ffc107;
+}
+
+/* Top navigation bar – same green as login button */
+.main-header.navbar-primary {
+  background-color: var(--ccb-primary) !important;
+  border-color: var(--ccb-primary-dark) !important;
+}
+.main-header.navbar-primary .nav-link,
+.main-header.navbar-primary .navbar-text {
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+.main-header.navbar-primary .nav-link:hover {
+  background-color: var(--ccb-primary-dark) !important;
+  color: #fff !important;
+}
+.main-header.navbar-primary .dropdown-menu {
+  border-radius: 0.5rem;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+}
+
+/* Sidebar – dark institutional green (educational, matches login green family) */
+.main-sidebar.sidebar-dark-primary {
+  background-color: var(--ccb-sidebar) !important;
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+}
+.main-sidebar .brand-link {
+  background-color: var(--ccb-sidebar-dark) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.main-sidebar .brand-link:hover {
+  background-color: rgba(0, 0, 0, 0.15) !important;
+}
+.main-sidebar .nav-sidebar .nav-link {
+  color: rgba(255, 255, 255, 0.85);
+}
+.main-sidebar .nav-sidebar .nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.main-sidebar .nav-sidebar .nav-link.active {
+  background-color: var(--ccb-primary) !important;
+  color: #fff !important;
+}
+.main-sidebar .nav-header {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.main-sidebar .user-panel .info a,
+.main-sidebar .user-panel .text-muted {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+.main-sidebar .user-panel .text-muted {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Navbar badge (notifications) – keep visible on green */
+.main-header.navbar-primary .navbar-badge {
+  background-color: var(--ccb-accent) !important;
+  color: #212529 !important;
+}
+
+/* Notification dropdown – green tint to match theme */
+.main-header.navbar-primary .dropdown-menu .dropdown-item.notification-unread {
+  background-color: rgba(40, 167, 69, 0.08);
+}
+.main-header.navbar-primary .dropdown-menu .dropdown-item.notification-unread:hover {
+  background-color: rgba(40, 167, 69, 0.12);
+}
+
+/* ========== Dashboard: yellow, green & white only ========== */
+.content-header {
+  background: linear-gradient(to right, #e8f5e9 0%, #fffde7 100%) !important;
+  border-bottom: 1px solid rgba(40, 167, 69, 0.2);
+  padding: 0.75rem 1rem;
+}
+.content-header h4 {
+  color: #1e5631 !important;
+}
+.content-header .breadcrumb {
+  background: transparent !important;
+}
+.content-header .breadcrumb-item a {
+  color: #28a745 !important;
+}
+.content-header .breadcrumb-item.active {
+  color: #1e5631 !important;
+}
+
+/* Stat cards – green and yellow only (no teal/red/blue) */
+.small-box.bg-info {
+  background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%) !important;
+  color: #fff !important;
+}
+.small-box.bg-info .icon {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+.small-box.bg-success {
+  background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%) !important;
+  color: #fff !important;
+}
+.small-box.bg-success .icon {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+.small-box.bg-danger {
+  background: linear-gradient(135deg, #f9a825 0%, #f57f17 100%) !important;
+  color: #fff !important;
+}
+.small-box.bg-danger .icon {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+.small-box.bg-warning {
+  background: linear-gradient(135deg, #fff9c4 0%, #ffeb3b 100%) !important;
+  color: #1b5e20 !important;
+}
+.small-box.bg-warning .icon {
+  color: rgba(30, 94, 32, 0.5) !important;
+}
+.small-box .small-box-footer {
+  background: rgba(0, 0, 0, 0.1) !important;
+  color: #fff !important;
+}
+.small-box.bg-warning .small-box-footer {
+  background: rgba(0, 0, 0, 0.06) !important;
+  color: #1b5e20 !important;
+}
+
+/* Action buttons – green and yellow/white */
+.content .btn-primary {
+  background-color: #28a745 !important;
+  border-color: #28a745 !important;
+  color: #fff !important;
+}
+.content .btn-primary:hover {
+  background-color: #1e7e34 !important;
+  border-color: #1e7e34 !important;
+  color: #fff !important;
+}
+.content .btn-outline-secondary {
+  background-color: #fff !important;
+  border: 2px solid #28a745 !important;
+  color: #28a745 !important;
+}
+.content .btn-outline-secondary:hover {
+  background-color: #e8f5e9 !important;
+  border-color: #28a745 !important;
+  color: #1e7e34 !important;
+}
+
+/* Event program schedule card */
+.content .card .card-header {
+  background: linear-gradient(to right, #e8f5e9 0%, #fff 100%) !important;
+  border-bottom: 1px solid rgba(40, 167, 69, 0.25);
+  color: #1e5631;
+}
+.content .card .card-header .btn-outline-primary {
+  background: #fff !important;
+  border: 1px solid #28a745 !important;
+  color: #28a745 !important;
+}
+.content .card .card-header .btn-outline-primary:hover {
+  background: #28a745 !important;
+  color: #fff !important;
+}
+.content .table thead th {
+  background: #fff9c4 !important;
+  color: #1b5e20 !important;
+  border-color: rgba(255, 235, 59, 0.5) !important;
+  font-weight: 600;
+}
+
+/* ========== Mobile & responsive ========== */
+html, body { overflow-x: hidden; max-width: 100vw; }
+.wrapper, .content-wrapper, .content, .container-fluid { max-width: 100%; overflow-x: hidden; }
+.content .row { margin-left: -0.5rem; margin-right: -0.5rem; }
+.content .row > [class*="col-"] { padding-left: 0.5rem; padding-right: 0.5rem; }
+.content-header { overflow: hidden; }
+.content-header .row { margin-left: 0; margin-right: 0; }
+.content-header h4 { font-size: clamp(0.95rem, 2.5vw, 1.25rem); word-wrap: break-word; }
+@media (max-width: 576px) {
+  .content-header { padding: 0.5rem 0.75rem; }
+  .content-header .breadcrumb { font-size: 0.8rem; }
+}
+.card .card-header { flex-wrap: wrap; gap: 0.5rem; }
+.card .card-header .card-tools { margin-left: 0; width: 100%; }
+@media (min-width: 768px) {
+  .card .card-header .card-tools { width: auto; margin-left: auto; }
+}
+.card .card-header .btn { white-space: normal; text-align: center; }
+@media (max-width: 767px) {
+  .card .card-header .btn-sm { font-size: 0.8rem; padding: 0.35rem 0.5rem; }
+}
+.table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+.table-responsive .table { margin-bottom: 0; min-width: 600px; }
+@media (max-width: 767px) {
+  .table-responsive .table { font-size: 0.875rem; }
+  .table-responsive .table th, .table-responsive .table td { padding: 0.5rem 0.35rem; white-space: nowrap; }
+  .table-responsive .table .student-qr-img { width: 44px; height: 44px; }
+}
+@media (max-width: 767px) {
+  .filter-row .d-flex, .search-row .d-flex { width: 100%; }
+  .filter-row .form-group, .filter-row .form-group .form-control { width: 100% !important; min-width: 0 !important; }
+  .search-row .search-input-wrap { min-width: 0 !important; max-width: none !important; flex: 1 1 100%; }
+}
+@media (max-width: 991px) {
+  .content-wrapper { margin-left: 0 !important; }
+}
+
+@media (max-width: 767px) {
+  .card .card-header .form-inline,
+  .card .card-header .form-control,
+  .card .card-header input,
+  .card .card-header select {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100%;
+  }
+  .card .card-header .form-inline {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}

@@ -1,0 +1,229 @@
+{% extends 'base/base.html' %}
+{% block title %}Event Detail - {{ event.name|truncatewords:6 }}{% endblock title %}
+{% block breadcrumb %}Event Detail{% endblock breadcrumb %}
+
+{% block extrahead %}
+{% load static %}
+<style>
+  /* Event Detail – beautified, matches CCB theme */
+  #event-detail-card .card {
+    border: none;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  #event-detail-card .card-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid rgba(40, 167, 69, 0.2);
+    background: linear-gradient(to right, #e8f5e9 0%, #fff 100%);
+    border-radius: 0;
+  }
+  #event-detail-card .card-header h5 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1e5631;
+    margin: 0;
+  }
+  #event-detail-card .card-header .btn-success {
+    border-radius: 8px;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+  }
+  #event-detail-card .event-poster-wrap {
+    padding: 1.25rem 1.25rem 0;
+    text-align: center;
+  }
+  #event-detail-card .event-poster-wrap img {
+    max-width: 100%;
+    height: auto;
+    max-height: 420px;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    border: 1px solid #e9ecef;
+  }
+  #event-detail-card .event-details {
+    padding: 1.25rem 1.25rem 0.5rem;
+  }
+  #event-detail-card .event-detail-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  #event-detail-card .event-detail-row:last-of-type {
+    border-bottom: none;
+  }
+  #event-detail-card .event-detail-item {
+    flex: 1 1 50%;
+    min-width: 180px;
+    padding: 0.25rem 0.5rem 0.25rem 0;
+  }
+  #event-detail-card .event-detail-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #6c757d;
+    display: block;
+    margin-bottom: 0.15rem;
+  }
+  #event-detail-card .event-detail-value {
+    font-size: 1rem;
+    color: #212529;
+  }
+  #event-detail-card .attendance-reports {
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid #e9ecef;
+  }
+  #event-detail-card .attendance-reports-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.75rem;
+  }
+  #event-detail-card .attendance-reports .btn {
+    border-radius: 8px;
+    font-weight: 500;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+    padding: 0.45rem 0.9rem;
+  }
+  #event-detail-card .event-description {
+    margin-top: 1.25rem;
+    padding: 1rem 1.25rem;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border-left: 4px solid #28a745;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: #374151;
+  }
+  #event-detail-card .event-detail-footer {
+    padding: 1.25rem 1.25rem 1.5rem;
+    text-align: center;
+    background: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+  }
+  #event-detail-card .event-detail-footer .btn-success {
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 0.6rem 1.5rem;
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.25);
+  }
+</style>
+{% endblock extrahead %}
+
+{% block content %}
+<div class="row" id="event-detail-card">
+  <div class="col-md-12">
+    <div class="card">
+      <div class="card-header">
+        <div class="row align-items-center">
+          <div class="col">
+            <h5>Event Detail</h5>
+          </div>
+          <div class="col-auto">
+            <a class="btn btn-success" href="{% url 'event-list' %}"><i class="fas fa-list mr-1"></i> Event List</a>
+          </div>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        {% if event.eventimage and event.eventimage.image %}
+        <div class="event-poster-wrap">
+          <img src="{{ event.eventimage.image.url }}" alt="{{ event.name }}">
+        </div>
+        {% endif %}
+        <div class="event-details">
+          <div class="event-detail-row">
+            <div class="event-detail-item">
+              <span class="event-detail-label">Event Name</span>
+              <span class="event-detail-value">{{ event.name }}</span>
+            </div>
+            <div class="event-detail-item">
+              <span class="event-detail-label">Event Category</span>
+              <span class="event-detail-value">{{ event.category }}</span>
+            </div>
+          </div>
+          <div class="event-detail-row">
+            <div class="event-detail-item">
+              <span class="event-detail-label">Venue</span>
+              <span class="event-detail-value">{{ event.venue }}</span>
+            </div>
+            <div class="event-detail-item">
+              <span class="event-detail-label">Start Date</span>
+              <span class="event-detail-value">{{ event.start_date|date:"M. d, Y" }}</span>
+            </div>
+            <div class="event-detail-item">
+              <span class="event-detail-label">End Date</span>
+              <span class="event-detail-value">{{ event.end_date|date:"M. d, Y" }}</span>
+            </div>
+          </div>
+          <div class="event-detail-row">
+            <div class="event-detail-item">
+              <span class="event-detail-label">Status</span>
+              <span class="event-detail-value">
+                {% if event.end_date < today %}
+                  <span class="badge badge-secondary" title="Event ended on {{ event.end_date }}">Done</span>
+                {% else %}
+                  <span class="badge badge-{% if event.status == 'active' %}success{% elif event.status == 'completed' %}secondary{% else %}info{% endif %}">{{ event.get_status_display }}</span>
+                {% endif %}
+              </span>
+            </div>
+            <div class="event-detail-item">
+              <span class="event-detail-label">Points</span>
+              <span class="event-detail-value">{{ event.points|default:"—" }}</span>
+            </div>
+            <div class="event-detail-item">
+              <span class="event-detail-label">Maximum Attendees</span>
+              <span class="event-detail-value">{{ event.maximum_attende|default:"—" }}</span>
+            </div>
+          </div>
+          {% if event.attendance_mode %}
+          <div class="event-detail-row">
+            <div class="event-detail-item">
+              <span class="event-detail-label">Attendance mode</span>
+              <span class="event-detail-value">{{ event.get_attendance_mode_display }}</span>
+            </div>
+          </div>
+          {% endif %}
+          <div class="event-detail-row">
+            <div class="event-detail-item">
+              <span class="event-detail-label">Location type</span>
+              <span class="event-detail-value">{{ event.get_event_location_display }}</span>
+            </div>
+            <div class="event-detail-item">
+              <span class="event-detail-label">Audience</span>
+              <span class="event-detail-value">{{ event.audience_summary }}</span>
+            </div>
+          </div>
+
+          {% if user_role == 'admin' or user_role == 'staff' or user_role == 'faculty' %}
+          <div class="attendance-reports">
+            <div class="attendance-reports-title"><i class="fas fa-chart-bar mr-1"></i> Attendance & reports</div>
+            <a href="{% url 'event-attendance-report' event.id %}" class="btn btn-sm btn-info">Report</a>
+            <a href="{% url 'event-live-dashboard' event.id %}" class="btn btn-sm btn-primary">Live dashboard</a>
+            <a href="{% url 'event-currently-inside' event.id %}" class="btn btn-sm btn-warning">Currently inside</a>
+            <a href="{% url 'event-manage-registrations' event.id %}" class="btn btn-sm btn-secondary">Registrations</a>
+            {% if event.event_location == 'field_trip' %}
+            <a href="{% url 'event-field-trip-scan' event.id %}" class="btn btn-sm btn-success"><i class="fas fa-clipboard-check mr-1"></i> Take attendance</a>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {% if event.description %}
+          <div class="event-description">
+            {{ event.description|safe }}
+          </div>
+          {% endif %}
+        </div>
+        <div class="event-detail-footer">
+          <a href="{% url 'event-list' %}" class="btn btn-success"><i class="fas fa-arrow-left mr-1"></i> Back to Event List</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

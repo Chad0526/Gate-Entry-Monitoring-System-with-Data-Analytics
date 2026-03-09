@@ -1,0 +1,181 @@
+{% extends 'base/base.html' %}
+{% block title %}Visitor QR codes - {{ site_name }}{% endblock %}
+{% block breadcrumb %}Visitor QR codes{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h5 class="m-0"><i class="fas fa-qrcode mr-1"></i> Generate blank visitor QR codes for printing</h5>
+  </div>
+  <div class="card-body">
+    <p class="text-muted mb-3">Create a set of reusable pass codes (e.g. VIS-001 to VIS-100) to <strong>print as QR codes</strong> and hand to visitors. At the gate, when a visitor scans the QR, a <strong>pop-up window</strong> will open for check-in (name, purpose, department) or check-out—handled on the Gate scan page, not here.</p>
+    <p class="text-muted small mb-3">This page is for <strong>generation only</strong>. Print the QRs, then use them at the gate scanner.</p>
+    <form method="post" action="{% url 'visitor-pass-create' %}" class="form-inline mb-2" id="generate-slots-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="generate_slots">
+      <label class="mr-2">From</label>
+      <input type="number" name="slot_start" value="{% if display_start is not None %}{{ display_start }}{% else %}1{% endif %}" min="1" max="999" class="form-control form-control-sm mr-2" style="width:80px">
+      <label class="mr-2">To</label>
+      <input type="number" name="slot_end" value="{% if display_end is not None %}{{ display_end }}{% else %}100{% endif %}" min="1" max="999" class="form-control form-control-sm mr-2" style="width:80px">
+      <button type="submit" class="btn btn-success"><i class="fas fa-plus mr-1"></i> Generate slots for printing</button>
+    </form>
+  </div>
+</div>
+<div class="card mt-4">
+  <div class="card-header d-flex align-items-center flex-wrap">
+    <h5 class="m-0 mr-2">Recent visitor QR codes</h5>
+    {% if passes %}
+    <a href="{% url 'visitor-pass-print-all' %}{% if display_start is not None and display_end is not None %}?start={{ display_start }}&end={{ display_end }}{% endif %}" target="_blank" class="btn btn-sm btn-outline-primary mr-1"><i class="fas fa-print mr-1"></i> Print all e-ID</a>
+    <a href="{% url 'visitor-pass-print-all' %}{% if display_start is not None and display_end is not None %}?start={{ display_start }}&end={{ display_end }}&{% else %}?{% endif %}download=1" class="btn btn-sm btn-outline-success"><i class="fas fa-download mr-1"></i> Download all e-ID</a>
+    {% endif %}
+  </div>
+  <div class="card-body p-0">
+    {% if passes %}
+    <table class="table table-sm mb-0">
+      <thead><tr><th>QR code</th><th>Code</th><th>e-ID card</th><th>Status</th><th>Guest / Current visit</th><th>Department</th><th>Valid / Last used</th></tr></thead>
+      <tbody>
+        {% for p in passes %}
+        <tr>
+          <td class="align-middle">
+            <a href="{% url 'visitor-qr-image' code=p.code %}" target="_blank" class="d-inline-block border rounded p-1 bg-white" title="Open QR (print or download)">
+              <img src="{% url 'visitor-qr-image' code=p.code %}" alt="QR {{ p.code }}" width="64" height="64" style="image-rendering: pixelated; image-rendering: crisp-edges; display:block;">
+            </a>
+            <a href="{% url 'visitor-qr-image' code=p.code %}" download="visitor-qr-{{ p.code }}.png" target="_blank" class="btn btn-sm btn-outline-secondary mt-1" title="Download QR"><i class="fas fa-download"></i></a>
+          </td>
+          <td class="align-middle"><code>{{ p.code }}</code></td>
+          <td class="align-middle">
+            <button type="button" class="btn btn-sm btn-outline-primary e-id-btn" title="View / print electronic ID card" data-code="{{ p.code }}" data-card-url="{% url 'visitor-pass-card' code=p.code %}"><i class="fas fa-id-card mr-1"></i> e-ID</button>
+          </td>
+          <td class="align-middle"><span class="badge badge-{% if p.status == 'AVAILABLE' %}success{% elif p.status == 'IN_USE' %}warning{% else %}secondary{% endif %}">{{ p.get_status_display }}</span></td>
+          <td class="align-middle">{% if p.current_visit %}{{ p.current_visit.full_name }}{% else %}{{ p.guest_name|default:"—" }}{% endif %}</td>
+          <td class="align-middle">{{ p.department|default:"—" }}</td>
+          <td class="align-middle">{% if p.valid_from and p.valid_until %}{{ p.valid_from|date:"M d" }} – {{ p.valid_until|date:"M d, Y" }}{% elif p.last_used_at %}Last used {{ p.last_used_at|date:"M d H:i" }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted p-3 mb-0">No visitor QR codes yet. Generate slots above to create blank QRs for printing.</p>
+    {% endif %}
+  </div>
+</div>
+<div class="card mt-4 border-secondary">
+  <div class="card-header py-2">
+    <h6 class="m-0 text-muted"><i class="fas fa-history mr-1"></i> One-time visitor pass (legacy)</h6>
+  </div>
+  <div class="card-body">
+    <form method="post" class="form-horizontal">
+      {% csrf_token %}
+      <div class="form-group">
+        <label>Guest name *</label>
+        <input type="text" name="guest_name" class="form-control" required placeholder="e.g. Juan Dela Cruz">
+      </div>
+      <div class="form-group">
+        <label>Purpose</label>
+        <input type="text" name="purpose" class="form-control" placeholder="e.g. Parent meeting">
+      </div>
+      <div class="form-group">
+        <label>Department / Office (destination)</label>
+        <select name="department" class="form-control">
+          {% for value, label in campus_departments %}
+          {% if value %}<option value="{{ value }}">{{ label }}</option>{% endif %}
+          {% endfor %}
+        </select>
+        <small class="form-text text-muted">Where the visitor will go on campus.</small>
+      </div>
+      <div class="row">
+        <div class="col-md-6 form-group">
+          <label>Valid from (date) *</label>
+          <input type="date" name="valid_from" class="form-control" required>
+        </div>
+        <div class="col-md-6 form-group">
+          <label>Valid until (date) *</label>
+          <input type="date" name="valid_until" class="form-control" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea name="notes" class="form-control" rows="2"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">Create pass</button>
+    </form>
+    <p class="text-muted small mt-3">After creating, the pass code (e.g. VISITOR-xxx) can be printed or shown as QR. Use it at the gate scanner (one-time use).</p>
+  </div>
+</div>
+
+<!-- e-ID card modal: pops up when clicking e-ID button -->
+<div class="modal fade" id="eidCardModal" tabindex="-1" role="dialog" aria-labelledby="eidCardModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 400px;">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title" id="eidCardModalTitle">Visitor e-ID card</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body p-0 position-relative" style="min-height: 420px;">
+        <iframe id="eidCardIframe" src="" style="width:100%; height:420px; border:0;" title="e-ID card"></iframe>
+      </div>
+      <div class="modal-footer eid-action-bar py-3 px-4">
+        <a id="eidCardOpenNewTab" href="#" target="_blank" class="eid-action-btn" title="Open in new tab"><i class="fas fa-external-link-alt"></i></a>
+        <button type="button" class="eid-action-btn border-0 bg-transparent" id="eidCardPrint" title="Print"><i class="fas fa-print"></i></button>
+        <a id="eidCardDownload" href="#" download class="eid-action-btn" title="Download"><i class="fas fa-download"></i></a>
+        <button type="button" class="btn btn-sm btn-primary ml-auto" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<style>
+.eid-action-bar {
+  background: linear-gradient(180deg, #e8e8e8 0%, #d8d8d8 100%) !important;
+  border-top: 1px solid #ccc;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.08), 0 6px 20px rgba(0,0,0,0.12);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.eid-action-btn {
+  color: #555;
+  padding: 6px 10px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 1rem;
+  transition: color 0.15s, background 0.15s;
+}
+.eid-action-btn:hover { color: #1a4d2e; background: rgba(0,0,0,0.06); }
+.eid-action-btn.text { font-size: 0.9rem; }
+</style>
+{% endblock %}
+
+{% block extrascript %}
+<script>
+(function() {
+  var modal = document.getElementById('eidCardModal');
+  var iframe = document.getElementById('eidCardIframe');
+  var openNewTabLink = document.getElementById('eidCardOpenNewTab');
+  var printBtn = document.getElementById('eidCardPrint');
+  if (!modal || !iframe) return;
+  document.querySelectorAll('.e-id-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var url = this.getAttribute('data-card-url');
+      if (!url) return;
+      iframe.src = url;
+      openNewTabLink.href = url;
+      var downloadLink = document.getElementById('eidCardDownload');
+      if (downloadLink) downloadLink.href = url;
+      $(modal).modal('show');
+    });
+  });
+  if (printBtn) {
+    printBtn.addEventListener('click', function() {
+      try {
+        if (iframe.contentWindow && iframe.contentWindow.print) iframe.contentWindow.print();
+      } catch (e) {}
+    });
+  }
+  $(modal).on('hidden.bs.modal', function() { iframe.src = 'about:blank'; });
+})();
+</script>
+{% endblock %}

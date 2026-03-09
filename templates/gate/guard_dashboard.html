@@ -1,0 +1,617 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% block title %}Guard Dashboard - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Guard Dashboard{% endblock breadcrumb %}
+
+{% block extrahead %}
+<style>
+  .guard-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .stat-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1.25rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    border-left: 4px solid #28a745; /* Green */
+  }
+  .stat-card.warning {
+    border-left-color: #f39c12; /* Darker Yellow */
+  }
+  .stat-card.danger {
+    border-left-color: #ff9800; /* Orange */
+  }
+  .stat-card h6 {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .stat-card .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #212529;
+    margin-bottom: 0.25rem;
+  }
+  .stat-card .stat-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+  }
+  .shift-info-card {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+    color: #fff;
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 8px rgba(40,167,69,0.2);
+  }
+  .shift-info-card h5 {
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+  }
+  .shift-info-card .shift-detail {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+  }
+  .activity-feed {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .activity-item {
+    padding: 0.75rem;
+    border-left: 3px solid #28a745; /* Green */
+    margin-bottom: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+  }
+  .activity-item.incident {
+    border-left-color: #ff9800; /* Orange */
+  }
+  .activity-item.warning {
+    border-left-color: #f39c12; /* Darker Yellow */
+  }
+  .activity-item .activity-time {
+    font-size: 0.75rem;
+    color: #6c757d;
+  }
+  .alert-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .alert-badge.urgent {
+    background: #ff9800; /* Orange */
+    color: #fff;
+  }
+  .alert-badge.high {
+    background: #f39c12; /* Darker Yellow */
+    color: #fff;
+  }
+  .alert-badge.normal {
+    background: #28a745; /* Green */
+    color: #fff;
+  }
+  .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .quick-action-btn {
+    padding: 1rem;
+    text-align: center;
+    background: #fff;
+    border: 2px solid #17a2b8;
+    border-radius: 8px;
+    color: #17a2b8;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    font-weight: 600;
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+  }
+  .quick-action-btn:hover {
+   border-color: #018c42;
+    color: #fff !important;
+    text-decoration: none;
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0, 73, 6, 0.3);
+  }
+  .quick-action-btn:nth-child(1) {
+    border-color: #018c42;
+    color: #fff;
+    background: rgba(1, 109, 32, 0.512);
+  }
+  .quick-action-btn:nth-child(1):hover {
+    background: #24b817;
+    color: #fff !important;
+    box-shadow: 0 4px 12px rgba(0, 73, 6, 0.3);
+  }  
+  .quick-action-btn:nth-child(2) {
+    border-color: #ed8e35;
+    color: #817001;
+    background: rgba(234, 255, 0, 0.383);
+  }
+  .quick-action-btn:nth-child(2):hover {
+    background:#ff9800;
+    color: #fff !important;
+    box-shadow: 0 4px 12px rgb(223, 153, 3);
+  }
+  .quick-action-btn:nth-child(3) {
+    border-color: #f39c12;
+    color: #7f0101;
+    background: rgba(243, 157, 18, 0.533);
+  }
+  .quick-action-btn:nth-child(3):hover {
+    background: #f39c12;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(243,156,18,0.3);
+  }
+  .quick-action-btn i {
+    display: block;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    transition: transform 0.3s ease;
+  }
+  .quick-action-btn:hover i {
+    transform: scale(1.1);
+  }
+  @media (max-width: 768px) {
+    .guard-dashboard-grid {
+      grid-template-columns: 1fr;
+    }
+    .quick-actions {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Floating Notification Popup */
+  .notification-popup-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    max-width: 450px;
+  }
+  .notification-popup {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    margin-bottom: 10px;
+    overflow: hidden;
+    animation: slideInRight 0.3s ease-out;
+    border-left: 4px solid #28a745;
+  }
+  .notification-popup.urgent {
+    border-left-color: #ff9800;
+  }
+  .notification-popup.high {
+    border-left-color: #f39c12;
+  }
+  .notification-popup-header {
+    padding: 14px 18px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .notification-popup-header .title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #212529;
+    margin: 0;
+  }
+  .notification-popup-header .close-btn {
+    background: none;
+    border: none;
+    color: #6c757d;
+    font-size: 1.4rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+  }
+  .notification-popup-header .close-btn:hover {
+    color: #212529;
+  }
+  .notification-popup-body {
+    padding: 16px 18px;
+    font-size: 0.95rem;
+    color: #495057;
+    line-height: 1.5;
+  }
+  .notification-popup-footer {
+    padding: 10px 18px;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    font-size: 0.8rem;
+    color: #6c757d;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .notification-popup-footer .priority-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .notification-popup-footer .priority-badge.urgent {
+    background: #ff9800;
+    color: #fff;
+  }
+  .notification-popup-footer .priority-badge.high {
+    background: #f39c12;
+    color: #fff;
+  }
+  .notification-popup-footer .priority-badge.normal {
+    background: #28a745;
+    color: #fff;
+  }
+  @keyframes slideInRight {
+    from {
+      transform: translateX(400px);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  @keyframes slideOutRight {
+    from {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(400px);
+      opacity: 0;
+    }
+  }
+  .notification-popup.hiding {
+    animation: slideOutRight 0.3s ease-in forwards;
+  }
+</style>
+{% endblock extrahead %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <!-- Shift Info -->
+    {% if current_shift %}
+    <div class="shift-info-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+        <h5 style="margin: 0;"><i class="fas fa-clock"></i> Current Shift</h5>
+        <button type="button" class="btn btn-light btn-sm" onclick="showClockOutModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: #fff;">
+          <i class="fas fa-sign-out-alt"></i> Clock Out
+        </button>
+      </div>
+      <div class="shift-detail">
+        <span>Started:</span>
+        <strong>{{ current_shift.shift_start|date:"h:i A" }}</strong>
+      </div>
+      <div class="shift-detail">
+        <span>Duration:</span>
+        <strong>{{ shift_summary.duration_hours }} hours</strong>
+      </div>
+      <div class="shift-detail">
+        <span>Scans:</span>
+        <strong>{{ shift_summary.metrics.total_scans }}</strong>
+      </div>
+      {% if current_shift.gate_post %}
+      <div class="shift-detail">
+        <span>Post:</span>
+        <strong>{{ current_shift.gate_post }}</strong>
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="alert alert-warning">
+      <i class="fas fa-exclamation-triangle"></i> You are not currently clocked in.
+      <form method="post" action="{% url 'guard-clock-in' %}" style="display: inline; margin-left: 1rem;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-success">
+          <i class="fas fa-sign-in-alt"></i> Clock In
+        </button>
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+      {% if current_shift %}
+      <a href="{% url 'gate-scan' %}" class="quick-action-btn">
+        <i class="fas fa-qrcode"></i>
+        Scanner
+      </a>
+      {% else %}
+      <a href="#" class="quick-action-btn" style="opacity: 0.6; cursor: not-allowed;" onclick="showClockInRequiredModal(); return false;">
+        <i class="fas fa-qrcode"></i>
+        Scanner
+        <i class="fas fa-lock ml-1" style="font-size: 0.7em;"></i>
+      </a>
+      {% endif %}
+      <a href="{% url 'guard-entry-list' %}" class="quick-action-btn">
+        <i class="fas fa-list"></i>
+        Entries
+      </a>
+      <a href="{% url 'guard-performance' %}" class="quick-action-btn">
+        <i class="fas fa-chart-line"></i>
+        Performance
+      </a>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="guard-dashboard-grid">
+      <div class="stat-card">
+        <h6>Currently Inside</h6>
+        <div class="stat-value">{{ stats.currently_inside }}</div>
+        <div class="stat-label">People on campus</div>
+      </div>
+      <div class="stat-card">
+        <h6>Today's Entries</h6>
+        <div class="stat-value">{{ stats.total_entries_today }}</div>
+        <div class="stat-label">Successful scans</div>
+      </div>
+      <div class="stat-card danger">
+        <h6>Denied Today</h6>
+        <div class="stat-value">{{ stats.denied_today }}</div>
+        <div class="stat-label">Access denied</div>
+      </div>
+      <div class="stat-card warning">
+        <h6>Incidents</h6>
+        <div class="stat-value">{{ stats.incidents_today }}</div>
+        <div class="stat-label">Reported today</div>
+      </div>
+    </div>
+
+    <!-- Active Alerts -->
+    {% if active_alerts %}
+    <div class="card mb-3">
+      <div class="card-header text-white" style="background: #ff9800;">
+        <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Active Alerts</h5>
+      </div>
+      <div class="card-body">
+        {% for alert in active_alerts %}
+        <div class="alert mb-2" style="background: {% if alert.priority == 'urgent' %}#fff3cd{% else %}#d4edda{% endif %}; border-left: 4px solid {% if alert.priority == 'urgent' %}#ff9800{% else %}#f39c12{% endif %};">
+          <span class="alert-badge {{ alert.priority }}">{{ alert.priority }}</span>
+          <strong>{{ alert.title }}</strong><br>
+          {{ alert.message }}
+          <small class="text-muted d-block mt-1">{{ alert.timestamp|date:"h:i A" }}</small>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Activity -->
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-history"></i> Recent Activity</h5>
+      </div>
+      <div class="card-body">
+        <div class="activity-feed">
+          {% for activity in recent_activity %}
+          <div class="activity-item {% if activity.type == 'incident' %}incident{% endif %}">
+            <div class="activity-time">{{ activity.timestamp|date:"h:i A" }}</div>
+            <div>{{ activity.description }}</div>
+          </div>
+          {% empty %}
+          <p class="text-muted">No recent activity</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Floating Notification Container -->
+<div class="notification-popup-container" id="notificationContainer"></div>
+
+<!-- Clock Out Modal -->
+<div class="modal fade" id="clockOutModal" tabindex="-1" role="dialog" aria-labelledby="clockOutModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="clockOutModalLabel"><i class="fas fa-sign-out-alt"></i> Clock Out</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <form method="post" action="{% url 'guard-clock-out' %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <p>You are about to end your shift. Would you like to leave a handover note for the next guard?</p>
+          <div class="form-group">
+            <label for="handover_note">Handover Note (Optional)</label>
+            <textarea class="form-control" id="handover_note" name="handover_note" rows="4" placeholder="Any important information for the next shift..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn" style="background: #ff9800; color: #fff; border: none;">
+            <i class="fas fa-sign-out-alt"></i> Clock Out
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// IMPORTANT: If popup still hides in 3 seconds, press Ctrl+Shift+R (Windows) or Cmd+Shift+R (Mac) to hard refresh and clear cache
+
+function showClockOutModal() {
+  $('#clockOutModal').modal('show');
+}
+
+// Notification popup system
+let lastNotificationCheck = new Date().toISOString();
+let shownNotifications = new Set();
+
+// Play notification sound based on priority
+function playNotificationSound(priority) {
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Different sounds for different priorities
+    if (priority === 'urgent') {
+      // Urgent: Three quick high beeps
+      oscillator.frequency.value = 880; // A5
+      gainNode.gain.value = 0.3;
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+      
+      setTimeout(() => {
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioContext.destination);
+        osc2.frequency.value = 880;
+        gain2.gain.value = 0.3;
+        osc2.start(audioContext.currentTime);
+        osc2.stop(audioContext.currentTime + 0.1);
+      }, 150);
+      
+      setTimeout(() => {
+        const osc3 = audioContext.createOscillator();
+        const gain3 = audioContext.createGain();
+        osc3.connect(gain3);
+        gain3.connect(audioContext.destination);
+        osc3.frequency.value = 880;
+        gain3.gain.value = 0.3;
+        osc3.start(audioContext.currentTime);
+        osc3.stop(audioContext.currentTime + 0.1);
+      }, 300);
+    } else if (priority === 'high') {
+      // High: Two medium beeps
+      oscillator.frequency.value = 659; // E5
+      gainNode.gain.value = 0.25;
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.15);
+      
+      setTimeout(() => {
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioContext.destination);
+        osc2.frequency.value = 659;
+        gain2.gain.value = 0.25;
+        osc2.start(audioContext.currentTime);
+        osc2.stop(audioContext.currentTime + 0.15);
+      }, 200);
+    } else {
+      // Normal/Medium/Low: Single gentle beep
+      oscillator.frequency.value = 523; // C5
+      gainNode.gain.value = 0.2;
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.2);
+    }
+  } catch (error) {
+    console.error('Error playing notification sound:', error);
+  }
+}
+
+function showNotificationPopup(notification) {
+  // Don't show if already shown
+  if (shownNotifications.has(notification.id)) {
+    return;
+  }
+  shownNotifications.add(notification.id);
+
+  // Play sound notification
+  playNotificationSound(notification.priority);
+
+  const container = document.getElementById('notificationContainer');
+  const popup = document.createElement('div');
+  popup.className = `notification-popup ${notification.priority}`;
+  popup.id = `notification-${notification.id}`;
+  
+  popup.innerHTML = `
+    <div class="notification-popup-header">
+      <div class="title"><i class="fas fa-bell"></i> ${escapeHtml(notification.title)}</div>
+      <button class="close-btn" onclick="closeNotificationPopup(${notification.id})">&times;</button>
+    </div>
+    <div class="notification-popup-body">
+      ${escapeHtml(notification.message)}
+    </div>
+    <div class="notification-popup-footer">
+      <span class="priority-badge ${notification.priority}">${notification.priority}</span>
+      <span>Just now</span>
+    </div>
+  `;
+  
+  container.appendChild(popup);
+  
+  // Auto-hide after 10 seconds
+  setTimeout(() => {
+    closeNotificationPopup(notification.id);
+  }, 10000);
+}
+
+function closeNotificationPopup(notificationId) {
+  const popup = document.getElementById(`notification-${notificationId}`);
+  if (popup) {
+    popup.classList.add('hiding');
+    setTimeout(() => {
+      popup.remove();
+    }, 300);
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Poll for new notifications every 10 seconds
+function checkNewNotifications() {
+  fetch(`{% url 'guard-check-new-notifications' %}?since=${encodeURIComponent(lastNotificationCheck)}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success && data.notifications && data.notifications.length > 0) {
+        data.notifications.forEach(notification => {
+          showNotificationPopup(notification);
+        });
+        lastNotificationCheck = new Date().toISOString();
+      }
+    })
+    .catch(error => console.error('Error checking notifications:', error));
+}
+
+// Start polling for notifications
+setInterval(checkNewNotifications, 10000);
+// Check immediately on page load
+setTimeout(checkNewNotifications, 2000);
+
+// Auto-refresh stats every 30 seconds
+setInterval(function() {
+  fetch('{% url "guard-dashboard-stats-api" %}')
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        // Update stats without full page reload
+        location.reload();
+      }
+    })
+    .catch(error => console.error('Error refreshing stats:', error));
+}, 30000);
+</script>
+{% endblock content %}

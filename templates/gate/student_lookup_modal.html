@@ -1,0 +1,262 @@
+<!-- Student Lookup Modal (can be included in guard dashboard or as standalone) -->
+<div id="studentLookupModal" class="modal fade" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title"><i class="fas fa-search"></i> Student Lookup</h5>
+        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Search Input -->
+        <div class="form-group">
+          <label for="studentSearchInput">Search by Student ID or Name</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="studentSearchInput" placeholder="Enter at least 3 characters" minlength="3">
+            <div class="input-group-append">
+              <button class="btn btn-success" type="button" onclick="searchStudent()">
+                <i class="fas fa-search"></i> Search
+              </button>
+            </div>
+          </div>
+          <small class="form-text text-muted">Minimum 3 characters required</small>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="lookupLoading" class="text-center py-4" style="display: none;">
+          <div class="spinner-border text-success" role="status">
+            <span class="sr-only">Loading...</span>
+          </div>
+          <p class="mt-2 text-muted">Searching...</p>
+        </div>
+
+        <!-- Multiple Results -->
+        <div id="multipleResults" style="display: none;">
+          <h6 class="mb-3">Multiple students found. Select one:</h6>
+          <div class="list-group" id="multipleResultsList"></div>
+        </div>
+
+        <!-- Single Student Result -->
+        <div id="studentResult" style="display: none;">
+          <!-- Student Info -->
+          <div class="row mb-3">
+            <div class="col-md-8">
+              <h5 id="studentName" class="mb-2"></h5>
+              <p class="mb-1"><strong>Student ID:</strong> <span id="studentId"></span></p>
+              <p class="mb-1"><strong>Course:</strong> <span id="studentCourse"></span></p>
+              <p class="mb-1"><strong>Year Level:</strong> <span id="studentYearLevel"></span></p>
+            </div>
+            <div class="col-md-4 text-center">
+              <img id="studentPhoto" src="" alt="Student Photo" class="img-fluid rounded" style="max-height: 150px; display: none;">
+              <div id="noPhoto" class="text-muted" style="display: none;">
+                <i class="fas fa-user-circle fa-5x"></i>
+                <p class="small mt-2">No photo</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Today's Schedule -->
+          <div class="card mb-3">
+            <div class="card-header bg-light">
+              <h6 class="mb-0"><i class="fas fa-calendar-day"></i> Today's Schedule</h6>
+            </div>
+            <div class="card-body">
+              <div id="todaySchedule"></div>
+            </div>
+          </div>
+
+          <!-- Recent Entries -->
+          <div class="card">
+            <div class="card-header bg-light">
+              <h6 class="mb-0"><i class="fas fa-history"></i> Recent Entries (Last 3 Days)</h6>
+            </div>
+            <div class="card-body">
+              <div id="recentEntries"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error Message -->
+        <div id="lookupError" class="alert alert-warning" style="display: none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  #studentLookupModal .list-group-item {
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  #studentLookupModal .list-group-item:hover {
+    background: #f8f9fa;
+  }
+  #studentLookupModal .schedule-item {
+    padding: 0.75rem;
+    border-left: 3px solid #28a745;
+    background: #f8f9fa;
+    margin-bottom: 0.5rem;
+    border-radius: 4px;
+  }
+  #studentLookupModal .entry-item {
+    padding: 0.5rem;
+    border-bottom: 1px solid #dee2e6;
+  }
+  #studentLookupModal .entry-item:last-child {
+    border-bottom: none;
+  }
+  #studentLookupModal .entry-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  #studentLookupModal .entry-badge.in {
+    background: #28a745;
+    color: #fff;
+  }
+  #studentLookupModal .entry-badge.out {
+    background: #6c757d;
+    color: #fff;
+  }
+  #studentLookupModal .entry-badge.granted {
+    background: #d4edda;
+    color: #155724;
+  }
+  #studentLookupModal .entry-badge.denied {
+    background: #f8d7da;
+    color: #721c24;
+  }
+</style>
+
+<script>
+function searchStudent() {
+  const query = document.getElementById('studentSearchInput').value.trim();
+  
+  if (query.length < 3) {
+    showError('Please enter at least 3 characters');
+    return;
+  }
+
+  // Show loading
+  document.getElementById('lookupLoading').style.display = 'block';
+  document.getElementById('multipleResults').style.display = 'none';
+  document.getElementById('studentResult').style.display = 'none';
+  document.getElementById('lookupError').style.display = 'none';
+
+  // Make AJAX request
+  fetch(`/gate/guard/student-lookup/?q=${encodeURIComponent(query)}`)
+    .then(response => response.json())
+    .then(data => {
+      document.getElementById('lookupLoading').style.display = 'none';
+      
+      if (!data.success) {
+        showError(data.error || 'Student not found');
+        return;
+      }
+
+      if (data.multiple) {
+        // Show multiple results
+        showMultipleResults(data.results);
+      } else {
+        // Show single student
+        showStudentDetails(data.student);
+      }
+    })
+    .catch(error => {
+      document.getElementById('lookupLoading').style.display = 'none';
+      showError('An error occurred while searching');
+      console.error('Error:', error);
+    });
+}
+
+function showMultipleResults(results) {
+  const list = document.getElementById('multipleResultsList');
+  list.innerHTML = '';
+  
+  results.forEach(student => {
+    const item = document.createElement('a');
+    item.className = 'list-group-item list-group-item-action';
+    item.innerHTML = `
+      <strong>${student.name}</strong><br>
+      <small class="text-muted">ID: ${student.student_id} | ${student.course} - ${student.year_level}</small>
+    `;
+    item.onclick = () => {
+      document.getElementById('studentSearchInput').value = student.student_id;
+      searchStudent();
+    };
+    list.appendChild(item);
+  });
+  
+  document.getElementById('multipleResults').style.display = 'block';
+}
+
+function showStudentDetails(student) {
+  // Student info
+  document.getElementById('studentName').textContent = student.name;
+  document.getElementById('studentId').textContent = student.student_id;
+  document.getElementById('studentCourse').textContent = student.course;
+  document.getElementById('studentYearLevel').textContent = student.year_level;
+  
+  // Photo
+  if (student.photo_url) {
+    document.getElementById('studentPhoto').src = student.photo_url;
+    document.getElementById('studentPhoto').style.display = 'block';
+    document.getElementById('noPhoto').style.display = 'none';
+  } else {
+    document.getElementById('studentPhoto').style.display = 'none';
+    document.getElementById('noPhoto').style.display = 'block';
+  }
+  
+  // Today's schedule
+  const scheduleDiv = document.getElementById('todaySchedule');
+  if (student.today_schedule && student.today_schedule.length > 0) {
+    scheduleDiv.innerHTML = student.today_schedule.map(cls => `
+      <div class="schedule-item">
+        <strong>${cls.subject}</strong> - ${cls.title}<br>
+        <small class="text-muted">
+          <i class="fas fa-clock"></i> ${cls.time} | 
+          <i class="fas fa-door-open"></i> ${cls.room}
+        </small>
+      </div>
+    `).join('');
+  } else {
+    scheduleDiv.innerHTML = '<p class="text-muted">No classes scheduled for today</p>';
+  }
+  
+  // Recent entries
+  const entriesDiv = document.getElementById('recentEntries');
+  if (student.recent_entries && student.recent_entries.length > 0) {
+    entriesDiv.innerHTML = student.recent_entries.map(entry => `
+      <div class="entry-item">
+        <span class="entry-badge ${entry.scan_type.toLowerCase()}">${entry.scan_type}</span>
+        <span class="entry-badge ${entry.granted ? 'granted' : 'denied'}">${entry.granted ? 'GRANTED' : 'DENIED'}</span>
+        <span class="text-muted">${entry.timestamp}</span>
+        ${entry.notes ? `<br><small class="text-muted">${entry.notes}</small>` : ''}
+      </div>
+    `).join('');
+  } else {
+    entriesDiv.innerHTML = '<p class="text-muted">No recent entries</p>';
+  }
+  
+  document.getElementById('studentResult').style.display = 'block';
+}
+
+function showError(message) {
+  const errorDiv = document.getElementById('lookupError');
+  errorDiv.textContent = message;
+  errorDiv.style.display = 'block';
+}
+
+// Allow Enter key to search
+document.getElementById('studentSearchInput').addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') {
+    searchStudent();
+  }
+});
+</script>

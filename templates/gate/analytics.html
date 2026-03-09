@@ -1,0 +1,521 @@
+{% extends 'base/base.html' %}
+{% block title %}Campus Analytics - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Gate Analytics{% endblock breadcrumb %}
+
+{% block content %}
+<style>
+  #analytics-cards .analytics-col { margin-bottom: 1rem; }
+  #analytics-cards .small-box { min-height: 120px; display: flex; flex-direction: column; }
+  #analytics-cards .small-box .inner { flex: 1; }
+  @media (min-width: 992px) {
+    #analytics-cards .row:first-child .analytics-col { margin-bottom: 1rem; }
+    #analytics-cards .row:last-child .analytics-col { margin-bottom: 0; }
+  }
+</style>
+<div class="row mb-3">
+  <div class="col-12">
+    <a href="{% url 'gate-analytics-report' %}" target="_blank" class="btn btn-success">
+      <i class="fas fa-print mr-1"></i> Print report
+    </a>
+    <span class="text-muted small ml-2">Opens a printable report with all analytics data.</span>
+  </div>
+</div>
+<div id="analytics-cards">
+  <div class="row">
+    <div class="col-lg-3 col-md-4 col-6 analytics-col">
+      <div class="small-box bg-success h-100">
+        <div class="inner">
+          <h3>{{ granted_today|default:0 }}</h3>
+          <p>Entries granted today</p>
+        </div>
+        <div class="icon"><i class="fas fa-door-open"></i></div>
+        <a href="{% url 'gate-entry-list' %}" class="small-box-footer">View entries <i class="fas fa-arrow-circle-right"></i></a>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-4 col-6 analytics-col">
+      <div class="small-box bg-info h-100">
+        <div class="inner">
+          <h3>{{ inside_now|default:0 }}</h3>
+          <p>Currently inside</p>
+        </div>
+        <div class="icon"><i class="fas fa-user-friends"></i></div>
+        <a href="{% url 'gate-entry-list' %}" class="small-box-footer">View entries <i class="fas fa-arrow-circle-right"></i></a>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-4 col-6 analytics-col">
+      <div class="small-box bg-danger h-100">
+        <div class="inner">
+          <h3>{{ denied_today|default:0 }}</h3>
+          <p>Entries denied today</p>
+        </div>
+        <div class="icon"><i class="fas fa-times-circle"></i></div>
+        <a href="{% url 'gate-incident-list' %}?from_date={{ today_iso|default:'' }}" class="small-box-footer">View incidents <i class="fas fa-arrow-circle-right"></i></a>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-4 col-6 analytics-col">
+      <div class="small-box bg-warning h-100">
+        <div class="inner">
+          <h3>{{ incidents_today|default:0 }}</h3>
+          <p>Incidents today</p>
+        </div>
+        <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
+        <a href="{% url 'gate-incident-list' %}?from_date={{ today_iso|default:'' }}" class="small-box-footer">View incidents <i class="fas fa-arrow-circle-right"></i></a>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-lg-3 col-md-4 col-6 analytics-col">
+      <div class="small-box bg-success h-100">
+        <div class="inner">
+          <h3>{{ total_students|default:0 }}</h3>
+          <p>Registered students</p>
+        </div>
+        <div class="icon"><i class="fas fa-users"></i></div>
+        <a href="{% url 'gate-student-list' %}" class="small-box-footer">View students <i class="fas fa-arrow-circle-right"></i></a>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-4 col-6 analytics-col">
+      <div class="small-box bg-secondary h-100">
+        <div class="inner">
+          <h3>{{ visitors_this_month|default:0 }}</h3>
+          <p>Visitors this month</p>
+        </div>
+        <div class="icon"><i class="fas fa-user-friends"></i></div>
+        <a href="{% url 'gate-visitor-list' %}" class="small-box-footer">View visitor log <i class="fas fa-arrow-circle-right"></i></a>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-4 col-6 analytics-col">
+      <div class="small-box bg-teal h-100">
+        <div class="inner">
+          <h3>{{ visitors_this_year|default:0 }}</h3>
+          <p>Visitors this year</p>
+        </div>
+        <div class="icon"><i class="fas fa-building"></i></div>
+        <a href="{% url 'gate-visitor-yearly' %}" class="small-box-footer">View yearly summary <i class="fas fa-arrow-circle-right"></i></a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <div class="d-flex flex-wrap align-items-center justify-content-between" style="gap:10px;">
+          <h5 class="m-0">School Performance</h5>
+          <form method="get" class="form-inline" style="gap:8px; display:flex; flex-wrap:wrap; align-items:center;">
+            <label class="mb-0 text-muted" for="analyticsYear" style="font-weight:500;">Year</label>
+            <select id="analyticsYear" name="year" class="form-control form-control-sm" onchange="this.form.submit()" style="min-width:120px;">
+              {% for y in available_years %}
+                <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+              {% endfor %}
+              {% if not available_years %}
+                <option value="{{ selected_year }}" selected>{{ selected_year }}</option>
+              {% endif %}
+            </select>
+          </form>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-lg-8">
+            <div class="row">
+              <div class="col-12">
+                <div class="card" style="box-shadow:none; border:1px solid rgba(0,0,0,0.06);">
+                  <div class="card-header" style="background:#f8fafc;"><strong>Monthly Gate Entries</strong> <span class="text-muted small">(Granted vs Denied)</span></div>
+                  <div class="card-body">
+                    <div style="position:relative; height:280px;">
+                      <canvas id="chartMonthlyEntries"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12">
+                <div class="card" style="box-shadow:none; border:1px solid rgba(0,0,0,0.06);">
+                  <div class="card-header" style="background:#f8fafc;"><strong>Monthly Incidents</strong> <span class="text-muted small">(Total)</span></div>
+                  <div class="card-body">
+                    <div style="position:relative; height:240px;">
+                      <canvas id="chartMonthlyIncidents"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4">
+            <div class="card" style="box-shadow:none; border:1px solid rgba(0,0,0,0.06);">
+              <div class="card-header" style="background:#f8fafc;"><strong>Incidents by Reason</strong></div>
+              <div class="card-body">
+                <div style="position:relative; height:260px;">
+                  <canvas id="chartIncidentReasons"></canvas>
+                </div>
+              </div>
+            </div>
+            <div class="card" style="box-shadow:none; border:1px solid rgba(0,0,0,0.06);">
+              <div class="card-header" style="background:#f8fafc;"><strong>Annual Trend</strong> <span class="text-muted small">(last years)</span></div>
+              <div class="card-body">
+                <div style="position:relative; height:240px;">
+                  <canvas id="chartAnnualTrend"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><h5 class="m-0">Recent gate entries</h5></div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-striped mb-0">
+          <thead><tr><th>ID</th><th>Result</th><th>Time</th></tr></thead>
+          <tbody>
+            {% for e in recent_entries %}
+              <tr>
+                <td><code>{% if e.student %}{{ e.student.student_id }}{% else %}{{ e.notes|default:"—" }}{% endif %}</code></td>
+                <td>{% if e.granted %}<span class="badge badge-success">Granted</span>{% else %}<span class="badge badge-danger">Denied</span>{% endif %}</td>
+                <td>{{ e.timestamp|date:"H:i" }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="3" class="text-muted">No entries yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer"><a class="btn btn-sm btn-primary" href="{% url 'gate-entry-list' %}">View all entries</a></div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><h5 class="m-0">Recent incidents</h5></div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-striped mb-0">
+          <thead><tr><th>Scanned / Student</th><th>Time</th></tr></thead>
+          <tbody>
+            {% for i in recent_incidents %}
+              <tr>
+                <td>{% if i.scanned_id %}{{ i.scanned_id }}{% elif i.student %}{{ i.student.student_id }}{% else %}—{% endif %}</td>
+                <td>{{ i.timestamp|date:"H:i" }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="2" class="text-muted">No incidents.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer"><a class="btn btn-sm btn-primary" href="{% url 'gate-incident-list' %}">View all incidents</a></div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header"><h5 class="m-0">Visitors &amp; departments visited</h5></div>
+      <div class="card-body p-0">
+        <div class="row no-gutters">
+          <div class="col-md-6">
+            <div class="p-3 border-bottom border-md-0 border-md-right">
+              <h6 class="text-muted mb-2">Top departments visited this month</h6>
+              <table class="table table-sm table-striped mb-0">
+                <thead><tr><th>Department / Office</th><th class="text-right">Visits</th></tr></thead>
+                <tbody>
+                  {% for row in top_departments_monthly %}
+                    <tr>
+                      <td>{{ row.who_to_visit|default:"—" }}</td>
+                      <td class="text-right">{{ row.count }}</td>
+                    </tr>
+                  {% empty %}
+                    <tr><td colspan="2" class="text-muted">No visitor data this month.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="p-3">
+              <h6 class="text-muted mb-2">Top departments visited this year ({{ selected_year }})</h6>
+              <table class="table table-sm table-striped mb-0">
+                <thead><tr><th>Department / Office</th><th class="text-right">Visits</th></tr></thead>
+                <tbody>
+                  {% for row in top_departments_annually %}
+                    <tr>
+                      <td>{{ row.who_to_visit|default:"—" }}</td>
+                      <td class="text-right">{{ row.count }}</td>
+                    </tr>
+                  {% empty %}
+                    <tr><td colspan="2" class="text-muted">No visitor data this year.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer"><a class="btn btn-sm btn-outline-secondary" href="{% url 'gate-visitor-list' %}">View all visitor entries</a></div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header"><h5 class="m-0">Event participation (campus analytics)</h5></div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-striped mb-0">
+          <thead><tr><th>Event</th><th>Total tracked</th><th>Participated</th><th>Non-participant</th></tr></thead>
+          <tbody>
+            {% for s in participation_stats %}
+              <tr>
+                <td>{{ s.event__name|default:"—" }}</td>
+                <td>{{ s.total }}</td>
+                <td>{{ s.participated_count }}</td>
+                <td>{{ s.non_participant_count }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4" class="text-muted">No event participation data yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row mt-3">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header d-flex flex-wrap align-items-center justify-content-between" style="gap:8px;">
+        <h5 class="m-0">Event results (past events)</h5>
+        <span class="d-flex flex-wrap align-items-center" style="gap:8px;">
+          <span class="text-muted small">Events that have ended — view results and export</span>
+          <a href="{% url 'report-compare-events' %}" class="btn btn-sm btn-outline-secondary" title="Compare two events"><i class="fas fa-balance-scale mr-1"></i> Compare events</a>
+        </span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-striped table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Event</th>
+              <th>Dates</th>
+              <th>Total tracked</th>
+              <th>Participated</th>
+              <th>Checked in</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in past_events_with_stats %}
+              <tr>
+                <td>{{ row.event.name }}</td>
+                <td>{{ row.event.start_date|date:"M d, Y" }} – {{ row.event.end_date|date:"M d, Y" }}</td>
+                <td>{{ row.total_tracked }}</td>
+                <td>{{ row.participated }}</td>
+                <td>{{ row.checked_in }}</td>
+                <td>
+                  <a href="{% url 'event-attendance-report' row.event.pk %}" class="btn btn-sm btn-outline-primary" title="View full report"><i class="fas fa-chart-bar mr-1"></i> Report</a>
+                  <a href="{% url 'event-attendance-report-export-csv' row.event.pk %}" class="btn btn-sm btn-outline-secondary" title="Export CSV"><i class="fas fa-file-csv mr-1"></i> CSV</a>
+                  <a href="{% url 'event-attendance-report-export-xlsx' row.event.pk %}" class="btn btn-sm btn-outline-secondary" title="Export Excel"><i class="fas fa-file-excel mr-1"></i> XLSX</a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6" class="text-muted">No past events yet. Events appear here automatically after their end date.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row mt-3">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header"><h5 class="m-0">Active events (today)</h5></div>
+      <div class="card-body">
+        {% if active_events %}
+          <ul class="list-unstyled mb-0">
+            {% for e in active_events %}
+              <li><i class="fas fa-calendar-alt text-info mr-1"></i> {{ e.name }} ({{ e.start_date }} – {{ e.end_date }})</li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted mb-0">No active events today.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block extrascript %}
+<script>
+(function() {
+  if (typeof Chart === 'undefined') return;
+
+  var monthLabels = JSON.parse('{{ chart_month_labels_json|escapejs }}');
+  var monthlyGranted = JSON.parse('{{ chart_monthly_granted_json|escapejs }}');
+  var monthlyDenied = JSON.parse('{{ chart_monthly_denied_json|escapejs }}');
+  var monthlyIncidents = JSON.parse('{{ chart_monthly_incidents_json|escapejs }}');
+  var reasonLabels = JSON.parse('{{ chart_reason_labels_json|escapejs }}');
+  var reasonCounts = JSON.parse('{{ chart_reason_counts_json|escapejs }}');
+  var reasonColors = JSON.parse('{{ chart_reason_colors_json|escapejs }}');
+  var annualYears = JSON.parse('{{ chart_annual_years_json|escapejs }}');
+  var annualGranted = JSON.parse('{{ chart_annual_granted_json|escapejs }}');
+  var annualDenied = JSON.parse('{{ chart_annual_denied_json|escapejs }}');
+  var annualIncidents = JSON.parse('{{ chart_annual_incidents_json|escapejs }}');
+
+  Chart.defaults.global.defaultFontFamily = "'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial";
+  Chart.defaults.global.defaultFontColor = '#334155';
+
+  var ctxEntries = document.getElementById('chartMonthlyEntries');
+  if (ctxEntries) {
+    new Chart(ctxEntries.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: monthLabels,
+        datasets: [
+          {
+            label: 'Granted',
+            data: monthlyGranted,
+            backgroundColor: 'rgba(34, 197, 94, 0.75)',
+            borderColor: 'rgba(34, 197, 94, 1)',
+            borderWidth: 1
+          },
+          {
+            label: 'Denied',
+            data: monthlyDenied,
+            backgroundColor: 'rgba(239, 68, 68, 0.75)',
+            borderColor: 'rgba(239, 68, 68, 1)',
+            borderWidth: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        legend: { position: 'bottom' },
+        tooltips: { mode: 'index', intersect: false },
+        scales: {
+          xAxes: [{ gridLines: { display: false } }],
+          yAxes: [{ ticks: { beginAtZero: true, precision: 0 } }]
+        }
+      }
+    });
+  }
+
+  var ctxInc = document.getElementById('chartMonthlyIncidents');
+  if (ctxInc) {
+    new Chart(ctxInc.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: monthLabels,
+        datasets: [{
+          label: 'Incidents',
+          data: monthlyIncidents,
+          borderColor: 'rgba(59, 130, 246, 1)',
+          backgroundColor: 'rgba(59, 130, 246, 0.12)',
+          pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+          pointRadius: 3,
+          fill: true,
+          lineTension: 0.25
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        legend: { display: false },
+        tooltips: { mode: 'index', intersect: false },
+        scales: {
+          xAxes: [{ gridLines: { display: false } }],
+          yAxes: [{ ticks: { beginAtZero: true, precision: 0 } }]
+        }
+      }
+    });
+  }
+
+  var ctxReasons = document.getElementById('chartIncidentReasons');
+  if (ctxReasons) {
+    new Chart(ctxReasons.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: reasonLabels,
+        datasets: [{
+          data: reasonCounts,
+          backgroundColor: reasonColors,
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        legend: { position: 'bottom' },
+        cutoutPercentage: 62,
+        tooltips: {
+          callbacks: {
+            label: function(tooltipItem, data) {
+              var label = data.labels[tooltipItem.index] || '';
+              var val = data.datasets[0].data[tooltipItem.index] || 0;
+              return label + ': ' + val;
+            }
+          }
+        }
+      }
+    });
+  }
+
+  var ctxAnnual = document.getElementById('chartAnnualTrend');
+  if (ctxAnnual) {
+    new Chart(ctxAnnual.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: annualYears,
+        datasets: [
+          {
+            label: 'Granted',
+            data: annualGranted,
+            borderColor: 'rgba(34, 197, 94, 1)',
+            backgroundColor: 'rgba(34, 197, 94, 0.08)',
+            fill: false,
+            lineTension: 0.25,
+            pointRadius: 3
+          },
+          {
+            label: 'Denied',
+            data: annualDenied,
+            borderColor: 'rgba(239, 68, 68, 1)',
+            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+            fill: false,
+            lineTension: 0.25,
+            pointRadius: 3
+          },
+          {
+            label: 'Incidents',
+            data: annualIncidents,
+            borderColor: 'rgba(59, 130, 246, 1)',
+            backgroundColor: 'rgba(59, 130, 246, 0.08)',
+            fill: false,
+            lineTension: 0.25,
+            pointRadius: 3
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        legend: { position: 'bottom' },
+        tooltips: { mode: 'index', intersect: false },
+        scales: {
+          xAxes: [{ gridLines: { display: false } }],
+          yAxes: [{ ticks: { beginAtZero: true, precision: 0 } }]
+        }
+      }
+    });
+  }
+})();
+</script>
+{% endblock extrascript %}

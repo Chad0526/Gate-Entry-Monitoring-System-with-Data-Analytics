@@ -1,0 +1,186 @@
+{% extends 'base/base.html' %}
+{% block title %}Reports – Overview – {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Reports / Overview{% endblock breadcrumb %}
+
+{% block content %}
+<h5 class="mb-3">Reports – Overview</h5>
+
+{% include 'gate/reports/_filter_bar.html' %}
+
+<h6 class="text-muted mt-3">Today's snapshot</h6>
+<p class="small text-muted">Click a card to open the full list with the same date filter.</p>
+<div class="row">
+  <div class="col-lg-2 col-4">
+    <a href="{{ entries_list_url }}" class="text-decoration-none">
+      <div class="small-box bg-success">
+        <div class="inner">
+          <h3>{{ total_visits }}</h3>
+          <p>Total visits</p>
+        </div>
+        <div class="icon"><i class="fas fa-door-open"></i></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-lg-2 col-4">
+    <a href="{% url 'reports-daily-gate' %}?from_date={{ filter_date|date:'Y-m-d' }}&tab=inside_now" class="text-decoration-none">
+      <div class="small-box bg-info">
+        <div class="inner">
+          <h3>{{ inside_now }}</h3>
+          <p>Inside now</p>
+        </div>
+        <div class="icon"><i class="fas fa-user-friends"></i></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-lg-2 col-4">
+    <a href="{{ incidents_list_url }}" class="text-decoration-none">
+      <div class="small-box bg-danger">
+        <div class="inner">
+          <h3>{{ denied_attempts }}</h3>
+          <p>Denied attempts</p>
+        </div>
+        <div class="icon"><i class="fas fa-times-circle"></i></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-lg-2 col-4">
+    <a href="{{ incidents_list_url }}" class="text-decoration-none">
+      <div class="small-box bg-warning">
+        <div class="inner">
+          <h3>{{ incidents_created }}</h3>
+          <p>Incidents created</p>
+        </div>
+        <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-lg-2 col-4">
+    <a href="{% url 'reports-daily-gate' %}?from_date={{ filter_date|date:'Y-m-d' }}&tab=early_outs" class="text-decoration-none">
+      <div class="small-box bg-secondary">
+        <div class="inner">
+          <h3>{{ forced_out_no_in }}</h3>
+          <p>Forced OUT (no IN)</p>
+        </div>
+        <div class="icon"><i class="fas fa-sign-out-alt"></i></div>
+      </div>
+    </a>
+  </div>
+</div>
+
+{% if top_early_out %}
+<div class="row mt-4">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><h6 class="m-0">Top reasons for early OUT</h6></div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-striped mb-0">
+          <thead><tr><th>Reason code</th><th>Count</th></tr></thead>
+          <tbody>
+            {% for row in top_early_out %}
+            <tr><td>{{ row.out_reason_code }}</td><td>{{ row.c }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="row mt-4">
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header"><h6 class="m-0">Hourly traffic (IN / OUT)</h6></div>
+      <div class="card-body">
+        <canvas id="hourlyChart" height="80"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if heatmap_rows %}
+<div class="row mt-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header"><h6 class="m-0">Heatmap: Day × Hour (last 7 days)</h6></div>
+      <div class="card-body overflow-auto">
+        <p class="small text-muted mb-2">Scans per hour; darker = more traffic.</p>
+        <table class="table table-sm table-bordered mb-0" style="font-size:11px;">
+          <thead>
+            <tr>
+              <th>Date</th>
+              {% for h in "0123456789" %}<th>{{ h }}</th>{% endfor %}
+              <th>10</th><th>11</th><th>12</th><th>13</th><th>14</th><th>15</th><th>16</th><th>17</th><th>18</th><th>19</th>
+              <th>20</th><th>21</th><th>22</th><th>23</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for date_row in heatmap_rows %}
+            <tr>
+              <td class="text-nowrap">{{ date_row.0|date:"M d" }}</td>
+              {% for cell in date_row.1 %}
+              <td class="p-1 text-center" style="min-width:16px; background: rgba(27, 94, 32, {{ cell.opacity }}); color: {% if cell.opacity >= 0.5 %}#fff{% else %}#333{% endif %};" title="{{ cell.count }} scans">{% if cell.count %}{{ cell.count }}{% endif %}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p class="small text-muted mt-1 mb-0">Columns: hour (0–23). Rows: oldest to newest day.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="row mt-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between">
+        <h6 class="m-0">Recent activity (last 20)</h6>
+        <a href="{{ entries_list_url }}" class="btn btn-sm btn-outline-primary">View all entries</a>
+      </div>
+      <div class="card-body p-0">
+        {% if recent_activity %}
+        <table class="table table-sm table-striped table-hover mb-0">
+          <thead><tr><th>Time</th><th>Student</th><th>Type</th><th>Result</th></tr></thead>
+          <tbody>
+            {% for e in recent_activity %}
+            <tr>
+              <td>{{ e.timestamp|date:"M d, H:i" }}</td>
+              <td>{{ e.student.student_id|default:e.notes }} {{ e.student.get_full_name|default:"" }}</td>
+              <td>{{ e.scan_type|default:"—" }}</td>
+              <td>{% if e.granted %}<span class="badge badge-success">Granted</span>{% else %}<span class="badge badge-danger">Denied</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted p-3 mb-0">No activity in the selected period.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+(function(){
+  var data = {{ hourly_chart_json|safe }};
+  if (typeof data === 'string') try { data = JSON.parse(data); } catch(e) { data = []; }
+  var ctx = document.getElementById('hourlyChart');
+  if (!ctx || !data.length) return;
+  var labels = data.map(function(d){ return d.hour + ':00'; });
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'IN', data: data.map(function(d){ return d.in; }), backgroundColor: 'rgba(40, 167, 69, 0.7)' },
+        { label: 'OUT', data: data.map(function(d){ return d.out; }), backgroundColor: 'rgba(0, 123, 255, 0.7)' }
+      ]
+    },
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+  });
+})();
+</script>
+{% endblock content %}

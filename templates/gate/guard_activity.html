@@ -1,0 +1,142 @@
+{% extends 'base/base.html' %}
+{% block title %}Guard activity - {{ site_name }}{% endblock %}
+{% block breadcrumb %}Guard activity{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col-md-6">
+    <a href="{% url 'reports-hub' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left mr-1"></i> Reports Hub</a>
+  </div>
+  <div class="col-md-6 text-right">
+    <button class="btn btn-primary" type="button" data-toggle="collapse" data-target="#notificationForm" aria-expanded="false" aria-controls="notificationForm">
+      <i class="fas fa-bell mr-1"></i> Send Notification to Guards
+    </button>
+  </div>
+</div>
+
+<!-- Notification Form (Collapsible) -->
+<div class="collapse mb-3" id="notificationForm">
+  <div class="card card-primary">
+    <div class="card-header">
+      <h5 class="m-0">Send Guard Notification</h5>
+    </div>
+    <form method="post" action="{% url 'admin-send-guard-notification' %}">
+      {% csrf_token %}
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="recipient_type">Send To</label>
+              <select class="form-control" id="recipient_type" name="recipient_type" required>
+                <option value="all">All Guards</option>
+                <option value="on_duty">On-Duty Guards Only ({{ on_duty_count }} currently)</option>
+                <option value="specific">Specific Guard</option>
+              </select>
+            </div>
+
+            <div class="form-group" id="specific_guard_group" style="display: none;">
+              <label for="specific_guard">Select Guard</label>
+              <select class="form-control" id="specific_guard" name="specific_guard">
+                <option value="">-- Select a guard --</option>
+                {% for guard in all_guards %}
+                <option value="{{ guard.id }}">{{ guard.get_full_name|default:guard.username }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="priority">Priority</label>
+              <select class="form-control" id="priority" name="priority" required>
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+              <small class="form-text text-muted">Urgent notifications appear prominently on guard dashboard</small>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="title">Title</label>
+              <input type="text" class="form-control" id="title" name="title" placeholder="e.g., Shift Reminder, Security Alert" required maxlength="200">
+            </div>
+
+            <div class="form-group">
+              <label for="message">Message</label>
+              <textarea class="form-control" id="message" name="message" rows="4" placeholder="Enter notification message..." required maxlength="1000"></textarea>
+              <small class="form-text text-muted"><span id="char_count">0</span>/1000 characters</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-footer">
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-paper-plane"></i> Send Notification
+        </button>
+        <button type="button" class="btn btn-default" data-toggle="collapse" data-target="#notificationForm">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h5 class="m-0">Guard activity log</h5>
+    <p class="text-muted small mb-0 mt-1">Recent actions by guards: student IN/OUT, early out overrides, clock in/out, logins.</p>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm table-striped mb-0">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Guard</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in activity_list %}
+        <tr>
+          <td>{{ row.time|date:"Y-m-d H:i" }}</td>
+          <td>{{ row.guard }}</td>
+          <td>{{ row.action }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="text-muted text-center py-4">No guard activity recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer py-1 small text-muted">Shows last 200 actions. For full audit trail see <a href="{% url 'audit-log-viewer' %}">View logs</a>.</div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const recipientType = document.getElementById('recipient_type');
+    const specificGuardGroup = document.getElementById('specific_guard_group');
+    const specificGuard = document.getElementById('specific_guard');
+    const messageField = document.getElementById('message');
+    const charCount = document.getElementById('char_count');
+
+    // Show/hide specific guard dropdown
+    if (recipientType) {
+        recipientType.addEventListener('change', function() {
+            if (this.value === 'specific') {
+                specificGuardGroup.style.display = 'block';
+                specificGuard.required = true;
+            } else {
+                specificGuardGroup.style.display = 'none';
+                specificGuard.required = false;
+            }
+        });
+    }
+
+    // Character counter
+    if (messageField) {
+        messageField.addEventListener('input', function() {
+            charCount.textContent = this.value.length;
+        });
+    }
+});
+</script>
+{% endblock %}

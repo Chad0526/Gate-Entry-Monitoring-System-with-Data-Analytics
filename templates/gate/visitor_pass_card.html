@@ -1,0 +1,234 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visitor e-ID — {{ pass_obj.code }}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #e8e8e8;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card-wrap {
+      width: 240px;
+      height: 320px;
+      aspect-ratio: 3 / 4;
+      max-width: 100%;
+      background: #fff;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #ddd;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+      display: flex;
+      flex-direction: column;
+    }
+    /* Header: dark olive green vertical gradient, rounded top, shadow, gray lines */
+    .card-top {
+      flex: 0 0 auto;
+      background-image:
+        repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 6px),
+        linear-gradient(135deg, #0e7001 50%, #8ddf00 0%, #006b05 100%);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 48px;
+      border-radius: 14px 14px 0 0;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.12);
+    }
+    .card-top-logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      border: 3px solid #d4af37;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .card-top-logo img { width: 100%; height: 100%; object-fit: cover; }
+    .card-top-text { flex: 1; min-width: 0; }
+    .card-top-title {
+      margin: 0;
+      font-size: 10px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.04em;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+    .card-top-sub {
+      margin: 2px 0 0;
+      font-size: 7px;
+      font-weight: 600;
+      color: rgba(230,230,230,0.95);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    /* Orange bar: vertical gradient */
+    .card-pass-bar {
+      flex: 0 0 auto;
+      background: linear-gradient(180deg, #f5d236 0%, #ffcd43 35%, #fd9800 100%);
+      padding: 8px 12px;
+      text-align: center;
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0 0 12px 12px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.25);
+      border-bottom: 2px solid rgba(0,0,0,0.12);
+    }
+    .card-pass-bar span {
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+    /* White body, QR with yellow border */
+    .card-body {
+      flex: 1 1 0;
+      min-height: 0;
+      padding: 10px 12px 8px;
+      text-align: center;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .qr-wrap {
+      margin: 0 auto 6px;
+      padding: 4px;
+      background: #fff;
+      border: 3px solid #ffd700;
+      border-radius: 8px;
+      display: inline-block;
+    }
+    .qr-wrap img {
+      display: block;
+      width: 100px;
+      height: 100px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    .card-code {
+      font-size: 15px;
+      font-weight: 700;
+      color: #27ae60;
+      letter-spacing: 0.08em;
+      margin: 0 0 2px;
+      text-transform: uppercase;
+    }
+    .card-hint {
+      font-size: 8px;
+      color: #666;
+      margin: 0 0 6px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    /* Footer: gold top line, dark green */
+    .card-footer {
+      flex: 0 0 auto;
+      background: linear-gradient(180deg, #1a4d2e 0%, #163d24 100%);
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border-bottom-left-radius: 12px;
+      border-bottom-right-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      border-top: 3px solid #ffd700;
+    }
+    .card-footer-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 7px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .card-footer-item svg { flex-shrink: 0; opacity: 0.95; width: 12px; height: 12px; }
+    .card-footer-divider {
+      width: 1px;
+      height: 18px;
+      background: rgba(255,255,255,0.5);
+    }
+    @media print {
+      @page { size: 3in 4in; margin: 0; }
+      html, body {
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      .card-wrap {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        border-radius: 0;
+        width: 3in;
+        height: 4in;
+      }
+      .card-footer { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card-wrap">
+    <div class="card-top">
+      {% if logo_url %}
+      <div class="card-top-logo"><img src="{% static 'img/logo.png' %}" alt="" /></div>
+      {% else %}
+      <div class="card-top-logo" style="font-size:15px;color:rgba(255,255,255,0.9);font-weight:700;text-align:center;">CCB</div>
+      {% endif %}
+      <div class="card-top-text" >
+        <p class="card-top-title">{{ site_name }}</p>
+        <p class="card-top-sub">Secure Campus Access</p>
+      </div>
+    </div>
+    <div class="card-pass-bar">
+      <span style="font-size:20px;color:rgba(97, 0, 0, 0.9);">Visitor Pass</span>
+    </div>
+    <div class="card-body">
+      <div class="qr-wrap">
+        <img src="{{ qr_url }}" alt="QR {{ pass_obj.code }}" />
+      </div>
+      <div class="card-code">{{ pass_obj.code }}</div>
+      <p class="card-hint">Scan at gate for entry / exit</p>
+    </div>
+    <div class="card-footer">
+      <div class="card-footer-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+        Authorized Visitor
+      </div>
+      <div class="card-footer-divider"></div>
+      <div class="card-footer-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        Valid Today Only
+      </div>
+    </div>
+  </div>
+</body>
+</html>

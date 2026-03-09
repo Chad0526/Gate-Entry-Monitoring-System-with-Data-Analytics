@@ -1,0 +1,402 @@
+{% comment %}
+  Report filter bar. Expects: filter_date, date_range_label, from_time, to_time, from_date_str, to_date_str,
+  search_q, event_id, show_event_filter, active_events (if show_event_filter), time_error, timezone_str, applied_filter_chips.
+  On Exports page only: show_report_type_filter, template_type.
+{% endcomment %}
+<style>
+  .report-type-dropdown-wrap { position: relative; display: inline-block; width: 220px; max-width: 100%; }
+  .report-type-trigger {
+    font-size: 0.875rem;
+    padding: 0.35rem 0.6rem;
+    height: auto;
+    line-height: 1.35;
+    cursor: pointer;
+    background: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 0.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    text-align: left;
+  }
+  .report-type-trigger .report-type-trigger-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .report-type-trigger .report-type-chevron { flex-shrink: 0; font-size: 0.7rem; color: #6c757d; }
+  .report-type-trigger:hover { border-color: #28a745; background: #f8fff9; }
+  .report-type-trigger:hover .report-type-chevron { color: #28a745; }
+  .report-type-trigger:focus { border-color: #28a745; box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25); outline: 0; }
+  .report-type-dropdown-panel {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1050;
+    min-width: 100%;
+    margin-top: 2px;
+    background: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    font-size: 0.8125rem;
+  }
+  .report-type-dropdown-wrap.open .report-type-dropdown-panel { display: block; }
+  .report-type-group-label {
+    padding: 0.35rem 0.6rem 0.15rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 0.7rem;
+    border-top: 1px solid #e9ecef;
+  }
+  .report-type-group-label:first-child { border-top: 0; }
+  .report-type-option {
+    padding: 0.4rem 0.6rem;
+    cursor: pointer;
+    color: #212529;
+  }
+  .report-type-option:hover { background: #e8f5e9; color: #1a4d2e; }
+  .report-type-option.selected { background: #d4edda; color: #155724; font-weight: 500; }
+  /* Shared custom dropdown (Date range, Scope, Event) – same green open-panel look as Report type */
+  .ccb-custom-dropdown-wrap { position: relative; display: inline-block; }
+  .ccb-custom-dropdown-wrap .report-type-trigger { width: 100%; }
+  .ccb-custom-dropdown-wrap .report-type-dropdown-panel { min-width: 100%; }
+  .ccb-custom-dropdown-wrap .report-type-option { padding: 0.4rem 0.6rem; cursor: pointer; color: #212529; }
+  .ccb-custom-dropdown-wrap .report-type-option:hover { background: #e8f5e9; color: #1a4d2e; }
+  .ccb-custom-dropdown-wrap .report-type-option.selected { background: #d4edda; color: #155724; font-weight: 500; }
+  /* Preserve original filter layout: same alignment and position as native selects */
+  .report-filter-form .form-row .form-group { flex: 0 0 auto; }
+  .report-filter-form .ccb-custom-dropdown-wrap,
+  .report-filter-form .report-type-dropdown-wrap { flex-shrink: 0; vertical-align: bottom; }
+  .report-filter-form .report-type-trigger { min-height: calc(1.35em + 0.7rem + 2px); box-sizing: border-box; }
+  /* Controls row: wrap so no scrollbar; compact widths so all fit on one line when possible */
+  .report-filter-form .report-filter-controls-row { flex-wrap: wrap !important; overflow-x: visible; overflow-y: visible; }
+  .report-filter-form .report-filter-controls-row .form-group { margin-bottom: 0.5rem; flex-shrink: 0; margin-right: 0.75rem !important; }
+  .report-filter-form #report-date-range-wrap { width: 120px !important; max-width: 100%; }
+  .report-filter-form #report-custom-dates .form-control { width: 110px !important; max-width: 100%; }
+  .report-filter-form #report-custom-dates-end .form-control { width: 110px !important; max-width: 100%; }
+  .report-filter-form #report-time-range .form-control { width: 85px !important; }
+  .report-filter-form #report-search-input { width: 140px !important; max-width: 100%; }
+  .report-filter-form #report-scope-wrap { width: 130px !important; max-width: 100%; }
+  .report-filter-form #report-type-dropdown-wrap { width: 160px !important; max-width: 100%; }
+  .report-filter-form #report-event-wrap-dropdown { width: 160px !important; max-width: 100%; }
+</style>
+<div class="card card-outline card-secondary mb-3">
+  <div class="card-header py-2">
+    <h6 class="m-0">Filter</h6>
+  </div>
+  <div class="card-body py-2">
+    <form method="get" action="" id="report-filter-form" class="report-filter-form">
+      {% for key, value in request.GET.items %}
+      {% if key != 'date_range' and key != 'from_date' and key != 'to_date' and key != 'from_time' and key != 'to_time' and key != 'search' and key != 'event_id' and key != 'scope' and key != 'all_day' %}{% if not show_report_type_filter or key != 'template' %}
+      <input type="hidden" name="{{ key }}" value="{{ value }}">
+      {% endif %}{% endif %}
+      {% endfor %}
+
+      <div class="form-row report-filter-controls-row align-items-end mb-2">
+        <div class="form-group mb-2 mr-3">
+          <label class="small font-weight-bold mb-1">Date range</label>
+          <div class="ccb-custom-dropdown-wrap report-type-dropdown-wrap" id="report-date-range-wrap" style="width:140px;">
+            <input type="hidden" name="date_range" id="report-date-range-input" value="{{ request.GET.date_range|default:'today' }}">
+            <button type="button" class="form-control form-control-sm report-type-trigger text-left" id="report-date-range-trigger" aria-haspopup="listbox" aria-expanded="false" style="width:100%;">
+              <span class="report-type-trigger-text">{% if request.GET.date_range == 'yesterday' %}Yesterday{% elif request.GET.date_range == 'this_week' %}This week{% elif request.GET.date_range == 'last_7_days' %}Last 7 days{% elif request.GET.date_range == 'last_30_days' %}Last 30 days{% elif request.GET.date_range == 'custom' %}Custom range{% else %}Today{% endif %}</span>
+              <i class="fas fa-chevron-down report-type-chevron" aria-hidden="true"></i>
+            </button>
+            <div class="report-type-dropdown-panel" id="report-date-range-panel" role="listbox" aria-hidden="true" style="max-height:240px; overflow-y:auto;">
+              <div class="report-type-option{% if request.GET.date_range == 'today' or not request.GET.date_range %} selected{% endif %}" role="option" data-value="today" tabindex="0">Today</div>
+              <div class="report-type-option{% if request.GET.date_range == 'yesterday' %} selected{% endif %}" role="option" data-value="yesterday" tabindex="0">Yesterday</div>
+              <div class="report-type-option{% if request.GET.date_range == 'this_week' %} selected{% endif %}" role="option" data-value="this_week" tabindex="0">This week</div>
+              <div class="report-type-option{% if request.GET.date_range == 'last_7_days' %} selected{% endif %}" role="option" data-value="last_7_days" tabindex="0">Last 7 days</div>
+              <div class="report-type-option{% if request.GET.date_range == 'last_30_days' %} selected{% endif %}" role="option" data-value="last_30_days" tabindex="0">Last 30 days</div>
+              <div class="report-type-option{% if request.GET.date_range == 'custom' %} selected{% endif %}" role="option" data-value="custom" tabindex="0">Custom range</div>
+            </div>
+          </div>
+        </div>
+        <div id="report-custom-dates" class="form-group mb-2 mr-3" style="display:{% if request.GET.date_range == 'custom' %}block{% else %}none{% endif %};">
+          <label class="small mb-0">Start date</label>
+          <input type="date" name="from_date" class="form-control form-control-sm" value="{{ from_date_str }}" style="width:130px;">
+        </div>
+        <div id="report-custom-dates-end" class="form-group mb-2 mr-3" style="display:{% if request.GET.date_range == 'custom' %}block{% else %}none{% endif %};">
+          <label class="small mb-0">End date</label>
+          <input type="date" name="to_date" class="form-control form-control-sm" value="{{ to_date_str }}" style="width:130px;">
+        </div>
+
+        <div class="form-group mb-2 mr-3">
+          <label class="small font-weight-bold mb-1 d-block">Time</label>
+          <label class="mb-0 small">
+            <input type="checkbox" name="all_day" value="1" id="report-all-day" {% if not from_time and not to_time %}checked{% endif %}> All day (00:00–23:59)
+          </label>
+        </div>
+        <div id="report-time-range" class="form-inline mb-2 mr-3" style="display:{% if from_time or to_time %}flex{% else %}none{% endif %};">
+          <div class="form-group mr-2 mb-0">
+            <label class="small mb-0">From</label>
+            <input type="time" name="from_time" class="form-control form-control-sm" value="{{ from_time|default:'00:00' }}" style="width:95px;">
+          </div>
+          <div class="form-group mb-0">
+            <label class="small mb-0">To</label>
+            <input type="time" name="to_time" class="form-control form-control-sm" value="{{ to_time|default:'23:59' }}" style="width:95px;">
+          </div>
+        </div>
+
+        <div class="form-group mb-2 mr-3">
+          <label class="small font-weight-bold mb-1">Search</label>
+          <input type="text" name="search" class="form-control form-control-sm" value="{{ search_q }}" placeholder="Student ID or name" style="width:160px;" id="report-search-input">
+        </div>
+
+        <div class="form-group mb-2 mr-3">
+          <label class="small font-weight-bold mb-1">Scope</label>
+          <div class="ccb-custom-dropdown-wrap report-type-dropdown-wrap" id="report-scope-wrap" style="width:150px;">
+            <input type="hidden" name="scope" id="report-scope-input" value="{% if event_id %}specific_event{% else %}daily_gate_only{% endif %}">
+            <button type="button" class="form-control form-control-sm report-type-trigger text-left" id="report-scope-trigger" aria-haspopup="listbox" aria-expanded="false" style="width:100%;">
+              <span class="report-type-trigger-text">{% if event_id %}Specific event…{% else %}Daily gate only{% endif %}</span>
+              <i class="fas fa-chevron-down report-type-chevron" aria-hidden="true"></i>
+            </button>
+            <div class="report-type-dropdown-panel" id="report-scope-panel" role="listbox" aria-hidden="true" style="max-height:200px; overflow-y:auto;">
+              <div class="report-type-option{% if not event_id %} selected{% endif %}" role="option" data-value="daily_gate_only" tabindex="0">Daily gate only</div>
+              <div class="report-type-option{% if event_id %} selected{% endif %}" role="option" data-value="specific_event" tabindex="0">Specific event…</div>
+            </div>
+          </div>
+        </div>
+        {% if show_report_type_filter %}
+        <div class="form-group mb-2 mr-3">
+          <label class="small font-weight-bold mb-1">Report type</label>
+          <div class="report-type-dropdown-wrap" id="report-type-dropdown-wrap">
+            <input type="hidden" name="template" id="filter-report-type-input" value="{{ template_type|default:'overview_summary' }}">
+            <button type="button" class="form-control form-control-sm report-type-trigger text-left" id="report-type-trigger" aria-haspopup="listbox" aria-expanded="false" aria-label="Report type for preview and export" style="width:220px; max-width:100%;">
+              <span class="report-type-trigger-text">{% if template_type == 'export_all' %}All reports (ZIP){% elif template_type == 'overview_summary' %}Summary{% elif template_type == 'recent_activity' %}Recent activity{% elif template_type == 'daily_gate_visits' %}Visits{% elif template_type == 'inside_now' %}Inside now{% elif template_type == 'early_outs' %}Early outs{% elif template_type == 'raw_entries' %}Raw entries{% elif template_type == 'event_attendance' %}Event attendance{% elif template_type == 'incidents_log' %}Incidents log{% elif template_type == 'incidents_proxy' %}Proxy only{% elif template_type == 'incidents_overrides' %}Overrides{% elif template_type == 'by_guard' %}By guard{% else %}Summary{% endif %}</span>
+              <i class="fas fa-chevron-down report-type-chevron" aria-hidden="true"></i>
+            </button>
+            <div class="report-type-dropdown-panel" id="report-type-dropdown-panel" role="listbox" aria-hidden="true" style="max-height:240px; overflow-y:auto;">
+              <div class="report-type-option{% if template_type == 'export_all' %} selected{% endif %}" role="option" data-value="export_all" tabindex="0">All reports (ZIP)</div>
+              <div class="report-type-group-label">Overview</div>
+              <div class="report-type-option{% if template_type == 'overview_summary' %} selected{% endif %}" role="option" data-value="overview_summary" tabindex="0">Summary</div>
+              <div class="report-type-option{% if template_type == 'recent_activity' %} selected{% endif %}" role="option" data-value="recent_activity" tabindex="0">Recent activity</div>
+              <div class="report-type-group-label">Daily Gate</div>
+              <div class="report-type-option{% if template_type == 'daily_gate_visits' %} selected{% endif %}" role="option" data-value="daily_gate_visits" tabindex="0">Visits</div>
+              <div class="report-type-option{% if template_type == 'inside_now' %} selected{% endif %}" role="option" data-value="inside_now" tabindex="0">Inside now</div>
+              <div class="report-type-option{% if template_type == 'early_outs' %} selected{% endif %}" role="option" data-value="early_outs" tabindex="0">Early outs</div>
+              <div class="report-type-option{% if template_type == 'raw_entries' %} selected{% endif %}" role="option" data-value="raw_entries" tabindex="0">Raw entries</div>
+              <div class="report-type-group-label">Event Attendance</div>
+              <div class="report-type-option{% if template_type == 'event_attendance' %} selected{% endif %}" role="option" data-value="event_attendance" tabindex="0">Event attendance</div>
+              <div class="report-type-group-label">Incidents & Overrides</div>
+              <div class="report-type-option{% if template_type == 'incidents_log' %} selected{% endif %}" role="option" data-value="incidents_log" tabindex="0">Incidents log</div>
+              <div class="report-type-option{% if template_type == 'incidents_proxy' %} selected{% endif %}" role="option" data-value="incidents_proxy" tabindex="0">Proxy only</div>
+              <div class="report-type-option{% if template_type == 'incidents_overrides' %} selected{% endif %}" role="option" data-value="incidents_overrides" tabindex="0">Overrides</div>
+              <div class="report-type-option{% if template_type == 'by_guard' %} selected{% endif %}" role="option" data-value="by_guard" tabindex="0">By guard</div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        {% if show_event_filter and active_events %}
+        <div id="report-event-wrap" class="form-group mb-2 mr-3" style="display:{% if event_id %}block{% else %}none{% endif %};">
+          <label class="small mb-0">Event</label>
+          <div class="ccb-custom-dropdown-wrap report-type-dropdown-wrap" id="report-event-wrap-dropdown" style="width:200px;">
+            <input type="hidden" name="event_id" id="report-event-input" value="{{ event_id|default:'' }}">
+            <button type="button" class="form-control form-control-sm report-type-trigger text-left" id="report-event-trigger" aria-haspopup="listbox" aria-expanded="false" style="width:100%;">
+              <span class="report-type-trigger-text">{% if event_id %}{% for ev in active_events %}{% if ev.id == event_id %}{{ ev.name }}{% endif %}{% endfor %}{% else %}-- Select event --{% endif %}</span>
+              <i class="fas fa-chevron-down report-type-chevron" aria-hidden="true"></i>
+            </button>
+            <div class="report-type-dropdown-panel" id="report-event-panel" role="listbox" aria-hidden="true" style="max-height:240px; overflow-y:auto;">
+              <div class="report-type-option{% if not event_id %} selected{% endif %}" role="option" data-value="" tabindex="0">-- Select event --</div>
+              {% for ev in active_events %}
+              <div class="report-type-option{% if event_id == ev.id %} selected{% endif %}" role="option" data-value="{{ ev.id }}" tabindex="0">{{ ev.name }}</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="form-row align-items-center mt-2 pt-2 border-top">
+        <div class="form-group mb-0">
+          <button type="submit" class="btn btn-sm btn-primary mr-1">Apply filters</button>
+          <a href="{{ request.path }}" class="btn btn-sm btn-outline-secondary">Reset all filters</a>
+        </div>
+      </div>
+
+      {% if time_error %}
+      <p class="small text-danger mb-2">Time to must be after Time from.</p>
+      {% endif %}
+
+      <p class="small text-muted mb-0">Timezone: <strong>{{ timezone_str|default:"Asia/Manila" }}</strong> (local day) &nbsp;|&nbsp; Showing: <strong>{{ date_range_label }}</strong>{% if request.GET.date_range != 'this_week' and request.GET.date_range != 'last_7_days' and request.GET.date_range != 'last_30_days' %} ({{ filter_date|date:"M d, Y" }}){% endif %} {% if from_time or to_time %}• {{ from_time|default:"00:00" }}–{{ to_time|default:"23:59" }}{% else %}• All day{% endif %} {% if event_id and active_events %}{% for ev in active_events %}{% if ev.id == event_id %}• Event: {{ ev.name }}{% endif %}{% endfor %}{% else %}• Daily gate only{% endif %}</p>
+    </form>
+
+    {% if applied_filter_chips %}
+    <div class="mt-2 pt-2 border-top">
+      <span class="small text-muted mr-2">Applied:</span>
+      {% for chip in applied_filter_chips %}
+      <a href="{{ chip.remove_url }}" class="badge badge-secondary mr-1 mb-1" title="Remove">{{ chip.label }} <span aria-hidden="true">&times;</span></a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="mt-2 accordion" id="report-more-filters-accordion">
+      <div class="card border-0">
+        <div class="card-header p-0 bg-transparent border-0" id="heading-more">
+          <button class="btn btn-link btn-sm p-0 text-muted" type="button" data-toggle="collapse" data-target="#collapse-more-filters" aria-expanded="false" aria-controls="collapse-more-filters">
+            More filters…
+          </button>
+        </div>
+        <div id="collapse-more-filters" class="collapse" aria-labelledby="heading-more" data-parent="#report-more-filters-accordion">
+          <div class="card-body pt-1 pb-0 small">
+            <p class="text-muted mb-1">Optional filters for exports (applied when supported):</p>
+            <div class="form-inline flex-wrap">
+              <label class="mr-2">Status:</label>
+              <select name="scan_type" class="form-control form-control-sm mr-3 mb-1" style="width:90px;">
+                <option value="">Any</option>
+                <option value="IN" {% if request.GET.scan_type == 'IN' %}selected{% endif %}>IN</option>
+                <option value="OUT" {% if request.GET.scan_type == 'OUT' %}selected{% endif %}>OUT</option>
+              </select>
+              <label class="mr-2">Granted:</label>
+              <select name="granted_filter" class="form-control form-control-sm mr-3 mb-1" style="width:90px;">
+                <option value="">Any</option>
+                <option value="1" {% if request.GET.granted_filter == '1' %}selected{% endif %}>Granted</option>
+                <option value="0" {% if request.GET.granted_filter == '0' %}selected{% endif %}>Denied</option>
+              </select>
+              <label class="mr-2">Forced OUT (no IN today):</label>
+              <select name="forced_out" class="form-control form-control-sm mr-3 mb-1" style="width:90px;">
+                <option value="">Any</option>
+                <option value="1" {% if request.GET.forced_out == '1' %}selected{% endif %}>Yes</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var form = document.getElementById('report-filter-form');
+  if (!form) return;
+  var dateRangeInput = document.getElementById('report-date-range-input');
+  var customStart = document.getElementById('report-custom-dates');
+  var customEnd = document.getElementById('report-custom-dates-end');
+  var allDay = document.getElementById('report-all-day');
+  var timeRange = document.getElementById('report-time-range');
+  var scopeInput = document.getElementById('report-scope-input');
+  var eventWrap = document.getElementById('report-event-wrap');
+
+  function toggleCustomDates() {
+    var show = dateRangeInput && dateRangeInput.value === 'custom';
+    if (customStart) customStart.style.display = show ? 'block' : 'none';
+    if (customEnd) customEnd.style.display = show ? 'block' : 'none';
+  }
+  function toggleTime() {
+    var show = !allDay || !allDay.checked;
+    if (timeRange) timeRange.style.display = show ? 'flex' : 'none';
+  }
+  function toggleEvent() {
+    var show = scopeInput && scopeInput.value === 'specific_event';
+    if (eventWrap) eventWrap.style.display = show ? 'block' : 'none';
+  }
+
+  function initCustomDropdown(wrapId, triggerId, panelId, inputId, triggerTextSel, onSelect) {
+    var wrap = document.getElementById(wrapId);
+    var trigger = document.getElementById(triggerId);
+    var panel = document.getElementById(panelId);
+    var input = document.getElementById(inputId);
+    var triggerText = trigger && trigger.querySelector('.report-type-trigger-text');
+    if (!wrap || !trigger || !panel || !input) return;
+    trigger.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var isOpen = wrap.classList.contains('open');
+      document.querySelectorAll('.ccb-custom-dropdown-wrap.open, .report-type-dropdown-wrap.open').forEach(function(w) {
+        if (w !== wrap) { w.classList.remove('open'); w.querySelector('button').setAttribute('aria-expanded', 'false'); w.querySelector('[role="listbox"]').setAttribute('aria-hidden', 'true'); }
+      });
+      if (!isOpen) {
+        wrap.classList.add('open');
+        trigger.setAttribute('aria-expanded', 'true');
+        panel.setAttribute('aria-hidden', 'false');
+      } else {
+        wrap.classList.remove('open');
+        trigger.setAttribute('aria-expanded', 'false');
+        panel.setAttribute('aria-hidden', 'true');
+      }
+    });
+    panel.querySelectorAll('.report-type-option').forEach(function(opt) {
+      opt.addEventListener('click', function() {
+        var val = this.getAttribute('data-value');
+        var label = this.textContent.trim();
+        input.value = val;
+        if (triggerText) triggerText.textContent = label;
+        panel.querySelectorAll('.report-type-option').forEach(function(o) { o.classList.remove('selected'); });
+        this.classList.add('selected');
+        wrap.classList.remove('open');
+        trigger.setAttribute('aria-expanded', 'false');
+        panel.setAttribute('aria-hidden', 'true');
+        if (onSelect) onSelect(val);
+      });
+    });
+  }
+
+  initCustomDropdown('report-date-range-wrap', 'report-date-range-trigger', 'report-date-range-panel', 'report-date-range-input', null, function(val) {
+    toggleCustomDates();
+  });
+  initCustomDropdown('report-scope-wrap', 'report-scope-trigger', 'report-scope-panel', 'report-scope-input', null, function(val) {
+    toggleEvent();
+  });
+  if (document.getElementById('report-event-wrap-dropdown')) {
+    initCustomDropdown('report-event-wrap-dropdown', 'report-event-trigger', 'report-event-panel', 'report-event-input');
+  }
+
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.ccb-custom-dropdown-wrap') || e.target.closest('#report-type-dropdown-wrap')) return;
+    document.querySelectorAll('.ccb-custom-dropdown-wrap.open, .report-type-dropdown-wrap.open').forEach(function(w) {
+      w.classList.remove('open');
+      var btn = w.querySelector('button');
+      var listbox = w.querySelector('[role="listbox"]');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+      if (listbox) listbox.setAttribute('aria-hidden', 'true');
+    });
+  });
+
+  if (allDay) allDay.addEventListener('change', toggleTime);
+
+  var reportTypeWrap = document.getElementById('report-type-dropdown-wrap');
+  var reportTypeTrigger = document.getElementById('report-type-trigger');
+  var reportTypePanel = document.getElementById('report-type-dropdown-panel');
+  var reportTypeInput = document.getElementById('filter-report-type-input');
+  var reportTypeTriggerText = reportTypeTrigger && reportTypeTrigger.querySelector('.report-type-trigger-text');
+  if (reportTypeWrap && reportTypeTrigger && reportTypePanel && reportTypeInput) {
+    reportTypeTrigger.addEventListener('click', function(e) {
+      e.stopPropagation();
+      document.querySelectorAll('.ccb-custom-dropdown-wrap.open').forEach(function(w) {
+        w.classList.remove('open'); w.querySelector('button').setAttribute('aria-expanded', 'false'); w.querySelector('[role="listbox"]').setAttribute('aria-hidden', 'true');
+      });
+      reportTypeWrap.classList.toggle('open');
+      reportTypeTrigger.setAttribute('aria-expanded', reportTypeWrap.classList.contains('open'));
+      reportTypePanel.setAttribute('aria-hidden', !reportTypeWrap.classList.contains('open'));
+    });
+    reportTypePanel.querySelectorAll('.report-type-option').forEach(function(opt) {
+      opt.addEventListener('click', function() {
+        var val = this.getAttribute('data-value');
+        var label = this.textContent.trim();
+        reportTypeInput.value = val;
+        if (reportTypeTriggerText) reportTypeTriggerText.textContent = label;
+        reportTypePanel.querySelectorAll('.report-type-option').forEach(function(o) { o.classList.remove('selected'); });
+        this.classList.add('selected');
+        reportTypeWrap.classList.remove('open');
+        reportTypeTrigger.setAttribute('aria-expanded', 'false');
+        reportTypePanel.setAttribute('aria-hidden', 'true');
+        form.submit();
+      });
+    });
+  }
+
+  form.addEventListener('submit', function() {
+    if (scopeInput && scopeInput.value === 'daily_gate_only') {
+      var evInput = document.getElementById('report-event-input');
+      if (evInput) evInput.removeAttribute('name');
+    } else {
+      var evInput = document.getElementById('report-event-input');
+      if (evInput && !evInput.hasAttribute('name')) evInput.setAttribute('name', 'event_id');
+    }
+  });
+
+  toggleCustomDates();
+  toggleTime();
+  toggleEvent();
+})();
+</script>

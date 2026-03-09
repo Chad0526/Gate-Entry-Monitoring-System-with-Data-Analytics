@@ -1,0 +1,337 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student e-ID — {{ student.student_id }}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 16px; font-family: 'Segoe UI', system-ui, sans-serif; background: #e8e8e8; }
+    .eid-sheet { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+    /* Landscape card: 3×2 inches */
+    .card-wrap {
+      width: 288px; height: 192px; max-width: 100%;
+      background: #fff; border-radius: 12px; overflow: hidden;
+      border: 1px solid #ddd; box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+      display: flex; flex-direction: column;
+    }
+    .eid-front .card-header {
+      flex: 0 0 auto;
+      background-image: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 6px),
+        linear-gradient(135deg, #0e7001 0%, #8ddf00 50%, #006b05 100%);
+      padding: 6px 10px; display: flex; align-items: center; gap: 6px;
+      min-height: 32px; border-radius: 12px 12px 0 0;
+    }
+    .eid-front .card-header-logo {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: rgba(255,255,255,0.15); border: 2px solid #d4af37;
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    .eid-front .card-header-logo img { width: 100%; height: 100%; object-fit: cover; }
+    .eid-front .card-header-logo.logo-fallback { font-size: 9px; color: rgba(255,255,255,0.95); font-weight: 700; }
+    .eid-front .card-header-text { flex: 1; min-width: 0; }
+    .eid-front .card-header-title { margin: 0; font-size: 9px; font-weight: 700; color: #fff; letter-spacing: 0.04em; line-height: 1.2; text-transform: uppercase; }
+    .eid-front .card-header-sub { margin: 0; font-size: 6px; font-weight: 600; color: rgba(255,255,255,0.9); text-transform: uppercase; }
+    .eid-front .card-body {
+      flex: 1 1 0; min-height: 0; padding: 5px 10px; background: #faf9f0;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .eid-front .card-body-inner { display: flex; gap: 8px; align-items: flex-start; flex: 1; min-height: 0; }
+    .eid-front .student-photo-wrap {
+      width: 60px; height: 74px; border-radius: 6px; overflow: hidden; background: #fff; border: 1px solid #ddd; flex-shrink: 0;
+    }
+    .eid-front .student-photo-wrap img { width: 100%; height: 100%; object-fit: cover; }
+    .eid-front .student-photo-placeholder {
+      width: 100%; height: 100%; background: linear-gradient(135deg, #e8e8e8 0%, #d0d0d0 100%); display: flex; align-items: center; justify-content: center; font-size: 8px; color: #888;
+    }
+    .eid-front .student-info { flex: 1; min-width: 0; }
+    .eid-front .student-name { font-size: 11px; font-weight: 700; color: #2c2c2c; text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 3px; line-height: 1.2; }
+    .eid-front .academic-block {
+      background: #fffde7; border: 1px solid #c9b800; border-radius: 4px; padding: 4px 6px; font-size: 8px; color: #333;
+    }
+    .eid-front .academic-block p { margin: 0; }
+    .eid-front .student-id-line { font-size: 9px; font-weight: 700; color: #1a4d2e; margin-top: 2px; }
+    .eid-front .eid-signature-line { margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+    .eid-front .eid-signature-label { font-size: 6px; font-weight: 600; color: #555; text-transform: uppercase; }
+    .eid-front .eid-signature-img { height: 18px; max-width: 80px; object-fit: contain; display: block; }
+    .eid-front .card-access-bar {
+      flex: 0 0 auto; background: linear-gradient(90deg, #1a4d2e 0%, #2d6a3e 100%);
+      padding: 4px 10px; display: flex; align-items: center; justify-content: space-around; gap: 6px;
+      border-top: 1px solid #d4af37;
+    }
+    .eid-front .card-access-item { display: flex; align-items: center; gap: 3px; font-size: 6px; font-weight: 700; color: #fff; text-transform: uppercase; }
+    .eid-front .card-access-item svg { width: 10px; height: 10px; flex-shrink: 0; }
+    .eid-front .card-footer-front { flex: 0 0 auto; padding: 3px 10px; font-size: 5px; color: #555; border-top: 1px solid #eee; background: #f5f5f5; }
+    /* Back card 3×2 in */
+    .eid-back .card-back-body { padding: 10px 10px 5px; flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 4px; background: #fff; }
+    .eid-back .back-row { display: flex; gap: 8px; align-items: flex-start; flex: 1; min-height: 0; }
+    .eid-back .id-rules { flex: 1; min-width: 0; }
+    .eid-back .id-rules h4 { margin: 0 0 3px; font-size: 11px; font-weight: 700; color: #1a4d2e; }
+    .eid-back .id-rules ol { margin: 0; padding-left: 14px; font-size: 8px; color: #333; line-height: 1.4; }
+    .eid-back .qr-section { flex-shrink: 0; text-align: center; }
+    .eid-back .qr-wrap { padding: 4px; border: 2px solid #e6b800; border-radius: 6px; display: inline-block; background: #fff; margin-bottom: 2px; }
+    .eid-back .qr-wrap img { display: block; width: 96px; height: 96px; image-rendering: pixelated; image-rendering: crisp-edges; }
+    .eid-back .qr-open-btn {
+      border: 0;
+      background: transparent;
+      padding: 0;
+      cursor: zoom-in;
+    }
+    .eid-back .qr-hint { font-size: 7px; color: #555; }
+    .eid-back .emergency-box { border: 1px dashed #1a4d2e; border-radius: 3px; padding: 3px 6px; background: #fffde7; }
+    .eid-back .emergency-box h4 { margin: 0 0 2px; font-size: 7px; font-weight: 700; color: #1a4d2e; }
+    .eid-back .emergency-box p { margin: 0; font-size: 6px; color: #333; }
+    .eid-back .card-back-footer {
+      flex: 0 0 auto; background: linear-gradient(90deg, #1a4d2e 0%, #fd9800 100%);
+      padding: 4px 10px; display: flex; align-items: center; justify-content: space-around; gap: 6px;
+    }
+    .eid-back .card-back-footer .item { display: flex; align-items: center; gap: 3px; font-size: 6px; font-weight: 700; color: #fff; text-transform: uppercase; }
+    .eid-back .card-back-footer .item svg { width: 8px; height: 8px; }
+    .eid-back .card-back-footer .divider { width: 1px; height: 12px; background: rgba(255,255,255,0.5); }
+    .qr-zoom-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.62);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 9999;
+    }
+    .qr-zoom-overlay.show { display: flex; }
+    .qr-zoom-dialog {
+      width: min(92vw, 460px);
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.35);
+    }
+    .qr-zoom-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid #ececec;
+      background: #f8f9fa;
+    }
+    .qr-zoom-header h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+    .qr-zoom-close {
+      border: 0;
+      background: transparent;
+      font-size: 24px;
+      line-height: 1;
+      color: #6b7280;
+      cursor: pointer;
+    }
+    .qr-zoom-body {
+      text-align: center;
+      padding: 16px;
+      background: #f9fafb;
+    }
+    .qr-zoom-body img {
+      width: min(78vw, 340px);
+      height: auto;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background: #fff;
+      padding: 8px;
+    }
+    .qr-zoom-footer {
+      display: flex;
+      justify-content: flex-end;
+      padding: 10px 14px 14px;
+      background: #fff;
+    }
+    .qr-zoom-footer a {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      border: 1px solid #2563eb;
+      color: #2563eb;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    @media print {
+      @page { size: 3in 4.5in; margin: 0; }
+      html, body {
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      .card-wrap {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        width: 3in;
+        height: 2in;
+      }
+      .eid-sheet { gap: 0.25in; }
+      .eid-back .qr-wrap img { width: 1in; height: 1in; }
+      .qr-zoom-overlay { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="eid-sheet">
+    <div class="card-wrap eid-front">
+      <div class="card-header">
+        <div class="card-header-logo {% if not logo_url %}logo-fallback{% endif %}" id="student-eid-logo-wrap">
+          {% if logo_url %}
+          <img src="{{ logo_url }}" alt="" onerror="this.style.display='none'; this.parentElement.classList.add('logo-fallback'); this.parentElement.textContent='CCB';" />
+          {% else %}
+          CCB
+          {% endif %}
+        </div>
+        <div class="card-header-text">
+          <p class="card-header-title">{{ site_name }}</p>
+          <p class="card-header-sub">Official Student e-ID</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-body-inner">
+          <div class="student-photo-wrap">
+            {% if photo_url %}
+            <img src="{{ photo_url }}" alt="" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'student-photo-placeholder\'>Photo</div>';" />
+            {% elif student.photo %}
+            <img src="{{ student.photo.url }}" alt="" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'student-photo-placeholder\'>Photo</div>';" />
+            {% else %}
+            <div class="student-photo-placeholder">Photo</div>
+            {% endif %}
+          </div>
+          <div class="student-info">
+            <p class="student-name">{{ student.last_name|upper }}, {{ student.first_name|upper }}{% if student.middle_name %} {{ student.middle_name|slice:":1"|upper }}.{% endif %}</p>
+            <div class="academic-block">
+              <p>Course: {{ student.get_course_display|default:student.course_or_section|default:"—" }}</p>
+              <p>Year: {{ student.get_year_level_display|default:"—" }}</p>
+              <p>Section: {{ student.section|default:"—" }}</p>
+              <p>Sex: {{ student.get_sex_display|default:"—" }}</p>
+            </div>
+            <p class="student-id-line">Student ID: <strong>{{ student.student_id }}</strong></p>
+            {% if signature_url or student.signature %}
+            <div class="eid-signature-line">
+              <span class="eid-signature-label">Signature:</span>
+              {% if signature_url %}
+              <img src="{{ signature_url }}" alt="Signature" class="eid-signature-img" />
+              {% elif student.signature %}
+              <img src="{{ student.signature.url }}" alt="Signature" class="eid-signature-img" />
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="card-access-bar">
+        <div class="card-access-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+          Scan at Gate
+        </div>
+        <div class="card-access-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+          Campus Access
+        </div>
+      </div>
+      <div class="card-footer-front">Emergency Contact: {{ student.guardian_contact|default:student.contact_number|default:"_______________" }}</div>
+    </div>
+    <div class="card-wrap eid-back">
+      <div class="card-back-body">
+        <div class="back-row">
+          <div class="id-rules">
+            <h4>ID Rules</h4>
+            <ol>
+              <li>This e-ID is non-transferable.</li>
+              <li>Present upon entry when requested by guards.</li>
+              <li>Report loss immediately to Security Office.</li>
+              <li>Misuse may result in disciplinary action.</li>
+            </ol>
+          </div>
+          <div class="qr-section">
+            <div class="qr-wrap">
+              <button type="button" class="qr-open-btn" id="eidQrOpenBtn" title="View QR in larger popup">
+                <img src="{{ qr_url }}" alt="QR {{ student.student_id }}" />
+              </button>
+            </div>
+            <p class="qr-hint">Scan at gate for IN / OUT</p>
+          </div>
+        </div>
+        <div class="emergency-box">
+          <h4>Emergency Contact:</h4>
+          <p>Contact No.: {{ student.guardian_contact|default:student.contact_number|default:"_______________" }}</p>
+          <p>Address: {{ student.address|default:"_______________" }}</p>
+        </div>
+      </div>
+      <div class="card-back-footer">
+        <div class="item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Campus Access
+        </div>
+        <div class="divider"></div>
+        <div class="item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+          Secure Scan
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="qr-zoom-overlay" id="qrZoomOverlay" aria-hidden="true">
+    <div class="qr-zoom-dialog" role="dialog" aria-modal="true" aria-label="Large QR code">
+      <div class="qr-zoom-header">
+        <h3>Large QR code</h3>
+        <button type="button" class="qr-zoom-close" id="qrZoomCloseBtn" aria-label="Close">&times;</button>
+      </div>
+      <div class="qr-zoom-body">
+        <img src="{{ qr_url }}" alt="Large QR {{ student.student_id }}">
+      </div>
+      <div class="qr-zoom-footer">
+        <a href="{{ qr_url }}" download="qr-{{ student.student_id }}.png">Download QR</a>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function() {
+      var openBtn = document.getElementById('eidQrOpenBtn');
+      var overlay = document.getElementById('qrZoomOverlay');
+      var closeBtn = document.getElementById('qrZoomCloseBtn');
+      if (!openBtn || !overlay) return;
+
+      function openOverlay() {
+        overlay.classList.add('show');
+        overlay.setAttribute('aria-hidden', 'false');
+      }
+      function closeOverlay() {
+        overlay.classList.remove('show');
+        overlay.setAttribute('aria-hidden', 'true');
+      }
+
+      openBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        openOverlay();
+      });
+      if (closeBtn) closeBtn.addEventListener('click', closeOverlay);
+      overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) closeOverlay();
+      });
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeOverlay();
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+{% extends 'base/base.html' %}
+{% block title %}Manual check-in – {{ event.name }}{% endblock %}
+{% block breadcrumb %}Manual check-in{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col-12">
+    <a href="{% url 'event-attendance-report' event.id %}" class="btn btn-outline-secondary">Back to attendance report</a>
+    <a href="{% url 'event-expected-today' event.id %}" class="btn btn-outline-primary ml-2">Expected today</a>
+  </div>
+</div>
+<div class="card mb-3">
+  <div class="card-body">
+    <form method="post" action="{% url 'event-manual-checkin' event.id %}" class="form-inline">
+      {% csrf_token %}
+      <label class="mr-2">Student ID:</label>
+      <input type="text" name="student_id" class="form-control mr-2" placeholder="e.g. 2021-001" style="width: 140px;" required>
+      <button type="submit" class="btn btn-success mr-3">Mark checked in</button>
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="override_audience" name="override_audience" value="1">
+        <label class="form-check-label" for="override_audience">
+          Override audience rule (admin/faculty only)
+        </label>
+      </div>
+    </form>
+    <small class="text-muted d-block mt-2">Audience rule: {{ event.audience_summary }}</small>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header">
+    <h5 class="m-0">Search attendance</h5>
+  </div>
+  <div class="card-body">
+    <form method="get" class="form-inline mb-2">
+      <input type="text" name="q" class="form-control form-control-sm mr-2" placeholder="ID or name" value="{{ search_query|default:'' }}" style="width: 180px;">
+      <button type="submit" class="btn btn-sm btn-outline-secondary">Search</button>
+    </form>
+    {% if attendances %}
+    <table class="table table-sm table-striped">
+      <thead><tr><th>Student ID</th><th>Name</th><th>Checked in</th><th>Checked out</th></tr></thead>
+      <tbody>
+        {% for a in attendances %}
+        <tr>
+          <td>{{ a.student.student_id }}</td>
+          <td>{{ a.student.get_full_name }}</td>
+          <td>{{ a.checked_in_at|date:"M d, H:i"|default:"—" }}</td>
+          <td>{{ a.checked_out_at|date:"M d, H:i"|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted mb-0">No attendance records. Use the form above to mark check-in.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

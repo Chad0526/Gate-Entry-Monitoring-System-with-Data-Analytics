@@ -1,0 +1,63 @@
+{% extends 'base/base.html' %}
+{% block title %}View logs - {{ site_name }}{% endblock %}
+{% block breadcrumb %}View logs{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col-md-6">
+    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left mr-1"></i> Dashboard</a>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header">
+    <h5 class="m-0">Activity log — who logged in or acted in the system</h5>
+    <p class="text-muted small mb-0 mt-1">For who entered the campus (gate scan in/out), see <a href="{% url 'gate-entry-list' %}">Gate entries</a>.</p>
+  </div>
+  <div class="card-body border-bottom">
+    <form method="get" action="{% url 'audit-log-viewer' %}" class="form-inline flex-wrap align-items-end">
+      <div class="form-group mr-2 mb-2">
+        <label for="filter_date" class="mr-1 small font-weight-bold">Date</label>
+        <input type="date" name="date" id="filter_date" class="form-control form-control-sm" value="{{ filter_date }}" title="Show logs for this day">
+      </div>
+      {% if action_filter %}
+      <input type="hidden" name="action" value="{{ action_filter }}">
+      {% endif %}
+      <button type="submit" class="btn btn-sm btn-primary mr-1 mb-2"><i class="fas fa-filter mr-1"></i> Apply</button>
+      <a href="{% url 'audit-log-viewer' %}{% if action_filter %}?action={{ action_filter }}{% endif %}" class="btn btn-sm btn-outline-secondary mb-2">Reset</a>
+    </form>
+    <div class="mt-2">
+      <span class="text-muted small mr-2">Filter by activity:</span>
+      <a href="{% url 'audit-log-viewer' %}{% if filter_date %}?date={{ filter_date }}{% endif %}" class="btn btn-sm {% if not action_filter %}btn-primary{% else %}btn-outline-primary{% endif %}">All activity</a>
+      <a href="{% url 'audit-log-viewer' %}?action=login{% if filter_date %}&amp;date={{ filter_date }}{% endif %}" class="btn btn-sm {% if action_filter == 'login' %}btn-primary{% else %}btn-outline-primary{% endif %}">Logins only</a>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm table-striped mb-0">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Model / ID</th>
+          <th>Description</th>
+          <th>IP</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td>{{ log.created_at|date:"Y-m-d H:i" }}</td>
+          <td>{% if log.user %}{% firstof log.user.get_full_name log.user.username %}{% else %}—{% endif %}</td>
+          <td><code>{{ log.action }}</code></td>
+          <td>{% if log.model_name %}{{ log.model_name }}{% if log.object_id %} #{{ log.object_id }}{% endif %}{% else %}—{% endif %}</td>
+          <td>{{ log.description|truncatewords:15 }}</td>
+          <td>{{ log.ip_address|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No audit entries{% if filter_date %} for {{ filter_date }}{% endif %}.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

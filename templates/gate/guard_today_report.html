@@ -1,0 +1,106 @@
+{% extends 'base/base.html' %}
+{% block title %}Today's report - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Today's report{% endblock breadcrumb %}
+
+{% block content %}
+<div class="row mb-2">
+  <div class="col-12">
+    <a href="{% url 'guard-dashboard' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left mr-1"></i> Back</a>
+    <a href="{% url 'guard-today-report' %}?format=csv" class="btn btn-success btn-sm ml-2"><i class="fas fa-download mr-1"></i> Download CSV</a>
+  </div>
+</div>
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="m-0"><i class="fas fa-calendar-day mr-2"></i> Today's report — {{ today|date:"F d, Y" }}</h5>
+      </div>
+      <div class="card-body">
+        <p class="text-muted mb-3">Student entries, incidents, and visitors for today. Use <strong>Download CSV</strong> to export.</p>
+
+        <h6 class="mt-4 mb-2"><i class="fas fa-door-open mr-1"></i> Student entries <span class="badge badge-secondary">{{ entries|length }}</span></h6>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-bordered mb-0">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Student ID</th>
+                <th>Name</th>
+                <th>Result</th>
+                <th>Recorded by</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for e in entries %}
+              <tr>
+                <td>{{ e.timestamp|date:"Y-m-d H:i" }}</td>
+                <td><code>{{ e.student.student_id|default:"—" }}</code></td>
+                <td>{{ e.student.get_full_name|default:"—" }}</td>
+                <td>{% if e.granted %}<span class="badge badge-success">Granted</span>{% else %}<span class="badge badge-danger">Denied</span>{% endif %}</td>
+                <td>{% if e.recorded_by %}{{ e.recorded_by.get_full_name|default:e.recorded_by.username }}{% else %}—{% endif %}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-muted text-center">No entries today.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <h6 class="mt-4 mb-2"><i class="fas fa-exclamation-triangle mr-1"></i> Incidents <span class="badge badge-secondary">{{ incidents|length }}</span></h6>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-bordered mb-0">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Scanned ID / Student</th>
+                <th>Reason</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for i in incidents %}
+              <tr>
+                <td>{{ i.timestamp|date:"Y-m-d H:i" }}</td>
+                <td>{{ i.scanned_id|default:"" }}{% if i.student %} ({{ i.student.student_id }}){% endif %}</td>
+                <td>{{ i.get_reason_display }}</td>
+                <td>{{ i.details|truncatewords:12|default:"—" }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="text-muted text-center">No incidents today.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <h6 class="mt-4 mb-2"><i class="fas fa-user-tag mr-1"></i> Visitors <span class="badge badge-secondary">{{ visitors|length }}</span></h6>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-bordered mb-0">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Name</th>
+                <th>Purpose</th>
+                <th>Who to visit</th>
+                <th>Recorded by</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for v in visitors %}
+              <tr>
+                <td>{{ v.timestamp|date:"Y-m-d H:i" }}</td>
+                <td><strong>{{ v.visitor_name|default:v.full_name|default:"—" }}</strong></td>
+                <td>{{ v.purpose|default:"—" }}</td>
+                <td>{{ v.who_to_visit|default:v.department|default:"—" }}</td>
+                <td>{% if v.recorded_by %}{{ v.recorded_by.get_full_name|default:v.recorded_by.username }}{% else %}—{% endif %}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-muted text-center">No visitors today.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

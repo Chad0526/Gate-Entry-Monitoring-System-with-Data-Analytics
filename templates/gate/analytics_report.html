@@ -1,0 +1,225 @@
+{% extends 'base/login_base.html' %}
+{% load static %}
+{% block title %}Campus Analytics Report - {{ site_name }}{% endblock title %}
+
+{% block extrahead %}
+<style>
+  .report-page { max-width: 900px; margin: 0 auto; padding: 24px; font-size: 14px; }
+  .report-header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 16px; margin-bottom: 24px; }
+  .report-header h1 { margin: 0 0 8px 0; font-size: 22px; }
+  .report-header .report-date { color: #666; font-size: 13px; }
+  .report-section { margin-bottom: 24px; }
+  .report-section h2 { font-size: 16px; margin: 0 0 12px 0; padding-bottom: 6px; border-bottom: 1px solid #ddd; }
+  .report-stats { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
+  .report-stat { flex: 1; min-width: 140px; padding: 12px; border: 1px solid #dee2e6; border-radius: 6px; text-align: center; }
+  .report-stat .value { font-size: 24px; font-weight: 700; display: block; }
+  .report-stat .label { font-size: 12px; color: #666; }
+  .report-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  .report-table th, .report-table td { border: 1px solid #dee2e6; padding: 8px 10px; text-align: left; }
+  .report-table th { background: #f8f9fa; font-weight: 600; }
+  .report-table tr:nth-child(even) { background: #f8f9fa; }
+  .report-actions { margin: 24px 0; text-align: center; }
+  .report-actions .btn { padding: 10px 24px; font-size: 14px; }
+  @media print {
+    body { margin: 0; padding: 0; background: #fff; }
+    .report-actions, .main-footer, .no-print { display: none !important; }
+    .report-page { padding: 0; max-width: 100%; }
+    .report-table th, .report-table td { padding: 6px 8px; font-size: 12px; }
+    .report-stat { break-inside: avoid; }
+  }
+</style>
+{% endblock extrahead %}
+
+{% block content %}
+<div class="report-page">
+  <div class="report-header">
+    <h1>{{ site_name }}</h1>
+    <p class="m-0"><strong>Campus Analytics Report</strong></p>
+    <p class="report-date">Report date: {{ report_date|date:"F d, Y" }}</p>
+  </div>
+
+  <div class="report-actions no-print">
+    <a href="{% url 'gate-analytics-report' %}" target="_blank" class="btn btn-primary mr-2">
+      <i class="fas fa-sync-alt mr-1"></i> Refresh report
+    </a>
+    <button type="button" class="btn btn-success" onclick="window.print();">
+      <i class="fas fa-print mr-1"></i> Print report
+    </button>
+    <a href="{% url 'gate-analytics' %}" class="btn btn-outline-secondary ml-2">
+      <i class="fas fa-arrow-left mr-1"></i> Back to analytics
+    </a>
+  </div>
+
+  <div class="report-section">
+    <h2>Summary (today)</h2>
+    <div class="report-stats">
+      <div class="report-stat">
+        <span class="value text-info">{{ granted_today|default:0 }}</span>
+        <span class="label">Entries granted today</span>
+      </div>
+      <div class="report-stat">
+        <span class="value text-success">{{ inside_now|default:0 }}</span>
+        <span class="label">Currently inside</span>
+      </div>
+      <div class="report-stat">
+        <span class="value text-danger">{{ denied_today|default:0 }}</span>
+        <span class="label">Entries denied today</span>
+      </div>
+      <div class="report-stat">
+        <span class="value text-warning">{{ incidents_today|default:0 }}</span>
+        <span class="label">Incidents today</span>
+      </div>
+      <div class="report-stat">
+        <span class="value text-success">{{ total_students|default:0 }}</span>
+        <span class="label">Registered students</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="report-section">
+    <h2>Visitors</h2>
+    <div class="report-stats">
+      <div class="report-stat">
+        <span class="value text-secondary">{{ visitors_this_month|default:0 }}</span>
+        <span class="label">Visitors this month</span>
+      </div>
+      <div class="report-stat">
+        <span class="value text-info">{{ visitors_this_year|default:0 }}</span>
+        <span class="label">Visitors this year ({{ selected_year }})</span>
+      </div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 24px;">
+      <div style="flex: 1; min-width: 260px;">
+        <h3 style="font-size: 14px; margin: 0 0 8px 0; color: #666;">Top departments visited this month</h3>
+        <table class="report-table">
+          <thead><tr><th>Department / Office</th><th style="text-align:right;">Visits</th></tr></thead>
+          <tbody>
+            {% for row in top_departments_monthly %}
+              <tr><td>{{ row.who_to_visit|default:"—" }}</td><td style="text-align:right;">{{ row.count }}</td></tr>
+            {% empty %}
+              <tr><td colspan="2" class="text-muted">No visitor data this month.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div style="flex: 1; min-width: 260px;">
+        <h3 style="font-size: 14px; margin: 0 0 8px 0; color: #666;">Top departments visited this year</h3>
+        <table class="report-table">
+          <thead><tr><th>Department / Office</th><th style="text-align:right;">Visits</th></tr></thead>
+          <tbody>
+            {% for row in top_departments_annually %}
+              <tr><td>{{ row.who_to_visit|default:"—" }}</td><td style="text-align:right;">{{ row.count }}</td></tr>
+            {% empty %}
+              <tr><td colspan="2" class="text-muted">No visitor data this year.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="report-section">
+    <h2>Recent gate entries</h2>
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>Student ID</th>
+          <th>Name</th>
+          <th>Result</th>
+          <th>Out reason</th>
+          <th>Recorded by</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in recent_entries %}
+          <tr>
+            <td>{% if e.student %}{{ e.student.student_id }}{% else %}—{% endif %}</td>
+            <td>{% if e.student %}{{ e.student.get_full_name }}{% else %}—{% endif %}</td>
+            <td>{% if e.granted %}Granted{% else %}Denied{% endif %}</td>
+            <td>{% if e.out_reason %}{{ e.out_reason }}{% else %}—{% endif %}</td>
+            <td>{% if e.recorded_by %}{{ e.recorded_by.get_full_name|default:e.recorded_by.username }}{% else %}—{% endif %}</td>
+            <td>{{ e.timestamp|date:"M d, Y H:i" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6" class="text-muted">No entries yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="report-section">
+    <h2>Recent incidents</h2>
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>Scanned ID / Student</th>
+          <th>Reason</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in recent_incidents %}
+          <tr>
+            <td>{% if i.scanned_id %}{{ i.scanned_id }}{% elif i.student %}{{ i.student.student_id }}{% else %}—{% endif %} {% if i.student %}({{ i.student.get_full_name }}){% endif %}</td>
+            <td>{{ i.get_reason_display|default:i.reason }}</td>
+            <td>{{ i.timestamp|date:"M d, Y H:i" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="3" class="text-muted">No incidents.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="report-section">
+    <h2>Event participation</h2>
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>Event</th>
+          <th>Total tracked</th>
+          <th>Participated</th>
+          <th>Non-participant</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in participation_stats %}
+          <tr>
+            <td>{{ s.event__name|default:"—" }}</td>
+            <td>{{ s.total }}</td>
+            <td>{{ s.participated_count }}</td>
+            <td>{{ s.non_participant_count }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="text-muted">No event participation data yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="report-section">
+    <h2>Active events (as of report date)</h2>
+    {% if active_events %}
+      <table class="report-table">
+        <thead>
+          <tr><th>Event name</th><th>Start date</th><th>End date</th></tr>
+        </thead>
+        <tbody>
+          {% for e in active_events %}
+            <tr>
+              <td>{{ e.name }}</td>
+              <td>{{ e.start_date|date:"M d, Y" }}</td>
+              <td>{{ e.end_date|date:"M d, Y" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="text-muted mb-0">No active events on this date.</p>
+    {% endif %}
+  </div>
+
+  <p class="text-muted small mt-4">Generated by {{ site_name }} – Gate & Attendance. Developed by NORSU-BSC Capstone Project.</p>
+</div>
+{% endblock content %}

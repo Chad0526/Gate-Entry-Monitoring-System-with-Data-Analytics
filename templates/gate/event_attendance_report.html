@@ -1,0 +1,153 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% block title %}Attendance Report - {{ event.name }} - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Event Attendance Report{% endblock breadcrumb %}
+
+{% block extrahead %}
+<style>
+  .report-actions .btn { margin-right: 6px; margin-bottom: 6px; }
+  @media print {
+    .report-actions, .no-print { display: none !important; }
+  }
+</style>
+{% endblock extrahead %}
+
+{% block content %}
+<div class="row no-print">
+  <div class="col-12">
+    <div class="report-actions mb-3">
+      <a href="{% url 'event-field-trip-scan' event.id %}" class="btn btn-primary">
+        <i class="fas fa-qrcode mr-1"></i> Open scanner
+      </a>
+      <a href="{% url 'event-attendance-report-export-csv' event.id %}" class="btn btn-success">
+        <i class="fas fa-file-csv mr-1"></i> Attendance (CSV)
+      </a>
+      <a href="{% url 'event-attendance-report-export-xlsx' event.id %}" class="btn btn-success">
+        <i class="fas fa-file-excel mr-1"></i> Attendance (Excel)
+      </a>
+      <a href="{% url 'event-attendance-report-export-pdf' event.id %}" class="btn btn-danger">
+        <i class="fas fa-file-pdf mr-1"></i> Attendance (PDF)
+      </a>
+      <a href="{% url 'event-scan-logs-export-csv' event.id %}" class="btn btn-info">
+        <i class="fas fa-file-alt mr-1"></i> Scan Logs (CSV)
+      </a>
+      <a href="{% url 'event-scan-logs-export-xlsx' event.id %}" class="btn btn-info">
+        <i class="fas fa-file-excel mr-1"></i> Scan Logs (Excel)
+      </a>
+      <a href="{% url 'event-currently-inside' event.id %}" class="btn btn-warning">
+        <i class="fas fa-users mr-1"></i> Currently Inside ({{ currently_inside }})
+      </a>
+      <a href="{% url 'event-expected-today' event.id %}" class="btn btn-info">
+        <i class="fas fa-user-clock mr-1"></i> Expected today
+      </a>
+      <a href="{% url 'event-manual-checkin' event.id %}" class="btn btn-secondary">
+        <i class="fas fa-edit mr-1"></i> Manual check-in
+      </a>
+      <button type="button" class="btn btn-secondary" onclick="window.print();">
+        <i class="fas fa-print mr-1"></i> Print report
+      </button>
+      <a href="{% url 'event-manage-registrations' event.id %}" class="btn btn-outline-primary">
+        <i class="fas fa-ticket-alt mr-1"></i> Registrations
+      </a>
+    </div>
+    <form method="get" class="form-inline mt-2 no-print">
+      <label class="mr-2">Quick search:</label>
+      <input type="text" name="q" class="form-control form-control-sm mr-2" placeholder="Student ID or name" value="{{ search_query|default:'' }}" style="max-width: 200px;">
+      <button type="submit" class="btn btn-sm btn-outline-secondary">Search</button>
+      {% if search_query %}<a href="{% url 'event-attendance-report' event.id %}" class="btn btn-sm btn-link ml-1">Clear</a>{% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="m-0">Attendance Report: {{ event.name }}</h5>
+        <small class="text-muted">Venue: {{ event.venue }} | {{ event.start_date }} – {{ event.end_date }} | Audience: {{ event.audience_summary }}</small>
+        <p class="small text-muted mb-0 mt-1">Attendance is taken by scanning student eEID at <strong>Events → Attendance Scanner</strong>. Numbers below are from those scans (and manual check-in).</p>
+      </div>
+      <div class="card-body">
+        <div class="row mb-4">
+          <div class="col-md-3 col-6">
+            <div class="info-box bg-info">
+              <span class="info-box-icon"><i class="fas fa-user-check"></i></span>
+              <div class="info-box-content">
+                <span class="info-box-text">Checked In</span>
+                <span class="info-box-number">{{ checked_in }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3 col-6">
+            <div class="info-box bg-success">
+              <span class="info-box-icon"><i class="fas fa-sign-out-alt"></i></span>
+              <div class="info-box-content">
+                <span class="info-box-text">Checked Out</span>
+                <span class="info-box-number">{{ checked_out }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3 col-6">
+            <div class="info-box bg-warning">
+              <span class="info-box-icon"><i class="fas fa-users"></i></span>
+              <div class="info-box-content">
+                <span class="info-box-text">Currently Inside</span>
+                <span class="info-box-number">{{ currently_inside }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3 col-6">
+            <div class="info-box bg-secondary">
+              <span class="info-box-icon"><i class="fas fa-chart-line"></i></span>
+              <div class="info-box-content">
+                <span class="info-box-text">Success Scans</span>
+                <span class="info-box-number">{{ successful }}</span>
+                <span class="progress-description">
+                  Duplicates: {{ duplicates }} | Invalid: {{ invalid }}{% if overrides %} | Overrides: {{ overrides }}{% endif %}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <h6>Recent scan logs (last 100)</h6>
+        <p class="small text-muted mb-2">Rows marked <span class="badge badge-warning">Override</span> were checked in by admin/faculty outside the configured audience rule.</p>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered table-striped">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Student</th>
+                <th>Type</th>
+                <th>Result</th>
+                <th>Device</th>
+                <th>Flags</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for log in logs %}
+              <tr>
+                <td>{{ log.scan_time|date:"M d, H:i:s" }}</td>
+                <td>{% if log.student %}{{ log.student.student_id }} – {{ log.student.get_full_name }}{% else %}—{% endif %}</td>
+                <td>{{ log.scan_type }}</td>
+                <td><span class="badge {% if log.result == 'SUCCESS' %}badge-success{% elif log.result == 'DUPLICATE' %}badge-warning{% else %}badge-danger{% endif %}">{{ log.result }}</span></td>
+                <td><small>{{ log.device_id|default:"—" }}</small></td>
+                <td>
+                  {% if log.remarks == 'AUDIENCE_OVERRIDE' %}
+                  <span class="badge badge-warning">Override</span>
+                  {% else %}
+                  <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="6" class="text-muted text-center">No scans yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

@@ -1,0 +1,193 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% block title %}Performance Metrics - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Performance Metrics{% endblock breadcrumb %}
+
+{% block extrahead %}
+<style>
+  .period-selector {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .period-btn {
+    padding: 0.5rem 1.25rem;
+    border: 2px solid #28a745;
+    background: #fff;
+    color: #28a745;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .period-btn:hover {
+    background: #28a745;
+    color: #fff;
+  }
+  .period-btn.active {
+    background: #28a745;
+    color: #fff;
+  }
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .metric-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    text-align: center;
+  }
+  .metric-icon {
+    font-size: 2.5rem;
+    color: #28a745;
+    margin-bottom: 0.75rem;
+  }
+  .metric-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #212529;
+    margin-bottom: 0.5rem;
+  }
+  .metric-label {
+    font-size: 0.95rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .metric-card.accuracy {
+    border-top: 4px solid #28a745;
+  }
+  .metric-card.scans {
+    border-top: 4px solid #17a2b8;
+  }
+  .metric-card.incidents {
+    border-top: 4px solid #ffc107;
+  }
+  .metric-card.shifts {
+    border-top: 4px solid #6c757d;
+  }
+  .summary-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+  }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #dee2e6;
+  }
+  .summary-row:last-child {
+    border-bottom: none;
+  }
+  .summary-label {
+    color: #6c757d;
+    font-weight: 500;
+  }
+  .summary-value {
+    color: #212529;
+    font-weight: 600;
+  }
+  @media (max-width: 768px) {
+    .metrics-grid {
+      grid-template-columns: 1fr;
+    }
+    .period-selector {
+      flex-direction: column;
+    }
+  }
+</style>
+{% endblock extrahead %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <!-- Period Selector -->
+    <div class="period-selector">
+      <a href="?period=week" class="period-btn {% if period == 'week' %}active{% endif %}">
+        <i class="fas fa-calendar-week"></i> This Week
+      </a>
+      <a href="?period=month" class="period-btn {% if period == 'month' %}active{% endif %}">
+        <i class="fas fa-calendar-alt"></i> This Month
+      </a>
+      <a href="?period=year" class="period-btn {% if period == 'year' %}active{% endif %}">
+        <i class="fas fa-calendar"></i> This Year
+      </a>
+    </div>
+
+    <!-- Metrics Grid -->
+    <div class="metrics-grid">
+      <div class="metric-card accuracy">
+        <div class="metric-icon"><i class="fas fa-check-circle"></i></div>
+        <div class="metric-value">{{ performance.accuracy_rate }}%</div>
+        <div class="metric-label">Accuracy Rate</div>
+      </div>
+      <div class="metric-card scans">
+        <div class="metric-icon"><i class="fas fa-qrcode"></i></div>
+        <div class="metric-value">{{ performance.scans_per_hour }}</div>
+        <div class="metric-label">Scans per Hour</div>
+      </div>
+      <div class="metric-card incidents">
+        <div class="metric-icon"><i class="fas fa-exclamation-triangle"></i></div>
+        <div class="metric-value">{{ performance.incidents_reported }}</div>
+        <div class="metric-label">Incidents Reported</div>
+      </div>
+      <div class="metric-card shifts">
+        <div class="metric-icon"><i class="fas fa-clock"></i></div>
+        <div class="metric-value">{{ performance.shifts_worked }}</div>
+        <div class="metric-label">Shifts Worked</div>
+      </div>
+    </div>
+
+    <!-- Detailed Summary -->
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Detailed Summary</h5>
+      </div>
+      <div class="card-body">
+        <div class="summary-card">
+          <div class="summary-row">
+            <span class="summary-label">Total Scans</span>
+            <span class="summary-value">{{ performance.total_scans }}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Successful Scans</span>
+            <span class="summary-value text-success">{{ performance.successful_scans }}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Denied Scans</span>
+            <span class="summary-value text-danger">{{ performance.denied_scans }}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Overrides Made</span>
+            <span class="summary-value">{{ performance.overrides_made }}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Total Hours Worked</span>
+            <span class="summary-value">{{ performance.total_hours }} hrs</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Average Response Time</span>
+            <span class="summary-value">
+              {% if performance.average_response_time %}
+                {{ performance.average_response_time.seconds }} sec
+              {% else %}
+                N/A
+              {% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

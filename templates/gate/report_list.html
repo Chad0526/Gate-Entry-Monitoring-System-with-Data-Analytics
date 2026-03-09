@@ -1,0 +1,56 @@
+{% extends 'base/base.html' %}
+{% block title %}Generated Reports - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Generated Reports{% endblock breadcrumb %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col-12">
+    <a href="{% url 'reports-hub' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left mr-1"></i> Reports hub</a>
+    <a href="{% url 'report-on-demand' %}" class="btn btn-outline-success ml-2"><i class="fas fa-calendar-alt mr-1"></i> On-demand report</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h5 class="m-0">Latest generated reports (daily / weekly / monthly / on-demand)</h5>
+  </div>
+  <div class="card-body p-0">
+    {% if reports %}
+    <table class="table table-sm table-striped table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Type</th>
+          <th>Period</th>
+          <th>Generated</th>
+          <th>By</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in reports %}
+        <tr>
+          <td>{{ r.title|default:"—" }}</td>
+          <td><span class="badge badge-{% if r.report_type == 'daily' %}info{% elif r.report_type == 'weekly' %}primary{% elif r.report_type == 'monthly' %}success{% else %}secondary{% endif %}">{{ r.get_report_type_display|default:r.report_type|default:"—" }}</span></td>
+          <td>{% if r.period_start %}{{ r.period_start|date:"M d, Y" }}{% if r.period_end %} – {{ r.period_end|date:"M d, Y" }}{% endif %}{% else %}—{% endif %}</td>
+          <td>{{ r.generated_at|date:"M d, Y H:i" }}</td>
+          <td>{% if r.generated_by %}{{ r.generated_by.get_full_name|default:r.generated_by.username }}{% else %}—{% endif %}</td>
+          <td>
+            {% if r.file %}
+            <a href="{% url 'report-download' r.pk %}" class="btn btn-sm btn-outline-primary" target="_blank"><i class="fas fa-download"></i></a>
+            {% elif r.report_type == 'on_demand' %}
+            <a href="{% url 'report-on-demand-view' r.pk %}" class="btn btn-sm btn-outline-secondary">View</a>
+            {% else %}
+            <span class="text-muted small">No file</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted p-4 mb-0">No generated reports yet. Run daily/weekly/monthly management commands or generate on-demand reports.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock content %}

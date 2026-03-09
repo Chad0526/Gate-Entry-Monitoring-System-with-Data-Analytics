@@ -1,0 +1,266 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% block title %}Notifications - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Notifications{% endblock breadcrumb %}
+
+{% block extrahead %}
+<style>
+  .notification-item {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    border-left: 4px solid #28a745;
+    transition: all 0.2s;
+  }
+  .notification-item:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+  }
+  .notification-item.urgent {
+    border-left-color: #dc3545;
+    background: #fff5f5;
+  }
+  .notification-item.high {
+    border-left-color: #ffc107;
+  }
+  .notification-item.unread {
+    background: #f0f8f4;
+  }
+  .notification-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 0.75rem;
+  }
+  .notification-title {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: #212529;
+    margin-bottom: 0.25rem;
+  }
+  .notification-priority {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .notification-priority.urgent {
+    background: #dc3545;
+    color: #fff;
+  }
+  .notification-priority.high {
+    background: #ffc107;
+    color: #212529;
+  }
+  .notification-priority.medium {
+    background: #17a2b8;
+    color: #fff;
+  }
+  .notification-priority.low {
+    background: #6c757d;
+    color: #fff;
+  }
+  .notification-message {
+    color: #495057;
+    line-height: 1.6;
+    white-space: pre-line;
+    margin-bottom: 0.75rem;
+  }
+  .notification-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: #6c757d;
+  }
+  .notification-time {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .mark-read-btn {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.85rem;
+    border-radius: 4px;
+    cursor: pointer;
+    border: none;
+  }
+  .mark-read-btn:hover {
+    background: #218838 !important;
+  }
+  @media (max-width: 768px) {
+    .notification-header {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .notification-footer {
+      flex-direction: column;
+      align-items: start;
+      gap: 0.5rem;
+    }
+  }
+</style>
+{% endblock extrahead %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-bell"></i> Notifications</h5>
+      </div>
+      <div class="card-body">
+        {% for notification in notifications %}
+        <div class="notification-item {% if not notification.is_read %}unread{% endif %} {{ notification.priority }}" data-notification-id="{{ notification.id }}">
+          <div class="notification-header">
+            <div>
+              <div class="notification-title">{{ notification.title }}</div>
+              <span class="notification-priority {{ notification.priority }}">{{ notification.get_priority_display }}</span>
+            </div>
+          </div>
+          <div class="notification-message">{{ notification.message }}</div>
+          <div class="notification-footer">
+            <div class="notification-time">
+              <i class="fas fa-clock"></i>
+              {{ notification.created_at|date:"M d, Y h:i A" }}
+            </div>
+            <div class="notification-action">
+              {% if not notification.is_read %}
+              <button class="btn btn-sm btn-success mark-read-btn" data-notification-id="{{ notification.id }}" type="button">
+                <i class="fas fa-check"></i> Mark as Read
+              </button>
+              {% else %}
+              <span class="text-muted"><i class="fas fa-check-circle"></i> Read</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% empty %}
+        <div class="text-center text-muted py-5">
+          <i class="fas fa-bell-slash fa-3x mb-3"></i>
+          <p>No notifications</p>
+        </div>
+        {% endfor %}
+
+        {% if notifications.has_other_pages %}
+        <nav class="mt-4">
+          <ul class="pagination justify-content-center">
+            {% if notifications.has_previous %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ notifications.previous_page_number }}">Previous</a>
+            </li>
+            {% endif %}
+            <li class="page-item active">
+              <span class="page-link">Page {{ notifications.number }} of {{ notifications.paginator.num_pages }}</span>
+            </li>
+            {% if notifications.has_next %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ notifications.next_page_number }}">Next</a>
+            </li>
+            {% endif %}
+          </ul>
+        </nav>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Get CSRF token from cookie
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
+// Use event delegation for mark as read buttons
+document.addEventListener('DOMContentLoaded', function() {
+  const cardBody = document.querySelector('.card-body');
+  if (!cardBody) {
+    console.error('[Notifications] Card body not found!');
+    return;
+  }
+  
+  cardBody.addEventListener('click', function(event) {
+    const btn = event.target.closest('.mark-read-btn');
+    if (!btn) return;
+    
+    const notificationId = btn.getAttribute('data-notification-id');
+    if (!notificationId) {
+      alert('Error: Notification ID not found');
+      return;
+    }
+    
+    // Disable button immediately
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Marking...';
+    
+    const csrftoken = getCookie('csrftoken');
+    if (!csrftoken) {
+      alert('Security token not found. Please refresh the page.');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-check"></i> Mark as Read';
+      return;
+    }
+    
+    const url = '{% url "guard-notification-mark-read" %}';
+    const body = 'notification_id=' + encodeURIComponent(notificationId);
+    
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRFToken': csrftoken
+      },
+      body: body,
+      credentials: 'same-origin'
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Server returned status ' + response.status);
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data.success) {
+        // Find the notification item and action container
+        const item = document.querySelector(`.notification-item[data-notification-id="${notificationId}"]`);
+        if (item) {
+          // Remove unread styling
+          item.classList.remove('unread');
+          
+          // Find the action container and replace its content
+          const actionContainer = btn.closest('.notification-action');
+          if (actionContainer) {
+            actionContainer.innerHTML = '<span class="text-muted"><i class="fas fa-check-circle"></i> Read</span>';
+          }
+        }
+      } else {
+        throw new Error(data.error || 'Unknown error');
+      }
+    })
+    .catch(error => {
+      console.error('[Mark as Read] Error:', error);
+      alert('Failed to mark as read: ' + error.message);
+      
+      // Re-enable button
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-check"></i> Mark as Read';
+    });
+  });
+});
+</script>
+{% endblock content %}

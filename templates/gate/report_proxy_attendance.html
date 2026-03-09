@@ -1,0 +1,45 @@
+{% extends 'base/base.html' %}
+{% block title %}Report proxy attendance - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Report proxy attendance{% endblock breadcrumb %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <div class="d-flex flex-wrap align-items-center justify-content-between" style="gap:10px;">
+          <h5 class="m-0">Report proxy attendance</h5>
+          <a href="{% url 'gate-incident-list' %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-left mr-1"></i> Back to incidents</a>
+        </div>
+      </div>
+      <div class="card-body">
+        <p class="text-muted mb-4">Use this form when you detect proxy attendance (someone else attending on behalf of a student). An incident will be recorded and the guard will be alerted. The student ID links the alert to the student's identity.</p>
+        <form method="post" action="{% url 'gate-incident-report-proxy' %}" class="mb-0" id="reportProxyForm">
+          {% csrf_token %}
+          <div class="form-group">
+            <label for="student_id" class="font-weight-bold">Student ID <span class="text-danger">*</span></label>
+            <input type="text" name="student_id" id="student_id" class="form-control" placeholder="e.g. 202200631" value="{{ initial_student_id|default:'' }}" required maxlength="100" style="max-width:320px;">
+          </div>
+          <div class="form-group">
+            <label for="details" class="font-weight-bold">Details <span class="text-danger">*</span></label>
+            <textarea name="details" id="details" class="form-control" rows="3" required placeholder="Describe what was observed (e.g. person did not match ID photo, name called but different person responded)"></textarea>
+          </div>
+          <div class="form-group mb-0">
+            <button type="submit" class="btn btn-warning" id="createAlertBtn"><i class="fas fa-bell mr-1"></i> Create alert & notify</button>
+            <a href="{% url 'gate-incident-list' %}" class="btn btn-outline-secondary ml-2">Cancel</a>
+          </div>
+        </form>
+        <script>
+        document.getElementById('reportProxyForm').addEventListener('submit', function(e) {
+          e.preventDefault();
+          var form = this;
+          themeConfirm('Are you sure you want to create this alert and notify the guard? This will record a proxy attendance incident.', function() {
+            form.submit();
+          });
+        });
+        </script>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

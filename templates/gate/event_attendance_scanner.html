@@ -1,0 +1,42 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% block title %}Event Attendance Scanner - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Attendance Scanner{% endblock breadcrumb %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="m-0"><i class="fas fa-qrcode"></i> Event Attendance Scanner</h5>
+      </div>
+      <div class="card-body">
+        <p class="text-muted mb-3">Select an event to open the scanner. Students show their <strong>permanent eEID QR</strong>; you scan to record attendance. No separate event QR.</p>
+        {% if events %}
+        <div class="list-group">
+          {% for event in events %}
+          <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+            <div>
+              <strong>{{ event.name }}</strong>
+              <br>
+              <small class="text-muted">{{ event.start_date|date:"M d, Y" }}{% if event.end_date != event.start_date %} – {{ event.end_date|date:"M d, Y" }}{% endif %} | Audience: {{ event.audience_summary }}</small>
+            </div>
+            <div>
+              <a href="{% url 'event-field-trip-scan' event.id %}" class="btn btn-primary btn-sm">
+                <i class="fas fa-camera"></i> Open scanner
+              </a>
+              <a href="{% url 'event-attendance-report' event.id %}" class="btn btn-outline-secondary btn-sm">Report</a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">No events are scheduled for today. Create or schedule an event, or come back on an event day.</p>
+        {% endif %}
+        <hr class="my-3">
+        <a href="{% url 'event-list' %}" class="btn btn-outline-secondary">Event list</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

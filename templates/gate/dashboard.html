@@ -1,0 +1,170 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% block title %}Guard Dashboard{% endblock %}
+
+{% block content %}
+
+<div class="content-header">
+  <div class="container-fluid">
+    <h4 class="mb-0">Guard Dashboard</h4>
+    <small class="text-muted">City College of Bayawan — Gate &amp; attendance</small>
+    <div class="mt-2">
+      <a href="{% url 'gate-scan' %}" class="btn btn-success btn-sm"><i class="fas fa-qrcode mr-1"></i> Go to scanner</a>
+      <a href="{% url 'gate-entry-list' %}" class="btn btn-outline-primary btn-sm ml-1"><i class="fas fa-door-open mr-1"></i> Gate entries</a>
+      <a href="{% url 'gate-incident-list' %}" class="btn btn-outline-danger btn-sm ml-1"><i class="fas fa-exclamation-triangle mr-1"></i> Incidents</a>
+    </div>
+  </div>
+</div>
+
+<section class="content">
+<div class="container-fluid">
+
+  <!-- STATS ROW -->
+  <div class="row">
+    <div class="col-md-3 col-6">
+      <div class="small-box bg-success">
+        <div class="inner">
+          <h3>{{ total_entries|default:0 }}</h3>
+          <p>Total Entries Today</p>
+        </div>
+        <div class="icon">
+          <i class="fas fa-door-open"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 col-6">
+      <div class="small-box bg-danger">
+        <div class="inner">
+          <h3>{{ denied_entries|default:0 }}</h3>
+          <p>Denied Attempts</p>
+        </div>
+        <div class="icon">
+          <i class="fas fa-ban"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 col-6">
+      <div class="small-box bg-info">
+        <div class="inner">
+          <h3>
+            {% if active_event %} YES {% else %} NO {% endif %}
+          </h3>
+          <p>Active Event</p>
+        </div>
+        <div class="icon">
+          <i class="fas fa-calendar-check"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 col-6">
+      <div class="small-box bg-warning">
+        <div class="inner">
+          <h3>{{ guards_on_duty|default:1 }}</h3>
+          <p>Guards On Duty</p>
+        </div>
+        <div class="icon">
+          <i class="fas fa-user-shield"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shift & Today's report -->
+  <div class="row mb-3">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header py-2">
+          <h6 class="mb-0"><i class="fas fa-user-clock mr-1"></i> My shift</h6>
+        </div>
+        <div class="card-body py-2">
+          {% if current_shift %}
+            <p class="mb-2 small text-muted">Clocked in at {{ current_shift.shift_start|date:"M d, Y H:i" }}{% if current_shift.gate_post %} — {{ current_shift.gate_post }}{% endif %}</p>
+            <form method="post" action="{% url 'guard-clock-out' %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-warning btn-sm"><i class="fas fa-sign-out-alt mr-1"></i> Clock out</button>
+            </form>
+          {% else %}
+            <form method="post" action="{% url 'guard-clock-in' %}" class="form-inline">
+              {% csrf_token %}
+              <input type="text" name="gate_post" class="form-control form-control-sm mr-2" placeholder="Post (e.g. Main Gate)" maxlength="64" style="width:140px;">
+              <button type="submit" class="btn btn-success btn-sm"><i class="fas fa-sign-in-alt mr-1"></i> Clock in</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6 d-flex align-items-center">
+      <a href="{% url 'guard-today-report' %}" class="btn btn-info btn-sm mr-1"><i class="fas fa-calendar-day mr-1"></i> Today's report</a>
+      <a href="{% url 'guard-today-report' %}?format=csv" class="btn btn-outline-success btn-sm"><i class="fas fa-download mr-1"></i> Download CSV</a>
+    </div>
+  </div>
+
+  <!-- ACTION BUTTONS -->
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <a href="{% url 'gate-scan' %}" class="btn btn-success btn-block btn-lg">
+        <i class="fas fa-qrcode me-2"></i> Scan Student ID
+      </a>
+    </div>
+    <div class="col-md-4">
+      <a href="{% url 'gate-scan' %}" class="btn btn-primary btn-block btn-lg">
+        <i class="fas fa-search me-2"></i> Manual Verification
+      </a>
+    </div>
+    <div class="col-md-4">
+      <a href="{% url 'gate-incident-list' %}" class="btn btn-danger btn-block btn-lg">
+        <i class="fas fa-exclamation-triangle me-2"></i> Report Incident
+      </a>
+    </div>
+  </div>
+
+  <!-- RECENT ENTRIES TABLE -->
+  <div class="card">
+    <div class="card-header">
+      <h5 class="card-title mb-0">
+        <i class="fas fa-list me-2"></i> Recent Gate Activity
+      </h5>
+    </div>
+    <div class="card-body p-0">
+      <table class="table table-striped mb-0">
+        <thead>
+          <tr>
+            <th>ID Number</th>
+            <th>Name</th>
+            <th>Time</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in recent_logs %}
+          <tr>
+            <td>{{ log.student_id }}</td>
+            <td>{{ log.student_name }}</td>
+            <td>{{ log.time }}</td>
+            <td>
+              {% if log.status == 'APPROVED' %}
+                <span class="badge badge-success">Approved</span>
+              {% else %}
+                <span class="badge badge-danger">Denied</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" class="text-center text-muted">
+              No records available
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</section>
+
+{% endblock %}

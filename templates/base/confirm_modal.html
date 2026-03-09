@@ -1,0 +1,228 @@
+{% load static %}
+<!-- Themed confirmation modal – matches CCB green/orange theme -->
+<div id="themeConfirmBackdrop" class="theme-confirm-backdrop" style="display: none;" aria-hidden="true"></div>
+<div id="themeConfirmModal" class="theme-confirm-modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="themeConfirmMessage">
+  <div class="theme-confirm-dialog">
+    <div class="theme-confirm-body">
+      <p id="themeConfirmMessage" class="theme-confirm-message"></p>
+    </div>
+    <div class="theme-confirm-footer">
+      <button type="button" class="theme-confirm-btn theme-confirm-cancel" id="themeConfirmCancel">Cancel</button>
+      <button type="button" class="theme-confirm-btn theme-confirm-ok" id="themeConfirmOk">Confirm</button>
+    </div>
+  </div>
+</div>
+<style>
+  .theme-confirm-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(30, 94, 32, 0.35);
+    z-index: 1040;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .theme-confirm-backdrop.theme-confirm-show {
+    opacity: 1;
+  }
+  .theme-confirm-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1050;
+    overflow-x: hidden;
+    overflow-y: auto;
+    outline: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+  }
+  .theme-confirm-modal.theme-confirm-show {
+    opacity: 1;
+    visibility: visible;
+  }
+  .theme-confirm-dialog {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(30, 94, 32, 0.2);
+    border: 1px solid rgba(40, 167, 69, 0.2);
+    transform: scale(0.95);
+    transition: transform 0.2s ease;
+  }
+  .theme-confirm-modal.theme-confirm-show .theme-confirm-dialog {
+    transform: scale(1);
+  }
+  .theme-confirm-body {
+    padding: 1.5rem 1.5rem 0.75rem;
+  }
+  .theme-confirm-message {
+    margin: 0;
+    font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 1rem;
+    line-height: 1.5;
+    color: #2c3e50;
+  }
+  .theme-confirm-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem 1.5rem;
+    border-top: 1px solid #e9ecef;
+  }
+  .theme-confirm-btn {
+    font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    padding: 0.5rem 1.25rem;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  }
+  .theme-confirm-btn:active {
+    transform: scale(0.98);
+  }
+  .theme-confirm-cancel {
+    background: #fff;
+    color: #495057;
+    border: 2px solid #dee2e6;
+  }
+  .theme-confirm-cancel:hover {
+    background: #f8f9fa;
+    border-color: #adb5bd;
+    color: #212529;
+  }
+  .theme-confirm-ok {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+    color: #fff;
+  }
+  .theme-confirm-ok:hover {
+    background: linear-gradient(135deg, #218838 0%, #1b5e20 100%);
+    color: #fff;
+  }
+</style>
+<script>
+(function() {
+  var backdrop = document.getElementById('themeConfirmBackdrop');
+  var modal = document.getElementById('themeConfirmModal');
+  var messageEl = document.getElementById('themeConfirmMessage');
+  var btnOk = document.getElementById('themeConfirmOk');
+  var btnCancel = document.getElementById('themeConfirmCancel');
+  var currentConfirmCb = null;
+  var currentCancelCb = null;
+
+  function hide() {
+    if (backdrop) backdrop.classList.remove('theme-confirm-show');
+    if (modal) modal.classList.remove('theme-confirm-show');
+    if (backdrop) backdrop.style.display = 'none';
+    if (modal) modal.style.display = 'none';
+    currentConfirmCb = null;
+    currentCancelCb = null;
+  }
+
+  function show(msg) {
+    if (!messageEl || !backdrop || !modal) return;
+    messageEl.textContent = msg;
+    backdrop.style.display = 'block';
+    modal.style.display = 'flex';
+    requestAnimationFrame(function() {
+      backdrop.classList.add('theme-confirm-show');
+      modal.classList.add('theme-confirm-show');
+    });
+  }
+
+  if (btnOk) {
+    btnOk.addEventListener('click', function() {
+      var cb = currentConfirmCb;
+      hide();
+      if (typeof cb === 'function') cb();
+    });
+  }
+  if (btnCancel) {
+    btnCancel.addEventListener('click', function() {
+      var cb = currentCancelCb;
+      hide();
+      if (typeof cb === 'function') cb();
+    });
+  }
+  if (backdrop) {
+    backdrop.addEventListener('click', function() {
+      var cb = currentCancelCb;
+      hide();
+      if (typeof cb === 'function') cb();
+    });
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && modal && modal.classList.contains('theme-confirm-show')) {
+      var cb = currentCancelCb;
+      hide();
+      if (typeof cb === 'function') cb();
+    }
+  });
+
+  window.themeConfirm = function(message, onConfirmCallback, onCancelCallback) {
+    if (!message) message = 'Are you sure?';
+    currentConfirmCb = onConfirmCallback || null;
+    currentCancelCb = onCancelCallback || null;
+    show(message);
+  };
+
+  function initNavbarLogout() {
+    var link = document.getElementById('navbar-logout-link');
+    if (link) {
+      var url = link.getAttribute('data-logout-url');
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        themeConfirm('Are you sure you want to log out?', function() { window.location.href = url; });
+      });
+    }
+  }
+  function initReportProxyLinks() {
+    document.querySelectorAll('.report-proxy-link').forEach(function(link) {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (link.classList.contains('report-proxy-reported')) return;
+        var href = link.getAttribute('href');
+        var msg = link.getAttribute('data-message') || 'Are you sure you want to report proxy attendance for this student? An incident will be recorded and the guard will be alerted.';
+        var studentId = link.getAttribute('data-student-id');
+        if (!studentId && href) {
+          var m = /[?&]student_id=([^&]+)/.exec(href);
+          if (m) studentId = decodeURIComponent(m[1].replace(/\+/g, ' '));
+        }
+        if (document.getElementById('reportProxyModal') && typeof window.openReportProxyModal === 'function') {
+          themeConfirm(msg, function() {
+            window.openReportProxyModal(studentId || '', link);
+          });
+          return;
+        }
+        themeConfirm(msg, function() {
+          var target = link.getAttribute('target');
+          if (target === '_blank') window.open(href, '_blank'); else window.location.href = href;
+        });
+      });
+    });
+  }
+  function init() {
+    initNavbarLogout();
+    initReportProxyLinks();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>

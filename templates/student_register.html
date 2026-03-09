@@ -1,0 +1,14 @@
+{% extends 'base/login_base.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}Student Registration - {{ site_name|default:"CCB Gate Entry" }}{% endblock title %}
+
+{% block content %}
+{# Registration is now on the main login page with sliding panel. Redirect to open the Sign Up panel. #}
+<meta http-equiv="refresh" content="0; url={% url 'register' %}">
+<div style="font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 40px;">
+  <p>{% trans 'Redirecting to registration...' %}</p>
+  <p><a href="{% url 'register' %}">{% trans 'Click here if not redirected' %}</a></p>
+</div>
+{% endblock content %}

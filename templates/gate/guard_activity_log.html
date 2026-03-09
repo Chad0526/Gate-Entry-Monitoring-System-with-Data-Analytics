@@ -1,0 +1,197 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% block title %}Activity Log - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Activity Log{% endblock breadcrumb %}
+
+{% block extrahead %}
+<style>
+  .filter-card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .filter-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    align-items: end;
+  }
+  .activity-table {
+    width: 100%;
+    background: #fff;
+  }
+  .activity-table th {
+    background: #28a745;
+    color: #fff;
+    padding: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+  }
+  .activity-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+    vertical-align: top;
+  }
+  .activity-table tr:hover {
+    background: #f8f9fa;
+  }
+  .action-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .action-badge.scan {
+    background: #28a745;
+    color: #fff;
+  }
+  .action-badge.incident {
+    background: #dc3545;
+    color: #fff;
+  }
+  .action-badge.override {
+    background: #ffc107;
+    color: #212529;
+  }
+  .action-badge.shift_start,
+  .action-badge.shift_end {
+    background: #17a2b8;
+    color: #fff;
+  }
+  .action-badge.note {
+    background: #6c757d;
+    color: #fff;
+  }
+  .action-badge.lookup {
+    background: #6f42c1;
+    color: #fff;
+  }
+  @media (max-width: 768px) {
+    .activity-table {
+      font-size: 0.85rem;
+    }
+    .activity-table th,
+    .activity-table td {
+      padding: 0.5rem;
+    }
+  }
+</style>
+{% endblock extrahead %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <!-- Filters -->
+    <div class="filter-card">
+      <form method="get" action="{% url 'guard-activity-log' %}">
+        <div class="filter-row">
+          <div class="form-group mb-0">
+            <label for="from_date">From Date</label>
+            <input type="date" class="form-control" id="from_date" name="from_date" value="{{ from_date }}">
+          </div>
+          <div class="form-group mb-0">
+            <label for="to_date">To Date</label>
+            <input type="date" class="form-control" id="to_date" name="to_date" value="{{ to_date }}">
+          </div>
+          <div class="form-group mb-0">
+            <label for="action_type">Action Type</label>
+            <select class="form-control" id="action_type" name="action_type">
+              <option value="">All</option>
+              {% for type in action_types %}
+              <option value="{{ type }}" {% if type == selected_action_type %}selected{% endif %}>
+                {{ type|upper }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group mb-0">
+            <button type="submit" class="btn btn-success btn-block">
+              <i class="fas fa-search"></i> Filter
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Activity Log Table -->
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-history"></i> Activity Log ({{ logs.paginator.count }} total)</h5>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="activity-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Action</th>
+                <th>Description</th>
+                <th>Related</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for log in logs %}
+              <tr>
+                <td style="white-space: nowrap;">{{ log.timestamp|date:"M d, h:i A" }}</td>
+                <td>
+                  <span class="action-badge {{ log.action_type }}">
+                    {{ log.action_type|upper }}
+                  </span>
+                </td>
+                <td>{{ log.description }}</td>
+                <td>
+                  {% if log.related_student %}
+                  <small class="text-muted">Student: {{ log.related_student.student_id }}</small><br>
+                  {% endif %}
+                  {% if log.related_incident %}
+                  <small class="text-muted">Incident #{{ log.related_incident.id }}</small><br>
+                  {% endif %}
+                  {% if log.related_shift %}
+                  <small class="text-muted">Shift #{{ log.related_shift.id }}</small><br>
+                  {% endif %}
+                  {% if log.device_id %}
+                  <small class="text-muted">Device: {{ log.device_id }}</small>
+                  {% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="4" class="text-center text-muted py-4">
+                  No activity logs found
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% if logs.has_other_pages %}
+      <div class="card-footer">
+        <nav>
+          <ul class="pagination mb-0">
+            {% if logs.has_previous %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ logs.previous_page_number }}&from_date={{ from_date }}&to_date={{ to_date }}&action_type={{ selected_action_type }}">Previous</a>
+            </li>
+            {% endif %}
+            <li class="page-item active">
+              <span class="page-link">Page {{ logs.number }} of {{ logs.paginator.num_pages }}</span>
+            </li>
+            {% if logs.has_next %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ logs.next_page_number }}&from_date={{ from_date }}&to_date={{ to_date }}&action_type={{ selected_action_type }}">Next</a>
+            </li>
+            {% endif %}
+          </ul>
+        </nav>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock content %}

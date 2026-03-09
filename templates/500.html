@@ -1,0 +1,23 @@
+{% extends 'base/login_base.html' %}
+{% load static %}
+{% block title %}Server error - {{ site_name|default:"CCB Gate" }}{% endblock %}
+
+{% block content %}
+<div class="container py-5" style="max-width: 560px; margin: 0 auto;">
+  <div class="card shadow-sm text-center">
+    <div class="card-body p-5">
+      <img src="{% static 'img/logo.png' %}" alt="" class="mb-3" style="height: 64px; width: auto;">
+      <h1 class="h4 mb-2">Something went wrong</h1>
+      <p class="text-muted mb-4">{{ site_name|default:"City College of Bayawan" }} – Gate &amp; Attendance</p>
+      <p class="text-muted mb-4">We're sorry. The server encountered an error. Please try again or go back to the home page.</p>
+      <div class="d-flex flex-wrap justify-content-center gap-2">
+        <a href="{% url 'login' %}" class="btn btn-primary">Go to login</a>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.history.back();">Go back</button>
+      </div>
+      <p class="mt-4 mb-0 small text-muted">
+        <a href="{% url 'privacy-policy' %}">Report a problem or view privacy policy</a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

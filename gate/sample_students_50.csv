@@ -1,0 +1,51 @@
+student_id,first_name,middle_name,last_name,email,address,birthdate,contact_number,guardians_parents,guardian_contact,course,year_level,section
+20240001,Ed mathew,Marimat,Dianson,ed.dianson01@gmail.com,Gomez st,04/13/2005,09514697133,mary apple dianson,09758132506,BST,1,A
+20240002,Maria,Cruz,Santos,maria.santos02@gmail.com,Rizal Ave Bayawan,05/22/2005,09171234567,juan santos,09881234567,BST,1,A
+20240003,Juan,Delos Reyes,Mendoza,juan.mendoza03@gmail.com,Poblacion Gomez,08/15/2004,09232345678,rosa mendoza,09192345678,BST,1,A
+20240004,Ana,Louise,Garcia,ana.garcia04@gmail.com,Barangay Villareal,11/08/2005,09343456789,pedro garcia,09203456789,BST,1,A
+20240005,Carlos,Miguel,Ramos,carlos.ramos05@gmail.com,Mabini St,02/28/2005,09454567890,elena ramos,09214567890,BST,1,A
+20240006,Liza,Marie,Torres,liza.torres06@gmail.com,Luna St,07/19/2004,09565678901,antonio torres,09225678901,BST,1,A
+20240007,Jose,Antonio,Fernandez,jose.fernandez07@gmail.com,Bonifacio Ave,09/03/2005,09676789012,carmelita fernandez,09236789012,BST,1,A
+20240008,Patricia,Ann,Rivera,patricia.rivera08@gmail.com,Gomez st,01/25/2005,09787890123,ricardo rivera,09247890123,BST,1,A
+20240009,Ramon,Enrique,Gonzales,ramon.gonzales09@gmail.com,Roxas St,06/12/2004,09898901234,teresa gonzales,09258901234,BST,1,A
+20240010,Carmen,Sofia,Diaz,carmen.diaz10@gmail.com,Aguinaldo St,12/07/2005,09909012345,fernando diaz,09269012345,BST,1,A
+20240011,Miguel,Andres,Castro,miguel.castro11@gmail.com,Burgos St,03/30/2004,09120123456,conchita castro,09270123456,BST,1,A
+20240012,Rosa,Isabel,Reyes,rosa.reyes12@gmail.com,Quezon Ave,10/14/2005,09231234567,manuel reyes,09281234567,BST,1,A
+20240013,Pedro,Luis,Mendoza,pedro.mendoza13@gmail.com,Gomez st,04/18/2004,09342345678,lucia mendoza,09292345678,BST,1,A
+20240014,Teresa,May,Villanueva,teresa.villanueva14@gmail.com,Santiago St,08/29/2005,09453456789,rodrigo villanueva,09303456789,BST,1,A
+20240015,Fernando,Jose,Silva,fernando.silva15@gmail.com,Del Pilar St,02/11/2004,09564567890,maria silva,09314567890,BST,1,A
+20240016,Conchita,Luisa,Ocampo,conchita.ocampo16@gmail.com,Legaspi St,07/05/2005,09675678901,ceferino ocampo,09325678901,BST,1,A
+20240017,Manuel,Francisco,Bautista,manuel.bautista17@gmail.com,Magsaysay Ave,11/20/2004,09786789012,corazon bautista,09336789012,BST,1,A
+20240018,Lucia,Antonia,Santiago,lucia.santiago18@gmail.com,Gomez st,05/02/2005,09897890123,alfredo santiago,09347890123,BST,1,B
+20240019,Rodrigo,Emilio,Morales,rodrigo.morales19@gmail.com,Kalibo St,09/16/2004,09908901234,imelda morales,09358901234,BST,1,B
+20240020,Maria,Fe,Acosta,maria.acosta20@gmail.com,Barangay Candelaria,01/09/2005,09119012345,romulo acosta,09369012345,BST,1,B
+20240021,Ceferino,Victor,Salazar,ceferino.salazar21@gmail.com,Rizal Ext,04/24/2004,09220123456,norma salazar,09370123456,BST,1,B
+20240022,Corazon,Esperanza,Guzman,corazon.guzman22@gmail.com,Gomez st,08/11/2005,09331234567,arturo guzman,09381234567,BST,1,B
+20240023,Alfredo,Rey,Navarro,alfredo.navarro23@gmail.com,Purok 3,12/28/2004,09442345678,gloria navarro,09392345678,BST,1,B
+20240024,Imelda,Cecilia,Jimenez,imelda.jimenez24@gmail.com,Coastal Rd,03/15/2005,09553456789,renato jimenez,09403456789,BST,1,B
+20240025,Romulo,Danilo,Domingo,romulo.domingo25@gmail.com,Gomez st,07/08/2004,09664567890,socorro domingo,09414567890,BST,1,B
+20240026,Norma,Angelica,Ruiz,norma.ruiz26@gmail.com,San Jose St,10/31/2005,09775678901,bernardo ruiz,09425678901,BST,1,B
+20240027,Arturo,Gabriel,Ortega,arturo.ortega27@gmail.com,Poblacion,02/17/2004,09886789012,rosario ortega,09436789012,BST,1,B
+20240028,Gloria,Beatriz,Vargas,gloria.vargas28@gmail.com,Gomez st,06/22/2005,09997890123,felix vargas,09447890123,BST,1,B
+20240029,Renato,Hector,Medina,renato.medina29@gmail.com,Magsaysay St,11/05/2004,09108901234,amparo medina,09458901234,BST,1,B
+20240030,Socorro,Dolores,Herrera,socorro.herrera30@gmail.com,Barangay 1,04/19/2005,09219012345,gregorio herrera,09469012345,BST,1,B
+20240031,Bernardo,Ignacio,Sandoval,bernardo.sandoval31@gmail.com,Gomez st,09/12/2004,09320123456,remedios sandoval,09470123456,BST,1,B
+20240032,Rosario,Estrella,Contreras,rosario.contreras32@gmail.com,Lapu-Lapu St,01/25/2005,09431234567,augusto contreras,09481234567,BST,1,B
+20240033,Felix,Leonardo,Figueroa,felix.figueroa33@gmail.com,Narra St,05/08/2004,09542345678,perlita figueroa,09492345678,BST,1,B
+20240034,Amparo,Mercedes,Rojas,amparo.rojas34@gmail.com,Gomez st,08/30/2005,09653456789,sergio rojas,09503456789,BST,1,B
+20240035,Gregorio,Nestor,Espinoza,gregorio.espinoza35@gmail.com,Molave St,12/14/2004,09764567890,consuelo espinoza,09514567890,BST,1,C
+20240036,Remedios,Ofelia,Aguilar,remedios.aguilar36@gmail.com,Yakal St,03/07/2005,09875678901,dominador aguilar,09525678901,BST,1,C
+20240037,Augusto,Pablo,Miranda,augusto.miranda37@gmail.com,Gomez st,07/21/2004,09986789012,fe miranda,09536789012,BST,1,C
+20240038,Perlita,Querida,Luna,perlita.luna38@gmail.com,Mahogany St,10/04/2005,09197890123,gerardo luna,09547890123,BST,1,C
+20240039,Sergio,Rafael,Ibarra,sergio.ibarra39@gmail.com,Acacia St,02/18/2004,09308901234,helen ibarra,09558901234,BST,1,C
+20240040,Consuelo,Soledad,Mejia,consuelo.mejia40@gmail.com,Gomez st,06/01/2005,09419012345,ismael mejia,09569012345,BST,1,C
+20240041,Dominador,Tomas,Cordero,dominador.cordero41@gmail.com,Narra Ave,11/24/2004,09520123456,josephine cordero,09570123456,BST,1,C
+20240042,Fe,Umberto,Gallegos,fe.gallegos42@gmail.com,Pine St,04/10/2005,09631234567,katherine gallegos,09581234567,BST,1,C
+20240043,Gerardo,Vicente,Serrano,gerardo.serrano43@gmail.com,Gomez st,08/27/2004,09742345678,leticia serrano,09592345678,BST,1,C
+20240044,Helen,Wanda,Maldonado,helen.maldonado44@gmail.com,Cedar St,01/13/2005,09853456789,marcos maldonado,09603456789,BST,1,C
+20240045,Ismael,Xavier,Pacheco,ismael.pacheco45@gmail.com,Elm St,05/30/2004,09964567890,ninfa pacheco,09614567890,BST,1,C
+20240046,Josephine,Yolanda,Cabrera,josephine.cabrera46@gmail.com,Gomez st,09/16/2005,09175678901,oscar cabrera,09625678901,BST,1,C
+20240047,Katherine,Zenaida,Arias,katherine.arias47@gmail.com,Oak St,12/02/2004,09286789012,paz arias,09636789012,BST,1,C
+20240048,Leticia,Amor,Valdez,leticia.valdez48@gmail.com,Birch St,04/19/2005,09397890123,quintin valdez,09647890123,BST,1,C
+20240049,Marcos,Bienvenido,Estrada,marcos.estrada49@gmail.com,Gomez st,07/25/2004,09508901234,reyna estrada,09658901234,BST,1,C
+20240050,Ninfa,Corazon,Zamora,ninfa.zamora50@gmail.com,Maple St,10/08/2005,09619012345,salvador zamora,09669012345,BST,1,C

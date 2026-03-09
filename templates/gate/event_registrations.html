@@ -1,0 +1,85 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% block title %}Registrations - {{ event.name }} - {{ site_name }}{% endblock %}
+{% block breadcrumb %}Event Registrations{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col-12">
+    <a href="{% url 'event-attendance-report' event.id %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left mr-1"></i> Attendance report</a>
+    <a href="{% url 'event-live-dashboard' event.id %}" class="btn btn-outline-info ml-2">Live dashboard</a>
+  </div>
+</div>
+
+<div class="row mb-4">
+  <div class="col-md-3 col-6">
+    <div class="small-box bg-info">
+      <div class="inner"><h3>{{ total_registered }}</h3><p>Registered</p></div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="small-box bg-success">
+      <div class="inner"><h3>{{ checked_in }}</h3><p>Checked in</p></div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="small-box bg-secondary">
+      <div class="inner"><h3>{{ checked_out }}</h3><p>Checked out</p></div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header"><h5 class="m-0">Add registrations</h5></div>
+  <div class="card-body">
+    <form method="post" class="form-inline mb-3">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="register_all">
+      <button type="submit" class="btn btn-primary mr-2">Register all active students</button>
+    </form>
+    <form method="post" enctype="multipart/form-data" class="form-inline">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="register_csv">
+      <label class="mr-2">Or upload CSV (column: student_id):</label>
+      <input type="file" name="csv_file" accept=".csv" class="form-control mr-2">
+      <button type="submit" class="btn btn-outline-primary">Import CSV</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h5 class="m-0">Registrations ({{ event.name }})</h5></div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-striped mb-0">
+        <thead>
+          <tr>
+            <th>Student ID</th>
+            <th>Name</th>
+            <th>Token</th>
+            <th>Status</th>
+            <th>Issued</th>
+            <th>Checked in</th>
+            <th>Checked out</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in registrations %}
+          <tr>
+            <td>{{ r.student.student_id }}</td>
+            <td>{{ r.student.get_full_name }}</td>
+            <td><code class="small">{{ r.token|truncatechars:16 }}</code></td>
+            <td><span class="badge badge-{% if r.status == 'active' %}success{% else %}secondary{% endif %}">{{ r.status }}</span></td>
+            <td>{{ r.issued_at|date:"M d, H:i" }}</td>
+            <td>{{ r.checked_in_at|date:"M d, H:i"|default:"—" }}</td>
+            <td>{{ r.checked_out_at|date:"M d, H:i"|default:"—" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted">No registrations yet. Use "Register all" or import CSV.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

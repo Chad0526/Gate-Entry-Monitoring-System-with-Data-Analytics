@@ -1,0 +1,87 @@
+{% extends 'base/base.html' %}
+{% block title %}Reports – Exports – {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Reports / Exports{% endblock breadcrumb %}
+
+{% block content %}
+<h5 class="mb-3">Reports – Exports</h5>
+
+<p class="text-muted mb-2">1. Set filters (including <strong>Report type</strong>) and click <strong>Apply filters</strong> &nbsp;→&nbsp; 2. Preview updates below &nbsp;→&nbsp; 3. Download in CSV, Excel, or PDF.</p>
+
+{% include 'gate/reports/_filter_bar.html' %}
+
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+    <h6 class="m-0">Preview</h6>
+    <span class="small text-muted">Report: <strong id="preview-report-label">{% if template_type == 'export_all' %}All reports (ZIP){% elif template_type == 'daily_gate_visits' %}Visits{% elif template_type == 'overview_summary' %}Summary{% elif template_type == 'recent_activity' %}Recent activity{% elif template_type == 'inside_now' %}Inside now{% elif template_type == 'early_outs' %}Early outs{% elif template_type == 'raw_entries' %}Raw entries{% elif template_type == 'event_attendance' %}Event attendance{% elif template_type == 'incidents_log' %}Incidents log{% elif template_type == 'incidents_proxy' %}Proxy only{% elif template_type == 'incidents_overrides' %}Overrides{% elif template_type == 'by_guard' %}By guard{% else %}{{ template_type }}{% endif %}</strong></span>
+  </div>
+  <div class="card-body p-0">
+    {% if template_type == 'export_all' %}
+    <p class="text-muted p-3 mb-0">ZIP includes all report types. Use <strong>Download ZIP</strong> below.</p>
+    {% elif preview_rows %}
+      {% if template_type == 'daily_gate_visits' %}
+      <p class="text-muted p-3 mb-0">Preview shows student visits only; exported file will also include visitors in a separate section.</p>
+      {% elif template_type == 'event_attendance' %}
+      <p class="text-muted p-3 mb-0">Preview shows up to 50 attendees and covers anyone whose check‑in, check‑out, or record creation occurred in the window; use export for full data.</p>
+      {% endif %}
+    <div class="table-responsive">
+      <table class="table table-sm table-striped mb-0">
+        <thead>
+          <tr>
+            {% for key in preview_rows.0.keys %}
+            <th>{{ key }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in preview_rows %}
+          <tr>
+            {% for key, val in row.items %}
+            <td>{% if val != None and val != '' %}{{ val }}{% else %}—{% endif %}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted p-3 mb-0">No data for this filter.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h6 class="m-0">Export</h6></div>
+  <div class="card-body">
+    <p class="small text-muted mb-2">Downloads use the filters applied above.</p>
+    {% if template_type == 'export_all' %}
+    <p class="mb-0">
+      <a href="{% url 'reports-export-download' %}?{{ request.GET.urlencode }}&template=export_all" class="btn btn-sm btn-primary"><i class="fas fa-file-archive mr-1"></i> Download ZIP</a>
+    </p>
+    {% else %}
+    <div class="form-inline align-items-center">
+      <label class="mr-2 mb-0">Format:</label>
+      <select id="export-format-select" class="form-control form-control-sm mr-2" style="width:120px;">
+        <option value="csv">CSV</option>
+        <option value="xlsx">Excel</option>
+        <option value="pdf">PDF</option>
+      </select>
+      <button type="button" id="export-download-btn" class="btn btn-sm btn-primary">Export</button>
+    </div>
+    <script>
+    (function() {
+      var baseUrl = "{% url 'reports-export-download' %}?{{ request.GET.urlencode }}";
+      var select = document.getElementById('export-format-select');
+      var btn = document.getElementById('export-download-btn');
+      if (btn && select) {
+        btn.addEventListener('click', function() {
+          var format = select.value || 'csv';
+          var sep = baseUrl.indexOf('?') !== -1 ? '&' : '?';
+          window.location.href = baseUrl + sep + 'format=' + format;
+        });
+      }
+    })();
+    </script>
+    {% endif %}
+  </div>
+</div>
+{% endblock content %}

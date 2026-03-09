@@ -1,0 +1,78 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% block title %}My Attendance - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Student Portal{% endblock breadcrumb %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    {% if not student %}
+    <div class="alert alert-warning">
+      <strong>Account not linked.</strong> Your account is not linked to a student record. Ask an administrator to set your username to your student ID and assign the Student role.
+    </div>
+    {% else %}
+    <div class="card mb-3">
+      <div class="card-header">
+        <h5 class="m-0">{{ student.get_full_name }}</h5>
+        <small class="text-muted">Student ID: {{ student.student_id }}</small>
+        <span class="badge badge-success badge-lg float-right">Points: {{ total_points }}</span>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="m-0">My gate logs (recent)</h5>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm table-striped mb-0">
+                <thead><tr><th>Date/Time</th><th>Status</th><th>Notes</th></tr></thead>
+                <tbody>
+                  {% for e in gate_entries %}
+                  <tr>
+                    <td>{{ e.timestamp|date:"M d, H:i" }}</td>
+                    <td>{% if e.granted %}<span class="badge badge-success">Granted</span>{% else %}<span class="badge badge-danger">Denied</span>{% endif %}</td>
+                    <td>{{ e.notes|default:"—"|truncatewords:5 }}</td>
+                  </tr>
+                  {% empty %}
+                  <tr><td colspan="3" class="text-muted text-center">No gate entries.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="m-0">My event attendance (recent)</h5>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm table-striped mb-0">
+                <thead><tr><th>Event</th><th>Checked In</th><th>Checked Out</th><th>Points</th></tr></thead>
+                <tbody>
+                  {% for a in event_attendances %}
+                  <tr>
+                    <td>{{ a.event.name }}</td>
+                    <td>{{ a.checked_in_at|date:"M d, H:i"|default:"—" }}</td>
+                    <td>{{ a.checked_out_at|date:"M d, H:i"|default:"—" }}</td>
+                    <td>{{ a.event.points|default:0 }}</td>
+                  </tr>
+                  {% empty %}
+                  <tr><td colspan="4" class="text-muted text-center">No event attendance yet.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock content %}

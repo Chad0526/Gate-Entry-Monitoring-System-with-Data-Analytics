@@ -1,0 +1,73 @@
+{% extends 'base/base.html' %}
+{% block title %}Compare events{% endblock %}
+{% block breadcrumb %}Compare events{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col-12">
+    <a href="{% url 'reports-hub' %}" class="btn btn-outline-secondary">← Reports hub</a>
+  </div>
+</div>
+<form method="get" class="card mb-4">
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-5">
+        <label>Event A</label>
+        <select name="event_a" class="form-control">
+          <option value="">-- Select --</option>
+          {% for e in events_list %}
+          <option value="{{ e.id }}" {% if event_a and event_a.id == e.id %}selected{% endif %}>{{ e.name }} ({{ e.start_date }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-5">
+        <label>Event B</label>
+        <select name="event_b" class="form-control">
+          <option value="">-- Select --</option>
+          {% for e in events_list %}
+          <option value="{{ e.id }}" {% if event_b and event_b.id == e.id %}selected{% endif %}>{{ e.name }} ({{ e.start_date }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label>&nbsp;</label>
+        <button type="submit" class="btn btn-primary btn-block">Compare</button>
+      </div>
+    </div>
+  </div>
+</form>
+{% if event_a or event_b %}
+<div class="row">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><h5 class="m-0">{% if event_a %}{{ event_a.name }}{% else %}—{% endif %}</h5></div>
+      <div class="card-body">
+        {% if stats_a %}
+        <p class="mb-1">Registered: <strong>{{ stats_a.registered }}</strong></p>
+        <p class="mb-1">Checked in: <strong>{{ stats_a.checked_in }}</strong></p>
+        <p class="mb-1">Currently inside: <strong>{{ stats_a.currently_inside }}</strong></p>
+        <p class="mb-0">Capacity: <strong>{{ stats_a.capacity }}</strong></p>
+        {% else %}
+        <p class="text-muted mb-0">Select an event.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><h5 class="m-0">{% if event_b %}{{ event_b.name }}{% else %}—{% endif %}</h5></div>
+      <div class="card-body">
+        {% if stats_b %}
+        <p class="mb-1">Registered: <strong>{{ stats_b.registered }}</strong></p>
+        <p class="mb-1">Checked in: <strong>{{ stats_b.checked_in }}</strong></p>
+        <p class="mb-1">Currently inside: <strong>{{ stats_b.currently_inside }}</strong></p>
+        <p class="mb-0">Capacity: <strong>{{ stats_b.capacity }}</strong></p>
+        {% else %}
+        <p class="text-muted mb-0">Select an event.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

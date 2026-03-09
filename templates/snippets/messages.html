@@ -1,0 +1,21 @@
+
+{% if messages %}
+  <div class="container-fluid mt-2">
+    {% for message in messages %}
+      <div class="alert 
+        {% if message.tags %}
+          alert-{{ message.tags }}
+        {% else %}
+          alert-info
+        {% endif %}
+        alert-dismissible fade show" role="alert">
+        
+        {{ message }}
+        
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}

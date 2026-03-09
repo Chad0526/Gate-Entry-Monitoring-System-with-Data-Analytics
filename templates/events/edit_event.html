@@ -1,0 +1,150 @@
+{% extends 'base/base.html' %}
+{% block title %}Edit Event{% endblock title %}
+{% block breadcrumb %}Edit Event{% endblock breadcrumb %}
+{% load crispy_forms_tags %}
+
+{% block extrahead %}
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <style>
+        .form-section { margin-bottom: 1.5rem; }
+        .form-section-title { font-size: 1rem; font-weight: 600; color: #495057; border-bottom: 1px solid #dee2e6; padding-bottom: 0.35rem; margin-bottom: 1rem; }
+        .form-section.attendance-mode .form-section-title { color: #0d6efd; }
+    </style>
+{% endblock extrahead %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="row">
+                    <div class="col-md-10">
+                        <h5>Edit Event</h5>
+                    </div>
+                    <div class="col-md-2">
+                        <a class="btn btn-success" href="{% url 'event-list' %}">Event List</a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+                    <div class="form-section">
+                        <div class="form-section-title">Basic information</div>
+                        <div class="row">
+                            <div class="col-12">{{ form.category|as_crispy_field }}</div>
+                            <div class="col-md-6">{{ form.name|as_crispy_field }}</div>
+                            <div class="col-md-3">{{ form.uid|as_crispy_field }}</div>
+                            <div class="col-md-3">{{ form.job_category|as_crispy_field }}</div>
+                            <div class="col-12">{{ form.description|as_crispy_field }}</div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title">Schedule & venue</div>
+                        <div class="row">
+                            <div class="col-md-6">{{ form.venue|as_crispy_field }}</div>
+                            <div class="col-md-3">{{ form.start_date|as_crispy_field }}</div>
+                            <div class="col-md-3">{{ form.end_date|as_crispy_field }}</div>
+                        </div>
+                    </div>
+
+                    <div class="form-section attendance-mode">
+                        <div class="form-section-title">Attendance & capacity</div>
+                        <div class="row">
+                            <div class="col-md-4">{{ form.points|as_crispy_field }}</div>
+                            <div class="col-md-4">{{ form.maximum_attende|as_crispy_field }}</div>
+                            <div class="col-md-4">{{ form.attendance_mode|as_crispy_field }}</div>
+                            <div class="col-md-6">{{ form.event_location|as_crispy_field }}</div>
+                            <div class="col-md-6">{{ form.audience_scope|as_crispy_field }}</div>
+                            <div class="col-md-4" id="audience-course-wrap">{{ form.audience_course|as_crispy_field }}</div>
+                            <div class="col-md-4" id="audience-year-wrap">{{ form.audience_year_level|as_crispy_field }}</div>
+                            <div class="col-md-4" id="audience-section-wrap">{{ form.audience_section|as_crispy_field }}</div>
+                            <div class="col-md-12" id="audience-specific-wrap">
+                                <div class="alert alert-info py-2 mb-2">
+                                    For <strong>Specific students</strong>, use the
+                                    <a href="{% url 'event-manage-registrations' event.id %}" class="alert-link">Registrations</a>
+                                    page to manage who can attend.
+                                </div>
+                            </div>
+                        </div>
+                        <p class="small text-muted mb-0">Attendance uses student eEID scanner. Audience scope controls who is allowed to check in.</p>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title">Status</div>
+                        <div class="row">
+                            <div class="col-md-4">{{ form.status|as_crispy_field }}</div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title">Event image</div>
+                        <div class="row">
+                            <div class="col-md-6">{{ image_form.image|as_crispy_field }}</div>
+                            {% if image_form.instance and image_form.instance.image %}<div class="col-md-6"><img src="{{ image_form.instance.image.url }}" alt="Current" class="img-thumbnail" style="max-height:120px;"></div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title">Agenda (multiple sessions)</div>
+                        {{ agenda_formset.management_form }}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead><tr><th>Session</th><th>Speaker</th><th>Start</th><th>End</th><th>Venue</th><th>Delete?</th></tr></thead>
+                                <tbody>
+                                    {% for f in agenda_formset %}
+                                    <tr class="agenda-row">
+                                        <td>{{ f.id }}{{ f.session_name }}</td>
+                                        <td>{{ f.speaker_name }}</td>
+                                        <td>{{ f.start_time }}</td>
+                                        <td>{{ f.end_time }}</td>
+                                        <td>{{ f.venue_name }}</td>
+                                        <td>{% if f.DELETE %}{{ f.DELETE }} <label>Remove</label>{% endif %}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <hr>
+                    <button class="btn btn-success" type="submit">Update Event</button>
+                    <a class="btn btn-outline-secondary ml-2" href="{% url 'event-list' %}">Cancel</a>
+                </form>
+                {{ form.media }}
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+  function toggleAudienceFields() {
+    var scopeSelect = document.querySelector('select[name="audience_scope"]');
+    if (!scopeSelect) return;
+    var scope = (scopeSelect.value || 'all').toLowerCase();
+    var showCourse = (scope === 'course' || scope === 'course_year' || scope === 'course_section' || scope === 'course_section_year');
+    var showYear = (scope === 'year_level' || scope === 'course_year' || scope === 'course_section_year');
+    var showSection = (scope === 'course_section' || scope === 'course_section_year');
+    var showSpecific = (scope === 'specific_students');
+
+    var courseWrap = document.getElementById('audience-course-wrap');
+    var yearWrap = document.getElementById('audience-year-wrap');
+    var sectionWrap = document.getElementById('audience-section-wrap');
+    var specificWrap = document.getElementById('audience-specific-wrap');
+    if (courseWrap) courseWrap.style.display = showCourse ? '' : 'none';
+    if (yearWrap) yearWrap.style.display = showYear ? '' : 'none';
+    if (sectionWrap) sectionWrap.style.display = showSection ? '' : 'none';
+    if (specificWrap) specificWrap.style.display = showSpecific ? '' : 'none';
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var scopeSelect = document.querySelector('select[name="audience_scope"]');
+    if (scopeSelect) scopeSelect.addEventListener('change', toggleAudienceFields);
+    toggleAudienceFields();
+  });
+})();
+</script>
+{% endblock content %}
