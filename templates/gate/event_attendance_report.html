@@ -4,150 +4,453 @@
 {% block breadcrumb %}Event Attendance Report{% endblock breadcrumb %}
 
 {% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
 <style>
-  .report-actions .btn { margin-right: 6px; margin-bottom: 6px; }
+  .ear-hero {
+    position: relative;
+    overflow: hidden;
+    background-image:
+      linear-gradient(135deg, rgba(22,163,74,0.82), rgba(21,128,61,0.75)),
+      url('/media/event_image/background.jpg'),
+      url('/media/background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: #fff;
+    border-radius: 16px;
+    padding: 28px 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 24px rgba(22,163,74,0.18);
+  }
+  .ear-hero h2 {
+    margin: 0;
+    font-size: 1.45rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.25);
+  }
+  .ear-hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 10px;
+  }
+  .ear-hero-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    opacity: 0.9;
+    background: rgba(255,255,255,0.15);
+    padding: 4px 12px;
+    border-radius: 20px;
+    backdrop-filter: blur(4px);
+  }
+  .ear-hero-chip i { font-size: 0.72rem; opacity: 0.8; }
+
+  /* Action bar */
+  .ear-action-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .ear-btn-primary {
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.84rem;
+    padding: 10px 20px;
+    box-shadow: 0 2px 8px rgba(22,163,74,0.2);
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+  }
+  .ear-btn-primary:hover {
+    background: linear-gradient(135deg, #15803d, #166534);
+    box-shadow: 0 4px 16px rgba(22,163,74,0.3);
+    transform: translateY(-1px);
+    color: #fff;
+    text-decoration: none;
+  }
+  .ear-btn-outline {
+    background: #fff;
+    color: #1a5c35;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.82rem;
+    padding: 9px 16px;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+  }
+  .ear-btn-outline:hover {
+    border-color: #16a34a;
+    color: #16a34a;
+    text-decoration: none;
+    background: #f0fdf4;
+  }
+  .ear-btn-outline i { font-size: 0.78rem; }
+
+  /* Export dropdown */
+  .ear-export-wrap { position: relative; display: inline-block; }
+  .ear-export-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1050;
+    min-width: 200px;
+    margin-top: 4px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    padding: 6px 0;
+  }
+  .ear-export-wrap.open .ear-export-menu { display: block; }
+  .ear-export-group {
+    padding: 6px 14px 2px;
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .ear-export-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #1a5c35;
+    text-decoration: none;
+    transition: background 0.1s;
+  }
+  .ear-export-item:hover {
+    background: #f0fdf4;
+    color: #16a34a;
+    text-decoration: none;
+  }
+  .ear-export-item i { width: 16px; text-align: center; font-size: 0.78rem; }
+
+  /* Search bar */
+  .ear-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+  .ear-search input {
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    font-size: 0.84rem;
+    padding: 8px 14px;
+    width: 200px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .ear-search input:focus {
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22,163,74,0.12);
+    outline: none;
+  }
+  .ear-search button {
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    background: #f8fafc;
+    color: #2d6a42;
+    font-weight: 600;
+    font-size: 0.82rem;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .ear-search button:hover { background: #16a34a; color: #fff; border-color: #16a34a; }
+
+  /* Stat cards */
+  .ear-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .ear-stat-card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 18px 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .ear-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  }
+  .ear-stat-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+  .ear-stat-icon.blue { background: linear-gradient(135deg,#dbeafe,#bfdbfe); color: #2563eb; }
+  .ear-stat-icon.green { background: linear-gradient(135deg,#dcfce7,#bbf7d0); color: #16a34a; }
+  .ear-stat-icon.amber { background: linear-gradient(135deg,#fef3c7,#fde68a); color: #d97706; }
+  .ear-stat-icon.teal { background: linear-gradient(135deg,#cffafe,#a5f3fc); color: #0891b2; }
+  .ear-stat-val { font-size: 1.5rem; font-weight: 800; color: #14532d; line-height: 1; }
+  .ear-stat-label { font-size: 0.75rem; color: #4d7c5e; font-weight: 600; margin-top: 2px; }
+  .ear-stat-extra { font-size: 0.7rem; color: #94a3b8; font-weight: 500; margin-top: 2px; }
+
+  /* Scan logs card */
+  .ear-log-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    overflow: hidden;
+  }
+  .ear-log-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    flex-wrap: wrap;
+  }
+  .ear-log-head h6 {
+    font-weight: 800;
+    font-size: 1rem;
+    color: #14532d;
+    margin: 0;
+  }
+  .ear-log-head .ear-note {
+    font-size: 0.76rem;
+    color: #4d7c5e;
+    font-weight: 500;
+  }
+  .ear-table thead th {
+    background: #f1f5f9;
+    color: #2d6a42;
+    font-weight: 700;
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid #e2e8f0;
+    padding: 10px 16px;
+    white-space: nowrap;
+  }
+  .ear-table tbody td {
+    padding: 10px 16px;
+    font-size: 0.84rem;
+    color: #1a5c35;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .ear-table tbody tr:hover { background: #f0fdf4; }
+  .ear-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.74rem;
+    font-weight: 700;
+  }
+  .ear-badge-success { background: #dcfce7; color: #166534; }
+  .ear-badge-warn { background: #fef3c7; color: #92400e; }
+  .ear-badge-danger { background: #fee2e2; color: #991b1b; }
+  .ear-badge-override { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+  .ear-log-footer {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: 10px 20px;
+    font-size: 0.78rem;
+    color: #4d7c5e;
+  }
+
   @media print {
-    .report-actions, .no-print { display: none !important; }
+    .ear-action-bar, .ear-hero, .no-print { display: none !important; }
+    .ear-stats { margin-top: 0; }
+  }
+  @media (max-width: 991px) { .ear-stats { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 575px) {
+    .ear-stats { grid-template-columns: 1fr; }
+    .ear-hero { padding: 22px 18px; }
+    .ear-hero h2 { font-size: 1.2rem; }
+    .ear-search { margin-left: 0; width: 100%; }
+    .ear-search input { flex: 1; }
   }
 </style>
 {% endblock extrahead %}
 
 {% block content %}
-<div class="row no-print">
-  <div class="col-12">
-    <div class="report-actions mb-3">
-      <a href="{% url 'event-field-trip-scan' event.id %}" class="btn btn-primary">
-        <i class="fas fa-qrcode mr-1"></i> Open scanner
-      </a>
-      <a href="{% url 'event-attendance-report-export-csv' event.id %}" class="btn btn-success">
-        <i class="fas fa-file-csv mr-1"></i> Attendance (CSV)
-      </a>
-      <a href="{% url 'event-attendance-report-export-xlsx' event.id %}" class="btn btn-success">
-        <i class="fas fa-file-excel mr-1"></i> Attendance (Excel)
-      </a>
-      <a href="{% url 'event-attendance-report-export-pdf' event.id %}" class="btn btn-danger">
-        <i class="fas fa-file-pdf mr-1"></i> Attendance (PDF)
-      </a>
-      <a href="{% url 'event-scan-logs-export-csv' event.id %}" class="btn btn-info">
-        <i class="fas fa-file-alt mr-1"></i> Scan Logs (CSV)
-      </a>
-      <a href="{% url 'event-scan-logs-export-xlsx' event.id %}" class="btn btn-info">
-        <i class="fas fa-file-excel mr-1"></i> Scan Logs (Excel)
-      </a>
-      <a href="{% url 'event-currently-inside' event.id %}" class="btn btn-warning">
-        <i class="fas fa-users mr-1"></i> Currently Inside ({{ currently_inside }})
-      </a>
-      <a href="{% url 'event-expected-today' event.id %}" class="btn btn-info">
-        <i class="fas fa-user-clock mr-1"></i> Expected today
-      </a>
-      <a href="{% url 'event-manual-checkin' event.id %}" class="btn btn-secondary">
-        <i class="fas fa-edit mr-1"></i> Manual check-in
-      </a>
-      <button type="button" class="btn btn-secondary" onclick="window.print();">
-        <i class="fas fa-print mr-1"></i> Print report
-      </button>
-      <a href="{% url 'event-manage-registrations' event.id %}" class="btn btn-outline-primary">
-        <i class="fas fa-ticket-alt mr-1"></i> Registrations
-      </a>
+<div class="monitor-wrap">
+  <!-- Hero -->
+  <div class="ear-hero">
+    <h2>{{ event.name }}</h2>
+    <div class="ear-hero-meta">
+      {% if event.venue %}<span class="ear-hero-chip"><i class="fas fa-map-marker-alt"></i> {{ event.venue }}</span>{% endif %}
+      <span class="ear-hero-chip"><i class="fas fa-calendar"></i> {{ event.start_date|date:"M d" }} – {{ event.end_date|date:"M d, Y" }}</span>
+      {% if event.audience_summary %}<span class="ear-hero-chip"><i class="fas fa-users"></i> {{ event.audience_summary }}</span>{% endif %}
     </div>
-    <form method="get" class="form-inline mt-2 no-print">
-      <label class="mr-2">Quick search:</label>
-      <input type="text" name="q" class="form-control form-control-sm mr-2" placeholder="Student ID or name" value="{{ search_query|default:'' }}" style="max-width: 200px;">
-      <button type="submit" class="btn btn-sm btn-outline-secondary">Search</button>
-      {% if search_query %}<a href="{% url 'event-attendance-report' event.id %}" class="btn btn-sm btn-link ml-1">Clear</a>{% endif %}
+  </div>
+
+  <!-- Action bar -->
+  <div class="ear-action-bar no-print">
+    {% if not event_ended %}
+    <a href="{% url 'event-field-trip-scan' event.id %}" class="ear-btn-primary">
+      <i class="fas fa-qrcode"></i> Open Scanner
+    </a>
+    {% endif %}
+
+    <div class="ear-export-wrap" id="exportWrap">
+      <button type="button" class="ear-btn-outline" id="exportToggle">
+        <i class="fas fa-download"></i> Export <i class="fas fa-chevron-down" style="font-size:0.6rem;margin-left:2px;"></i>
+      </button>
+      <div class="ear-export-menu">
+        <div class="ear-export-group">Attendance</div>
+        <a href="{% url 'event-attendance-report-export-csv' event.id %}" class="ear-export-item"><i class="fas fa-file-csv" style="color:#16a34a;"></i> CSV</a>
+        <a href="{% url 'event-attendance-report-export-xlsx' event.id %}" class="ear-export-item"><i class="fas fa-file-excel" style="color:#16a34a;"></i> Excel</a>
+        <a href="{% url 'event-attendance-report-export-pdf' event.id %}" class="ear-export-item"><i class="fas fa-file-pdf" style="color:#dc2626;"></i> PDF</a>
+        <div class="ear-export-group" style="border-top:1px solid #e2e8f0;margin-top:4px;padding-top:8px;">Scan Logs</div>
+        <a href="{% url 'event-scan-logs-export-csv' event.id %}" class="ear-export-item"><i class="fas fa-file-csv" style="color:#2563eb;"></i> CSV</a>
+        <a href="{% url 'event-scan-logs-export-xlsx' event.id %}" class="ear-export-item"><i class="fas fa-file-excel" style="color:#2563eb;"></i> Excel</a>
+      </div>
+    </div>
+
+    {% if not event_ended %}
+    <a href="{% url 'event-manual-checkin' event.id %}" class="ear-btn-outline">
+      <i class="fas fa-edit"></i> Manual Check-in
+    </a>
+    {% endif %}
+    <button type="button" class="ear-btn-outline" onclick="window.print();">
+      <i class="fas fa-print"></i> Print
+    </button>
+
+    <form method="get" class="ear-search" action="">
+      <input type="text" name="q" placeholder="Search student ID or name..." value="{{ search_query|default:'' }}">
+      <button type="submit"><i class="fas fa-search"></i></button>
     </form>
   </div>
-</div>
 
-<div class="row">
-  <div class="col-12">
-    <div class="card">
-      <div class="card-header">
-        <h5 class="m-0">Attendance Report: {{ event.name }}</h5>
-        <small class="text-muted">Venue: {{ event.venue }} | {{ event.start_date }} – {{ event.end_date }} | Audience: {{ event.audience_summary }}</small>
-        <p class="small text-muted mb-0 mt-1">Attendance is taken by scanning student eEID at <strong>Events → Attendance Scanner</strong>. Numbers below are from those scans (and manual check-in).</p>
+  <!-- Stat cards -->
+  <div class="ear-stats">
+    <div class="ear-stat-card">
+      <div class="ear-stat-icon blue"><i class="fas fa-user-check"></i></div>
+      <div>
+        <div class="ear-stat-label">Checked In</div>
+        <div class="ear-stat-val">{{ checked_in }}</div>
       </div>
-      <div class="card-body">
-        <div class="row mb-4">
-          <div class="col-md-3 col-6">
-            <div class="info-box bg-info">
-              <span class="info-box-icon"><i class="fas fa-user-check"></i></span>
-              <div class="info-box-content">
-                <span class="info-box-text">Checked In</span>
-                <span class="info-box-number">{{ checked_in }}</span>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-3 col-6">
-            <div class="info-box bg-success">
-              <span class="info-box-icon"><i class="fas fa-sign-out-alt"></i></span>
-              <div class="info-box-content">
-                <span class="info-box-text">Checked Out</span>
-                <span class="info-box-number">{{ checked_out }}</span>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-3 col-6">
-            <div class="info-box bg-warning">
-              <span class="info-box-icon"><i class="fas fa-users"></i></span>
-              <div class="info-box-content">
-                <span class="info-box-text">Currently Inside</span>
-                <span class="info-box-number">{{ currently_inside }}</span>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-3 col-6">
-            <div class="info-box bg-secondary">
-              <span class="info-box-icon"><i class="fas fa-chart-line"></i></span>
-              <div class="info-box-content">
-                <span class="info-box-text">Success Scans</span>
-                <span class="info-box-number">{{ successful }}</span>
-                <span class="progress-description">
-                  Duplicates: {{ duplicates }} | Invalid: {{ invalid }}{% if overrides %} | Overrides: {{ overrides }}{% endif %}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <h6>Recent scan logs (last 100)</h6>
-        <p class="small text-muted mb-2">Rows marked <span class="badge badge-warning">Override</span> were checked in by admin/faculty outside the configured audience rule.</p>
-        <div class="table-responsive">
-          <table class="table table-sm table-bordered table-striped">
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Student</th>
-                <th>Type</th>
-                <th>Result</th>
-                <th>Device</th>
-                <th>Flags</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for log in logs %}
-              <tr>
-                <td>{{ log.scan_time|date:"M d, H:i:s" }}</td>
-                <td>{% if log.student %}{{ log.student.student_id }} – {{ log.student.get_full_name }}{% else %}—{% endif %}</td>
-                <td>{{ log.scan_type }}</td>
-                <td><span class="badge {% if log.result == 'SUCCESS' %}badge-success{% elif log.result == 'DUPLICATE' %}badge-warning{% else %}badge-danger{% endif %}">{{ log.result }}</span></td>
-                <td><small>{{ log.device_id|default:"—" }}</small></td>
-                <td>
-                  {% if log.remarks == 'AUDIENCE_OVERRIDE' %}
-                  <span class="badge badge-warning">Override</span>
-                  {% else %}
-                  <span class="text-muted">—</span>
-                  {% endif %}
-                </td>
-              </tr>
-              {% empty %}
-              <tr><td colspan="6" class="text-muted text-center">No scans yet.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+    </div>
+    <div class="ear-stat-card">
+      <div class="ear-stat-icon green"><i class="fas fa-sign-out-alt"></i></div>
+      <div>
+        <div class="ear-stat-label">Checked Out</div>
+        <div class="ear-stat-val">{{ checked_out }}</div>
+      </div>
+    </div>
+    <div class="ear-stat-card">
+      <div class="ear-stat-icon amber"><i class="fas fa-users"></i></div>
+      <div>
+        <div class="ear-stat-label">Currently Inside</div>
+        <div class="ear-stat-val">{{ currently_inside }}</div>
+      </div>
+    </div>
+    <div class="ear-stat-card">
+      <div class="ear-stat-icon green"><i class="fas fa-chart-line"></i></div>
+      <div>
+        <div class="ear-stat-label">Success Scans</div>
+        <div class="ear-stat-val">{{ successful }}</div>
+        <div class="ear-stat-extra">Dup: {{ duplicates }} | Invalid: {{ invalid }}{% if overrides %} | Override: {{ overrides }}{% endif %}</div>
       </div>
     </div>
   </div>
+
+  <!-- Scan logs -->
+  <div class="ear-log-card">
+    <div class="ear-log-head">
+      <h6>Recent Scan Logs</h6>
+      <span class="ear-note">Last 100 scans — rows marked <span class="ear-badge ear-badge-override" style="font-size:0.68rem;">Override</span> were checked in outside the audience rule</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 ear-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Student</th>
+            <th>Type</th>
+            <th>Result</th>
+            <th>Device</th>
+            <th>Flags</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+          <tr>
+            <td style="font-variant-numeric:tabular-nums;color:#4d7c5e;white-space:nowrap;">{{ log.scan_time|date:"M d, h:i:s A" }}</td>
+            <td>
+              {% if log.student %}
+              <span style="font-weight:600;color:#14532d;">{{ log.student.get_full_name }}</span>
+              <span style="font-size:0.76rem;color:#94a3b8;margin-left:4px;">{{ log.student.student_id }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if log.scan_type == 'IN' %}<span class="ear-badge ear-badge-success"><i class="fas fa-arrow-right" style="font-size:0.6rem;"></i> IN</span>
+              {% elif log.scan_type == 'OUT' %}<span class="ear-badge" style="background:#dbeafe;color:#1e40af;"><i class="fas fa-arrow-left" style="font-size:0.6rem;"></i> OUT</span>
+              {% else %}<span class="ear-badge" style="background:#f1f5f9;color:#2d6a42;">{{ log.scan_type }}</span>{% endif %}
+            </td>
+            <td>
+              {% if log.result == 'SUCCESS' %}<span class="ear-badge ear-badge-success"><i class="fas fa-check"></i> Success</span>
+              {% elif log.result == 'DUPLICATE' %}<span class="ear-badge ear-badge-warn"><i class="fas fa-copy"></i> Duplicate</span>
+              {% else %}<span class="ear-badge ear-badge-danger"><i class="fas fa-times"></i> {{ log.result }}</span>{% endif %}
+            </td>
+            <td><span style="font-size:0.78rem;color:#94a3b8;">{{ log.device_id|default:"—" }}</span></td>
+            <td>
+              {% if log.remarks == 'AUDIENCE_OVERRIDE' %}<span class="ear-badge ear-badge-override"><i class="fas fa-exclamation-triangle" style="font-size:0.6rem;"></i> Override</span>
+              {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-muted text-center py-5" style="font-size:0.88rem;">No scans yet for this event.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="ear-log-footer">
+      Showing {{ logs|length }} scan{{ logs|length|pluralize }} from <strong>{{ event.name }}</strong>
+    </div>
+  </div>
 </div>
+
+<script>
+(function() {
+  var wrap = document.getElementById('exportWrap');
+  var toggle = document.getElementById('exportToggle');
+  if (!wrap || !toggle) return;
+  toggle.addEventListener('click', function(e) {
+    e.stopPropagation();
+    wrap.classList.toggle('open');
+  });
+  document.addEventListener('click', function(e) {
+    if (!wrap.contains(e.target)) wrap.classList.remove('open');
+  });
+})();
+</script>
 {% endblock content %}

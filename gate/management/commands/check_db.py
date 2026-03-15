@@ -1,5 +1,5 @@
 """
-Test database connection (MySQL/XAMPP). Run from project root: python manage.py check_db
+Test database connection (SQLite, MySQL, or PostgreSQL). Run from project root: python manage.py check_db
 """
 import socket
 from django.conf import settings
@@ -9,7 +9,7 @@ from django.db.utils import OperationalError
 
 
 class Command(BaseCommand):
-    help = "Test database connection (useful when MySQL connection fails)."
+    help = "Test database connection (SQLite, MySQL, or PostgreSQL)."
 
     def handle(self, *args, **options):
         db = settings.DATABASES.get('default', {})
@@ -20,11 +20,34 @@ class Command(BaseCommand):
         self.stdout.write("Database engine: %s" % engine)
         self.stdout.write("Host: %s  Port: %s" % (host, port))
 
-        if 'mysql' not in engine:
-            self.stdout.write(self.style.SUCCESS("Not using MySQL. Connection check skipped."))
+        if 'sqlite' in engine:
+            self.stdout.write("")
+            try:
+                connection.ensure_connection()
+                self.stdout.write(self.style.SUCCESS("Django connected to SQLite successfully."))
+            except OperationalError as e:
+                self.stdout.write(self.style.ERROR("Django could not connect: %s" % e))
             return
 
-        # 1. Raw TCP check
+        if 'postgresql' in engine or 'postgres' in engine:
+            self.stdout.write("")
+            try:
+                connection.ensure_connection()
+                self.stdout.write(self.style.SUCCESS("Django connected to PostgreSQL successfully."))
+            except OperationalError as e:
+                self.stdout.write(self.style.ERROR("Django could not connect: %s" % e))
+                self.stdout.write(
+                    "  - Ensure PostgreSQL is running and the database '%s' exists.\n"
+                    "  - Check .env: DB_ENGINE=postgresql, DB_HOST=%s, DB_PORT=%s, DB_USER=%s, DB_NAME=%s, DB_PASSWORD set."
+                    % (db.get('NAME'), host, port, db.get('USER'), db.get('NAME'))
+                )
+            return
+
+        if 'mysql' not in engine:
+            self.stdout.write(self.style.SUCCESS("Unknown engine; connection check skipped."))
+            return
+
+        # MySQL: TCP check + Django connection
         self.stdout.write("")
         for try_host in (host, '127.0.0.1', 'localhost'):
             try:
@@ -44,7 +67,6 @@ class Command(BaseCommand):
             ))
             return
 
-        # 2. Django DB connection
         self.stdout.write("")
         try:
             connection.ensure_connection()

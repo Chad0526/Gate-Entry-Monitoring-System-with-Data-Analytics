@@ -3,6 +3,7 @@ Guard Account Enhancement Views
 Provides views for guard dashboard, notifications, performance, and activity logging.
 """
 import json
+import datetime
 from datetime import timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -43,7 +44,7 @@ def guard_dashboard_view(request):
     # Check Guard group membership
     if not _is_guard(request.user):
         messages.error(request, "Access denied. Guard role required.")
-        return redirect('home')
+        return redirect('dashboard')
     
     # Get current shift information
     try:
@@ -98,7 +99,7 @@ def guard_entry_list_view(request):
     """
     if not _is_guard(request.user):
         messages.error(request, "Access denied. Guard role required.")
-        return redirect('home')
+        return redirect('dashboard')
     
     # Get filters from request
     from_date_str = request.GET.get('from_date', '')
@@ -110,12 +111,12 @@ def guard_entry_list_view(request):
     
     # Parse dates
     try:
-        from_date = timezone.datetime.strptime(from_date_str, '%Y-%m-%d').date() if from_date_str else today
+        from_date = datetime.datetime.strptime(from_date_str, '%Y-%m-%d').date() if from_date_str else today
     except ValueError:
         from_date = today
     
     try:
-        to_date = timezone.datetime.strptime(to_date_str, '%Y-%m-%d').date() if to_date_str else today
+        to_date = datetime.datetime.strptime(to_date_str, '%Y-%m-%d').date() if to_date_str else today
     except ValueError:
         to_date = today
     
@@ -171,7 +172,7 @@ def guard_notifications_view(request):
     """
     if not _is_guard(request.user):
         messages.error(request, "Access denied. Guard role required.")
-        return redirect('home')
+        return redirect('dashboard')
     
     # Get all notifications for current guard
     now = timezone.now()
@@ -240,13 +241,31 @@ def mark_notification_read_view(request):
 
 
 @login_required
+def mark_all_notifications_read_view(request):
+    """AJAX endpoint to mark all guard notifications as read."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+
+    if not _is_guard(request.user):
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+
+    now = timezone.now()
+    updated = GuardNotification.objects.filter(
+        target_guard=request.user,
+        is_read=False
+    ).update(is_read=True, read_at=now)
+
+    return JsonResponse({'success': True, 'marked': updated})
+
+
+@login_required
 def guard_performance_view(request):
     """
     Guard performance metrics page.
     """
     if not _is_guard(request.user):
         messages.error(request, "Access denied. Guard role required.")
-        return redirect('home')
+        return redirect('dashboard')
     
     # Guards can only view their own metrics
     guard = request.user
@@ -295,7 +314,7 @@ def guard_clock_in_view(request):
     
     if not _is_guard(request.user):
         messages.error(request, "Access denied. Guard role required.")
-        return redirect('home')
+        return redirect('dashboard')
     
     # Check if already clocked in
     existing_shift = GuardShift.objects.filter(
@@ -338,7 +357,7 @@ def guard_clock_out_view(request):
     
     if not _is_guard(request.user):
         messages.error(request, "Access denied. Guard role required.")
-        return redirect('home')
+        return redirect('dashboard')
     
     # Get active shift
     try:
@@ -482,7 +501,7 @@ def quick_student_lookup_view(request):
             'name': student.get_full_name(),
             'course': student.course or '—',
             'year_level': student.year_level or '—',
-            'photo_url': student.face_photo.url if student.face_photo else None,
+            'photo_url': student.photo.url if student.photo else None,
             'today_schedule': today_schedule,
             'recent_entries': entry_history
         }
@@ -530,27 +549,40 @@ def check_new_notifications_api_view(request):
     since_str = request.GET.get('since', '')
     
     try:
-        # Parse the since timestamp
+        # Parse the since timestamp (for "new" popups elsewhere)
         if since_str:
-            since = timezone.datetime.fromisoformat(since_str.replace('Z', '+00:00'))
+            since = datetime.datetime.fromisoformat(since_str.replace('Z', '+00:00'))
         else:
-            # Default to last 1 minute
             since = timezone.now() - timedelta(minutes=1)
     except (ValueError, AttributeError):
         since = timezone.now() - timedelta(minutes=1)
     
-    # Get unread notifications created after 'since'
-    notifications = GuardNotification.objects.filter(
+    now = timezone.now()
+    unread_base = GuardNotification.objects.filter(
         target_guard=request.user,
-        is_read=False,
-        created_at__gt=since
+        is_read=False
     ).filter(
-        Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
-    ).order_by('-created_at')[:5]
+        Q(expires_at__isnull=True) | Q(expires_at__gt=now)
+    )
     
-    # Format notifications for JSON
+    # Total unread count (for navbar badge)
+    total_unread = unread_base.count()
+    has_urgent = unread_base.filter(priority='urgent').exists()
+    
+    # Full unread list for dropdown (top 10, same order as context processor) so badge and list stay in sync
+    unread_ordered = unread_base.order_by(
+        Case(
+            When(priority='urgent', then=0),
+            When(priority='high', then=1),
+            When(priority='medium', then=2),
+            When(priority='low', then=3),
+            default=4
+        ),
+        '-created_at'
+    )[:10]
+    
     notification_list = []
-    for notif in notifications:
+    for notif in unread_ordered:
         notification_list.append({
             'id': notif.id,
             'title': notif.title,
@@ -559,9 +591,24 @@ def check_new_notifications_api_view(request):
             'created_at': notif.created_at.isoformat(),
         })
     
+    # New since 'since' for popups (e.g. gate_scan / guard_dashboard)
+    new_since = [
+        {'id': n.id, 'title': n.title, 'message': n.message, 'priority': n.priority, 'created_at': n.created_at.isoformat()}
+        for n in GuardNotification.objects.filter(
+            target_guard=request.user,
+            is_read=False,
+            created_at__gt=since
+        ).filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=now)
+        ).order_by('-created_at')[:5]
+    ]
+    
     return JsonResponse({
         'success': True,
-        'notifications': notification_list
+        'notifications': notification_list,
+        'new_since': new_since,
+        'unread_count': total_unread,
+        'has_urgent': has_urgent,
     })
 
 
@@ -572,7 +619,7 @@ def guard_activity_log_view(request):
     """
     if not _is_guard(request.user):
         messages.error(request, "Access denied. Guard role required.")
-        return redirect('home')
+        return redirect('dashboard')
     
     # Check user role
     role = get_user_role(request.user)
@@ -584,7 +631,7 @@ def guard_activity_log_view(request):
         logs = GuardActivityLog.objects.all()
     else:
         messages.error(request, "Access denied.")
-        return redirect('home')
+        return redirect('dashboard')
     
     # Get filters
     action_type = request.GET.get('action_type', '')
@@ -598,7 +645,7 @@ def guard_activity_log_view(request):
     # Apply date range filter
     if from_date_str:
         try:
-            from_date = timezone.datetime.strptime(from_date_str, '%Y-%m-%d')
+            from_date = datetime.datetime.strptime(from_date_str, '%Y-%m-%d')
             from_date = timezone.make_aware(from_date)
             logs = logs.filter(timestamp__gte=from_date)
         except ValueError:
@@ -606,7 +653,7 @@ def guard_activity_log_view(request):
     
     if to_date_str:
         try:
-            to_date = timezone.datetime.strptime(to_date_str, '%Y-%m-%d')
+            to_date = datetime.datetime.strptime(to_date_str, '%Y-%m-%d')
             to_date = timezone.make_aware(to_date) + timedelta(days=1)
             logs = logs.filter(timestamp__lt=to_date)
         except ValueError:
@@ -650,13 +697,13 @@ def admin_send_guard_notification_view(request):
     # Check if user is admin or supervisor
     if not _is_supervisor_or_admin(request.user):
         messages.error(request, "Access denied. Admin or supervisor role required.")
-        return redirect('home')
+        return redirect('dashboard')
     
     if request.method == 'POST':
         # Get form data
         recipient_type = request.POST.get('recipient_type')  # all, on_duty, specific
         specific_guard_id = request.POST.get('specific_guard')
-        priority = request.POST.get('priority', 'normal')
+        priority = request.POST.get('priority', 'medium')
         title = request.POST.get('title', '').strip()
         message_text = request.POST.get('message', '').strip()
         

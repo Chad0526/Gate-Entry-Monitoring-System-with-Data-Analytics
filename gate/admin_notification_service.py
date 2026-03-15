@@ -32,9 +32,12 @@ class AdminNotificationService:
             AdminNotification object or list of objects if broadcast
         """
         if broadcast:
-            # Send to all admins and staff
+            # Send to all admins and staff (case-insensitive group names)
+            from django.db.models import Q
             admin_staff_users = User.objects.filter(
-                groups__name__in=['Admin', 'Staff', 'Supervisor']
+                Q(groups__name__iexact='admin') |
+                Q(groups__name__iexact='staff') |
+                Q(groups__name__iexact='supervisor')
             ).distinct()
             
             notifications = []
@@ -82,6 +85,20 @@ class AdminNotificationService:
             priority='normal',
             broadcast=True,
             related_student=student,
+        )
+
+    @staticmethod
+    def notify_staff_guard_registration(user, role_display):
+        """
+        Notify admins when a new staff/faculty/guard registers (pending approval).
+        """
+        name = user.get_full_name() or user.username
+        return AdminNotificationService.create_notification(
+            notification_type='staff_guard_registration',
+            title='New Staff/Faculty/Guard Registration',
+            message=f'{name} ({user.username}) has registered as {role_display} and is pending approval. Activate the account in Admin → Users.',
+            priority='normal',
+            broadcast=True,
         )
     
     @staticmethod

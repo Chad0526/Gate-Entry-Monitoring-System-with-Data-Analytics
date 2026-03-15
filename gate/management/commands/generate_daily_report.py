@@ -34,7 +34,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if options['date']:
             try:
-                report_date = timezone.datetime.strptime(options['date'], '%Y-%m-%d').date()
+                report_date = datetime.datetime.strptime(options['date'], '%Y-%m-%d').date()
             except ValueError:
                 self.stderr.write(self.style.ERROR('Invalid --date. Use YYYY-MM-DD.'))
                 return

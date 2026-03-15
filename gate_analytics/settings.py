@@ -10,7 +10,18 @@ try:
     from dotenv import load_dotenv
     load_dotenv(_env_path)
 except ImportError:
-    pass  # python-dotenv not installed; use system env or SQLite
+    # Fallback: simple .env parser so DB/email config still works even without python-dotenv.
+    if os.path.exists(_env_path):
+        with open(_env_path, encoding='utf-8') as f:
+            for _line in f:
+                line = _line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                key, value = line.split('=', 1)
+                key = key.strip()
+                value = value.strip()
+                # Do not overwrite existing environment variables.
+                os.environ.setdefault(key, value)
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 
@@ -19,7 +30,7 @@ except ImportError:
 # See https://docs.djangoproject.com/en/3.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'gvv(&d^k0f5^xgqa+#ct4sxcg5%&5q&k2d(!uek5m+qj#b^0#2'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'gvv(&d^k0f5^xgqa+#ct4sxcg5%&5q&k2d(!uek5m+qj#b^0#2')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -32,7 +43,6 @@ CSRF_TRUSTED_ORIGINS = [
     '.ngrok.io',
 
 ]
-
 
 ALLOWED_HOSTS = [
     'localhost',
@@ -47,7 +57,7 @@ ALLOWED_HOSTS = [
     '10.0.1.186',
     '192.168.180.135',
     # Any ngrok URL (subdomains allowed)
-    'unsurrendering-implacably-alfreda.ngrok-free.dev ',
+    'unsurrendering-implacably-alfreda.ngrok-free.dev',
     '.ngrok-free.app',
     '.ngrok-free.dev',
     '.ngrok.io',
@@ -55,10 +65,9 @@ ALLOWED_HOSTS = [
 
 # Ngrok / tunnel: allow forms (CSRF) and redirects from the public URL
 _ngrok_host = os.environ.get('NGROK_HOST', '').strip()
-CSRF_TRUSTED_ORIGINS = []
 if _ngrok_host:
     _ngrok_origin = f'https://{_ngrok_host}' if not _ngrok_host.startswith('http') else _ngrok_host
-    CSRF_TRUSTED_ORIGINS = [_ngrok_origin.rstrip('/')]
+    CSRF_TRUSTED_ORIGINS.append(_ngrok_origin.rstrip('/'))
 # When behind ngrok, the request to Django is often HTTP; trust X-Forwarded-Proto so links use HTTPS
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
@@ -86,12 +95,14 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'gate_analytics.middleware.BlockedIPMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'gate_analytics.middleware.NgrokCsrfTrustMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'gate_analytics.middleware.StaffGuardCompleteProfileMiddleware',
     'gate_analytics.middleware.SessionTimeoutMiddleware',
     'gate_analytics.middleware.NoCacheAuthMiddleware',
     'gate_analytics.middleware.GateEntryMySQLFixMiddleware',
@@ -118,8 +129,8 @@ TEMPLATES = [
                 'django.template.context_processors.media',
                 'gate_analytics.roles.user_role_context',
                 'gate_analytics.context_processors.notifications_context',
-                'gate_analytics.context_processors.theme_context',
                 'gate_analytics.context_processors.guard_notifications_context',
+                'gate_analytics.context_processors.theme_context',
             ],
         },
     },
@@ -134,14 +145,17 @@ _session_age = os.environ.get('SESSION_COOKIE_AGE', '1800')
 SESSION_COOKIE_AGE = int(_session_age) if str(_session_age).isdigit() else 1800
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_COOKIE_NAME = 'sessionid'
+SESSION_COOKIE_HTTPONLY = True
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
+LOGIN_URL = '/login/'
 
 # Database
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
-# Set DB_ENGINE=mysql in .env to use MySQL; otherwise SQLite is used.
+# Set DB_ENGINE in .env: sqlite (default), mysql, or postgresql.
 # On Windows/XAMPP use 127.0.0.1 (IPv4); avoid "localhost" which may resolve to IPv6.
 
-_db_engine = os.environ.get('DB_ENGINE', 'sqlite').lower()
+_db_engine = os.environ.get('DB_ENGINE', 'sqlite').lower().strip()
 if _db_engine == 'mysql':
     _db_host = (os.environ.get('DB_HOST') or '127.0.0.1').strip() or '127.0.0.1'
     _db_port = os.environ.get('DB_PORT', '3306')
@@ -161,6 +175,27 @@ if _db_engine == 'mysql':
                 'charset': 'utf8mb4',
                 'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
                 'connect_timeout': 10,
+            },
+        }
+    }
+elif _db_engine in ('postgresql', 'postgres'):
+    _db_host = (os.environ.get('DB_HOST') or '127.0.0.1').strip() or '127.0.0.1'
+    _db_port = os.environ.get('DB_PORT', '5432')
+    try:
+        _db_port = int(_db_port)
+    except (TypeError, ValueError):
+        _db_port = 5432
+    DATABASES = {
+        'default': {
+            'ENGINE': 'gate_analytics.postgresql_utc',
+            'NAME': os.environ.get('DB_NAME', 'gate_analytics_db'),
+            'USER': os.environ.get('DB_USER', 'postgres'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+            'HOST': _db_host,
+            'PORT': _db_port,
+            'OPTIONS': {
+                'connect_timeout': 10,
+                'options': '-c timezone=UTC',
             },
         }
     }
@@ -219,7 +254,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Crsipy forms
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
-# Mapbox key define (use environment variable for security)
+# Mapbox key (set MAPBOX_KEY in .env; never commit a real token to git)
 MAPBOX_KEY = os.environ.get('MAPBOX_KEY', '')
 
 # Ckeditor config
@@ -249,3 +284,17 @@ API_ATTENDANCE_TOKEN = os.environ.get('API_ATTENDANCE_TOKEN', '')
 NOTIFICATION_EMAILS = os.environ.get('NOTIFICATION_EMAILS', '').split(',') if os.environ.get('NOTIFICATION_EMAILS') else []
 NOTIFY_ON_DENIED_ENTRY = os.environ.get('NOTIFY_ON_DENIED_ENTRY', 'false').lower() in ('1', 'true', 'yes')
 NOTIFY_ON_CAPACITY_ALERT = os.environ.get('NOTIFY_ON_CAPACITY_ALERT', 'true').lower() in ('1', 'true', 'yes')
+
+# Email backend / sender (students, staff, guards)
+# - By default, emails are printed to the console for local development.
+# - To actually send emails (e.g. via Gmail), set EMAIL_* vars in .env.
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '25') or '25')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'false').lower() in ('1', 'true', 'yes')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+_email_host_password = os.environ.get('EMAIL_HOST_PASSWORD', '')
+# App passwords from Google are often shown with spaces; strip them just in case.
+EMAIL_HOST_PASSWORD = _email_host_password.replace(' ', '') if _email_host_password else ''
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'noreply@example.com')
+SITE_NAME = os.environ.get('SITE_NAME', 'City College of Bayawan')

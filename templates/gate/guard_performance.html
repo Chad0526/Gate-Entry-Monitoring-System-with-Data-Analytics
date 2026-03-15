@@ -4,104 +4,185 @@
 {% block breadcrumb %}Performance Metrics{% endblock breadcrumb %}
 
 {% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
 <style>
-  .period-selector {
-    background: #f8f9fa;
-    border-radius: 8px;
-    padding: 1rem;
-    margin-bottom: 1.5rem;
+  .gp-hero {
+    background-image: linear-gradient(135deg, rgba(22,163,74,0.82), rgba(21,128,61,0.75)), url('/media/event_image/background.jpg'), url('/media/background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: #fff;
+    border-radius: 16px;
+    padding: 28px 24px;
+    min-height: 120px;
     display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 24px rgba(22,163,74,0.18);
   }
-  .period-btn {
-    padding: 0.5rem 1.25rem;
-    border: 2px solid #28a745;
-    background: #fff;
-    color: #28a745;
-    border-radius: 6px;
+  .gp-hero h2 {
+    margin: 0;
+    font-size: 1.55rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.25);
+  }
+  .gp-hero p {
+    margin: 4px 0 0;
+    font-size: 0.88rem;
+    color: #d1fae5;
     font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.3);
   }
-  .period-btn:hover {
-    background: #28a745;
+
+  .gp-period-selector {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .gp-period-selector a {
+    padding: 0.5rem 1.25rem;
+    border-radius: 99px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+  .gp-period-selector a:not(.active) {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    color: #4d7c5e;
+  }
+  .gp-period-selector a:not(.active):hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
+  .gp-period-selector a.active {
+    background: linear-gradient(135deg, #16a34a, #15803d);
     color: #fff;
+    border-color: transparent;
   }
-  .period-btn.active {
-    background: #28a745;
-    color: #fff;
-  }
-  .metrics-grid {
+
+  .gp-stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.25rem;
-    margin-bottom: 1.5rem;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
   }
-  .metric-card {
+  .gp-stat-card {
     background: #fff;
-    border-radius: 8px;
-    padding: 1.5rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-    text-align: center;
+    border-radius: 14px;
+    padding: 18px 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
-  .metric-icon {
-    font-size: 2.5rem;
-    color: #28a745;
-    margin-bottom: 0.75rem;
+  .gp-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
   }
-  .metric-value {
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: #212529;
-    margin-bottom: 0.5rem;
+  .gp-stat-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
   }
-  .metric-label {
-    font-size: 0.95rem;
-    color: #6c757d;
+  .gp-stat-icon.green { background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #16a34a; }
+  .gp-stat-icon.blue { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #2563eb; }
+  .gp-stat-icon.amber { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #d97706; }
+  .gp-stat-icon.slate { background: linear-gradient(135deg, #f1f5f9, #e2e8f0); color: #475569; }
+  .gp-stat-val {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #14532d;
+    line-height: 1;
+  }
+  .gp-stat-label {
+    font-size: 0.72rem;
+    color: #4d7c5e;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.04em;
+    margin-top: 2px;
   }
-  .metric-card.accuracy {
-    border-top: 4px solid #28a745;
-  }
-  .metric-card.scans {
-    border-top: 4px solid #17a2b8;
-  }
-  .metric-card.incidents {
-    border-top: 4px solid #ffc107;
-  }
-  .metric-card.shifts {
-    border-top: 4px solid #6c757d;
-  }
-  .summary-card {
+
+  .gp-summary-card {
     background: #fff;
-    border-radius: 8px;
-    padding: 1.5rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    overflow: hidden;
+    margin-bottom: 20px;
   }
-  .summary-row {
+  .gp-summary-head {
+    padding: 14px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    font-weight: 700;
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    color: #4d7c5e;
+    text-transform: uppercase;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .gp-summary-head i {
+    color: #16a34a;
+  }
+  .gp-summary-body {
+    padding: 0;
+  }
+  .gp-summary-row {
     display: flex;
     justify-content: space-between;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid #dee2e6;
+    align-items: center;
+    padding: 12px 20px;
+    border-bottom: 1px solid #e2e8f0;
   }
-  .summary-row:last-child {
+  .gp-summary-row:nth-child(even) {
+    background: #f8fafc;
+  }
+  .gp-summary-row:last-child {
     border-bottom: none;
   }
-  .summary-label {
-    color: #6c757d;
+  .gp-summary-label {
+    color: #4d7c5e;
     font-weight: 500;
+    font-size: 0.9rem;
   }
-  .summary-value {
-    color: #212529;
-    font-weight: 600;
+  .gp-summary-value {
+    color: #14532d;
+    font-weight: 700;
+    font-size: 0.95rem;
   }
-  @media (max-width: 768px) {
-    .metrics-grid {
+  .gp-summary-value.gp-success {
+    color: #16a34a;
+  }
+  .gp-summary-value.gp-danger {
+    color: #dc2626;
+  }
+
+  @media (max-width: 991px) {
+    .gp-stats {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (max-width: 575px) {
+    .gp-stats {
       grid-template-columns: 1fr;
     }
-    .period-selector {
+    .gp-period-selector {
       flex-direction: column;
     }
   }
@@ -109,75 +190,91 @@
 {% endblock extrahead %}
 
 {% block content %}
-<div class="row">
-  <div class="col-12">
-    <!-- Period Selector -->
-    <div class="period-selector">
-      <a href="?period=week" class="period-btn {% if period == 'week' %}active{% endif %}">
-        <i class="fas fa-calendar-week"></i> This Week
-      </a>
-      <a href="?period=month" class="period-btn {% if period == 'month' %}active{% endif %}">
-        <i class="fas fa-calendar-alt"></i> This Month
-      </a>
-      <a href="?period=year" class="period-btn {% if period == 'year' %}active{% endif %}">
-        <i class="fas fa-calendar"></i> This Year
-      </a>
-    </div>
+<div class="monitor-wrap">
+  <div class="row">
+    <div class="col-12">
+      <!-- Hero Section -->
+      <div class="gp-hero">
+        <div>
+          <h2>Performance Metrics</h2>
+          <p class="gp-hero-sub">Your guard activity and performance overview</p>
+        </div>
+      </div>
 
-    <!-- Metrics Grid -->
-    <div class="metrics-grid">
-      <div class="metric-card accuracy">
-        <div class="metric-icon"><i class="fas fa-check-circle"></i></div>
-        <div class="metric-value">{{ performance.accuracy_rate }}%</div>
-        <div class="metric-label">Accuracy Rate</div>
+      <!-- Period Selector -->
+      <div class="gp-period-selector">
+        <a href="?period=week" class="{% if period == 'week' %}active{% endif %}">
+          <i class="fas fa-calendar-week"></i> This Week
+        </a>
+        <a href="?period=month" class="{% if period == 'month' %}active{% endif %}">
+          <i class="fas fa-calendar-alt"></i> This Month
+        </a>
+        <a href="?period=year" class="{% if period == 'year' %}active{% endif %}">
+          <i class="fas fa-calendar"></i> This Year
+        </a>
       </div>
-      <div class="metric-card scans">
-        <div class="metric-icon"><i class="fas fa-qrcode"></i></div>
-        <div class="metric-value">{{ performance.scans_per_hour }}</div>
-        <div class="metric-label">Scans per Hour</div>
-      </div>
-      <div class="metric-card incidents">
-        <div class="metric-icon"><i class="fas fa-exclamation-triangle"></i></div>
-        <div class="metric-value">{{ performance.incidents_reported }}</div>
-        <div class="metric-label">Incidents Reported</div>
-      </div>
-      <div class="metric-card shifts">
-        <div class="metric-icon"><i class="fas fa-clock"></i></div>
-        <div class="metric-value">{{ performance.shifts_worked }}</div>
-        <div class="metric-label">Shifts Worked</div>
-      </div>
-    </div>
 
-    <!-- Detailed Summary -->
-    <div class="card">
-      <div class="card-header">
-        <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Detailed Summary</h5>
+      <!-- Stats Grid -->
+      <div class="gp-stats">
+        <div class="gp-stat-card">
+          <div class="gp-stat-icon green"><i class="fas fa-check-circle"></i></div>
+          <div>
+            <div class="gp-stat-val">{{ performance.accuracy_rate }}%</div>
+            <div class="gp-stat-label">Accuracy Rate</div>
+          </div>
+        </div>
+        <div class="gp-stat-card">
+          <div class="gp-stat-icon blue"><i class="fas fa-qrcode"></i></div>
+          <div>
+            <div class="gp-stat-val">{{ performance.scans_per_hour }}</div>
+            <div class="gp-stat-label">Scans per Hour</div>
+          </div>
+        </div>
+        <div class="gp-stat-card">
+          <div class="gp-stat-icon amber"><i class="fas fa-exclamation-triangle"></i></div>
+          <div>
+            <div class="gp-stat-val">{{ performance.incidents_reported }}</div>
+            <div class="gp-stat-label">Incidents Reported</div>
+          </div>
+        </div>
+        <div class="gp-stat-card">
+          <div class="gp-stat-icon slate"><i class="fas fa-clock"></i></div>
+          <div>
+            <div class="gp-stat-val">{{ performance.shifts_worked }}</div>
+            <div class="gp-stat-label">Shifts Worked</div>
+          </div>
+        </div>
       </div>
-      <div class="card-body">
-        <div class="summary-card">
-          <div class="summary-row">
-            <span class="summary-label">Total Scans</span>
-            <span class="summary-value">{{ performance.total_scans }}</span>
+
+      <!-- Summary Card -->
+      <div class="gp-summary-card">
+        <div class="gp-summary-head">
+          <i class="fas fa-chart-bar"></i> Detailed Summary
+        </div>
+        <div class="gp-summary-body">
+          <div class="gp-summary-row">
+            <span class="gp-summary-label">Total Scans</span>
+            <span class="gp-summary-value">{{ performance.total_scans }}</span>
           </div>
-          <div class="summary-row">
-            <span class="summary-label">Successful Scans</span>
-            <span class="summary-value text-success">{{ performance.successful_scans }}</span>
+          <div class="gp-summary-row">
+            <span class="gp-summary-label">Successful Scans</span>
+            <span class="gp-summary-value gp-success">{{ performance.successful_scans }}</span>
           </div>
-          <div class="summary-row">
-            <span class="summary-label">Denied Scans</span>
-            <span class="summary-value text-danger">{{ performance.denied_scans }}</span>
+          <div class="gp-summary-row">
+            <span class="gp-summary-label">Denied Scans</span>
+            <span class="gp-summary-value gp-danger">{{ performance.denied_scans }}</span>
           </div>
-          <div class="summary-row">
-            <span class="summary-label">Overrides Made</span>
-            <span class="summary-value">{{ performance.overrides_made }}</span>
+          <div class="gp-summary-row">
+            <span class="gp-summary-label">Overrides Made</span>
+            <span class="gp-summary-value">{{ performance.overrides_made }}</span>
           </div>
-          <div class="summary-row">
-            <span class="summary-label">Total Hours Worked</span>
-            <span class="summary-value">{{ performance.total_hours }} hrs</span>
+          <div class="gp-summary-row">
+            <span class="gp-summary-label">Total Hours Worked</span>
+            <span class="gp-summary-value">{{ performance.total_hours }} hrs</span>
           </div>
-          <div class="summary-row">
-            <span class="summary-label">Average Response Time</span>
-            <span class="summary-value">
+          <div class="gp-summary-row">
+            <span class="gp-summary-label">Average Response Time</span>
+            <span class="gp-summary-value">
               {% if performance.average_response_time %}
                 {{ performance.average_response_time.seconds }} sec
               {% else %}

@@ -425,7 +425,7 @@
 <div class="container">
   <div class="login-box">
     <div class="login-header">
-      <img src="{% static 'img/logo.png' %}" alt="Logo" class="login-logo">
+      <img src="{% static 'img/logo.png' %}" alt="Logo" class="login-logo" width="80" height="60" decoding="async" loading="eager">
       <h1>Welcome Back</h1>
       <p>Login to your account to continue</p>
     </div>
@@ -473,7 +473,7 @@
       {% if form.errors %}
         <div class="alert-danger">
           <i class="fas fa-exclamation-circle"></i>
-          {% trans 'Invalid ID number or password.' %}
+          {% trans 'Invalid username or password.' %}
         </div>
       {% endif %}
 

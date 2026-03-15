@@ -3,55 +3,184 @@
 {% block title %}Registrations - {{ event.name }} - {{ site_name }}{% endblock %}
 {% block breadcrumb %}Event Registrations{% endblock %}
 
+{% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
+<style>
+  .reg-wrap { font-family: 'Inter', 'Segoe UI', sans-serif; color: var(--monitor-text, #14532d); }
+  .reg-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+  .reg-toolbar .btn { border-radius: 10px; font-weight: 600; }
+  .reg-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 1.25rem; }
+  @media (max-width: 768px) { .reg-stats { grid-template-columns: 1fr; } }
+  .reg-stat-card {
+    background: #fff;
+    border: 1px solid var(--monitor-border, #e2e8f0);
+    border-radius: var(--radius, 12px);
+    padding: 18px 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .reg-stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  .reg-stat-card .icon-wrap {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; margin-bottom: 10px;
+  }
+  .reg-stat-card.registered .icon-wrap { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: var(--info, #2563eb); }
+  .reg-stat-card.checked-in .icon-wrap { background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: var(--ok, #16a34a); }
+  .reg-stat-card.checked-out .icon-wrap { background: linear-gradient(135deg, #f1f5f9, #e2e8f0); color: var(--monitor-muted, #4d7c5e); }
+  .reg-stat-card .num { font-size: 1.75rem; font-weight: 800; color: var(--monitor-text); line-height: 1.2; }
+  .reg-stat-card .lbl { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--monitor-muted); font-weight: 600; margin-top: 4px; }
+
+  .reg-card {
+    background: #fff;
+    border: 1px solid var(--monitor-border, #e2e8f0);
+    border-radius: var(--radius-lg, 14px);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    margin-bottom: 1.25rem;
+    overflow: hidden;
+  }
+  .reg-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--monitor-border);
+    background: #f8fafc;
+    font-weight: 700;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--monitor-muted);
+  }
+  .reg-card-head i { color: var(--ok); font-size: 1rem; margin-right: 6px; }
+  .reg-card-body { padding: 20px; }
+  .reg-add-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .reg-add-actions .btn { border-radius: 10px; font-weight: 600; }
+  .reg-add-actions .csv-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--monitor-border); }
+  .reg-add-actions label { margin-bottom: 0; font-weight: 600; font-size: 0.875rem; color: var(--monitor-text); }
+  .reg-filter-row {
+    padding: 12px 20px;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--monitor-border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  .reg-filter-row form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .reg-filter-row .form-control-sm { border-radius: 8px; max-width: 220px; }
+  .reg-table-wrap { overflow-x: auto; }
+  .reg-table {
+    width: 100%;
+    margin: 0;
+    font-size: 0.875rem;
+  }
+  .reg-table thead th {
+    background: #f8fafc;
+    color: var(--monitor-muted);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--monitor-border);
+  }
+  .reg-table tbody td {
+    padding: 10px 16px;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--monitor-border);
+    color: var(--monitor-text);
+  }
+  .reg-table tbody tr:hover { background: rgba(22,163,74,0.03); }
+  .reg-table .badge { font-weight: 600; }
+  .reg-table code { font-size: 0.8rem; }
+  .reg-ended-note { padding: 10px 16px; background: #fef3c7; border-left: 4px solid #f59e0b; font-size: 0.875rem; font-weight: 600; color: #92400e; margin-bottom: 1rem; border-radius: 0 8px 8px 0; }
+</style>
+{% endblock extrahead %}
+
 {% block content %}
-<div class="row mb-3">
-  <div class="col-12">
-    <a href="{% url 'event-attendance-report' event.id %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left mr-1"></i> Attendance report</a>
-    <a href="{% url 'event-live-dashboard' event.id %}" class="btn btn-outline-info ml-2">Live dashboard</a>
+<div class="monitor-wrap reg-wrap">
+  <div class="reg-toolbar">
+    <a href="{% url 'event-detail' event.pk %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left mr-1"></i> Event detail</a>
+    <a href="{% url 'event-live-dashboard' event.id %}" class="btn btn-outline-info btn-sm">Live dashboard</a>
+    <a href="{% url 'event-attendance-report' event.id %}" class="btn btn-outline-primary btn-sm">Attendance report</a>
+    <a href="{% url 'event-registrations-export-csv' event.id %}" class="btn btn-outline-success btn-sm ml-auto"><i class="fas fa-download mr-1"></i> Export CSV</a>
   </div>
-</div>
 
-<div class="row mb-4">
-  <div class="col-md-3 col-6">
-    <div class="small-box bg-info">
-      <div class="inner"><h3>{{ total_registered }}</h3><p>Registered</p></div>
+  {% if event_ended %}
+  <div class="reg-ended-note"><i class="fas fa-check-circle mr-1"></i> Event ended. Registrations are complete — view or export below.</div>
+  {% else %}
+  <div class="reg-ended-note"><i class="fas fa-info-circle mr-1"></i> Add registrations below, or use the table to search and export.</div>
+  {% endif %}
+
+  <div class="reg-stats">
+    <div class="reg-stat-card registered">
+      <div class="icon-wrap"><i class="fas fa-list-alt"></i></div>
+      <div class="num">{{ total_registered }}</div>
+      <div class="lbl">Registered</div>
+    </div>
+    <div class="reg-stat-card checked-in">
+      <div class="icon-wrap"><i class="fas fa-sign-in-alt"></i></div>
+      <div class="num">{{ checked_in }}</div>
+      <div class="lbl">Checked in</div>
+    </div>
+    <div class="reg-stat-card checked-out">
+      <div class="icon-wrap"><i class="fas fa-sign-out-alt"></i></div>
+      <div class="num">{{ checked_out }}</div>
+      <div class="lbl">Checked out</div>
     </div>
   </div>
-  <div class="col-md-3 col-6">
-    <div class="small-box bg-success">
-      <div class="inner"><h3>{{ checked_in }}</h3><p>Checked in</p></div>
+
+  {% if not event_ended %}
+  <div class="reg-card">
+    <div class="reg-card-head"><i class="fas fa-plus-circle"></i> Add registrations</div>
+    <div class="reg-card-body">
+      <div class="reg-add-actions">
+        <form method="post" class="d-inline">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="register_all">
+          <button type="submit" class="btn btn-success"><i class="fas fa-users mr-1"></i> Register all active students</button>
+        </form>
+        <form method="post" enctype="multipart/form-data" class="d-inline">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="register_csv">
+          <div class="csv-row">
+            <label class="mb-0">Or upload CSV (column: <code>student_id</code>):</label>
+            <input type="file" name="csv_file" accept=".csv" class="form-control form-control-sm" style="max-width: 220px;">
+            <button type="submit" class="btn btn-outline-primary"><i class="fas fa-file-csv mr-1"></i> Import CSV</button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
-  <div class="col-md-3 col-6">
-    <div class="small-box bg-secondary">
-      <div class="inner"><h3>{{ checked_out }}</h3><p>Checked out</p></div>
+  {% else %}
+  {% endif %}
+
+  {% if not event_ended %}
+  <div class="reg-card">
+    <div class="reg-card-head">
+      <span><i class="fas fa-table"></i> Registrations ({{ event.name }})</span>
+      {% if search_q %}<span class="text-muted" style="font-size: 0.75rem; font-weight: 500;">Filtered</span>{% endif %}
     </div>
-  </div>
-</div>
-
-<div class="card mb-4">
-  <div class="card-header"><h5 class="m-0">Add registrations</h5></div>
-  <div class="card-body">
-    <form method="post" class="form-inline mb-3">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="register_all">
-      <button type="submit" class="btn btn-primary mr-2">Register all active students</button>
-    </form>
-    <form method="post" enctype="multipart/form-data" class="form-inline">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="register_csv">
-      <label class="mr-2">Or upload CSV (column: student_id):</label>
-      <input type="file" name="csv_file" accept=".csv" class="form-control mr-2">
-      <button type="submit" class="btn btn-outline-primary">Import CSV</button>
-    </form>
-  </div>
-</div>
-
-<div class="card">
-  <div class="card-header"><h5 class="m-0">Registrations ({{ event.name }})</h5></div>
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-sm table-striped mb-0">
+    <div class="reg-filter-row">
+      <form method="get" action="" class="d-flex flex-wrap align-items-center">
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="Search by student ID or name" value="{{ search_q|default:'' }}">
+        <button type="submit" class="btn btn-sm btn-success"><i class="fas fa-search mr-1"></i> Search</button>
+        {% if search_q %}
+        <a href="{% url 'event-manage-registrations' event.id %}" class="btn btn-sm btn-outline-secondary">Clear</a>
+        {% endif %}
+      </form>
+    </div>
+    <div class="reg-table-wrap">
+      <table class="table reg-table mb-0">
         <thead>
           <tr>
             <th>Student ID</th>
@@ -66,20 +195,21 @@
         <tbody>
           {% for r in registrations %}
           <tr>
-            <td>{{ r.student.student_id }}</td>
+            <td><span class="font-weight-bold">{{ r.student.student_id }}</span></td>
             <td>{{ r.student.get_full_name }}</td>
-            <td><code class="small">{{ r.token|truncatechars:16 }}</code></td>
+            <td><code class="small">{{ r.token|truncatechars:20 }}</code></td>
             <td><span class="badge badge-{% if r.status == 'active' %}success{% else %}secondary{% endif %}">{{ r.status }}</span></td>
             <td>{{ r.issued_at|date:"M d, H:i" }}</td>
             <td>{{ r.checked_in_at|date:"M d, H:i"|default:"—" }}</td>
             <td>{{ r.checked_out_at|date:"M d, H:i"|default:"—" }}</td>
           </tr>
           {% empty %}
-          <tr><td colspan="7" class="text-center text-muted">No registrations yet. Use "Register all" or import CSV.</td></tr>
+          <tr><td colspan="7" class="text-center text-muted py-5">No registrations yet. Use &quot;Register all active students&quot; or import a CSV.{% if search_q %} Try clearing the search.{% endif %}</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
+  {% endif %}
 </div>
 {% endblock %}

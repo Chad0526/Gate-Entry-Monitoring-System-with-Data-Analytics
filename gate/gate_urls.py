@@ -21,6 +21,7 @@ urlpatterns = [
     path('analytics/', gate_views.analytics_dashboard, name='gate-analytics'),
     path('analytics/report/', gate_views.analytics_report, name='gate-analytics-report'),
     path('students/', gate_views.student_list, name='gate-student-list'),
+    path('users/pending-staff-guard/', gate_views.pending_staff_guard_list, name='pending-staff-guard-list'),
     path('students/approve-all-pending/', gate_views.approve_all_pending_students, name='gate-student-approve-all-pending'),
     path('students/export-csv/', gate_views.student_list_export_csv, name='gate-student-export-csv'),
     path('students/import-csv/', gate_views.import_students_csv, name='gate-student-import'),
@@ -47,6 +48,7 @@ urlpatterns = [
     # Event attendance (token-based QR)
     path('events/attendance-scanner/', gate_views.event_attendance_scanner, name='event-attendance-scanner'),
     path('events/<int:event_id>/registrations/', gate_views.event_manage_registrations, name='event-manage-registrations'),
+    path('events/<int:event_id>/registrations/export-csv/', gate_views.event_registrations_export_csv, name='event-registrations-export-csv'),
     path('events/<int:event_id>/attendance-report/', gate_views.event_attendance_report, name='event-attendance-report'),
     path('events/<int:event_id>/attendance-report/export-csv/', gate_views.event_attendance_report_export_csv, name='event-attendance-report-export-csv'),
     path('events/<int:event_id>/attendance-report/export-xlsx/', gate_views.event_attendance_report_export_xlsx, name='event-attendance-report-export-xlsx'),
@@ -60,6 +62,9 @@ urlpatterns = [
     path('events/<int:event_id>/field-trip-scan/', gate_views.field_trip_event_scan, name='event-field-trip-scan'),
     path('reports/compare-events/', gate_views.report_compare_events, name='report-compare-events'),
     path('audit-log/', gate_views.audit_log_viewer, name='audit-log-viewer'),
+    path('audit-log/block-ip/', gate_views.block_ip, name='block-ip'),
+    path('audit-log/unblock-ip/', gate_views.unblock_ip, name='unblock-ip'),
+    path('audit-log/delete-blocked-ip/', gate_views.delete_blocked_ip, name='delete-blocked-ip'),
     path('guard-activity/', gate_views.guard_activity, name='guard-activity'),
     path('visitor-pass/create/', gate_views.visitor_pass_create, name='visitor-pass-create'),
     path('visitor-qr/print-all/', gate_views.visitor_pass_print_all, name='visitor-pass-print-all'),
@@ -74,6 +79,7 @@ urlpatterns = [
     path('guard/entries/', guard_views.guard_entry_list_view, name='guard-entry-list'),
     path('guard/notifications/', guard_views.guard_notifications_view, name='guard-notifications'),
     path('guard/notifications/mark-read/', guard_views.mark_notification_read_view, name='guard-notification-mark-read'),
+    path('guard/notifications/mark-all-read/', guard_views.mark_all_notifications_read_view, name='guard-notification-mark-all-read'),
     path('guard/performance/', guard_views.guard_performance_view, name='guard-performance'),
     path('guard/student-lookup/', guard_views.quick_student_lookup_view, name='guard-student-lookup'),
     path('guard/dashboard/stats/', guard_views.dashboard_stats_api_view, name='guard-dashboard-stats-api'),
@@ -98,6 +104,7 @@ urlpatterns = [
     # Optional read-only API for attendance integration (token in API_ATTENDANCE_TOKEN)
     path('api/attendance/', gate_views.api_attendance, name='api-attendance'),
     path('api/notification-count/', gate_views.api_notification_count, name='api-notification-count'),
+    path('api/notifications/mark-all-read/', gate_views.notifications_mark_all_read, name='notifications-mark-all-read'),
     path('admin/notifications/check-new/', gate_views.check_new_admin_notifications_api_view, name='admin-check-new-notifications'),
 ]
 

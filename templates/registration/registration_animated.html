@@ -14,7 +14,7 @@
   }
 
   body {
-    font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Plus Jakarta Sans', 'Inter', 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background: linear-gradient(135deg, #FFEB3B 0%, #9ACD32 100%);
     min-height: 100vh;
     display: flex;
@@ -69,14 +69,14 @@
 
   .register-header h1 {
     color: #6B8E23;
-    font-size: 28px;
+    font-size: 1.35rem;
     margin-bottom: 10px;
     font-weight: 700;
   }
 
   .register-header p {
     color: #9ACD32;
-    font-size: 14px;
+    font-size: 0.8125rem;
     font-weight: 500;
   }
 
@@ -149,7 +149,7 @@
     color: #6B8E23;
     font-weight: 600;
     margin-bottom: 8px;
-    font-size: 14px;
+    font-size: 0.8125rem;
   }
 
   input[type="text"],
@@ -158,10 +158,10 @@
   input[type="tel"],
   input[type="file"] {
     width: 100%;
-    padding: 11px 15px;
+    padding: 10px 14px;
     border: 2px solid #FFEB3B;
     border-radius: 10px;
-    font-size: 14px;
+    font-size: 13px;
     transition: all 0.3s ease;
     outline: none;
     background: rgba(255, 235, 59, 0.05);
@@ -222,7 +222,7 @@
     display: flex;
     align-items: flex-start;
     margin-bottom: 20px;
-    font-size: 13px;
+    font-size: 0.8125rem;
     animation: slideInLeftStaggered 0.6s ease-out 0.7s both;
     color: #6B8E23;
   }
@@ -256,28 +256,30 @@
 
   .register-btn {
     width: 100%;
-    padding: 12px;
+    padding: 11px;
     background: linear-gradient(135deg, #9ACD32 0%, #FFEB3B 100%);
     color: #6B8E23;
     border: none;
     border-radius: 10px;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: background 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
     animation: slideInRightStaggered 0.6s ease-out 0.8s both;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 4px 15px rgba(154, 205, 50, 0.3);
+    box-shadow: 0 4px 14px rgba(154, 205, 50, 0.28);
   }
 
   .register-btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 30px rgba(154, 205, 50, 0.5);
+    background: linear-gradient(135deg, #a8d936 0%, #fff176 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 22px rgba(154, 205, 50, 0.4);
   }
 
   .register-btn:active {
-    transform: translateY(-1px);
+    transform: translateY(0);
+    box-shadow: 0 2px 12px rgba(154, 205, 50, 0.35);
   }
 
   .register-btn::before {
@@ -302,7 +304,7 @@
     text-align: center;
     margin-top: 20px;
     color: #6B8E23;
-    font-size: 14px;
+    font-size: 0.8125rem;
     animation: slideInRightStaggered 0.6s ease-out 0.9s both;
   }
 
@@ -310,7 +312,7 @@
     color: #9ACD32;
     text-decoration: none;
     font-weight: 700;
-    transition: all 0.3s ease;
+    transition: color 0.2s ease, text-decoration 0.2s ease;
   }
 
   .login-link a:hover {
@@ -375,10 +377,10 @@
     background: rgba(211, 47, 47, 0.1);
     border: 1px solid rgba(211, 47, 47, 0.3);
     color: #D32F2F;
-    padding: 12px;
+    padding: 10px 12px;
     border-radius: 8px;
     margin-bottom: 20px;
-    font-size: 14px;
+    font-size: 0.8125rem;
     animation: slideInRight 0.4s ease-in-out;
   }
 </style>

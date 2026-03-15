@@ -212,6 +212,20 @@ def evaluate_scan(student, scan_type, now=None, guard_override_reason=None, poli
 
     # ---------- IN ----------
     if scan_type == 'IN':
+        # Optional: require load slip for entry so gate is strictly based on class schedule
+        if policy and getattr(policy, 'require_load_slip_for_entry', False) and not has_load_slip_val:
+            return {
+                'allowed': False,
+                'result': 'DENIED',
+                'message': 'No load slip on file. Please contact the registrar to add your class schedule.',
+                'out_reason_code': '',
+                'out_reason_text': '',
+                'schedule_hint': schedule_hint,
+                'next_suggested': 'IN',
+                'deny_reason': 'No load slip',
+                'has_load_slip': False,
+                'schedule_based': False,
+            }
         if state == 'INSIDE':
             return {
                 'allowed': False,

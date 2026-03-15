@@ -12,7 +12,7 @@ class EventCategory(models.Model):
     created_user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='created_user')
     updated_user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='updated_user')
     created_date = models.DateField(auto_now_add=True)
-    updated_date = models.DateField(auto_now_add=True)
+    updated_date = models.DateField(auto_now=True)
     status_choice = (
         ('disabled', 'Disabled'),
         ('active', 'Active'),
@@ -189,12 +189,6 @@ class Event(models.Model):
             self.maximum_attende = 0
         super().save(*args, **kwargs)
 
-    def created_updated(model, request):
-        obj = model.objects.latest('pk')
-        if obj.created_by is None:
-            obj.created_by = request.user
-        obj.updated_by = request.user
-        obj.save()
 
 class EventImage(models.Model):
     event = models.OneToOneField(Event, on_delete=models.CASCADE)
@@ -240,7 +234,7 @@ class EventMember(models.Model):
     created_user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='eventmember_created_user')
     updated_user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='eventmember_updated_user')
     created_date = models.DateField(auto_now_add=True)
-    updated_date = models.DateField(auto_now_add=True)
+    updated_date = models.DateField(auto_now=True)
     status_choice = (
         ('disabled', 'Disabled'),
         ('active', 'Active'),
@@ -267,7 +261,7 @@ class EventUserWishList(models.Model):
     created_user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='eventwishlist_created_user')
     updated_user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='eventwishlist_updated_user')
     created_date = models.DateField(auto_now_add=True)
-    updated_date = models.DateField(auto_now_add=True)
+    updated_date = models.DateField(auto_now=True)
     status_choice = (
         ('disabled', 'Disabled'),
         ('active', 'Active'),
@@ -299,7 +293,7 @@ class UserCoin(models.Model):
     created_user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='usercoin_created_user')
     updated_user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='usercoin_updated_user')
     created_date = models.DateField(auto_now_add=True)
-    updated_date = models.DateField(auto_now_add=True)
+    updated_date = models.DateField(auto_now=True)
     status_choice = (
         ('disabled', 'Disabled'),
         ('active', 'Active'),
@@ -445,6 +439,69 @@ class Student(models.Model):
     def get_full_name(self):
         parts = [self.first_name, self.middle_name, self.last_name]
         return ' '.join(p for p in parts if p).strip()
+
+
+class StaffGuardProfile(models.Model):
+    """Extended profile for staff/faculty/guard self-registrations (User + Group hold role)."""
+    user = models.OneToOneField(
+        'auth.User',
+        on_delete=models.CASCADE,
+        related_name='staff_guard_profile',
+    )
+    middle_name = models.CharField(max_length=100, blank=True)
+    SEX_CHOICES = (
+        ('MALE', 'Male'),
+        ('FEMALE', 'Female'),
+        ('OTHER', 'Other'),
+        ('PREFER_NOT', 'Prefer not to say'),
+    )
+    sex = models.CharField(max_length=20, choices=SEX_CHOICES, blank=True)
+    birthdate = models.DateField(null=True, blank=True)
+    address = models.TextField(blank=True)
+    contact_number = models.CharField(max_length=20, blank=True)
+    employee_id = models.CharField(max_length=50, blank=True)
+    department = models.CharField(max_length=150, blank=True)
+    position = models.CharField(max_length=150, blank=True)
+    profile_complete = models.BooleanField(
+        default=False,
+        help_text='True after staff/guard completes the required profile form after first login.',
+    )
+    # Preferences (staff/guard)
+    preferred_language = models.CharField(max_length=10, default='en', blank=True)
+    preferred_timezone = models.CharField(max_length=63, default='Asia/Manila', blank=True)
+    email_notifications_announcements = models.BooleanField(
+        default=True,
+        help_text='Receive email notifications for announcements.',
+    )
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} (Staff/Guard)"
+
+
+def user_profile_photo_upload_to(instance, filename):
+    """Store profile photos under profile_photos/<user_id>/."""
+    ext = (filename.split('.')[-1] if '.' in filename else 'jpg').lower()
+    if ext not in ('jpg', 'jpeg', 'png', 'gif', 'webp'):
+        ext = 'jpg'
+    return f'profile_photos/{instance.user_id}/avatar.{ext}'
+
+
+class UserProfile(models.Model):
+    """Optional profile photo for any user (sidebar avatar)."""
+    user = models.OneToOneField(
+        'auth.User',
+        on_delete=models.CASCADE,
+        related_name='user_profile',
+    )
+    avatar = models.ImageField(
+        upload_to=user_profile_photo_upload_to,
+        blank=True,
+        null=True,
+        help_text='Profile photo shown in the sidebar.',
+    )
+
+    def __str__(self):
+        return f"Profile of {self.user.get_full_name() or self.user.username}"
 
 
 class StudentLoadSlip(models.Model):
@@ -858,6 +915,25 @@ class AuditLog(models.Model):
         return f"{self.action} by {self.user} @ {self.created_at}"
 
 
+class BlockedIP(models.Model):
+    """IP addresses blocked from accessing the system."""
+    ip_address = models.GenericIPAddressField(unique=True)
+    reason = models.CharField(max_length=500, blank=True, default='')
+    blocked_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, related_name='blocked_ips')
+    blocked_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True, help_text='Uncheck to unblock without deleting the record')
+    failed_attempts = models.PositiveIntegerField(default=0, help_text='Number of blocked requests from this IP')
+
+    class Meta:
+        ordering = ['-blocked_at']
+        verbose_name = 'Blocked IP'
+        verbose_name_plural = 'Blocked IPs'
+
+    def __str__(self):
+        status = 'active' if self.is_active else 'inactive'
+        return f"{self.ip_address} ({status})"
+
+
 # Department/office options for visitors (campus destinations)
 CAMPUS_DEPARTMENT_CHOICES = (
     ('', '-- Select department/office --'),
@@ -1066,6 +1142,10 @@ class SiteTheme(models.Model):
     site_name = models.CharField(max_length=200, default='City College of Bayawan')
     logo = models.ImageField(upload_to='theme/', blank=True, null=True)
     primary_color = models.CharField(max_length=7, default='#28a745', help_text='Hex color e.g. #28a745')
+    default_first_signatory_name = models.CharField(max_length=120, blank=True, default='')
+    default_first_signatory_title = models.CharField(max_length=120, blank=True, default='')
+    default_second_signatory_name = models.CharField(max_length=120, blank=True, default='')
+    default_second_signatory_title = models.CharField(max_length=120, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1090,6 +1170,8 @@ class GatePolicy(models.Model):
     strict_lunch_return = models.BooleanField(default=True, help_text='If True, deny IN during 11:59–12:59')
     # Buffer: deny OUT if a class starts within this many minutes (or require reason)
     out_buffer_minutes = models.PositiveSmallIntegerField(default=30, help_text='Deny OUT if class starts within this many minutes')
+    # When True, deny IN if student has no load slip on file (ensures gate is strictly based on load slip)
+    require_load_slip_for_entry = models.BooleanField(default=False, help_text='If True, deny entry when student has no load slip; contact registrar.')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1299,6 +1381,7 @@ class AdminNotification(models.Model):
     """
     NOTIFICATION_TYPE_CHOICES = (
         ('student_registration', 'Student Registration'),
+        ('staff_guard_registration', 'Staff/Faculty/Guard Registration'),
         ('incident', 'Incident Alert'),
         ('capacity', 'Capacity Alert'),
         ('system', 'System Message'),

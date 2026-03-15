@@ -46,12 +46,13 @@
     <section class="content">
       <div class="container-fluid">
         {% if messages %}
-        {# Success/error messages: fade after 5s, no redirect (all admin/functionality pages). Override block message_redirect_url to set a redirect URL for a specific page. #}
+        {# Success/error messages: professional card style, fade after 5s. Override block message_redirect_url for redirect. #}
         <div class="row" id="django-messages-wrap" data-auto-redirect-after="5" data-redirect-url="{% block message_redirect_url %}{% endblock %}">
           <div class="col-12">
             {% for message in messages %}
             <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show django-alert" role="alert">
-              {{ message }}
+              <span class="ccb-msg-icon"><i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %}"></i></span>
+              <span class="ccb-msg-body">{{ message }}</span>
               <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
             </div>
             {% endfor %}
@@ -179,6 +180,7 @@ function showClockInRequiredModal() {
   });
 }
 
+{% if user_role != 'guard' %}
 (function() {
   var POLL_INTERVAL_MS = 25000;
   var FIRST_POLL_DELAY_MS = 5000;
@@ -271,6 +273,7 @@ function showClockInRequiredModal() {
     setInterval(poll, POLL_INTERVAL_MS);
   }, FIRST_POLL_DELAY_MS);
 })();
+{% endif %}
 </script>
 {% endif %}
 

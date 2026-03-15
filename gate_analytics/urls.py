@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.contrib.staticfiles.urls import static, staticfiles_urlpatterns
 
-from .views import dashboard, dashboard_stats_api, login_page, logout_page, register_page, user_list, privacy_policy, terms_and_conditions, health_check
+from .views import dashboard, dashboard_stats_api, login_page, logout_page, register_page, user_list, profile_edit, staff_guard_complete_profile, account_settings, preferences_view, privacy_policy, terms_and_conditions, health_check
 from . import settings
 
 admin.site.site_header = "Gate Entry Monitoring & Data Analytics - Admin"
@@ -35,6 +35,10 @@ urlpatterns = [
     path('register/', register_page, name='register'),
     path('logout/', logout_page, name='logout'),
     path('users/', user_list, name='user-list'),
+    path('profile/', profile_edit, name='profile-edit'),
+    path('profile/account/', account_settings, name='account-settings'),
+    path('profile/preferences/', preferences_view, name='preferences'),
+    path('profile/complete/', staff_guard_complete_profile, name='staff-guard-complete-profile'),
     path('privacy/', privacy_policy, name='privacy-policy'),
     path('terms/', terms_and_conditions, name='terms'),
     path('gate/', include('gate.gate_urls')),

@@ -4,42 +4,187 @@
 
 {% block extrahead %}
 <style>
-  .report-page { max-width: 900px; margin: 0 auto; padding: 24px; font-size: 14px; }
-  .report-header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 16px; margin-bottom: 24px; }
-  .report-header h1 { margin: 0 0 8px 0; font-size: 22px; }
-  .report-header .report-date { color: #666; font-size: 13px; }
-  .report-section { margin-bottom: 24px; }
-  .report-section h2 { font-size: 16px; margin: 0 0 12px 0; padding-bottom: 6px; border-bottom: 1px solid #ddd; }
-  .report-stats { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
-  .report-stat { flex: 1; min-width: 140px; padding: 12px; border: 1px solid #dee2e6; border-radius: 6px; text-align: center; }
-  .report-stat .value { font-size: 24px; font-weight: 700; display: block; }
-  .report-stat .label { font-size: 12px; color: #666; }
-  .report-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-  .report-table th, .report-table td { border: 1px solid #dee2e6; padding: 8px 10px; text-align: left; }
-  .report-table th { background: #f8f9fa; font-weight: 600; }
-  .report-table tr:nth-child(even) { background: #f8f9fa; }
-  .report-actions { margin: 24px 0; text-align: center; }
-  .report-actions .btn { padding: 10px 24px; font-size: 14px; }
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  body {
+    background: #f5f7f9;
+  }
+  .report-page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px;
+    font-size: 14px;
+    color: #1f2937;
+  }
+  .report-header {
+    border-bottom: 2px solid #1f6a49;
+    padding-bottom: 12px;
+    margin-bottom: 18px;
+  }
+  .report-header-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+  }
+  .report-logo {
+    width: 88px;
+    height: 88px;
+    object-fit: contain;
+    justify-self: center;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    padding: 4px;
+  }
+  .report-headings {
+    text-align: left;
+    padding-right: 0;
+  }
+  .report-headings h1 {
+    margin: 0;
+    font-size: 22px;
+  }
+  .report-headings p {
+    margin: 2px 0;
+  }
+  .report-meta {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #4b5563;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+  }
+  .report-section {
+    margin-bottom: 20px;
+  }
+  .report-section h2 {
+    font-size: 16px;
+    margin: 0 0 10px 0;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #d1d5db;
+  }
+  .report-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .report-stat {
+    flex: 1;
+    min-width: 130px;
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    text-align: center;
+    background: #fff;
+  }
+  .report-stat .value {
+    font-size: 24px;
+    font-weight: 700;
+    display: block;
+  }
+  .report-stat .label {
+    font-size: 12px;
+    color: #4b5563;
+  }
+  .report-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+    background: #fff;
+  }
+  .report-table th,
+  .report-table td {
+    border: 1px solid #d1d5db;
+    padding: 7px 9px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .report-table th {
+    background: #f3f4f6;
+    font-weight: 600;
+  }
+  .report-table tr:nth-child(even) {
+    background: #fafafa;
+  }
+  .report-actions {
+    margin: 16px 0 24px;
+    text-align: center;
+  }
+  .print-block {
+    margin-top: 10px;
+  }
+  .signatories {
+    margin-top: 38px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 28px;
+  }
+  .sig-block {
+    text-align: center;
+  }
+  .sig-line {
+    border-top: 1px solid #111827;
+    margin: 40px 20px 8px;
+  }
+  .sig-name {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 13px;
+  }
+  .sig-title {
+    font-size: 12px;
+    color: #4b5563;
+  }
   @media print {
-    body { margin: 0; padding: 0; background: #fff; }
-    .report-actions, .main-footer, .no-print { display: none !important; }
-    .report-page { padding: 0; max-width: 100%; }
-    .report-table th, .report-table td { padding: 6px 8px; font-size: 12px; }
-    .report-stat { break-inside: avoid; }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+    }
+    .report-actions,
+    .main-footer,
+    .no-print {
+      display: none !important;
+    }
+    .report-page {
+      padding: 0;
+      max-width: 100%;
+    }
+    .report-table th,
+    .report-table td {
+      font-size: 11px;
+      padding: 6px 7px;
+    }
+    .report-stat {
+      break-inside: avoid;
+    }
+    .report-section,
+    .report-table {
+      break-inside: avoid;
+    }
+    .print-block {
+      break-inside: avoid-page;
+      page-break-inside: avoid;
+    }
+    .print-block + .print-block {
+      margin-top: 16px;
+    }
+    .print-block h3 {
+      page-break-after: avoid;
+    }
   }
 </style>
 {% endblock extrahead %}
 
 {% block content %}
 <div class="report-page">
-  <div class="report-header">
-    <h1>{{ site_name }}</h1>
-    <p class="m-0"><strong>Campus Analytics Report</strong></p>
-    <p class="report-date">Report date: {{ report_date|date:"F d, Y" }}</p>
-  </div>
-
   <div class="report-actions no-print">
-    <a href="{% url 'gate-analytics-report' %}" target="_blank" class="btn btn-primary mr-2">
+    <a href="{{ request.get_full_path }}" class="btn btn-primary mr-2">
       <i class="fas fa-sync-alt mr-1"></i> Refresh report
     </a>
     <button type="button" class="btn btn-success" onclick="window.print();">
@@ -50,24 +195,47 @@
     </a>
   </div>
 
+  <div class="report-header">
+    <div class="report-header-row">
+      {% if logo_url %}
+      <img src="{{ logo_url }}" alt="School logo" class="report-logo">
+      {% else %}
+      <img src="{% static 'img/logo.png' %}" alt="School logo" class="report-logo">
+      {% endif %}
+      <div class="report-headings">
+        <h1>{{ site_name }}</h1>
+        <p><strong>Campus Analytics Report</strong></p>
+        <p>Gate and attendance monitoring</p>
+      </div>
+    </div>
+    <div class="report-meta">
+      <span><strong>Report date:</strong> {{ report_date|date:"F d, Y" }}</span>
+      <span><strong>Covered period:</strong> {{ date_range_label }}</span>
+      <span><strong>Year context:</strong> {{ selected_year }}</span>
+      <span><strong>Event:</strong> {{ selected_event_name|default:"All events" }}</span>
+      <span><strong>Generated by:</strong> {{ request.user.get_full_name|default:request.user.username }}</span>
+    </div>
+  </div>
+
+  {% if include_summary %}
   <div class="report-section">
-    <h2>Summary (today)</h2>
+    <h2>Summary (selected period)</h2>
     <div class="report-stats">
       <div class="report-stat">
         <span class="value text-info">{{ granted_today|default:0 }}</span>
-        <span class="label">Entries granted today</span>
+        <span class="label">Entries granted</span>
       </div>
       <div class="report-stat">
         <span class="value text-success">{{ inside_now|default:0 }}</span>
-        <span class="label">Currently inside</span>
+        <span class="label">Currently inside (as of end date)</span>
       </div>
       <div class="report-stat">
         <span class="value text-danger">{{ denied_today|default:0 }}</span>
-        <span class="label">Entries denied today</span>
+        <span class="label">Entries denied</span>
       </div>
       <div class="report-stat">
         <span class="value text-warning">{{ incidents_today|default:0 }}</span>
-        <span class="label">Incidents today</span>
+        <span class="label">Incidents</span>
       </div>
       <div class="report-stat">
         <span class="value text-success">{{ total_students|default:0 }}</span>
@@ -75,40 +243,50 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
+  {% if include_visitors %}
   <div class="report-section">
     <h2>Visitors</h2>
+    <p class="text-muted mb-2" style="font-size:12px;">
+      Filters:
+      Type: {{ selected_visitor_type|default:"All"|upper }},
+      Department: {{ selected_visitor_department|default:"All" }},
+      Status: {{ selected_visitor_status|default:"All" }},
+      Purpose: {{ selected_visitor_purpose|default:"All" }},
+      Time: {{ selected_visitor_from_time|default:"--:--" }} to {{ selected_visitor_to_time|default:"--:--" }}
+    </p>
     <div class="report-stats">
       <div class="report-stat">
         <span class="value text-secondary">{{ visitors_this_month|default:0 }}</span>
-        <span class="label">Visitors this month</span>
+        <span class="label">Visitors in selected period</span>
       </div>
       <div class="report-stat">
         <span class="value text-info">{{ visitors_this_year|default:0 }}</span>
-        <span class="label">Visitors this year ({{ selected_year }})</span>
+        <span class="label">Visitors in selected year ({{ selected_year }})</span>
       </div>
     </div>
-    <div style="display: flex; flex-wrap: wrap; gap: 24px;">
-      <div style="flex: 1; min-width: 260px;">
-        <h3 style="font-size: 14px; margin: 0 0 8px 0; color: #666;">Top departments visited this month</h3>
+    <div style="display:flex; flex-wrap:wrap; gap:16px;">
+      <div style="flex:1; min-width:260px;">
+        <h3 style="font-size:14px; margin:0 0 8px; color:#4b5563;">Top departments visited this month</h3>
         <table class="report-table">
           <thead><tr><th>Department / Office</th><th style="text-align:right;">Visits</th></tr></thead>
           <tbody>
             {% for row in top_departments_monthly %}
-              <tr><td>{{ row.who_to_visit|default:"—" }}</td><td style="text-align:right;">{{ row.count }}</td></tr>
+              <tr><td>{{ row.who_to_visit|default:"-" }}</td><td style="text-align:right;">{{ row.count }}</td></tr>
             {% empty %}
               <tr><td colspan="2" class="text-muted">No visitor data this month.</td></tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
-      <div style="flex: 1; min-width: 260px;">
-        <h3 style="font-size: 14px; margin: 0 0 8px 0; color: #666;">Top departments visited this year</h3>
+      <div style="flex:1; min-width:260px;">
+        <h3 style="font-size:14px; margin:0 0 8px; color:#4b5563;">Top departments visited this year</h3>
         <table class="report-table">
           <thead><tr><th>Department / Office</th><th style="text-align:right;">Visits</th></tr></thead>
           <tbody>
             {% for row in top_departments_annually %}
-              <tr><td>{{ row.who_to_visit|default:"—" }}</td><td style="text-align:right;">{{ row.count }}</td></tr>
+              <tr><td>{{ row.who_to_visit|default:"-" }}</td><td style="text-align:right;">{{ row.count }}</td></tr>
             {% empty %}
               <tr><td colspan="2" class="text-muted">No visitor data this year.</td></tr>
             {% endfor %}
@@ -116,15 +294,55 @@
         </table>
       </div>
     </div>
-  </div>
 
+    <h3 style="font-size:14px; margin:12px 0 8px; color:#4b5563;">Recent visitor entries (filtered)</h3>
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Purpose</th>
+          <th>Department / Office</th>
+          <th>Status</th>
+          <th>Type</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in recent_visitors %}
+          <tr>
+            <td>{{ v.full_name }}</td>
+            <td>{{ v.purpose|default:"-" }}</td>
+            <td>{{ v.department|default:"-" }}</td>
+            <td>{{ v.status|default:"-" }}</td>
+            <td>{{ v.entry_type|default:"-" }}</td>
+            <td>{{ v.timestamp|date:"M d, Y H:i" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6" class="text-muted">No visitor entries found for selected filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if include_entries %}
   <div class="report-section">
     <h2>Recent gate entries</h2>
+    <p class="text-muted mb-2" style="font-size:12px;">
+      Filters:
+      Program: {{ selected_student_program|default:"All" }},
+      Section: {{ selected_student_section|default:"All" }},
+      IN/OUT: {{ selected_student_scan_type|default:"All" }},
+      Reason: {{ selected_student_reason|default:"All" }},
+      Time: {{ selected_student_from_time|default:"--:--" }} to {{ selected_student_to_time|default:"--:--" }}
+    </p>
     <table class="report-table">
       <thead>
         <tr>
           <th>Student ID</th>
           <th>Name</th>
+          <th>Program</th>
+          <th>Section</th>
           <th>Result</th>
           <th>Out reason</th>
           <th>Recorded by</th>
@@ -134,20 +352,24 @@
       <tbody>
         {% for e in recent_entries %}
           <tr>
-            <td>{% if e.student %}{{ e.student.student_id }}{% else %}—{% endif %}</td>
-            <td>{% if e.student %}{{ e.student.get_full_name }}{% else %}—{% endif %}</td>
+            <td>{% if e.student %}{{ e.student.student_id }}{% else %}-{% endif %}</td>
+            <td>{% if e.student %}{{ e.student.get_full_name }}{% else %}-{% endif %}</td>
+            <td>{% if e.student and e.student.course %}{{ e.student.course }}{% else %}-{% endif %}</td>
+            <td>{% if e.student and e.student.section %}{{ e.student.section }}{% else %}-{% endif %}</td>
             <td>{% if e.granted %}Granted{% else %}Denied{% endif %}</td>
-            <td>{% if e.out_reason %}{{ e.out_reason }}{% else %}—{% endif %}</td>
-            <td>{% if e.recorded_by %}{{ e.recorded_by.get_full_name|default:e.recorded_by.username }}{% else %}—{% endif %}</td>
+            <td>{% if e.out_reason %}{{ e.out_reason }}{% else %}-{% endif %}</td>
+            <td>{% if e.recorded_by %}{{ e.recorded_by.get_full_name|default:e.recorded_by.username }}{% else %}-{% endif %}</td>
             <td>{{ e.timestamp|date:"M d, Y H:i" }}</td>
           </tr>
         {% empty %}
-          <tr><td colspan="6" class="text-muted">No entries yet.</td></tr>
+          <tr><td colspan="8" class="text-muted">No entries found for selected period.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  {% endif %}
 
+  {% if include_incidents %}
   <div class="report-section">
     <h2>Recent incidents</h2>
     <table class="report-table">
@@ -161,17 +383,19 @@
       <tbody>
         {% for i in recent_incidents %}
           <tr>
-            <td>{% if i.scanned_id %}{{ i.scanned_id }}{% elif i.student %}{{ i.student.student_id }}{% else %}—{% endif %} {% if i.student %}({{ i.student.get_full_name }}){% endif %}</td>
+            <td>{% if i.scanned_id %}{{ i.scanned_id }}{% elif i.student %}{{ i.student.student_id }}{% else %}-{% endif %} {% if i.student %}({{ i.student.get_full_name }}){% endif %}</td>
             <td>{{ i.get_reason_display|default:i.reason }}</td>
             <td>{{ i.timestamp|date:"M d, Y H:i" }}</td>
           </tr>
         {% empty %}
-          <tr><td colspan="3" class="text-muted">No incidents.</td></tr>
+          <tr><td colspan="3" class="text-muted">No incidents found for selected period.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  {% endif %}
 
+  {% if include_events %}
   <div class="report-section">
     <h2>Event participation</h2>
     <table class="report-table">
@@ -186,20 +410,110 @@
       <tbody>
         {% for s in participation_stats %}
           <tr>
-            <td>{{ s.event__name|default:"—" }}</td>
+            <td>{{ s.event__name|default:"-" }}</td>
             <td>{{ s.total }}</td>
             <td>{{ s.participated_count }}</td>
             <td>{{ s.non_participant_count }}</td>
           </tr>
         {% empty %}
-          <tr><td colspan="4" class="text-muted">No event participation data yet.</td></tr>
+          <tr><td colspan="4" class="text-muted">No event participation data for selected period.</td></tr>
         {% endfor %}
       </tbody>
     </table>
-  </div>
 
+    <div class="print-block">
+      <h3 style="font-size:14px; margin:12px 0 8px; color:#4b5563;">Students who participated</h3>
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>Student ID</th>
+            <th>Name</th>
+            <th>Program</th>
+            <th>Section</th>
+            <th>Check-in</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in event_participated_rows %}
+            <tr>
+              <td>{{ row.event.name }}</td>
+              <td>{{ row.student.student_id }}</td>
+              <td>{{ row.student.get_full_name }}</td>
+              <td>{{ row.student.course|default:"-" }}</td>
+              <td>{{ row.student.section|default:"-" }}</td>
+              <td>{% if row.checked_in_at %}{{ row.checked_in_at|date:"M d, Y H:i" }}{% else %}-{% endif %}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-muted">No participated students for selected filters.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="print-block">
+      <h3 style="font-size:14px; margin:12px 0 8px; color:#4b5563;">Students present (checked in)</h3>
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>Student ID</th>
+            <th>Name</th>
+            <th>Program</th>
+            <th>Section</th>
+            <th>Check-in</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in event_present_rows %}
+            <tr>
+              <td>{{ row.event.name }}</td>
+              <td>{{ row.student.student_id }}</td>
+              <td>{{ row.student.get_full_name }}</td>
+              <td>{{ row.student.course|default:"-" }}</td>
+              <td>{{ row.student.section|default:"-" }}</td>
+              <td>{{ row.checked_in_at|date:"M d, Y H:i" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-muted">No present students for selected filters.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="print-block">
+      <h3 style="font-size:14px; margin:12px 0 8px; color:#4b5563;">Students absent (not checked in)</h3>
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>Student ID</th>
+            <th>Name</th>
+            <th>Program</th>
+            <th>Section</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in event_absent_rows %}
+            <tr>
+              <td>{{ row.event.name }}</td>
+              <td>{{ row.student.student_id }}</td>
+              <td>{{ row.student.get_full_name }}</td>
+              <td>{{ row.student.course|default:"-" }}</td>
+              <td>{{ row.student.section|default:"-" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5" class="text-muted">No absent students for selected filters.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if include_active_events %}
   <div class="report-section">
-    <h2>Active events (as of report date)</h2>
+    <h2>Active events (within selected period)</h2>
     {% if active_events %}
       <table class="report-table">
         <thead>
@@ -216,10 +530,24 @@
         </tbody>
       </table>
     {% else %}
-      <p class="text-muted mb-0">No active events on this date.</p>
+      <p class="text-muted mb-0">No active events within selected period.</p>
     {% endif %}
   </div>
+  {% endif %}
 
-  <p class="text-muted small mt-4">Generated by {{ site_name }} – Gate & Attendance. Developed by NORSU-BSC Capstone Project.</p>
+  <div class="signatories">
+    <div class="sig-block">
+      <div class="sig-line"></div>
+      <div class="sig-name">{{ first_signatory_name|default:"First Signatory" }}</div>
+      <div class="sig-title">{{ first_signatory_title|default:"Title / Position" }}</div>
+    </div>
+    <div class="sig-block">
+      <div class="sig-line"></div>
+      <div class="sig-name">{{ second_signatory_name|default:"Second Signatory" }}</div>
+      <div class="sig-title">{{ second_signatory_title|default:"Title / Position" }}</div>
+    </div>
+  </div>
+
+  <p class="text-muted small mt-4">Generated by {{ site_name }} - Gate and Attendance.</p>
 </div>
 {% endblock content %}

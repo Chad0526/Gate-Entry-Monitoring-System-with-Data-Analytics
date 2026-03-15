@@ -88,5 +88,16 @@ class RoleRequiredMixin:
 
 
 def user_role_context(request):
-    """Template context: user_role for sidebar/navbar role-based display."""
-    return {'user_role': get_user_role(request.user) if request.user.is_authenticated else None}
+    """Template context: user_role for sidebar/navbar; profile_avatar_url for sidebar profile photo."""
+    if not request.user.is_authenticated:
+        return {'user_role': None, 'profile_avatar_url': None}
+    try:
+        from gate.models import UserProfile
+        up = UserProfile.objects.filter(user=request.user).first()
+        avatar_url = up.avatar.url if up and up.avatar else None
+    except Exception:
+        avatar_url = None
+    return {
+        'user_role': get_user_role(request.user),
+        'profile_avatar_url': avatar_url,
+    }

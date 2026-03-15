@@ -1,83 +1,228 @@
 {% extends 'base/base.html' %}
+{% load static %}
 {% block title %}Reports – Overview – {{ site_name }}{% endblock title %}
-{% block breadcrumb %}Reports / Overview{% endblock breadcrumb %}
+{% block breadcrumb %}Reports{% endblock breadcrumb %}
+{% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
+{% endblock extrahead %}
 
 {% block content %}
-<h5 class="mb-3">Reports – Overview</h5>
+<style>
+  /* ── Snapshot stat cards ── */
+  .ro-snap-heading {
+    display: flex; align-items: center; gap: 10px;
+    margin: 4px 0 14px;
+  }
+  .ro-snap-heading h6 {
+    margin: 0; font-weight: 700; font-size: 0.92rem; color: #14532d;
+  }
+  .ro-snap-heading p {
+    margin: 0; font-size: 0.78rem; color: #4d7c5e;
+  }
+  .ro-stats {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .ro-stat {
+    background: #fff;
+    border-radius: 14px;
+    padding: 18px 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    display: flex; align-items: center; gap: 14px;
+    text-decoration: none !important;
+    color: inherit !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .ro-stat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  }
+  .ro-stat-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; flex-shrink: 0;
+  }
+  .ro-stat-icon.green { background: linear-gradient(135deg,#dcfce7,#bbf7d0); color: #16a34a; }
+  .ro-stat-icon.blue { background: linear-gradient(135deg,#dbeafe,#bfdbfe); color: #2563eb; }
+  .ro-stat-icon.red { background: linear-gradient(135deg,#fee2e2,#fecaca); color: #dc2626; }
+  .ro-stat-icon.amber { background: linear-gradient(135deg,#fef3c7,#fde68a); color: #d97706; }
+  .ro-stat-icon.slate { background: linear-gradient(135deg,#f1f5f9,#e2e8f0); color: #475569; }
+  .ro-stat-val { font-size: 1.5rem; font-weight: 800; color: #14532d; line-height: 1; }
+  .ro-stat-label { font-size: 0.72rem; color: #4d7c5e; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+  @media (max-width: 991px) { .ro-stats { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 575px) { .ro-stats { grid-template-columns: repeat(2, 1fr); } }
+
+  /* ── Section cards ── */
+  .ro-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    margin-bottom: 20px;
+    overflow: hidden;
+    transition: box-shadow 0.15s ease;
+  }
+  .ro-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+  .ro-card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
+  .ro-card-head-left { display: flex; align-items: center; gap: 10px; }
+  .ro-card-head-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem; flex-shrink: 0;
+  }
+  .ro-card-head-icon.green { background: linear-gradient(135deg,#dcfce7,#bbf7d0); color: #16a34a; }
+  .ro-card-head-icon.blue { background: linear-gradient(135deg,#dbeafe,#bfdbfe); color: #2563eb; }
+  .ro-card-head-icon.amber { background: linear-gradient(135deg,#fef3c7,#fde68a); color: #d97706; }
+  .ro-card-head-icon.teal { background: linear-gradient(135deg,#cffafe,#a5f3fc); color: #0891b2; }
+  .ro-card-title { margin: 0; font-weight: 700; font-size: 0.88rem; color: #14532d; }
+  .ro-card-body { padding: 18px 20px; }
+  .ro-card-body.p0 { padding: 0; }
+
+  /* ── Tables inside cards ── */
+  .ro-table { width: 100%; border-collapse: collapse; margin: 0; font-size: 0.84rem; }
+  .ro-table thead th {
+    background: #f1f5f9;
+    color: #2d6a42;
+    font-weight: 700;
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 10px 16px;
+    border-bottom: 2px solid #e2e8f0;
+    border-top: none;
+  }
+  .ro-table tbody td {
+    padding: 10px 16px;
+    color: #14532d;
+    vertical-align: middle;
+    border-top: 1px solid #f1f5f9;
+  }
+  .ro-table tbody tr { transition: background 0.1s ease; }
+  .ro-table tbody tr:hover { background: rgba(22,163,74,0.03); }
+  .ro-table tbody tr:nth-child(even) { background: #fafcfb; }
+  .ro-table tbody tr:nth-child(even):hover { background: rgba(22,163,74,0.04); }
+
+  /* ── Badge ── */
+  .ro-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+  .ro-badge.success { background: #dcfce7; color: #15803d; }
+  .ro-badge.danger { background: #fee2e2; color: #dc2626; }
+
+  /* ── Heatmap ── */
+  .ro-heatmap { font-size: 0.7rem; border-collapse: separate; border-spacing: 2px; width: 100%; }
+  .ro-heatmap th {
+    padding: 4px 6px;
+    font-weight: 700;
+    color: #4d7c5e;
+    font-size: 0.68rem;
+    text-align: center;
+  }
+  .ro-heatmap td {
+    padding: 4px 2px;
+    text-align: center;
+    border-radius: 4px;
+    font-weight: 600;
+    min-width: 22px;
+    transition: transform 0.1s ease;
+  }
+  .ro-heatmap td:hover { transform: scale(1.15); }
+  .ro-heatmap .ro-hm-date { text-align: left; font-weight: 600; color: #14532d; white-space: nowrap; padding-right: 8px; }
+
+  /* ── Empty state ── */
+  .ro-empty { text-align: center; padding: 32px 20px; color: #4d7c5e; }
+  .ro-empty i { font-size: 1.5rem; margin-bottom: 8px; display: block; color: #bbf7d0; }
+
+  /* ── Link button ── */
+  .ro-link-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 8px;
+    font-weight: 600; font-size: 0.78rem;
+    color: #16a34a; border: 1px solid #16a34a;
+    text-decoration: none; transition: all 0.15s ease;
+  }
+  .ro-link-btn:hover { background: #16a34a; color: #fff; text-decoration: none; }
+</style>
+
+<div class="monitor-wrap">
+{% include 'gate/reports/_reports_tabs.html' %}
 
 {% include 'gate/reports/_filter_bar.html' %}
 
-<h6 class="text-muted mt-3">Today's snapshot</h6>
-<p class="small text-muted">Click a card to open the full list with the same date filter.</p>
-<div class="row">
-  <div class="col-lg-2 col-4">
-    <a href="{{ entries_list_url }}" class="text-decoration-none">
-      <div class="small-box bg-success">
-        <div class="inner">
-          <h3>{{ total_visits }}</h3>
-          <p>Total visits</p>
-        </div>
-        <div class="icon"><i class="fas fa-door-open"></i></div>
-      </div>
-    </a>
+<div class="ro-snap-heading">
+  <div>
+    <h6><i class="fas fa-chart-bar mr-1" style="color:#16a34a;"></i> Today's Snapshot</h6>
+    <p>Click a card to open the full list with the same date filter.</p>
   </div>
-  <div class="col-lg-2 col-4">
-    <a href="{% url 'reports-daily-gate' %}?from_date={{ filter_date|date:'Y-m-d' }}&tab=inside_now" class="text-decoration-none">
-      <div class="small-box bg-info">
-        <div class="inner">
-          <h3>{{ inside_now }}</h3>
-          <p>Inside now</p>
-        </div>
-        <div class="icon"><i class="fas fa-user-friends"></i></div>
-      </div>
-    </a>
-  </div>
-  <div class="col-lg-2 col-4">
-    <a href="{{ incidents_list_url }}" class="text-decoration-none">
-      <div class="small-box bg-danger">
-        <div class="inner">
-          <h3>{{ denied_attempts }}</h3>
-          <p>Denied attempts</p>
-        </div>
-        <div class="icon"><i class="fas fa-times-circle"></i></div>
-      </div>
-    </a>
-  </div>
-  <div class="col-lg-2 col-4">
-    <a href="{{ incidents_list_url }}" class="text-decoration-none">
-      <div class="small-box bg-warning">
-        <div class="inner">
-          <h3>{{ incidents_created }}</h3>
-          <p>Incidents created</p>
-        </div>
-        <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
-      </div>
-    </a>
-  </div>
-  <div class="col-lg-2 col-4">
-    <a href="{% url 'reports-daily-gate' %}?from_date={{ filter_date|date:'Y-m-d' }}&tab=early_outs" class="text-decoration-none">
-      <div class="small-box bg-secondary">
-        <div class="inner">
-          <h3>{{ forced_out_no_in }}</h3>
-          <p>Forced OUT (no IN)</p>
-        </div>
-        <div class="icon"><i class="fas fa-sign-out-alt"></i></div>
-      </div>
-    </a>
-  </div>
+</div>
+<div class="ro-stats">
+  <a href="{{ entries_list_url }}" class="ro-stat">
+    <div class="ro-stat-icon green"><i class="fas fa-door-open"></i></div>
+    <div>
+      <div class="ro-stat-label">Total visits</div>
+      <div class="ro-stat-val">{{ total_visits }}</div>
+    </div>
+  </a>
+  <a href="{% url 'reports-daily-gate' %}?from_date={{ filter_date|date:'Y-m-d' }}&tab=inside_now" class="ro-stat">
+    <div class="ro-stat-icon blue"><i class="fas fa-user-friends"></i></div>
+    <div>
+      <div class="ro-stat-label">Inside now</div>
+      <div class="ro-stat-val">{{ inside_now }}</div>
+    </div>
+  </a>
+  <a href="{{ incidents_list_url }}" class="ro-stat">
+    <div class="ro-stat-icon red"><i class="fas fa-times-circle"></i></div>
+    <div>
+      <div class="ro-stat-label">Denied attempts</div>
+      <div class="ro-stat-val">{{ denied_attempts }}</div>
+    </div>
+  </a>
+  <a href="{{ incidents_list_url }}" class="ro-stat">
+    <div class="ro-stat-icon amber"><i class="fas fa-exclamation-triangle"></i></div>
+    <div>
+      <div class="ro-stat-label">Incidents created</div>
+      <div class="ro-stat-val">{{ incidents_created }}</div>
+    </div>
+  </a>
+  <a href="{% url 'reports-daily-gate' %}?from_date={{ filter_date|date:'Y-m-d' }}&tab=early_outs" class="ro-stat">
+    <div class="ro-stat-icon slate"><i class="fas fa-sign-out-alt"></i></div>
+    <div>
+      <div class="ro-stat-label">Forced OUT (no IN)</div>
+      <div class="ro-stat-val">{{ forced_out_no_in }}</div>
+    </div>
+  </a>
 </div>
 
 {% if top_early_out %}
-<div class="row mt-4">
+<div class="row">
   <div class="col-md-6">
-    <div class="card">
-      <div class="card-header"><h6 class="m-0">Top reasons for early OUT</h6></div>
-      <div class="card-body p-0">
-        <table class="table table-sm table-striped mb-0">
+    <div class="ro-card">
+      <div class="ro-card-head">
+        <div class="ro-card-head-left">
+          <div class="ro-card-head-icon amber"><i class="fas fa-sign-out-alt"></i></div>
+          <h6 class="ro-card-title">Top Reasons for Early OUT</h6>
+        </div>
+      </div>
+      <div class="ro-card-body p0">
+        <table class="ro-table">
           <thead><tr><th>Reason code</th><th>Count</th></tr></thead>
           <tbody>
             {% for row in top_early_out %}
-            <tr><td>{{ row.out_reason_code }}</td><td>{{ row.c }}</td></tr>
+            <tr><td><code style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:0.8rem;">{{ row.out_reason_code }}</code></td><td><strong>{{ row.c }}</strong></td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -87,78 +232,119 @@
 </div>
 {% endif %}
 
-<div class="row mt-4">
-  <div class="col-md-8">
-    <div class="card">
-      <div class="card-header"><h6 class="m-0">Hourly traffic (IN / OUT)</h6></div>
-      <div class="card-body">
+<div class="row">
+  <div class="col-lg-8">
+    <div class="ro-card">
+      <div class="ro-card-head">
+        <div class="ro-card-head-left">
+          <div class="ro-card-head-icon blue"><i class="fas fa-chart-bar"></i></div>
+          <h6 class="ro-card-title">Hourly Traffic (IN / OUT)</h6>
+        </div>
+      </div>
+      <div class="ro-card-body">
         <canvas id="hourlyChart" height="80"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="ro-card" style="height:100%;">
+      <div class="ro-card-head">
+        <div class="ro-card-head-left">
+          <div class="ro-card-head-icon green"><i class="fas fa-info-circle"></i></div>
+          <h6 class="ro-card-title">Quick Summary</h6>
+        </div>
+      </div>
+      <div class="ro-card-body" style="display:flex;flex-direction:column;gap:12px;font-size:0.84rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f0fdf4;border-radius:10px;">
+          <span style="color:#4d7c5e;font-weight:600;">Total visits</span>
+          <strong style="color:#14532d;font-size:1.1rem;">{{ total_visits }}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#eff6ff;border-radius:10px;">
+          <span style="color:#4d7c5e;font-weight:600;">Inside now</span>
+          <strong style="color:#14532d;font-size:1.1rem;">{{ inside_now }}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#fef2f2;border-radius:10px;">
+          <span style="color:#4d7c5e;font-weight:600;">Denied</span>
+          <strong style="color:#14532d;font-size:1.1rem;">{{ denied_attempts }}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#fffbeb;border-radius:10px;">
+          <span style="color:#4d7c5e;font-weight:600;">Incidents</span>
+          <strong style="color:#14532d;font-size:1.1rem;">{{ incidents_created }}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f8fafc;border-radius:10px;">
+          <span style="color:#4d7c5e;font-weight:600;">Forced OUT</span>
+          <strong style="color:#14532d;font-size:1.1rem;">{{ forced_out_no_in }}</strong>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
 {% if heatmap_rows %}
-<div class="row mt-4">
-  <div class="col-12">
-    <div class="card">
-      <div class="card-header"><h6 class="m-0">Heatmap: Day × Hour (last 7 days)</h6></div>
-      <div class="card-body overflow-auto">
-        <p class="small text-muted mb-2">Scans per hour; darker = more traffic.</p>
-        <table class="table table-sm table-bordered mb-0" style="font-size:11px;">
-          <thead>
-            <tr>
-              <th>Date</th>
-              {% for h in "0123456789" %}<th>{{ h }}</th>{% endfor %}
-              <th>10</th><th>11</th><th>12</th><th>13</th><th>14</th><th>15</th><th>16</th><th>17</th><th>18</th><th>19</th>
-              <th>20</th><th>21</th><th>22</th><th>23</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for date_row in heatmap_rows %}
-            <tr>
-              <td class="text-nowrap">{{ date_row.0|date:"M d" }}</td>
-              {% for cell in date_row.1 %}
-              <td class="p-1 text-center" style="min-width:16px; background: rgba(27, 94, 32, {{ cell.opacity }}); color: {% if cell.opacity >= 0.5 %}#fff{% else %}#333{% endif %};" title="{{ cell.count }} scans">{% if cell.count %}{{ cell.count }}{% endif %}</td>
-              {% endfor %}
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <p class="small text-muted mt-1 mb-0">Columns: hour (0–23). Rows: oldest to newest day.</p>
+<div class="ro-card" style="margin-top:4px;">
+  <div class="ro-card-head">
+    <div class="ro-card-head-left">
+      <div class="ro-card-head-icon teal"><i class="fas fa-th"></i></div>
+      <div>
+        <h6 class="ro-card-title">Scan Heatmap</h6>
+        <span style="font-size:0.74rem;color:#4d7c5e;font-weight:500;">Day × Hour (last 7 days) — darker = more traffic</span>
       </div>
     </div>
+  </div>
+  <div class="ro-card-body" style="overflow-x:auto;">
+    <table class="ro-heatmap">
+      <thead>
+        <tr>
+          <th>Date</th>
+          {% for h in "0123456789" %}<th>{{ h }}</th>{% endfor %}
+          <th>10</th><th>11</th><th>12</th><th>13</th><th>14</th><th>15</th><th>16</th><th>17</th><th>18</th><th>19</th>
+          <th>20</th><th>21</th><th>22</th><th>23</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for date_row in heatmap_rows %}
+        <tr>
+          <td class="ro-hm-date">{{ date_row.0|date:"M d" }}</td>
+          {% for cell in date_row.1 %}
+          <td style="background: rgba(22, 163, 74, {{ cell.opacity }}); color: {% if cell.opacity >= 0.5 %}#fff{% else %}#14532d{% endif %};" title="{{ cell.count }} scans">{% if cell.count %}{{ cell.count }}{% endif %}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
 {% endif %}
 
-<div class="row mt-4">
-  <div class="col-12">
-    <div class="card">
-      <div class="card-header d-flex justify-content-between">
-        <h6 class="m-0">Recent activity (last 20)</h6>
-        <a href="{{ entries_list_url }}" class="btn btn-sm btn-outline-primary">View all entries</a>
-      </div>
-      <div class="card-body p-0">
-        {% if recent_activity %}
-        <table class="table table-sm table-striped table-hover mb-0">
-          <thead><tr><th>Time</th><th>Student</th><th>Type</th><th>Result</th></tr></thead>
-          <tbody>
-            {% for e in recent_activity %}
-            <tr>
-              <td>{{ e.timestamp|date:"M d, H:i" }}</td>
-              <td>{{ e.student.student_id|default:e.notes }} {{ e.student.get_full_name|default:"" }}</td>
-              <td>{{ e.scan_type|default:"—" }}</td>
-              <td>{% if e.granted %}<span class="badge badge-success">Granted</span>{% else %}<span class="badge badge-danger">Denied</span>{% endif %}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        {% else %}
-        <p class="text-muted p-3 mb-0">No activity in the selected period.</p>
-        {% endif %}
-      </div>
+<div class="ro-card" style="margin-top:4px;">
+  <div class="ro-card-head">
+    <div class="ro-card-head-left">
+      <div class="ro-card-head-icon green"><i class="fas fa-stream"></i></div>
+      <h6 class="ro-card-title">Recent Activity (last 20)</h6>
     </div>
+    <a href="{{ entries_list_url }}" class="ro-link-btn"><i class="fas fa-external-link-alt"></i> View all</a>
+  </div>
+  <div class="ro-card-body p0">
+    {% if recent_activity %}
+    <table class="ro-table">
+      <thead><tr><th>Time</th><th>Student</th><th>Type</th><th>Result</th></tr></thead>
+      <tbody>
+        {% for e in recent_activity %}
+        <tr>
+          <td>{{ e.timestamp|date:"M d, H:i" }}</td>
+          <td><strong>{{ e.student.student_id|default:e.notes }}</strong> {{ e.student.get_full_name|default:"" }}</td>
+          <td><code style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:0.78rem;">{{ e.scan_type|default:"—" }}</code></td>
+          <td>{% if e.granted %}<span class="ro-badge success">Granted</span>{% else %}<span class="ro-badge danger">Denied</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="ro-empty">
+      <i class="fas fa-inbox"></i>
+      <p>No activity in the selected period.</p>
+    </div>
+    {% endif %}
   </div>
 </div>
 
@@ -175,12 +361,17 @@
     data: {
       labels: labels,
       datasets: [
-        { label: 'IN', data: data.map(function(d){ return d.in; }), backgroundColor: 'rgba(40, 167, 69, 0.7)' },
-        { label: 'OUT', data: data.map(function(d){ return d.out; }), backgroundColor: 'rgba(0, 123, 255, 0.7)' }
+        { label: 'IN', data: data.map(function(d){ return d.in; }), backgroundColor: 'rgba(22, 163, 74, 0.75)', borderRadius: 4, borderSkipped: false },
+        { label: 'OUT', data: data.map(function(d){ return d.out; }), backgroundColor: 'rgba(37, 99, 235, 0.65)', borderRadius: 4, borderSkipped: false }
       ]
     },
-    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { font: { weight: '600', size: 12 }, usePointStyle: true, pointStyle: 'rectRounded' } } },
+      scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' } }, x: { grid: { display: false } } }
+    }
   });
 })();
 </script>
+</div>
 {% endblock content %}

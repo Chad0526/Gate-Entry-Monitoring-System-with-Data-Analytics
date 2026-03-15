@@ -43,7 +43,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if options['week_ending']:
             try:
-                sunday = timezone.datetime.strptime(options['week_ending'], '%Y-%m-%d').date()
+                sunday = datetime.datetime.strptime(options['week_ending'], '%Y-%m-%d').date()
             except ValueError:
                 self.stderr.write(self.style.ERROR('Invalid --week-ending. Use YYYY-MM-DD.'))
                 return

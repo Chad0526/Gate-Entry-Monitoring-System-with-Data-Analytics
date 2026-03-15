@@ -109,3 +109,68 @@ def send_daily_digest(date=None):
         )
     except Exception as e:
         logger.warning('send_daily_digest failed: %s', e)
+
+
+def notify_student_status_change(student, new_status=None):
+    """Email the student when their account status changes (pending, approved, rejected, inactive)."""
+    email = (student.email or '').strip()
+    if not email:
+        return
+    try:
+        site_name = getattr(settings, 'SITE_NAME', 'City College of Bayawan')
+        status_code = new_status or getattr(student, 'account_status', '')
+        try:
+            status_label = student.get_account_status_display()
+        except Exception:
+            status_label = status_code or 'Updated'
+
+        subject = f"[{site_name}] Your student account status: {status_label}"
+
+        # Customize message per status (optional).
+        status_code_upper = (status_code or '').upper()
+        if status_code_upper == 'APPROVED':
+            main_line = "Your student account has been approved by the administrator."
+            extra_line = "You can now sign in and use the gate & attendance system."
+        elif status_code_upper == 'PENDING':
+            main_line = "Your student registration is received and is pending approval."
+            extra_line = "You will receive another email once the administrator approves your account."
+        elif status_code_upper == 'REJECTED':
+            main_line = "Your student account request was not approved."
+            extra_line = "Please contact the school for more details if you believe this is a mistake."
+        elif status_code_upper == 'INACTIVE':
+            main_line = "Your student account has been set to inactive."
+            extra_line = "You will not be able to use the gate & attendance system until it is reactivated."
+        else:
+            main_line = f"Your student account status has been updated to: {status_label}."
+            extra_line = ""
+
+        body_lines = [
+            f"Hello {student.get_full_name() or student.student_id},",
+            "",
+            main_line,
+            extra_line,
+            "",
+            "If you did not request this account, please contact the school immediately.",
+        ]
+        body = "\n".join(body_lines)
+
+        # Send to the student, and BCC the system sender so there is an audit trail.
+        recipients = [email]
+        sender = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@localhost')
+        if sender and sender not in recipients:
+            recipients.append(sender)
+
+        send_mail(
+            subject,
+            body,
+            sender,
+            recipients,
+            fail_silently=False,  # surface any SMTP errors in the server log
+        )
+    except Exception as e:
+        logger.warning('notify_student_status_change failed: %s', e)
+
+
+def notify_student_approved(student):
+    """Backward-compatible wrapper: specific case for approval."""
+    notify_student_status_change(student, new_status='APPROVED')

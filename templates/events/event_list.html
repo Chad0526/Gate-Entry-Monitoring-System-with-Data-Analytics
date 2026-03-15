@@ -1,132 +1,505 @@
 {% extends 'base/base.html' %}
-{% block title %}Event List{% endblock title %}
+{% load static %}
+{% block title %}Events – {{ site_name|default:"CCB" }}{% endblock title %}
 {% block breadcrumb %}Event List{% endblock breadcrumb %}
 
+{% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
+<style>
+  .el-hero {
+    position: relative;
+    overflow: hidden;
+    background-image:
+      linear-gradient(135deg, rgba(22,163,74,0.82), rgba(21,128,61,0.75)),
+      url('/media/event_image/background.jpg'),
+      url('/media/background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: #fff;
+    border-radius: 16px 16px 0 0;
+    padding: 28px 24px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .el-hero h2 {
+    margin: 0; font-size: 1.55rem; font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.25);
+  }
+  .el-hero p {
+    margin: 4px 0 0; font-size: 0.85rem;
+    color: #d1fae5; font-weight: 600; text-shadow: 0 1px 6px rgba(0,0,0,0.3);
+  }
+  .el-hero-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .el-hero-actions .btn {
+    border-radius: 10px; font-weight: 600; font-size: 0.84rem;
+    padding: 9px 18px; border: none; transition: all .15s ease;
+  }
+  .el-btn-create {
+    background: #fff; color: #16a34a;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  .el-btn-create:hover {
+    background: #f0fdf4; color: #15803d;
+    transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+    text-decoration: none;
+  }
+
+  /* Stats */
+  .el-stats {
+    display: grid; grid-template-columns: repeat(4,1fr);
+    gap: 14px; margin: 16px 0;
+  }
+  .el-stat-card {
+    background: #fff; border-radius: 14px; padding: 18px 16px;
+    border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    display: flex; align-items: center; gap: 14px;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .el-stat-card:hover {
+    transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  }
+  .el-stat-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; flex-shrink: 0;
+  }
+  .el-stat-icon.green { background: linear-gradient(135deg,#dcfce7,#bbf7d0); color: #16a34a; }
+  .el-stat-icon.blue { background: linear-gradient(135deg,#dbeafe,#bfdbfe); color: #2563eb; }
+  .el-stat-icon.amber { background: linear-gradient(135deg,#fef3c7,#fde68a); color: #d97706; }
+  .el-stat-icon.slate { background: linear-gradient(135deg,#f1f5f9,#e2e8f0); color: #4d7c5e; }
+  .el-stat-val { font-size: 1.5rem; font-weight: 800; color: #14532d; line-height: 1; }
+  .el-stat-label { font-size: 0.75rem; color: #4d7c5e; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+
+  /* Toolbar */
+  .el-toolbar {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 0 0 16px 16px;
+    padding: 12px 18px; display: flex; align-items: center;
+    justify-content: space-between; flex-wrap: wrap; gap: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04); margin-bottom: 18px;
+  }
+  .el-search {
+    display: flex; align-items: center; gap: 0;
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+    overflow: hidden; transition: border-color .15s ease;
+    min-width: 220px;
+  }
+  .el-search:focus-within { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.1); }
+  .el-search input {
+    border: none; background: transparent; padding: 8px 12px;
+    font-size: 0.84rem; outline: none; flex: 1; min-width: 0;
+  }
+  .el-search button {
+    background: none; border: none; padding: 8px 12px;
+    color: #4d7c5e; cursor: pointer;
+  }
+  .el-search button:hover { color: #16a34a; }
+  .el-view-btns { display: flex; gap: 4px; }
+  .el-view-btn {
+    padding: 7px 12px; border-radius: 8px; border: 1px solid #e2e8f0;
+    background: #fff; color: #4d7c5e; font-size: 0.82rem; font-weight: 600;
+    cursor: pointer; transition: all .15s ease; display: flex; align-items: center; gap: 5px;
+  }
+  .el-view-btn:hover { border-color: #16a34a; color: #16a34a; background: #f0fdf4; }
+  .el-view-btn.active { background: #16a34a; color: #fff; border-color: #16a34a; }
+  .el-filter-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .el-filter-pill {
+    padding: 6px 14px; border-radius: 20px; border: 1px solid #e2e8f0;
+    background: #fff; color: #4d7c5e; font-size: 0.78rem; font-weight: 600;
+    cursor: pointer; transition: all .15s ease;
+  }
+  .el-filter-pill:hover { border-color: #16a34a; color: #16a34a; background: #f0fdf4; }
+  .el-filter-pill.active { background: #16a34a; color: #fff; border-color: #16a34a; }
+
+  /* Table view */
+  .el-table-card {
+    background: #fff; border-radius: 14px; border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04); overflow: hidden;
+  }
+  .el-table { width: 100%; border-collapse: collapse; }
+  .el-table thead th {
+    background: #f8fafc; color: #2d6a42; font-weight: 700;
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 12px 16px; border-bottom: 2px solid #e2e8f0;
+  }
+  .el-table tbody td {
+    padding: 14px 16px; font-size: 0.84rem; color: #1a5c35;
+    vertical-align: middle; border-bottom: 1px solid #f1f5f9;
+  }
+  .el-table tbody tr { transition: background .1s ease; }
+  .el-table tbody tr:hover { background: #f0fdf4; }
+  .el-event-name {
+    font-weight: 700; color: #14532d; font-size: 0.88rem;
+    display: block; margin-bottom: 2px;
+  }
+  .el-event-venue { font-size: 0.76rem; color: #4d7c5e; }
+  .el-event-thumb {
+    width: 56px; height: 56px; border-radius: 10px;
+    object-fit: cover; border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .el-date { font-size: 0.82rem; font-weight: 600; color: #14532d; white-space: nowrap; }
+  .el-date-sub { font-size: 0.72rem; color: #4d7c5e; }
+
+  /* Status badges */
+  .el-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 12px; border-radius: 20px; font-size: 0.74rem;
+    font-weight: 700; letter-spacing: 0.02em; white-space: nowrap;
+  }
+  .el-badge i { font-size: 0.6rem; }
+  .el-badge-active { background: #dcfce7; color: #16a34a; }
+  .el-badge-scheduled { background: #dbeafe; color: #2563eb; }
+  .el-badge-completed { background: #f0fdf4; color: #15803d; }
+  .el-badge-done { background: #f1f5f9; color: #4d7c5e; }
+  .el-badge-draft { background: #fef3c7; color: #d97706; }
+  .el-badge-cancelled { background: #fee2e2; color: #dc2626; }
+
+  /* Action buttons */
+  .el-actions { display: flex; gap: 4px; align-items: center; }
+  .el-act-btn {
+    width: 34px; height: 34px; border-radius: 8px; border: 1px solid #e2e8f0;
+    background: #fff; display: flex; align-items: center; justify-content: center;
+    color: #4d7c5e; font-size: 0.82rem; cursor: pointer;
+    transition: all .15s ease; text-decoration: none;
+  }
+  .el-act-btn:hover { border-color: #16a34a; color: #16a34a; background: #f0fdf4; text-decoration: none; }
+  .el-act-btn.danger:hover { border-color: #dc2626; color: #dc2626; background: #fef2f2; }
+  .el-act-btn.disabled { opacity: 0.4; pointer-events: none; }
+  .el-act-btn.scan { background: #16a34a; color: #fff; border-color: #16a34a; }
+  .el-act-btn.scan:hover { background: #15803d; }
+
+  /* Grid view */
+  .el-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px; display: none;
+  }
+  .el-grid-card {
+    background: #fff; border-radius: 14px; border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04); overflow: hidden;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .el-grid-card:hover {
+    transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+  }
+  .el-grid-img {
+    width: 100%; height: 160px; object-fit: cover;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .el-grid-img-placeholder {
+    width: 100%; height: 160px; background: linear-gradient(135deg,#dcfce7,#bbf7d0);
+    display: flex; align-items: center; justify-content: center;
+    color: #16a34a; font-size: 2rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .el-grid-body { padding: 16px; }
+  .el-grid-body h4 {
+    font-size: 0.95rem; font-weight: 700; color: #14532d;
+    margin: 0 0 6px; line-height: 1.3;
+  }
+  .el-grid-meta {
+    display: flex; flex-wrap: wrap; gap: 6px 14px;
+    font-size: 0.76rem; color: #4d7c5e; margin-bottom: 10px;
+  }
+  .el-grid-meta i { margin-right: 3px; opacity: 0.7; }
+  .el-grid-footer {
+    padding: 12px 16px; border-top: 1px solid #f1f5f9;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  /* Empty state */
+  .el-empty {
+    text-align: center; padding: 60px 20px; color: #4d7c5e;
+  }
+  .el-empty i { font-size: 3rem; opacity: 0.3; margin-bottom: 12px; display: block; }
+  .el-empty p { font-size: 0.9rem; font-weight: 600; }
+
+  @media (max-width: 991px) { .el-stats { grid-template-columns: repeat(2,1fr); } }
+  @media (max-width: 767px) {
+    .el-hero { padding: 22px 18px 16px; flex-direction: column; align-items: flex-start; }
+    .el-hero h2 { font-size: 1.3rem; }
+    .el-stats { grid-template-columns: 1fr; }
+    .el-toolbar { flex-direction: column; align-items: stretch; }
+    .el-grid { grid-template-columns: 1fr; }
+    .el-table-card { overflow-x: auto; }
+  }
+</style>
+{% endblock extrahead %}
+
 {% block content %}
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <div class="row">
-                        <div class="col-md-5">
-                            <h5>Event List</h5>
-                        </div>
-                        <div class="col-md-7">
-                            <div class="row">
-                                <form class="form-inline ml-3" action="{% url 'search-event' %}" method="POST">
-                                    {% csrf_token %}
-                                    <div class="input-group input-group-sm">
-                                      <input class="form-control form-control-navbar" name="search" type="search" placeholder="Search" aria-label="Search">
-                                      <div class="input-group-append">
-                                        <button class="btn btn-navbar" type="submit">
-                                          <i class="fas fa-search"></i>
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </form>
-                                <a class="btn" onclick="listView()"><i class="fa fa-bars"></i> List</a> 
-                                <a class="btn active" onclick="gridView()"><i class="fa fa-th-large"></i> Grid</a>
-                                <a class="btn btn-success" href="{% url 'event-create' %}">Create New Event</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-body">
-                      <table class="table table-striped table-bordered datatable dataTable no-footer" id="DataTables_Table_0" role="grid" aria-describedby="DataTables_Table_0_info" style="border-collapse: collapse !important">
-                        <thead>
-                            <tr role="row">
-                                <th>#</th>
-                                <th>Name</th>
-                                <th>Category</th>
-                                <th class="event_image">Image</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for event in events %}
-                              <tr>
-                                  <td>{{ forloop.counter }}</td>
-                                  <td>{{ event.name }}</td>
-                                  <td>{{ event.category }}</td>
-                                  <td class="event_image">
-                                      <img class="event_image" src="{{ event.eventimage.image.url }}" alt="Image" height="100px" width="100px">
-                                  </td>
-                                  <td>
-                                      {% if event.end_date < today %}
-                                        <span class="text-secondary" title="Event ended on {{ event.end_date }}">Done</span>
-                                      {% elif event.status == 'active' %}
-                                        <a href="{% url 'update-event-status' event.id %}" class="text-success">{{ event.status|title }}</a>
-                                      {% elif event.status == 'completed' %}
-                                        <a href="{% url 'update-event-status' event.id %}" class="text-primary">{{ event.status|title }}</a>
-                                      {% else %}
-                                        <a href="{% url 'update-event-status' event.id %}" class="text-danger">{{ event.status|title }}</a>
-                                      {% endif %}
-                                  </td>
-                                  <td class="text-nowrap">
-                                      <div class="d-flex flex-nowrap align-items-center" style="gap: 4px;">
-                                        <a class="btn btn-info btn-sm" href="{% url 'event-detail' event.pk %}" title="view"><i class="fa fa-eye"></i></a>
-                                        {% if event.end_date < today %}
-                                        <span class="btn btn-secondary btn-sm disabled" title="Edit locked (event ended)"><i class="fa fa-edit"></i></span>
-                                        {% else %}
-                                        <a class="btn btn-info btn-sm" href="{% url 'event-edit' event.pk %}" title="edit"><i class="fa fa-edit"></i></a>
-                                        {% endif %}
-                                        <a class="btn btn-danger btn-sm" href="{% url 'event-delete' event.pk %}" title="delete"><i class="fa fa-trash"></i></a>
-                                        {% if event.event_location == 'field_trip' %}
-                                        <a class="btn btn-success btn-sm" href="{% url 'event-field-trip-scan' event.pk %}" title="Take attendance (field trip)"><i class="fa fa-clipboard-check"></i></a>
-                                        {% endif %}
-                                      </div>
-                                  </td>
-                              </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+<div class="monitor-wrap">
+
+  <!-- Hero -->
+  <div class="el-hero">
+    <div>
+      <h2>Events</h2>
+      <p>{{ site_name|default:"City College of Bayawan" }} – Manage events & attendance</p>
     </div>
+    <div class="el-hero-actions">
+      <a href="{% url 'event-create' %}" class="btn el-btn-create">
+        <i class="fas fa-plus mr-1"></i> Create Event
+      </a>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="el-toolbar">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <form class="el-search" action="{% url 'search-event' %}" method="POST" style="margin:0;">
+        {% csrf_token %}
+        <input type="search" name="search" placeholder="Search events..." aria-label="Search">
+        <button type="submit"><i class="fas fa-search"></i></button>
+      </form>
+      <div class="el-filter-pills" id="statusFilter">
+        <button class="el-filter-pill active" data-filter="all">All</button>
+        <button class="el-filter-pill" data-filter="active">Active</button>
+        <button class="el-filter-pill" data-filter="scheduled">Scheduled</button>
+        <button class="el-filter-pill" data-filter="completed">Completed</button>
+        <button class="el-filter-pill" data-filter="done">Done</button>
+        <button class="el-filter-pill" data-filter="draft">Draft</button>
+      </div>
+    </div>
+    <div class="el-view-btns">
+      <button class="el-view-btn active" id="btnListView" onclick="showListView()">
+        <i class="fas fa-bars"></i> List
+      </button>
+      <button class="el-view-btn" id="btnGridView" onclick="showGridView()">
+        <i class="fas fa-th-large"></i> Grid
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="el-stats">
+    <div class="el-stat-card">
+      <div class="el-stat-icon green"><i class="fas fa-calendar-alt"></i></div>
+      <div>
+        <div class="el-stat-val">{{ total_events|default:0 }}</div>
+        <div class="el-stat-label">Total Events</div>
+      </div>
+    </div>
+    <div class="el-stat-card">
+      <div class="el-stat-icon blue"><i class="fas fa-play-circle"></i></div>
+      <div>
+        <div class="el-stat-val">{{ active_count|default:0 }}</div>
+        <div class="el-stat-label">Active</div>
+      </div>
+    </div>
+    <div class="el-stat-card">
+      <div class="el-stat-icon amber"><i class="fas fa-clock"></i></div>
+      <div>
+        <div class="el-stat-val">{{ scheduled_count|default:0 }}</div>
+        <div class="el-stat-label">Scheduled</div>
+      </div>
+    </div>
+    <div class="el-stat-card">
+      <div class="el-stat-icon slate"><i class="fas fa-check-circle"></i></div>
+      <div>
+        <div class="el-stat-val">{{ completed_count|default:0 }}</div>
+        <div class="el-stat-label">Completed</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- List View (table) -->
+  <div class="el-table-card" id="listView">
+    {% if events %}
+    <div class="table-responsive">
+      <table class="el-table" id="eventTable">
+        <thead>
+          <tr>
+            <th style="width:50px;">#</th>
+            <th style="width:60px;">Image</th>
+            <th>Event</th>
+            <th>Category</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th style="width:160px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for event in events %}
+          <tr data-status="{% if event.end_date < today and event.status != 'cancelled' %}done{% else %}{{ event.status }}{% endif %}">
+            <td style="color:#4d7c5e;font-weight:600;">{{ forloop.counter }}</td>
+            <td>
+              {% if event.eventimage and event.eventimage.image %}
+              <img class="el-event-thumb" src="{{ event.eventimage.image.url }}" alt="{{ event.name }}">
+              {% else %}
+              <div class="el-event-thumb" style="background:linear-gradient(135deg,#dcfce7,#bbf7d0);display:flex;align-items:center;justify-content:center;color:#16a34a;font-size:1.1rem;">
+                <i class="fas fa-calendar-day"></i>
+              </div>
+              {% endif %}
+            </td>
+            <td>
+              <span class="el-event-name">{{ event.name }}</span>
+              {% if event.venue %}<span class="el-event-venue"><i class="fas fa-map-marker-alt"></i> {{ event.venue }}</span>{% endif %}
+            </td>
+            <td><span style="font-weight:600;">{{ event.category }}</span></td>
+            <td>
+              <div class="el-date">{{ event.start_date|date:"M d, Y" }}</div>
+              {% if event.start_date != event.end_date %}
+              <div class="el-date-sub">to {{ event.end_date|date:"M d, Y" }}</div>
+              {% endif %}
+            </td>
+            <td>
+              {% if event.end_date < today and event.status != 'cancelled' %}
+                <span class="el-badge el-badge-done"><i class="fas fa-circle"></i> Done</span>
+              {% elif event.status == 'active' %}
+                <a href="{% url 'update-event-status' event.id %}" style="text-decoration:none;">
+                  <span class="el-badge el-badge-active"><i class="fas fa-circle"></i> Active</span>
+                </a>
+              {% elif event.status == 'scheduled' %}
+                <a href="{% url 'update-event-status' event.id %}" style="text-decoration:none;">
+                  <span class="el-badge el-badge-scheduled"><i class="fas fa-circle"></i> Scheduled</span>
+                </a>
+              {% elif event.status == 'completed' %}
+                <a href="{% url 'update-event-status' event.id %}" style="text-decoration:none;">
+                  <span class="el-badge el-badge-completed"><i class="fas fa-circle"></i> Completed</span>
+                </a>
+              {% elif event.status == 'draft' %}
+                <a href="{% url 'update-event-status' event.id %}" style="text-decoration:none;">
+                  <span class="el-badge el-badge-draft"><i class="fas fa-circle"></i> Draft</span>
+                </a>
+              {% elif event.status == 'cancelled' %}
+                <span class="el-badge el-badge-cancelled"><i class="fas fa-circle"></i> Cancelled</span>
+              {% else %}
+                <a href="{% url 'update-event-status' event.id %}" style="text-decoration:none;">
+                  <span class="el-badge el-badge-done"><i class="fas fa-circle"></i> {{ event.status|title }}</span>
+                </a>
+              {% endif %}
+            </td>
+            <td>
+              <div class="el-actions">
+                <a class="el-act-btn" href="{% url 'event-detail' event.pk %}" title="View details"><i class="fas fa-eye"></i></a>
+                {% if event.end_date < today %}
+                <span class="el-act-btn disabled" title="Edit locked (ended)"><i class="fas fa-edit"></i></span>
+                {% else %}
+                <a class="el-act-btn" href="{% url 'event-edit' event.pk %}" title="Edit"><i class="fas fa-edit"></i></a>
+                {% endif %}
+                <a class="el-act-btn danger" href="{% url 'event-delete' event.pk %}" title="Delete"><i class="fas fa-trash-alt"></i></a>
+                {% if event.event_location == 'field_trip' %}
+                <a class="el-act-btn scan" href="{% url 'event-field-trip-scan' event.pk %}" title="Take attendance (field trip)"><i class="fas fa-clipboard-check"></i></a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="el-empty">
+      <i class="fas fa-calendar-plus"></i>
+      <p>No events yet. Create your first event to get started.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Grid View -->
+  <div class="el-grid" id="gridView">
+    {% for event in events %}
+    <div class="el-grid-card" data-status="{% if event.end_date < today and event.status != 'cancelled' %}done{% else %}{{ event.status }}{% endif %}">
+      {% if event.eventimage and event.eventimage.image %}
+      <img class="el-grid-img" src="{{ event.eventimage.image.url }}" alt="{{ event.name }}">
+      {% else %}
+      <div class="el-grid-img-placeholder">
+        <i class="fas fa-calendar-day"></i>
+      </div>
+      {% endif %}
+      <div class="el-grid-body">
+        <h4>{{ event.name }}</h4>
+        <div class="el-grid-meta">
+          <span><i class="fas fa-tag"></i> {{ event.category }}</span>
+          <span><i class="fas fa-calendar"></i> {{ event.start_date|date:"M d, Y" }}{% if event.start_date != event.end_date %} – {{ event.end_date|date:"M d, Y" }}{% endif %}</span>
+          {% if event.venue %}<span><i class="fas fa-map-marker-alt"></i> {{ event.venue }}</span>{% endif %}
+        </div>
+        {% if event.end_date < today and event.status != 'cancelled' %}
+          <span class="el-badge el-badge-done"><i class="fas fa-circle"></i> Done</span>
+        {% elif event.status == 'active' %}
+          <span class="el-badge el-badge-active"><i class="fas fa-circle"></i> Active</span>
+        {% elif event.status == 'scheduled' %}
+          <span class="el-badge el-badge-scheduled"><i class="fas fa-circle"></i> Scheduled</span>
+        {% elif event.status == 'completed' %}
+          <span class="el-badge el-badge-completed"><i class="fas fa-circle"></i> Completed</span>
+        {% elif event.status == 'draft' %}
+          <span class="el-badge el-badge-draft"><i class="fas fa-circle"></i> Draft</span>
+        {% elif event.status == 'cancelled' %}
+          <span class="el-badge el-badge-cancelled"><i class="fas fa-circle"></i> Cancelled</span>
+        {% else %}
+          <span class="el-badge el-badge-done"><i class="fas fa-circle"></i> {{ event.status|title }}</span>
+        {% endif %}
+      </div>
+      <div class="el-grid-footer">
+        <div class="el-actions">
+          <a class="el-act-btn" href="{% url 'event-detail' event.pk %}" title="View"><i class="fas fa-eye"></i></a>
+          {% if event.end_date < today %}
+          <span class="el-act-btn disabled" title="Edit locked"><i class="fas fa-edit"></i></span>
+          {% else %}
+          <a class="el-act-btn" href="{% url 'event-edit' event.pk %}" title="Edit"><i class="fas fa-edit"></i></a>
+          {% endif %}
+          <a class="el-act-btn danger" href="{% url 'event-delete' event.pk %}" title="Delete"><i class="fas fa-trash-alt"></i></a>
+          {% if event.event_location == 'field_trip' %}
+          <a class="el-act-btn scan" href="{% url 'event-field-trip-scan' event.pk %}" title="Take attendance"><i class="fas fa-clipboard-check"></i></a>
+          {% endif %}
+        </div>
+        {% if event.event_location == 'field_trip' %}
+        <span style="font-size:0.7rem;color:#4d7c5e;font-weight:600;"><i class="fas fa-bus" style="margin-right:3px;"></i> Field Trip</span>
+        {% elif event.event_location == 'on_campus' %}
+        <span style="font-size:0.7rem;color:#4d7c5e;font-weight:600;"><i class="fas fa-school" style="margin-right:3px;"></i> On Campus</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
 {% endblock content %}
 
 {% block extrascript %}
 <script>
-    // Get the elements with class="column"
-    var elements = document.getElementsByClassName("table");
-    var myobj = document.getElementsByClassName("event_image");
-    // Declare a loop variable
-    var i;
+(function() {
+  var listView = document.getElementById('listView');
+  var gridView = document.getElementById('gridView');
+  var btnList = document.getElementById('btnListView');
+  var btnGrid = document.getElementById('btnGridView');
 
-    // List View
-    function listView() {
-        for (i = 0; i < elements.length; i++) {
+  window.showListView = function() {
+    listView.style.display = '';
+    gridView.style.display = 'none';
+    btnList.classList.add('active');
+    btnGrid.classList.remove('active');
+  };
+  window.showGridView = function() {
+    listView.style.display = 'none';
+    gridView.style.display = 'grid';
+    btnList.classList.remove('active');
+    btnGrid.classList.add('active');
+  };
 
-            var appBanners = document.getElementsByClassName('event_image');
+  // Status filter
+  var pills = document.querySelectorAll('#statusFilter .el-filter-pill');
+  pills.forEach(function(pill) {
+    pill.addEventListener('click', function(e) {
+      e.preventDefault();
+      pills.forEach(function(p) { p.classList.remove('active'); });
+      this.classList.add('active');
+      var filter = this.getAttribute('data-filter');
 
-            for (var i = 0; i < appBanners.length; i ++) {
-                appBanners[i].style.display = 'none';
-            }
-        }
-    }
-    
-    // Grid View
-    function gridView() {
-      for (i = 0; i < elements.length; i++) {
-        var appBanners = document.getElementsByClassName('event_image');
-
-        for (var i = 0; i < appBanners.length; i ++) {
-            appBanners[i].style.display = 'block';
-        }
-      }
-    }
-    
-    /* Optional: Add active class to the current button (highlight it) */
-    var container = document.getElementById("btnContainer");
-    var btns = container.getElementsByClassName("btn");
-    for (var i = 0; i < btns.length; i++) {
-      btns[i].addEventListener("click", function() {
-        var current = document.getElementsByClassName("active");
-        current[0].className = current[0].className.replace(" active", "");
-        this.className += " active";
+      var tableRows = document.querySelectorAll('#eventTable tbody tr[data-status]');
+      tableRows.forEach(function(row) {
+        row.style.display = (filter === 'all' || row.getAttribute('data-status') === filter) ? '' : 'none';
       });
-    }
-    </script>
+
+      var gridCards = document.querySelectorAll('#gridView .el-grid-card[data-status]');
+      gridCards.forEach(function(card) {
+        card.style.display = (filter === 'all' || card.getAttribute('data-status') === filter) ? '' : 'none';
+      });
+    });
+  });
+})();
+</script>
 {% endblock extrascript %}

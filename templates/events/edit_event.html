@@ -1,124 +1,293 @@
 {% extends 'base/base.html' %}
-{% block title %}Edit Event{% endblock title %}
+{% load static %}
+{% block title %}Edit Event – {{ event.name }}{% endblock title %}
 {% block breadcrumb %}Edit Event{% endblock breadcrumb %}
 {% load crispy_forms_tags %}
 
 {% block extrahead %}
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-    <style>
-        .form-section { margin-bottom: 1.5rem; }
-        .form-section-title { font-size: 1rem; font-weight: 600; color: #495057; border-bottom: 1px solid #dee2e6; padding-bottom: 0.35rem; margin-bottom: 1rem; }
-        .form-section.attendance-mode .form-section-title { color: #0d6efd; }
-    </style>
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<style>
+  .ce-hero {
+    position: relative; overflow: hidden;
+    background-image:
+      linear-gradient(135deg, rgba(22,163,74,0.82), rgba(21,128,61,0.75)),
+      url('/media/event_image/background.jpg'),
+      url('/media/background.jpg');
+    background-size: cover; background-position: center; background-repeat: no-repeat;
+    color: #fff; border-radius: 16px; padding: 28px 24px 22px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
+  }
+  .ce-hero h2 { margin: 0; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.25); }
+  .ce-hero p { margin: 4px 0 0; font-size: 0.85rem; color: #d1fae5; font-weight: 600; text-shadow: 0 1px 6px rgba(0,0,0,0.3); }
+  .ce-hero-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ce-hero-actions .btn {
+    background: #fff; color: #16a34a; border: none; border-radius: 10px;
+    font-weight: 600; font-size: 0.84rem; padding: 9px 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12); transition: all .15s ease;
+  }
+  .ce-hero-actions .btn:hover { background: #f0fdf4; color: #15803d; transform: translateY(-1px); text-decoration: none; }
+
+  .ce-section {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04); margin-bottom: 18px; overflow: hidden;
+  }
+  .ce-section-head {
+    background: #f8fafc; padding: 14px 20px; border-bottom: 1px solid #e2e8f0;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .ce-section-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; font-size: 0.95rem; flex-shrink: 0;
+  }
+  .ce-section-icon.green { background: linear-gradient(135deg,#dcfce7,#bbf7d0); color: #16a34a; }
+  .ce-section-icon.blue { background: linear-gradient(135deg,#dbeafe,#bfdbfe); color: #2563eb; }
+  .ce-section-icon.amber { background: linear-gradient(135deg,#fef3c7,#fde68a); color: #d97706; }
+  .ce-section-icon.teal { background: linear-gradient(135deg,#cffafe,#a5f3fc); color: #0891b2; }
+  .ce-section-icon.slate { background: linear-gradient(135deg,#f1f5f9,#e2e8f0); color: #4d7c5e; }
+  .ce-section-title { font-size: 0.92rem; font-weight: 700; color: #14532d; margin: 0; }
+  .ce-section-sub { font-size: 0.76rem; color: #4d7c5e; margin: 0; }
+  .ce-section-body { padding: 20px; }
+  .ce-section-body .form-group { margin-bottom: 16px; }
+  .ce-section-body label { font-weight: 600; font-size: 0.84rem; color: #14532d; margin-bottom: 4px; }
+  .ce-section-body .form-control { border-radius: 8px; border: 1px solid #e2e8f0; font-size: 0.875rem; }
+  .ce-section-body .form-control:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.1); }
+  .ce-section-body .asteriskField { color: #dc2626; }
+  .ce-section-body .form-text, .ce-section-body .help-block { font-size: 0.76rem; color: #4d7c5e; }
+
+  .ce-adv-toggle {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: 10px 16px; display: flex; align-items: center; gap: 8px;
+    cursor: pointer; font-size: 0.82rem; font-weight: 600; color: #4d7c5e;
+    transition: all .15s ease; margin-bottom: 18px; width: 100%; text-align: left;
+  }
+  .ce-adv-toggle:hover { border-color: #16a34a; color: #16a34a; background: #f0fdf4; }
+  .ce-adv-toggle i.fa-chevron-down { transition: transform .2s ease; margin-left: auto; }
+  .ce-adv-toggle[aria-expanded="true"] i.fa-chevron-down { transform: rotate(180deg); }
+
+  .ce-agenda-table { width: 100%; border-collapse: collapse; }
+  .ce-agenda-table thead th {
+    background: #f8fafc; color: #2d6a42; font-weight: 700; font-size: 0.75rem;
+    text-transform: uppercase; letter-spacing: 0.04em; padding: 10px 12px;
+    border-bottom: 2px solid #e2e8f0;
+  }
+  .ce-agenda-table tbody td {
+    padding: 8px 12px; vertical-align: middle; border-bottom: 1px solid #f1f5f9;
+  }
+  .ce-agenda-table tbody td .form-control { font-size: 0.82rem; padding: 6px 10px; }
+  .ce-agenda-table tbody tr:hover { background: #f0fdf4; }
+
+  .ce-img-preview {
+    border-radius: 10px; border: 1px solid #e2e8f0; max-height: 120px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+
+  .ce-footer { display: flex; align-items: center; gap: 12px; padding: 20px 0 4px; }
+  .ce-btn-submit {
+    background: linear-gradient(135deg,#16a34a,#15803d); color: #fff;
+    border: none; border-radius: 10px; padding: 11px 28px;
+    font-weight: 700; font-size: 0.88rem; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(22,163,74,0.25); transition: all .15s ease;
+  }
+  .ce-btn-submit:hover { background: linear-gradient(135deg,#15803d,#166534); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(22,163,74,0.3); }
+  .ce-btn-cancel {
+    background: #fff; color: #4d7c5e; border: 1px solid #e2e8f0;
+    border-radius: 10px; padding: 10px 24px; font-weight: 600; font-size: 0.86rem;
+    cursor: pointer; transition: all .15s ease; text-decoration: none;
+  }
+  .ce-btn-cancel:hover { border-color: #16a34a; color: #16a34a; background: #f0fdf4; text-decoration: none; }
+
+  .ce-alert {
+    border-radius: 12px; border: 1px solid #fecaca; background: #fef2f2;
+    color: #991b1b; padding: 14px 18px; margin-bottom: 18px; font-size: 0.84rem;
+  }
+  .ce-alert strong { color: #7f1d1d; }
+  .ce-alert ul { margin: 6px 0 0; padding-left: 18px; }
+
+  @media (max-width: 767px) {
+    .ce-hero { padding: 22px 18px 16px; flex-direction: column; align-items: flex-start; }
+    .ce-hero h2 { font-size: 1.3rem; }
+    .ce-section-body { padding: 16px; }
+  }
+</style>
 {% endblock extrahead %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header">
-                <div class="row">
-                    <div class="col-md-10">
-                        <h5>Edit Event</h5>
-                    </div>
-                    <div class="col-md-2">
-                        <a class="btn btn-success" href="{% url 'event-list' %}">Event List</a>
-                    </div>
-                </div>
-            </div>
-            <div class="card-body">
-                <form method="post" enctype="multipart/form-data">
-                    {% csrf_token %}
-                    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+<div class="monitor-wrap">
 
-                    <div class="form-section">
-                        <div class="form-section-title">Basic information</div>
-                        <div class="row">
-                            <div class="col-12">{{ form.category|as_crispy_field }}</div>
-                            <div class="col-md-6">{{ form.name|as_crispy_field }}</div>
-                            <div class="col-md-3">{{ form.uid|as_crispy_field }}</div>
-                            <div class="col-md-3">{{ form.job_category|as_crispy_field }}</div>
-                            <div class="col-12">{{ form.description|as_crispy_field }}</div>
-                        </div>
-                    </div>
-
-                    <div class="form-section">
-                        <div class="form-section-title">Schedule & venue</div>
-                        <div class="row">
-                            <div class="col-md-6">{{ form.venue|as_crispy_field }}</div>
-                            <div class="col-md-3">{{ form.start_date|as_crispy_field }}</div>
-                            <div class="col-md-3">{{ form.end_date|as_crispy_field }}</div>
-                        </div>
-                    </div>
-
-                    <div class="form-section attendance-mode">
-                        <div class="form-section-title">Attendance & capacity</div>
-                        <div class="row">
-                            <div class="col-md-4">{{ form.points|as_crispy_field }}</div>
-                            <div class="col-md-4">{{ form.maximum_attende|as_crispy_field }}</div>
-                            <div class="col-md-4">{{ form.attendance_mode|as_crispy_field }}</div>
-                            <div class="col-md-6">{{ form.event_location|as_crispy_field }}</div>
-                            <div class="col-md-6">{{ form.audience_scope|as_crispy_field }}</div>
-                            <div class="col-md-4" id="audience-course-wrap">{{ form.audience_course|as_crispy_field }}</div>
-                            <div class="col-md-4" id="audience-year-wrap">{{ form.audience_year_level|as_crispy_field }}</div>
-                            <div class="col-md-4" id="audience-section-wrap">{{ form.audience_section|as_crispy_field }}</div>
-                            <div class="col-md-12" id="audience-specific-wrap">
-                                <div class="alert alert-info py-2 mb-2">
-                                    For <strong>Specific students</strong>, use the
-                                    <a href="{% url 'event-manage-registrations' event.id %}" class="alert-link">Registrations</a>
-                                    page to manage who can attend.
-                                </div>
-                            </div>
-                        </div>
-                        <p class="small text-muted mb-0">Attendance uses student eEID scanner. Audience scope controls who is allowed to check in.</p>
-                    </div>
-
-                    <div class="form-section">
-                        <div class="form-section-title">Status</div>
-                        <div class="row">
-                            <div class="col-md-4">{{ form.status|as_crispy_field }}</div>
-                        </div>
-                    </div>
-
-                    <div class="form-section">
-                        <div class="form-section-title">Event image</div>
-                        <div class="row">
-                            <div class="col-md-6">{{ image_form.image|as_crispy_field }}</div>
-                            {% if image_form.instance and image_form.instance.image %}<div class="col-md-6"><img src="{{ image_form.instance.image.url }}" alt="Current" class="img-thumbnail" style="max-height:120px;"></div>{% endif %}
-                        </div>
-                    </div>
-
-                    <div class="form-section">
-                        <div class="form-section-title">Agenda (multiple sessions)</div>
-                        {{ agenda_formset.management_form }}
-                        <div class="table-responsive">
-                            <table class="table table-sm table-bordered">
-                                <thead><tr><th>Session</th><th>Speaker</th><th>Start</th><th>End</th><th>Venue</th><th>Delete?</th></tr></thead>
-                                <tbody>
-                                    {% for f in agenda_formset %}
-                                    <tr class="agenda-row">
-                                        <td>{{ f.id }}{{ f.session_name }}</td>
-                                        <td>{{ f.speaker_name }}</td>
-                                        <td>{{ f.start_time }}</td>
-                                        <td>{{ f.end_time }}</td>
-                                        <td>{{ f.venue_name }}</td>
-                                        <td>{% if f.DELETE %}{{ f.DELETE }} <label>Remove</label>{% endif %}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <hr>
-                    <button class="btn btn-success" type="submit">Update Event</button>
-                    <a class="btn btn-outline-secondary ml-2" href="{% url 'event-list' %}">Cancel</a>
-                </form>
-                {{ form.media }}
-            </div>
-        </div>
+  <!-- Hero -->
+  <div class="ce-hero">
+    <div>
+      <h2><i class="fas fa-edit mr-2" style="opacity:0.8;"></i>Edit Event</h2>
+      <p>{{ event.name }}</p>
     </div>
+    <div class="ce-hero-actions">
+      <a href="{% url 'event-detail' event.pk %}" class="btn"><i class="fas fa-eye mr-1"></i> View</a>
+      <a href="{% url 'event-list' %}" class="btn"><i class="fas fa-arrow-left mr-1"></i> Event List</a>
+    </div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="ce-alert">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <!-- 1. Basic Info -->
+    <div class="ce-section">
+      <div class="ce-section-head">
+        <div class="ce-section-icon green"><i class="fas fa-info-circle"></i></div>
+        <div>
+          <div class="ce-section-title">Basic Information</div>
+          <div class="ce-section-sub">Event name, category, and description</div>
+        </div>
+      </div>
+      <div class="ce-section-body">
+        <div class="row">
+          <div class="col-md-8">{{ form.name|as_crispy_field }}</div>
+          <div class="col-md-4">{{ form.category|as_crispy_field }}</div>
+          <div class="col-12">{{ form.description|as_crispy_field }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Schedule & Venue -->
+    <div class="ce-section">
+      <div class="ce-section-head">
+        <div class="ce-section-icon blue"><i class="fas fa-calendar-alt"></i></div>
+        <div>
+          <div class="ce-section-title">Schedule & Venue</div>
+          <div class="ce-section-sub">When and where the event takes place</div>
+        </div>
+      </div>
+      <div class="ce-section-body">
+        <div class="row">
+          <div class="col-md-4">{{ form.start_date|as_crispy_field }}</div>
+          <div class="col-md-4">{{ form.end_date|as_crispy_field }}</div>
+          <div class="col-md-4">{{ form.venue|as_crispy_field }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Attendance Settings -->
+    <div class="ce-section">
+      <div class="ce-section-head">
+        <div class="ce-section-icon amber"><i class="fas fa-users"></i></div>
+        <div>
+          <div class="ce-section-title">Attendance Settings</div>
+          <div class="ce-section-sub">Who can attend and location type</div>
+        </div>
+      </div>
+      <div class="ce-section-body">
+        <div class="row">
+          <div class="col-md-4">{{ form.event_location|as_crispy_field }}</div>
+          <div class="col-md-4">{{ form.audience_scope|as_crispy_field }}</div>
+          <div class="col-md-4">{{ form.maximum_attende|as_crispy_field }}</div>
+          <div class="col-md-4" id="audience-course-wrap">{{ form.audience_course|as_crispy_field }}</div>
+          <div class="col-md-4" id="audience-year-wrap">{{ form.audience_year_level|as_crispy_field }}</div>
+          <div class="col-md-4" id="audience-section-wrap">{{ form.audience_section|as_crispy_field }}</div>
+          <div class="col-md-12" id="audience-specific-wrap">
+            <div style="border-radius:10px;border:1px solid #bae6fd;background:#f0f9ff;color:#0369a1;padding:12px 16px;font-size:0.84rem;">
+              <i class="fas fa-info-circle mr-1"></i> For <strong>Specific students</strong>, use the
+              <a href="{% url 'event-manage-registrations' event.id %}" style="color:#0369a1;font-weight:700;">Registrations</a>
+              page to manage who can attend.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Status & Image -->
+    <div class="ce-section">
+      <div class="ce-section-head">
+        <div class="ce-section-icon teal"><i class="fas fa-cog"></i></div>
+        <div>
+          <div class="ce-section-title">Status & Image</div>
+          <div class="ce-section-sub">Event status and cover image</div>
+        </div>
+      </div>
+      <div class="ce-section-body">
+        <div class="row">
+          <div class="col-md-4">{{ form.status|as_crispy_field }}</div>
+          <div class="col-md-5">{{ image_form.image|as_crispy_field }}</div>
+          {% if image_form.instance and image_form.instance.image %}
+          <div class="col-md-3 d-flex align-items-center">
+            <img src="{{ image_form.instance.image.url }}" alt="Current image" class="ce-img-preview">
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Agenda -->
+    <div class="ce-section">
+      <div class="ce-section-head">
+        <div class="ce-section-icon slate"><i class="fas fa-list-ol"></i></div>
+        <div>
+          <div class="ce-section-title">Agenda</div>
+          <div class="ce-section-sub">Sessions, speakers, and timing</div>
+        </div>
+      </div>
+      <div class="ce-section-body" style="padding:0;">
+        {{ agenda_formset.management_form }}
+        <div class="table-responsive">
+          <table class="ce-agenda-table">
+            <thead>
+              <tr>
+                <th>Session</th>
+                <th>Speaker</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Venue</th>
+                <th style="width:80px;">Remove</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for f in agenda_formset %}
+              <tr>
+                <td>{{ f.id }}{{ f.session_name }}</td>
+                <td>{{ f.speaker_name }}</td>
+                <td>{{ f.start_time }}</td>
+                <td>{{ f.end_time }}</td>
+                <td>{{ f.venue_name }}</td>
+                <td class="text-center">{% if f.DELETE %}{{ f.DELETE }}{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Advanced (collapsed) -->
+    <button class="ce-adv-toggle" type="button" data-toggle="collapse" data-target="#advancedFields" aria-expanded="false" aria-controls="advancedFields">
+      <i class="fas fa-sliders-h"></i> Advanced Settings
+      <i class="fas fa-chevron-down"></i>
+    </button>
+    <div class="collapse" id="advancedFields">
+      <div class="ce-section">
+        <div class="ce-section-body">
+          <div class="row">
+            <div class="col-md-3">{{ form.uid|as_crispy_field }}</div>
+            <div class="col-md-3">{{ form.job_category|as_crispy_field }}</div>
+            <div class="col-md-3">{{ form.attendance_mode|as_crispy_field }}</div>
+            <div class="col-md-3">{{ form.points|as_crispy_field }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <div class="ce-footer">
+      <button type="submit" class="ce-btn-submit"><i class="fas fa-save mr-1"></i> Update Event</button>
+      <a href="{% url 'event-list' %}" class="ce-btn-cancel">Cancel</a>
+    </div>
+  </form>
+  {{ form.media }}
 </div>
+
 <script>
 (function() {
   function toggleAudienceFields() {

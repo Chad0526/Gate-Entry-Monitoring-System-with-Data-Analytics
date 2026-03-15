@@ -4,103 +4,138 @@
 {% block breadcrumb %}Activity Log{% endblock breadcrumb %}
 
 {% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
 <style>
-  .filter-card {
-    background: #f8f9fa;
-    border-radius: 8px;
-    padding: 1.25rem;
-    margin-bottom: 1.5rem;
+  .gal-hero {
+    position: relative; overflow: hidden;
+    background-image: linear-gradient(135deg, rgba(22,163,74,0.82), rgba(21,128,61,0.75)),
+      url('/media/event_image/background.jpg'), url('/media/background.jpg');
+    background-size: cover; background-position: center; background-repeat: no-repeat;
+    color: #fff; border-radius: 16px; padding: 28px 24px; min-height: 120px;
+    display: flex; flex-direction: column; justify-content: center;
+    margin-bottom: 20px; box-shadow: 0 8px 24px rgba(22,163,74,0.18);
   }
-  .filter-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    align-items: end;
+  .gal-hero h2 { margin: 0; font-size: 1.55rem; font-weight: 800; letter-spacing: -0.02em; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.25); }
+  .gal-hero p { margin: 4px 0 0; font-size: 0.9rem; color: #d1fae5; font-weight: 600; text-shadow: 0 1px 6px rgba(0,0,0,0.3); }
+
+  .gal-filter {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04); margin-bottom: 20px; overflow: visible;
   }
-  .activity-table {
-    width: 100%;
-    background: #fff;
+  .gal-filter-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 20px; border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc; border-radius: 14px 14px 0 0;
   }
-  .activity-table th {
-    background: #28a745;
-    color: #fff;
-    padding: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.85rem;
-    letter-spacing: 0.05em;
+  .gal-filter-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg,#dcfce7,#bbf7d0); color: #16a34a;
+    font-size: 0.85rem; flex-shrink: 0;
   }
-  .activity-table td {
-    padding: 0.75rem;
-    border-bottom: 1px solid #dee2e6;
-    vertical-align: top;
+  .gal-filter-title { font-weight: 700; font-size: 0.88rem; color: #14532d; text-transform: uppercase; letter-spacing: 0.02em; margin: 0; }
+  .gal-filter-body { padding: 16px 20px; }
+  .gal-controls { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: flex-end; }
+  .gal-group { display: flex; flex-direction: column; gap: 4px; }
+  .gal-label { font-size: 0.72rem; font-weight: 700; color: #4d7c5e; text-transform: uppercase; letter-spacing: 0.04em; }
+  .gal-controls .form-control {
+    border-radius: 8px; border: 1px solid #e2e8f0; font-size: 0.84rem; padding: 6px 10px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
-  .activity-table tr:hover {
-    background: #f8f9fa;
+  .gal-controls .form-control:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.12); }
+  .gal-btn-filter {
+    background: linear-gradient(135deg, #16a34a, #15803d); border: none; color: #fff;
+    font-weight: 600; font-size: 0.82rem; padding: 7px 18px; border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(22,163,74,0.2); cursor: pointer; transition: all 0.15s ease;
   }
-  .action-badge {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
+  .gal-btn-filter:hover { box-shadow: 0 4px 14px rgba(22,163,74,0.3); transform: translateY(-1px); }
+
+  .gal-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04); margin-bottom: 20px; overflow: hidden;
   }
-  .action-badge.scan {
-    background: #28a745;
-    color: #fff;
+  .gal-card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;
   }
-  .action-badge.incident {
-    background: #dc3545;
-    color: #fff;
+  .gal-card-head-left { display: flex; align-items: center; gap: 10px; }
+  .gal-card-head-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem; flex-shrink: 0;
+    background: linear-gradient(135deg,#dbeafe,#bfdbfe); color: #2563eb;
   }
-  .action-badge.override {
-    background: #ffc107;
-    color: #212529;
+  .gal-card-title { margin: 0; font-weight: 700; font-size: 0.88rem; color: #14532d; }
+  .gal-count { font-size: 0.75rem; font-weight: 700; color: #4d7c5e; background: #f0fdf4; padding: 2px 10px; border-radius: 99px; }
+
+  .gal-table { width: 100%; border-collapse: collapse; margin: 0; font-size: 0.84rem; }
+  .gal-table thead th {
+    background: #f1f5f9; color: #2d6a42; font-weight: 700; font-size: 0.74rem;
+    text-transform: uppercase; letter-spacing: 0.04em; padding: 10px 16px;
+    border-bottom: 2px solid #e2e8f0; border-top: none;
   }
-  .action-badge.shift_start,
-  .action-badge.shift_end {
-    background: #17a2b8;
-    color: #fff;
+  .gal-table tbody td { padding: 10px 16px; color: #14532d; vertical-align: middle; border-top: 1px solid #f1f5f9; }
+  .gal-table tbody tr { transition: background 0.1s ease; }
+  .gal-table tbody tr:hover { background: rgba(22,163,74,0.03); }
+  .gal-table tbody tr:nth-child(even) { background: #fafcfb; }
+  .gal-table tbody tr:nth-child(even):hover { background: rgba(22,163,74,0.04); }
+
+  .gal-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 6px;
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
   }
-  .action-badge.note {
-    background: #6c757d;
-    color: #fff;
-  }
-  .action-badge.lookup {
-    background: #6f42c1;
-    color: #fff;
-  }
-  @media (max-width: 768px) {
-    .activity-table {
-      font-size: 0.85rem;
-    }
-    .activity-table th,
-    .activity-table td {
-      padding: 0.5rem;
-    }
+  .gal-badge.scan { background: #dcfce7; color: #15803d; }
+  .gal-badge.incident { background: #fee2e2; color: #dc2626; }
+  .gal-badge.override { background: #fef3c7; color: #d97706; }
+  .gal-badge.shift_start, .gal-badge.shift_end { background: #cffafe; color: #0891b2; }
+  .gal-badge.note { background: #f1f5f9; color: #475569; }
+  .gal-badge.lookup { background: #dbeafe; color: #2563eb; }
+
+  .gal-related { font-size: 0.78rem; color: #4d7c5e; }
+  .gal-related code { background: #f1f5f9; padding: 1px 6px; border-radius: 4px; font-size: 0.76rem; }
+
+  .gal-empty { text-align: center; padding: 32px 20px; color: #4d7c5e; }
+  .gal-empty i { font-size: 1.5rem; margin-bottom: 8px; display: block; color: #bbf7d0; }
+
+  .gal-pagination { display: flex; justify-content: center; padding: 14px 20px; border-top: 1px solid #e2e8f0; }
+  .gal-pagination .pagination { margin: 0; }
+  .gal-pagination .page-link { border-radius: 8px; margin: 0 2px; font-weight: 600; font-size: 0.82rem; color: #16a34a; border-color: #e2e8f0; }
+  .gal-pagination .page-item.active .page-link { background: linear-gradient(135deg, #16a34a, #15803d); border-color: transparent; color: #fff; }
+
+  @media (max-width: 767px) {
+    .gal-hero { min-height: 100px; padding: 20px 16px; }
+    .gal-hero h2 { font-size: 1.3rem; }
+    .gal-controls { gap: 10px 12px; }
   }
 </style>
 {% endblock extrahead %}
 
 {% block content %}
-<div class="row">
-  <div class="col-12">
-    <!-- Filters -->
-    <div class="filter-card">
+<div class="monitor-wrap">
+  <div class="gal-hero">
+    <h2>Activity Log</h2>
+    <p>Track your guard actions, scans, and shift records</p>
+  </div>
+
+  <div class="gal-filter">
+    <div class="gal-filter-head">
+      <div class="gal-filter-icon"><i class="fas fa-filter"></i></div>
+      <h6 class="gal-filter-title">Filter</h6>
+    </div>
+    <div class="gal-filter-body">
       <form method="get" action="{% url 'guard-activity-log' %}">
-        <div class="filter-row">
-          <div class="form-group mb-0">
-            <label for="from_date">From Date</label>
-            <input type="date" class="form-control" id="from_date" name="from_date" value="{{ from_date }}">
+        <div class="gal-controls">
+          <div class="gal-group">
+            <span class="gal-label">From Date</span>
+            <input type="date" class="form-control" name="from_date" value="{{ from_date }}">
           </div>
-          <div class="form-group mb-0">
-            <label for="to_date">To Date</label>
-            <input type="date" class="form-control" id="to_date" name="to_date" value="{{ to_date }}">
+          <div class="gal-group">
+            <span class="gal-label">To Date</span>
+            <input type="date" class="form-control" name="to_date" value="{{ to_date }}">
           </div>
-          <div class="form-group mb-0">
-            <label for="action_type">Action Type</label>
-            <select class="form-control" id="action_type" name="action_type">
+          <div class="gal-group">
+            <span class="gal-label">Action Type</span>
+            <select class="form-control" name="action_type">
               <option value="">All</option>
               {% for type in action_types %}
               <option value="{{ type }}" {% if type == selected_action_type %}selected{% endif %}>
@@ -109,89 +144,89 @@
               {% endfor %}
             </select>
           </div>
-          <div class="form-group mb-0">
-            <button type="submit" class="btn btn-success btn-block">
-              <i class="fas fa-search"></i> Filter
-            </button>
+          <div class="gal-group" style="justify-content:flex-end;">
+            <button type="submit" class="gal-btn-filter"><i class="fas fa-search mr-1"></i> Filter</button>
           </div>
         </div>
       </form>
     </div>
+  </div>
 
-    <!-- Activity Log Table -->
-    <div class="card">
-      <div class="card-header">
-        <h5 class="mb-0"><i class="fas fa-history"></i> Activity Log ({{ logs.paginator.count }} total)</h5>
+  <div class="gal-card">
+    <div class="gal-card-head">
+      <div class="gal-card-head-left">
+        <div class="gal-card-head-icon"><i class="fas fa-history"></i></div>
+        <h6 class="gal-card-title">Activity Log</h6>
       </div>
-      <div class="card-body p-0">
-        <div class="table-responsive">
-          <table class="activity-table">
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Action</th>
-                <th>Description</th>
-                <th>Related</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for log in logs %}
-              <tr>
-                <td style="white-space: nowrap;">{{ log.timestamp|date:"M d, h:i A" }}</td>
-                <td>
-                  <span class="action-badge {{ log.action_type }}">
-                    {{ log.action_type|upper }}
-                  </span>
-                </td>
-                <td>{{ log.description }}</td>
-                <td>
-                  {% if log.related_student %}
-                  <small class="text-muted">Student: {{ log.related_student.student_id }}</small><br>
-                  {% endif %}
-                  {% if log.related_incident %}
-                  <small class="text-muted">Incident #{{ log.related_incident.id }}</small><br>
-                  {% endif %}
-                  {% if log.related_shift %}
-                  <small class="text-muted">Shift #{{ log.related_shift.id }}</small><br>
-                  {% endif %}
-                  {% if log.device_id %}
-                  <small class="text-muted">Device: {{ log.device_id }}</small>
-                  {% endif %}
-                </td>
-              </tr>
-              {% empty %}
-              <tr>
-                <td colspan="4" class="text-center text-muted py-4">
-                  No activity logs found
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      {% if logs.has_other_pages %}
-      <div class="card-footer">
-        <nav>
-          <ul class="pagination mb-0">
-            {% if logs.has_previous %}
-            <li class="page-item">
-              <a class="page-link" href="?page={{ logs.previous_page_number }}&from_date={{ from_date }}&to_date={{ to_date }}&action_type={{ selected_action_type }}">Previous</a>
-            </li>
-            {% endif %}
-            <li class="page-item active">
-              <span class="page-link">Page {{ logs.number }} of {{ logs.paginator.num_pages }}</span>
-            </li>
-            {% if logs.has_next %}
-            <li class="page-item">
-              <a class="page-link" href="?page={{ logs.next_page_number }}&from_date={{ from_date }}&to_date={{ to_date }}&action_type={{ selected_action_type }}">Next</a>
-            </li>
-            {% endif %}
-          </ul>
-        </nav>
-      </div>
-      {% endif %}
+      <span class="gal-count">{{ logs.paginator.count }} total</span>
     </div>
+    <div class="table-responsive">
+      <table class="gal-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Action</th>
+            <th>Description</th>
+            <th>Related</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+          <tr>
+            <td style="white-space: nowrap;">{{ log.timestamp|date:"M d, h:i A" }}</td>
+            <td>
+              <span class="gal-badge {{ log.action_type }}">{{ log.action_type|upper }}</span>
+            </td>
+            <td>{{ log.description }}</td>
+            <td class="gal-related">
+              {% if log.related_student %}
+              <span><i class="fas fa-user-graduate mr-1"></i> <code>{{ log.related_student.student_id }}</code></span><br>
+              {% endif %}
+              {% if log.related_incident %}
+              <span><i class="fas fa-exclamation-triangle mr-1"></i> Incident #{{ log.related_incident.id }}</span><br>
+              {% endif %}
+              {% if log.related_shift %}
+              <span><i class="fas fa-clock mr-1"></i> Shift #{{ log.related_shift.id }}</span><br>
+              {% endif %}
+              {% if log.device_id %}
+              <span><i class="fas fa-tablet-alt mr-1"></i> {{ log.device_id }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4">
+              <div class="gal-empty">
+                <i class="fas fa-inbox"></i>
+                <p>No activity logs found</p>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if logs.has_other_pages %}
+    <div class="gal-pagination">
+      <nav>
+        <ul class="pagination mb-0">
+          {% if logs.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ logs.previous_page_number }}&from_date={{ from_date }}&to_date={{ to_date }}&action_type={{ selected_action_type }}">Previous</a>
+          </li>
+          {% endif %}
+          <li class="page-item active">
+            <span class="page-link">Page {{ logs.number }} of {{ logs.paginator.num_pages }}</span>
+          </li>
+          {% if logs.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ logs.next_page_number }}&from_date={{ from_date }}&to_date={{ to_date }}&action_type={{ selected_action_type }}">Next</a>
+          </li>
+          {% endif %}
+        </ul>
+      </nav>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock content %}

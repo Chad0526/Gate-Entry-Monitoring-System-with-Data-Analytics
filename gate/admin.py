@@ -16,6 +16,7 @@ from .models import (
     Student,
     StudentLoadSlip,
     LoadSlipSubject,
+    StaffGuardProfile,
     GateEntry,
     GateIncident,
     GuardShift,
@@ -33,6 +34,7 @@ from .models import (
     RecurringEventTemplate,
     SiteTheme,
     GatePolicy,
+    BlockedIP,
 )
 from .audit import log_action
 
@@ -50,6 +52,13 @@ admin.site.register(EventJobCategoryLinking)
 admin.site.register(EventMember)
 admin.site.register(EventUserWishList)
 admin.site.register(UserCoin)
+
+
+@admin.register(StaffGuardProfile)
+class StaffGuardProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'department', 'position', 'contact_number')
+    search_fields = ('user__username', 'user__first_name', 'user__last_name', 'department', 'position')
+    raw_id_fields = ('user',)
 
 
 @admin.register(Student)
@@ -88,7 +97,7 @@ class GateEntryAdmin(admin.ModelAdmin):
 
 @admin.register(GatePolicy)
 class GatePolicyAdmin(admin.ModelAdmin):
-    list_display = ('name', 'gate_open_time', 'lunch_out_start', 'lunch_in_start', 'general_out_until', 'strict_lunch_return', 'out_buffer_minutes', 'is_active')
+    list_display = ('name', 'gate_open_time', 'lunch_out_start', 'lunch_in_start', 'general_out_until', 'strict_lunch_return', 'out_buffer_minutes', 'require_load_slip_for_entry', 'is_active')
 
 
 @admin.register(GateIncident)
@@ -195,6 +204,14 @@ class AuditLogAdmin(admin.ModelAdmin):
     readonly_fields = ('user', 'action', 'model_name', 'object_id', 'description', 'ip_address', 'created_at')
 
 
+@admin.register(BlockedIP)
+class BlockedIPAdmin(admin.ModelAdmin):
+    list_display = ('ip_address', 'reason', 'blocked_by', 'blocked_at', 'is_active', 'failed_attempts')
+    list_filter = ('is_active',)
+    search_fields = ('ip_address', 'reason')
+    readonly_fields = ('blocked_at', 'failed_attempts')
+
+
 @admin.register(VisitorPass)
 class VisitorPassAdmin(admin.ModelAdmin):
     list_display = ('code', 'status', 'guest_name', 'department', 'last_used_at', 'used_at', 'created_by')
@@ -248,7 +265,7 @@ class RecurringEventTemplateAdmin(admin.ModelAdmin):
 
 @admin.register(SiteTheme)
 class SiteThemeAdmin(admin.ModelAdmin):
-    list_display = ('site_name', 'primary_color', 'updated_at')
+    list_display = ('site_name', 'primary_color', 'default_first_signatory_name', 'default_second_signatory_name', 'updated_at')
 
 
 # Audit role (groups) changes in app View logs. Groups are saved in save_related, not save_model.

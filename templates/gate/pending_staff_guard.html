@@ -1,0 +1,379 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% block title %}Staff / Faculty / Guard – Pending approval – {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Staff / Faculty / Guard approval{% endblock breadcrumb %}
+
+{% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
+<style>
+  .psg-hero {
+    background: linear-gradient(135deg, rgba(22,163,74,0.88), rgba(21,128,61,0.8));
+    color: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 24px rgba(22,163,74,0.18);
+  }
+  .psg-hero h2 { margin: 0; font-size: 1.5rem; font-weight: 800; }
+  .psg-hero p { margin: 6px 0 0; font-size: 0.9rem; opacity: 0.95; }
+  .psg-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .psg-toolbar a.btn { border-radius: 10px; font-weight: 600; }
+  .psg-card {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+  .psg-card .card-header {
+    padding: 16px 20px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    font-weight: 700;
+    font-size: 1.05rem;
+  }
+  .psg-table-wrap { overflow-x: auto; }
+  .psg-table-wrap table { width: 100%; min-width: 720px; margin: 0; }
+  .psg-table-wrap th, .psg-table-wrap td { padding: 12px 16px; vertical-align: middle; }
+  .psg-table-wrap th { background: #f1f5f9; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; color: #475569; }
+  .psg-table-wrap tr:nth-child(even) { background: #fafafa; }
+  .psg-table-wrap tr:hover { background: #f0fdf4; }
+  .status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; }
+  .status-pending { background: #fef3c7; color: #b45309; }
+  .status-approved { background: #dcfce7; color: #15803d; }
+  .status-inactive { background: #f1f5f9; color: #64748b; }
+  .btn-approve { background: linear-gradient(135deg, #16a34a, #15803d); color: #fff; border: none; padding: 6px 14px; border-radius: 8px; font-weight: 600; font-size: 0.8rem; cursor: pointer; }
+  .btn-approve:hover { opacity: 0.95; color: #fff; }
+  .btn-deactivate { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; padding: 6px 14px; border-radius: 8px; font-weight: 600; font-size: 0.8rem; cursor: pointer; }
+  .btn-deactivate:hover { background: #e2e8f0; color: #475569; }
+  .psg-empty { padding: 40px 20px; text-align: center; color: #64748b; }
+  .psg-actions-cell { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .psg-actions-dropdown .dropdown-toggle {
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    padding: 5px 10px;
+    border-color: #e2e8f0;
+    color: #475569;
+    background: #fff;
+  }
+  .psg-actions-dropdown .dropdown-toggle:hover {
+    background: #f8fafc;
+    border-color: #16a34a;
+    color: #16a34a;
+  }
+  .psg-actions-dropdown .dropdown-menu {
+    min-width: 172px;
+    padding: 6px 0;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+    margin-top: 4px;
+  }
+  .psg-actions-dropdown .dropdown-header {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #94a3b8;
+    padding: 4px 12px 4px;
+    font-weight: 700;
+  }
+  .psg-actions-dropdown .dropdown-divider { margin: 4px 0; border-color: #f1f5f9; }
+  .psg-actions-dropdown .dropdown-item-form {
+    margin: 0;
+    padding: 0;
+  }
+  .psg-actions-dropdown .dropdown-item-form .psg-action-btn {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.85rem;
+    text-align: left;
+    color: #334155;
+    transition: background 0.15s ease, color 0.15s ease;
+    border-radius: 0;
+  }
+  .psg-actions-dropdown .dropdown-item-form .psg-action-btn:hover { background: #f8fafc; }
+  .psg-actions-dropdown .psg-action-btn .psg-action-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+  }
+  .psg-actions-dropdown .psg-action-btn .psg-action-label { font-weight: 500; }
+  .psg-actions-dropdown .psg-action-approve .psg-action-icon { background: #dcfce7; color: #15803d; }
+  .psg-actions-dropdown .psg-action-approve:hover { background: #f0fdf4; color: #15803d; }
+  .psg-actions-dropdown .psg-action-approve:hover .psg-action-icon { background: #bbf7d0; }
+  .psg-actions-dropdown .psg-action-deactivate .psg-action-icon { background: #f1f5f9; color: #64748b; }
+  .psg-actions-dropdown .psg-action-deactivate:hover { background: #f8fafc; color: #475569; }
+  .psg-actions-dropdown .psg-action-deny .psg-action-icon { background: #fef3c7; color: #b45309; }
+  .psg-actions-dropdown .psg-action-deny:hover { background: #fffbeb; color: #b45309; }
+  .psg-actions-dropdown .psg-action-deny:hover .psg-action-icon { background: #fde68a; }
+  .psg-actions-dropdown .psg-action-delete .psg-action-icon { background: #fee2e2; color: #dc2626; }
+  .psg-actions-dropdown .psg-action-delete:hover { background: #fef2f2; color: #dc2626; }
+  .psg-actions-dropdown .psg-action-delete:hover .psg-action-icon { background: #fecaca; }
+  #psgEditModal .modal-header { background: linear-gradient(135deg, rgba(22,163,74,0.9), rgba(21,128,61,0.85)); color: #fff; border-radius: 0; }
+  #psgEditModal .modal-content { border-radius: 12px; overflow: hidden; }
+  #psgEditModal .form-group label { font-weight: 600; font-size: 0.9rem; }
+</style>
+{% endblock extrahead %}
+
+{% block content %}
+<div class="psg-hero">
+  <h2><i class="fas fa-user-shield mr-2"></i>Staff / Faculty / Guard approvals</h2>
+  <p>Approve or deactivate accounts. Status: <strong>Pending</strong> = cannot log in; <strong>Approved</strong> = can log in.</p>
+</div>
+
+<div class="psg-toolbar">
+  <div class="d-flex flex-wrap align-items-center gap-2">
+    {% if show_only_pending %}
+    <a href="{% url 'pending-staff-guard-list' %}" class="btn btn-sm btn-outline-secondary">Show all</a>
+    {% else %}
+    <a href="{% url 'pending-staff-guard-list' %}?pending=1" class="btn btn-sm btn-outline-secondary">Show pending only</a>
+    {% endif %}
+    {% if pending_count > 0 %}
+    <a href="{% url 'pending-staff-guard-list' %}?pending=1" class="btn btn-sm btn-warning ml-2">
+      <i class="fas fa-user-clock"></i> {{ pending_count }} pending
+    </a>
+    {% endif %}
+  </div>
+  <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-arrow-left"></i> Dashboard</a>
+</div>
+
+<div class="psg-card">
+  <div class="card-header">Accounts</div>
+  <div class="psg-table-wrap">
+    {% if users_with_role %}
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Username</th>
+          <th>Role</th>
+          <th>Email</th>
+          <th>Date joined</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user, role, profile in users_with_role %}
+        <tr id="user-{{ user.pk }}">
+          <td>{{ user.get_full_name|default:user.username }}</td>
+          <td><code>{{ user.username }}</code></td>
+          <td>{{ role }}</td>
+          <td>{{ user.email|default:"—" }}</td>
+          <td>{{ user.date_joined|date:"M d, Y H:i" }}</td>
+          <td>
+            {% if user.is_active %}
+              <span class="status-badge status-approved">Approved</span>
+            {% else %}
+              <span class="status-badge status-pending">Pending</span>
+            {% endif %}
+          </td>
+          <td class="psg-actions-cell">
+            <button type="button" class="btn btn-sm btn-outline-primary psg-btn-edit" data-user-id="{{ user.pk }}" data-username="{{ user.username }}" data-first-name="{{ user.first_name }}" data-last-name="{{ user.last_name }}" data-email="{{ user.email }}" data-role="{{ role }}" data-middle-name="{{ profile.middle_name }}" data-contact-number="{{ profile.contact_number }}" data-department="{{ profile.department }}" data-position="{{ profile.position }}" data-employee-id="{{ profile.employee_id }}" data-address="{{ profile.address }}" title="Edit user">
+              <i class="fas fa-edit"></i> Edit
+            </button>
+            <div class="dropdown d-inline psg-actions-dropdown">
+              <button type="button" class="btn btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                Actions
+              </button>
+              <div class="dropdown-menu dropdown-menu-right">
+                <div class="dropdown-header">Account</div>
+                {% if not user.is_active %}
+                <form method="post" action="{% url 'pending-staff-guard-list' %}" class="dropdown-item-form" onsubmit="return true;">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="approve">
+                  <input type="hidden" name="user_id" value="{{ user.pk }}">
+                  <button type="submit" class="psg-action-btn psg-action-approve">
+                    <span class="psg-action-icon"><i class="fas fa-check-circle"></i></span>
+                    <span class="psg-action-label">Approve account</span>
+                  </button>
+                </form>
+                {% endif %}
+                {% if user.is_active %}
+                <form method="post" action="{% url 'pending-staff-guard-list' %}" class="dropdown-item-form" data-confirm-message="Set this account to inactive? They will not be able to log in.">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="deactivate">
+                  <input type="hidden" name="user_id" value="{{ user.pk }}">
+                  <button type="submit" class="psg-action-btn psg-action-deactivate">
+                    <span class="psg-action-icon"><i class="fas fa-user-slash"></i></span>
+                    <span class="psg-action-label">Deactivate</span>
+                  </button>
+                </form>
+                {% endif %}
+                <div class="dropdown-divider"></div>
+                <div class="dropdown-header">Access &amp; remove</div>
+                <form method="post" action="{% url 'pending-staff-guard-list' %}" class="dropdown-item-form" data-confirm-message="Deny access for this account? They will not be able to log in.">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="deny">
+                  <input type="hidden" name="user_id" value="{{ user.pk }}">
+                  <button type="submit" class="psg-action-btn psg-action-deny">
+                    <span class="psg-action-icon"><i class="fas fa-ban"></i></span>
+                    <span class="psg-action-label">Deny</span>
+                  </button>
+                </form>
+                <form method="post" action="{% url 'pending-staff-guard-list' %}" class="dropdown-item-form" data-confirm-message="Permanently delete this account? This cannot be undone.">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="user_id" value="{{ user.pk }}">
+                  <button type="submit" class="psg-action-btn psg-action-delete">
+                    <span class="psg-action-icon"><i class="fas fa-trash-alt"></i></span>
+                    <span class="psg-action-label">Delete</span>
+                  </button>
+                </form>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="psg-empty">
+      <i class="fas fa-users fa-2x mb-3" style="opacity:0.4;"></i>
+      <p class="mb-0">No staff/faculty/guard accounts found.</p>
+      {% if show_only_pending %}
+      <a href="{% url 'pending-staff-guard-list' %}">Show all</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Edit user modal -->
+<div class="modal fade" id="psgEditModal" tabindex="-1" role="dialog" aria-labelledby="psgEditModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="psgEditModalTitle"><i class="fas fa-user-edit mr-2"></i>Edit user</h5>
+        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <form method="post" action="{% url 'pending-staff-guard-list' %}{% if show_only_pending %}?pending=1{% endif %}" id="psgEditForm">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="edit_user">
+        <input type="hidden" name="user_id" id="psgEditUserId" value="">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="psgEditFirstName">First name</label>
+            <input type="text" class="form-control" id="psgEditFirstName" name="first_name" maxlength="150" required>
+          </div>
+          <div class="form-group">
+            <label for="psgEditLastName">Last name</label>
+            <input type="text" class="form-control" id="psgEditLastName" name="last_name" maxlength="150">
+          </div>
+          <div class="form-group">
+            <label for="psgEditMiddleName">Middle name</label>
+            <input type="text" class="form-control" id="psgEditMiddleName" name="middle_name" maxlength="100">
+          </div>
+          <div class="form-group">
+            <label for="psgEditUsername">Username</label>
+            <input type="text" class="form-control" id="psgEditUsername" name="username" maxlength="150" required>
+          </div>
+          <div class="form-group">
+            <label for="psgEditEmail">Email</label>
+            <input type="email" class="form-control" id="psgEditEmail" name="email" maxlength="254">
+          </div>
+          <div class="form-group">
+            <label for="psgEditRole">Role</label>
+            <select class="form-control" id="psgEditRole" name="role" required>
+              <option value="staff">Staff</option>
+              <option value="faculty">Faculty</option>
+              <option value="guard">Guard</option>
+            </select>
+          </div>
+          <hr class="my-3">
+          <p class="text-muted small mb-2">Optional profile</p>
+          <div class="form-group">
+            <label for="psgEditContactNumber">Contact number</label>
+            <input type="text" class="form-control" id="psgEditContactNumber" name="contact_number" maxlength="20">
+          </div>
+          <div class="form-group">
+            <label for="psgEditEmployeeId">Employee ID</label>
+            <input type="text" class="form-control" id="psgEditEmployeeId" name="employee_id" maxlength="50">
+          </div>
+          <div class="form-group">
+            <label for="psgEditDepartment">Department</label>
+            <input type="text" class="form-control" id="psgEditDepartment" name="department" maxlength="150">
+          </div>
+          <div class="form-group">
+            <label for="psgEditPosition">Position</label>
+            <input type="text" class="form-control" id="psgEditPosition" name="position" maxlength="150">
+          </div>
+          <div class="form-group">
+            <label for="psgEditAddress">Address</label>
+            <textarea class="form-control" id="psgEditAddress" name="address" rows="2" maxlength="500"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success"><i class="fas fa-save mr-1"></i> Save changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block extrascript %}
+<script>
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  var userId = params.get('user_id');
+  if (userId) {
+    var row = document.getElementById('user-' + userId);
+    if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // Edit modal: populate and show when Edit is clicked
+  var editModal = document.getElementById('psgEditModal');
+  var editForm = document.getElementById('psgEditForm');
+  if (editModal && editForm) {
+    document.querySelectorAll('.psg-btn-edit').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.getElementById('psgEditUserId').value = this.getAttribute('data-user-id') || '';
+        document.getElementById('psgEditFirstName').value = this.getAttribute('data-first-name') || '';
+        document.getElementById('psgEditLastName').value = this.getAttribute('data-last-name') || '';
+        document.getElementById('psgEditMiddleName').value = this.getAttribute('data-middle-name') || '';
+        document.getElementById('psgEditUsername').value = this.getAttribute('data-username') || '';
+        document.getElementById('psgEditEmail').value = this.getAttribute('data-email') || '';
+        var role = (this.getAttribute('data-role') || '').toLowerCase();
+        var roleEl = document.getElementById('psgEditRole');
+        if (roleEl) {
+          roleEl.value = (role === 'staff' || role === 'faculty' || role === 'guard') ? role : 'staff';
+        }
+        document.getElementById('psgEditContactNumber').value = this.getAttribute('data-contact-number') || '';
+        document.getElementById('psgEditEmployeeId').value = this.getAttribute('data-employee-id') || '';
+        document.getElementById('psgEditDepartment').value = this.getAttribute('data-department') || '';
+        document.getElementById('psgEditPosition').value = this.getAttribute('data-position') || '';
+        document.getElementById('psgEditAddress').value = this.getAttribute('data-address') || '';
+        if (typeof jQuery !== 'undefined' && jQuery(editModal).modal) {
+          jQuery(editModal).modal('show');
+        } else if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+          new bootstrap.Modal(editModal).show();
+        }
+      });
+    });
+  }
+})();
+</script>
+{% endblock %}

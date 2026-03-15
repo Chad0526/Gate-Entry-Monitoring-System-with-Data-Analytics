@@ -4,167 +4,411 @@
 {% block breadcrumb %}Shift Summary{% endblock breadcrumb %}
 
 {% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
 <style>
-  .summary-hero {
-    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+  .shift-summary-wrap {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    color: var(--monitor-text, #14532d);
+  }
+  .shift-hero {
+    position: relative;
+    overflow: hidden;
+    background-image:
+      linear-gradient(135deg, rgba(22,163,74,0.92), rgba(21,128,61,0.85)),
+      url('/media/event_image/background.jpg'),
+      url('/media/background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     color: #fff;
-    border-radius: 12px;
-    padding: 2rem;
-    margin-bottom: 2rem;
+    border-radius: var(--radius-lg, 16px);
+    padding: 2rem 2rem 2.25rem;
+    margin-bottom: 1.5rem;
     text-align: center;
-    box-shadow: 0 4px 12px rgba(40,167,69,0.3);
+    box-shadow: 0 8px 24px rgba(22,163,74,0.22);
   }
-  .summary-hero h2 {
-    font-size: 2.5rem;
+  .shift-hero .badge-complete {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    margin-bottom: 1rem;
+    font-size: 1.75rem;
+  }
+  .shift-hero h2 {
+    font-size: 1.85rem;
+    font-weight: 800;
+    margin: 0 0 0.35rem 0;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.25);
+    letter-spacing: -0.02em;
+  }
+  .shift-hero .hero-sub {
+    font-size: 1rem;
+    margin: 0;
+    color: #d1fae5;
+    font-weight: 600;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.3);
+  }
+
+  .ss-card {
+    background: var(--monitor-card, #fff);
+    border: 1px solid var(--monitor-border, #e2e8f0);
+    border-radius: var(--radius-lg, 14px);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    margin-bottom: 1.25rem;
+    overflow: hidden;
+  }
+  .ss-card-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--monitor-border, #e2e8f0);
+    background: #f8fafc;
     font-weight: 700;
-    margin-bottom: 0.5rem;
-  }
-  .summary-hero p {
-    font-size: 1.1rem;
-    opacity: 0.95;
-    margin-bottom: 0;
-  }
-  .metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.25rem;
-    margin-bottom: 2rem;
-  }
-  .metric-box {
-    background: #fff;
-    border-radius: 8px;
-    padding: 1.5rem;
-    text-align: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-    border-top: 4px solid #28a745;
-  }
-  .metric-box .value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #212529;
-    margin-bottom: 0.5rem;
-  }
-  .metric-box .label {
-    font-size: 0.9rem;
-    color: #6c757d;
+    font-size: 0.82rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    color: var(--monitor-muted, #4d7c5e);
   }
-  .handover-note {
-    background: #fff3cd;
-    border-left: 4px solid #ffc107;
-    border-radius: 8px;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
+  .ss-card-head i { color: var(--ok, #16a34a); font-size: 1rem; }
+  .ss-card-body { padding: 20px; }
+
+  .shift-timeline {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    flex-wrap: wrap;
   }
-  .handover-note h5 {
-    color: #856404;
-    margin-bottom: 1rem;
+  .shift-timeline .item {
+    flex: 1;
+    min-width: 140px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1px solid var(--monitor-border, #e2e8f0);
   }
-  .handover-note p {
-    color: #856404;
-    margin-bottom: 0;
+  .shift-timeline .item + .item { margin-left: 12px; }
+  @media (max-width: 575px) {
+    .shift-timeline .item + .item { margin-left: 0; margin-top: 10px; }
+  }
+  .shift-timeline .item .label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--monitor-muted, #4d7c5e);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .shift-timeline .item .value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--monitor-text, #14532d);
+  }
+  .shift-timeline .duration .value { color: var(--ok, #16a34a); }
+
+  .metrics-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 14px;
+    margin-bottom: 1.5rem;
+  }
+  .metric-card {
+    background: #fff;
+    border: 1px solid var(--monitor-border, #e2e8f0);
+    border-radius: var(--radius, 12px);
+    padding: 18px 16px;
+    text-align: center;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  }
+  .metric-card .m-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    margin: 0 auto 10px;
+  }
+  .metric-card .m-icon.green { background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: var(--ok, #16a34a); }
+  .metric-card .m-icon.blue { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: var(--info, #2563eb); }
+  .metric-card .m-icon.amber { background: linear-gradient(135deg, #fef3c7, #fde68a); color: var(--warn, #d97706); }
+  .metric-card .m-icon.red { background: linear-gradient(135deg, #fee2e2, #fecaca); color: var(--danger, #dc2626); }
+  .metric-card .m-icon.neutral { background: linear-gradient(135deg, #f1f5f9, #e2e8f0); color: var(--monitor-muted, #4d7c5e); }
+  .metric-card .m-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--monitor-text, #14532d);
+    line-height: 1.2;
+  }
+  .metric-card .m-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--monitor-muted, #4d7c5e);
+    font-weight: 600;
+    margin-top: 4px;
+  }
+
+  .accuracy-ring-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+  .accuracy-ring {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: conic-gradient(
+      var(--ok, #16a34a) calc(var(--pct, 0) * 1%),
+      var(--monitor-border, #e2e8f0) 0
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .accuracy-ring-inner {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--monitor-text, #14532d);
+  }
+  .metric-card.accuracy-no-data .m-value { font-size: 1.1rem; color: var(--monitor-muted, #4d7c5e); }
+
+  .zero-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 2rem 1.5rem;
+    background: var(--monitor-bg, #f8fafc);
+    border: 1px dashed var(--monitor-border, #e2e8f0);
+    border-radius: var(--radius, 12px);
+    color: var(--monitor-muted, #4d7c5e);
+  }
+  .zero-state i {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+    opacity: 0.7;
+  }
+  .zero-state p {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+  .zero-state .hint {
+    font-size: 0.82rem;
+    font-weight: 500;
+    margin-top: 4px;
+    opacity: 0.9;
+  }
+
+  .handover-card {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border: 1px solid #fde68a;
+    border-radius: var(--radius, 12px);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .handover-card h5 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #92400e;
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .handover-card h5 i { color: #d97706; }
+  .handover-card p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #78350f;
+    line-height: 1.5;
     white-space: pre-line;
   }
-  .action-buttons {
+
+  .ss-actions {
     display: flex;
-    gap: 1rem;
+    flex-wrap: wrap;
+    gap: 12px;
     justify-content: center;
-    margin-top: 2rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--monitor-border, #e2e8f0);
   }
+  .ss-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 24px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    border: 1px solid var(--monitor-border, #e2e8f0);
+    background: #fff;
+    color: var(--monitor-text, #14532d);
+  }
+  .ss-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    text-decoration: none;
+    color: var(--ok, #16a34a);
+    border-color: var(--ok, #16a34a);
+  }
+  .ss-btn-primary {
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 4px 14px rgba(22,163,74,0.25);
+  }
+  .ss-btn-primary:hover {
+    color: #fff;
+    box-shadow: 0 6px 20px rgba(22,163,74,0.35);
+    border-color: transparent;
+  }
+
   @media (max-width: 768px) {
-    .summary-hero h2 {
-      font-size: 1.75rem;
-    }
-    .metrics-grid {
-      grid-template-columns: 1fr;
-    }
-    .action-buttons {
-      flex-direction: column;
-    }
+    .shift-hero { padding: 1.5rem 1.25rem; }
+    .shift-hero h2 { font-size: 1.5rem; }
+    .metrics-row { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 480px) {
+    .metrics-row { grid-template-columns: 1fr; }
+    .ss-actions { flex-direction: column; }
+    .ss-btn { width: 100%; }
   }
 </style>
 {% endblock extrahead %}
 
 {% block content %}
-<div class="row">
-  <div class="col-12">
-    <!-- Hero Section -->
-    <div class="summary-hero">
-      <h2><i class="fas fa-check-circle"></i> Shift Complete!</h2>
-      <p>Thank you for your service. Here's your shift summary.</p>
-    </div>
+<div class="monitor-wrap shift-summary-wrap">
+  <!-- Hero -->
+  <div class="shift-hero">
+    <div class="badge-complete"><i class="fas fa-check"></i></div>
+    <h2>Shift Complete!</h2>
+    <p class="hero-sub">Thank you for your service. Here's your shift summary.</p>
+  </div>
 
-    <!-- Shift Details -->
-    <div class="card mb-3">
-      <div class="card-header bg-success text-white">
-        <h5 class="mb-0"><i class="fas fa-clock"></i> Shift Details</h5>
+  <!-- Shift Details -->
+  <div class="ss-card">
+    <div class="ss-card-head"><i class="fas fa-clock"></i> Shift Details</div>
+    <div class="ss-card-body">
+      <div class="shift-timeline">
+        <div class="item">
+          <div class="label">Started</div>
+          <div class="value">{{ shift.shift_start|date:"M d, Y g:i A" }}</div>
+        </div>
+        <div class="item">
+          <div class="label">Ended</div>
+          <div class="value">{{ shift.shift_end|date:"M d, Y g:i A" }}</div>
+        </div>
+        <div class="item duration">
+          <div class="label">Duration</div>
+          <div class="value">{{ metrics.duration_hours }} hours</div>
+        </div>
+        {% if shift.gate_post %}
+        <div class="item">
+          <div class="label">Post</div>
+          <div class="value">{{ shift.gate_post }}</div>
+        </div>
+        {% endif %}
       </div>
-      <div class="card-body">
-        <div class="row">
-          <div class="col-md-6">
-            <p><strong>Started:</strong> {{ shift.shift_start|date:"M d, Y h:i A" }}</p>
-            <p><strong>Ended:</strong> {{ shift.shift_end|date:"M d, Y h:i A" }}</p>
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="ss-card">
+    <div class="ss-card-head"><i class="fas fa-chart-bar"></i> Shift Stats</div>
+    <div class="ss-card-body">
+      <div class="metrics-row">
+        {% if metrics.total_scans == 0 %}
+        <div class="zero-state">
+          <i class="fas fa-qrcode"></i>
+          <p>No scans recorded this shift</p>
+          <span class="hint">Scans during your shift will appear here next time.</span>
+        </div>
+        {% endif %}
+
+        <div class="metric-card">
+          <div class="m-icon neutral"><i class="fas fa-qrcode"></i></div>
+          <div class="m-value">{{ metrics.total_scans }}</div>
+          <div class="m-label">Total Scans</div>
+        </div>
+        <div class="metric-card">
+          <div class="m-icon green"><i class="fas fa-check-circle"></i></div>
+          <div class="m-value">{{ metrics.successful_scans }}</div>
+          <div class="m-label">Successful</div>
+        </div>
+        <div class="metric-card">
+          <div class="m-icon amber"><i class="fas fa-times-circle"></i></div>
+          <div class="m-value">{{ metrics.denied_scans }}</div>
+          <div class="m-label">Denied</div>
+        </div>
+        <div class="metric-card {% if metrics.total_scans == 0 %}accuracy-no-data{% endif %}">
+          {% if metrics.total_scans > 0 %}
+          <div class="accuracy-ring-wrap">
+            <div class="accuracy-ring" style="--pct: {{ metrics.accuracy_rate }};">
+              <div class="accuracy-ring-inner">{{ metrics.accuracy_rate }}%</div>
+            </div>
           </div>
-          <div class="col-md-6">
-            <p><strong>Duration:</strong> {{ metrics.duration_hours }} hours</p>
-            {% if shift.gate_post %}
-            <p><strong>Post:</strong> {{ shift.gate_post }}</p>
-            {% endif %}
-          </div>
+          <div class="m-label">Accuracy</div>
+          {% else %}
+          <div class="m-icon neutral"><i class="fas fa-bullseye"></i></div>
+          <div class="m-value">—</div>
+          <div class="m-label">Accuracy</div>
+          {% endif %}
+        </div>
+        <div class="metric-card">
+          <div class="m-icon blue"><i class="fas fa-tachometer-alt"></i></div>
+          <div class="m-value">{{ metrics.scans_per_hour }}</div>
+          <div class="m-label">Scans / Hour</div>
+        </div>
+        <div class="metric-card">
+          <div class="m-icon red"><i class="fas fa-exclamation-triangle"></i></div>
+          <div class="m-value">{{ metrics.incidents_reported }}</div>
+          <div class="m-label">Incidents</div>
+        </div>
+        <div class="metric-card">
+          <div class="m-icon neutral"><i class="fas fa-edit"></i></div>
+          <div class="m-value">{{ metrics.overrides_made }}</div>
+          <div class="m-label">Overrides</div>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Metrics Grid -->
-    <div class="metrics-grid">
-      <div class="metric-box">
-        <div class="value">{{ metrics.total_scans }}</div>
-        <div class="label">Total Scans</div>
-      </div>
-      <div class="metric-box">
-        <div class="value">{{ metrics.successful_scans }}</div>
-        <div class="label">Successful</div>
-      </div>
-      <div class="metric-box">
-        <div class="value">{{ metrics.denied_scans }}</div>
-        <div class="label">Denied</div>
-      </div>
-      <div class="metric-box">
-        <div class="value">{{ metrics.accuracy_rate }}%</div>
-        <div class="label">Accuracy</div>
-      </div>
-      <div class="metric-box">
-        <div class="value">{{ metrics.scans_per_hour }}</div>
-        <div class="label">Scans/Hour</div>
-      </div>
-      <div class="metric-box">
-        <div class="value">{{ metrics.incidents_reported }}</div>
-        <div class="label">Incidents</div>
-      </div>
-      <div class="metric-box">
-        <div class="value">{{ metrics.overrides_made }}</div>
-        <div class="label">Overrides</div>
-      </div>
-    </div>
+  {% if handover_note %}
+  <div class="handover-card">
+    <h5><i class="fas fa-sticky-note"></i> Handover Note</h5>
+    <p>{{ handover_note }}</p>
+  </div>
+  {% endif %}
 
-    <!-- Handover Note -->
-    {% if handover_note %}
-    <div class="handover-note">
-      <h5><i class="fas fa-sticky-note"></i> Handover Note</h5>
-      <p>{{ handover_note }}</p>
-    </div>
-    {% endif %}
-
-    <!-- Action Buttons -->
-    <div class="action-buttons">
-      <a href="{% url 'guard-dashboard' %}" class="btn btn-success btn-lg">
-        <i class="fas fa-home"></i> Back to Dashboard
-      </a>
-      <a href="{% url 'guard-performance' %}" class="btn btn-outline-success btn-lg">
-        <i class="fas fa-chart-line"></i> View Performance
-      </a>
-    </div>
+  <div class="ss-actions">
+    <a href="{% url 'guard-dashboard' %}" class="ss-btn ss-btn-primary">
+      <i class="fas fa-home"></i> Back to Dashboard
+    </a>
+    <a href="{% url 'guard-performance' %}" class="ss-btn">
+      <i class="fas fa-chart-line"></i> View Performance
+    </a>
   </div>
 </div>
 {% endblock content %}

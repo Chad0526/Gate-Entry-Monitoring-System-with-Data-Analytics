@@ -1,0 +1,50 @@
+{% extends "admin/base.html" %}
+{% load i18n %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  /* Same success/message style as main app – simple, noticeable, no solid box */
+  #content-main .messagelist,
+  .messagelist {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem 0;
+  }
+  .messagelist li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    border: none;
+    border-left: 4px solid transparent;
+    background: #fff !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1.45;
+    color: #1e293b;
+  }
+  .messagelist li:last-child { margin-bottom: 0; }
+  .messagelist li.success {
+    border-left-color: #16a34a !important;
+    color: #1e293b !important;
+  }
+  .messagelist li.warning {
+    border-left-color: #d97706 !important;
+    color: #92400e !important;
+  }
+  .messagelist li.error {
+    border-left-color: #dc2626 !important;
+    color: #991b1b !important;
+  }
+  .messagelist li.info {
+    border-left-color: #0284c7 !important;
+    color: #075985 !important;
+  }
+</style>
+{% endblock %}

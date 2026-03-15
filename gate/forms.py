@@ -296,11 +296,11 @@ class StudentRegistrationForm(forms.Form):
     )
     address = forms.CharField(
         max_length=500,
-        required=False,
+        required=True,
         widget=forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Address', 'rows': 2})
     )
     birthdate = forms.DateField(
-        required=False,
+        required=True,
         widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
     )
     sex = forms.ChoiceField(
@@ -311,7 +311,7 @@ class StudentRegistrationForm(forms.Form):
     )
     guardians_parents = forms.CharField(
         max_length=255,
-        required=False,
+        required=True,
         label='Guardians / Parents',
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Guardian(s) or parent(s) name(s)'})
     )
@@ -332,13 +332,13 @@ class StudentRegistrationForm(forms.Form):
         widget=forms.Select(attrs={'class': 'form-control'})
     )
     section = forms.CharField(
-        required=False,
+        required=True,
         max_length=20,
         label='Section',
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Section (e.g. A / 1A / BSIT-1A)'})
     )
     contact_number = forms.CharField(
-        required=False,
+        required=True,
         max_length=11,
         widget=forms.TextInput(attrs={
             'class': 'form-control',
@@ -349,7 +349,7 @@ class StudentRegistrationForm(forms.Form):
         })
     )
     guardian_contact = forms.CharField(
-        required=False,
+        required=True,
         max_length=11,
         label='Guardian contact number',
         widget=forms.TextInput(attrs={

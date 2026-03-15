@@ -1,106 +1,368 @@
 {% extends 'base/base.html' %}
+{% load static %}
 {% block title %}Campus Analytics - {{ site_name }}{% endblock title %}
 {% block breadcrumb %}Gate Analytics{% endblock breadcrumb %}
+{% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
+{% endblock extrahead %}
 
 {% block content %}
 <style>
-  #analytics-cards .analytics-col { margin-bottom: 1rem; }
-  #analytics-cards .small-box { min-height: 120px; display: flex; flex-direction: column; }
-  #analytics-cards .small-box .inner { flex: 1; }
-  @media (min-width: 992px) {
-    #analytics-cards .row:first-child .analytics-col { margin-bottom: 1rem; }
-    #analytics-cards .row:last-child .analytics-col { margin-bottom: 0; }
+  .analytics-hero {
+    position: relative;
+    overflow: hidden;
+    background-image:
+      linear-gradient(135deg, rgba(22,163,74,0.82), rgba(21,128,61,0.75)),
+      url('/media/event_image/background.jpg'),
+      url('/media/background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: #fff;
+    border-radius: 16px;
+    padding: 28px 24px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-bottom: 16px;
+    box-shadow: 0 8px 24px rgba(22,163,74,0.18);
+  }
+  .analytics-hero h2 {
+    margin: 0;
+    font-size: 1.55rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.25);
+  }
+  .analytics-hero p {
+    margin: 4px 0 0;
+    font-size: 0.9rem;
+    color: #d1fae5; font-weight: 600; text-shadow: 0 1px 6px rgba(0,0,0,0.3);
+  }
+  .metrics-grid .metric-card {
+    background: #fff;
+    border: 1px solid var(--monitor-border, #e2e8f0);
+    border-radius: 14px;
+    padding: 18px;
+    min-height: 92px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+    transition: all 0.2s ease;
+  }
+  .metrics-grid .metric-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    transform: translateY(-2px);
+  }
+  .metric-label {
+    font-size: 0.78rem;
+    color: var(--monitor-muted, #4d7c5e);
+    font-weight: 600;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .metric-value {
+    margin-top: 4px;
+    font-size: 1.72rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .metric-success .metric-value { color: var(--ok); }
+  .metric-success .stat-icon { background: var(--ok); }
+  .metric-info .metric-value { color: var(--info); }
+  .metric-info .stat-icon { background: var(--info); }
+  .metric-warn .metric-value { color: var(--warn); }
+  .metric-warn .stat-icon { background: var(--warn); }
+  .metric-danger .metric-value { color: var(--danger); }
+  .metric-danger .stat-icon { background: var(--danger); }
+  .metric-neutral .metric-value { color: var(--neutral); }
+  .metric-neutral .stat-icon { background: var(--neutral); }
+  .metric-teal .metric-value { color: #0f9d8f; }
+  .metric-teal .stat-icon { background: #0f9d8f; }
+  .metric-link {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+  .metric-link a {
+    color: #1f6a49;
+  }
+  .metric-link a:hover {
+    color: #0f5132;
+    text-decoration: none;
+  }
+  .analytics-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .report-sections-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+    gap: 6px 12px;
+  }
+  .subcard {
+    box-shadow: none;
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 12px;
+  }
+  .subcard .card-header {
+    background: #f8fafc;
+    border-bottom: 1px solid #e9eef3;
+    border-radius: 12px 12px 0 0;
+  }
+  .table thead th {
+    color: #60706a;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.74rem;
+  }
+  /* ---- Enhanced analytics cards ---- */
+  .ca-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    overflow: hidden;
+  }
+  .ca-card-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .ca-card-icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.95rem; flex-shrink: 0;
+  }
+  .ca-card-icon.green { background: linear-gradient(135deg,#dcfce7,#bbf7d0); color: #16a34a; }
+  .ca-card-icon.blue { background: linear-gradient(135deg,#dbeafe,#bfdbfe); color: #2563eb; }
+  .ca-card-icon.red { background: linear-gradient(135deg,#fee2e2,#fecaca); color: #dc2626; }
+  .ca-card-icon.amber { background: linear-gradient(135deg,#fef3c7,#fde68a); color: #d97706; }
+  .ca-card-icon.teal { background: linear-gradient(135deg,#cffafe,#a5f3fc); color: #0891b2; }
+  .ca-card-title { margin: 0; font-size: 0.92rem; font-weight: 800; color: #14532d; }
+  .ca-card-sub { font-size: 0.74rem; color: #4d7c5e; font-weight: 500; }
+  .ca-card-action {
+    margin-left: auto;
+    font-size: 0.78rem; font-weight: 700; color: #16a34a;
+    text-decoration: none;
+    display: flex; align-items: center; gap: 4px;
+    white-space: nowrap;
+    transition: color 0.15s;
+  }
+  .ca-card-action:hover { color: #15803d; text-decoration: none; }
+  .ca-card-body { padding: 16px 20px; }
+
+  .ca-table thead th {
+    background: #f1f5f9;
+    color: #2d6a42;
+    font-weight: 700;
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid #e2e8f0;
+    padding: 10px 16px;
+  }
+  .ca-table tbody td {
+    padding: 10px 16px;
+    font-size: 0.84rem;
+    color: #1a5c35;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .ca-table tbody tr:hover { background: #f0fdf4; }
+
+  .ca-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 6px;
+    font-size: 0.74rem; font-weight: 700;
+  }
+  .ca-badge i { font-size: 0.65rem; }
+  .ca-badge-green { background: #dcfce7; color: #166534; }
+  .ca-badge-red { background: #fee2e2; color: #991b1b; }
+
+  .ca-time { font-size: 0.8rem; color: #4d7c5e; font-variant-numeric: tabular-nums; }
+
+  .ca-count-pill {
+    display: inline-block;
+    background: #f1f5f9;
+    color: #1a5c35;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    min-width: 32px;
+    text-align: center;
+  }
+
+  .ca-sub-title {
+    font-size: 0.78rem; font-weight: 700; color: #2d6a42;
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .ca-action-btn {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #4d7c5e; font-size: 0.78rem;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+  .ca-action-btn:hover {
+    background: #16a34a; color: #fff; border-color: #16a34a;
+    text-decoration: none;
+  }
+
+  .ca-event-list { display: flex; flex-direction: column; gap: 10px; }
+  .ca-event-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    transition: all 0.15s;
+  }
+  .ca-event-item:hover { border-color: #16a34a; background: #f0fdf4; }
+  .ca-event-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #16a34a;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 3px rgba(22,163,74,0.2);
+    animation: ca-pulse 2s ease-in-out infinite;
+  }
+  @keyframes ca-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(22,163,74,0.2); }
+    50% { box-shadow: 0 0 0 6px rgba(22,163,74,0.1); }
+  }
+
+  @media (max-width: 767px) {
+    .analytics-hero {
+      min-height: 120px;
+      padding: 18px 14px;
+    }
+    .analytics-hero h2 {
+      font-size: 1.35rem;
+    }
+    .ca-card-head { flex-wrap: wrap; gap: 8px; }
+    .ca-card-action { margin-left: 0; }
   }
 </style>
-<div class="row mb-3">
-  <div class="col-12">
-    <a href="{% url 'gate-analytics-report' %}" target="_blank" class="btn btn-success">
-      <i class="fas fa-print mr-1"></i> Print report
-    </a>
-    <span class="text-muted small ml-2">Opens a printable report with all analytics data.</span>
+
+<div class="monitor-wrap">
+<div class="analytics-hero">
+  <h2>Campus Analytics</h2>
+  <p>Gate monitoring summary, visitor trends, incidents, and event participation.</p>
+</div>
+
+<div class="section-card">
+  <div class="section-head">Quick Actions</div>
+  <div class="section-body">
+    <div class="analytics-toolbar">
+      <button type="button" class="btn btn-success btn-sm" data-toggle="modal" data-target="#printReportFilterModal">
+        <i class="fas fa-print mr-1"></i> Print report
+      </button>
+      <span class="text-muted small">Choose report range, sections, and signatories before printing.</span>
+    </div>
   </div>
 </div>
-<div id="analytics-cards">
+
+<div class="section-card dashboard-section" style="margin-top:0;">
+  <div class="section-head">Today Overview</div>
+  <div class="section-body metrics-grid">
   <div class="row">
-    <div class="col-lg-3 col-md-4 col-6 analytics-col">
-      <div class="small-box bg-success h-100">
-        <div class="inner">
-          <h3>{{ granted_today|default:0 }}</h3>
-          <p>Entries granted today</p>
+    <div class="col-lg-3 col-md-6">
+      <div class="metric-card metric-success">
+        <div class="stat-icon"><i class="fas fa-door-open"></i></div>
+        <div>
+          <div class="metric-label">Entries Granted Today</div>
+          <div class="metric-value">{{ granted_today|default:0 }}</div>
+          <div class="metric-link"><a href="#" class="open-overview-modal" data-overview-title="Gate entries" data-overview-url="{% url 'gate-entry-list' %}?embed=1&from_date={{ today_iso|default:'' }}">View entries <i class="fas fa-arrow-circle-right"></i></a></div>
         </div>
-        <div class="icon"><i class="fas fa-door-open"></i></div>
-        <a href="{% url 'gate-entry-list' %}" class="small-box-footer">View entries <i class="fas fa-arrow-circle-right"></i></a>
       </div>
     </div>
-    <div class="col-lg-3 col-md-4 col-6 analytics-col">
-      <div class="small-box bg-info h-100">
-        <div class="inner">
-          <h3>{{ inside_now|default:0 }}</h3>
-          <p>Currently inside</p>
+    <div class="col-lg-3 col-md-6">
+      <div class="metric-card metric-info">
+        <div class="stat-icon"><i class="fas fa-user-friends"></i></div>
+        <div>
+          <div class="metric-label">Currently Inside</div>
+          <div class="metric-value">{{ inside_now|default:0 }}</div>
+          <div class="metric-link"><a href="#" class="open-overview-modal" data-overview-title="Students currently inside" data-overview-url="{% url 'gate-entry-list' %}?embed=1&from_date={{ today_iso|default:'' }}&filter=in">View entries <i class="fas fa-arrow-circle-right"></i></a></div>
         </div>
-        <div class="icon"><i class="fas fa-user-friends"></i></div>
-        <a href="{% url 'gate-entry-list' %}" class="small-box-footer">View entries <i class="fas fa-arrow-circle-right"></i></a>
       </div>
     </div>
-    <div class="col-lg-3 col-md-4 col-6 analytics-col">
-      <div class="small-box bg-danger h-100">
-        <div class="inner">
-          <h3>{{ denied_today|default:0 }}</h3>
-          <p>Entries denied today</p>
+    <div class="col-lg-3 col-md-6">
+      <div class="metric-card metric-warn">
+        <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
+        <div>
+          <div class="metric-label">Entries Denied Today</div>
+          <div class="metric-value">{{ denied_today|default:0 }}</div>
+          <div class="metric-link"><a href="#" class="open-overview-modal" data-overview-title="Entries denied today" data-overview-url="{% url 'gate-incident-list' %}?embed=1&from_date={{ today_iso|default:'' }}">View incidents <i class="fas fa-arrow-circle-right"></i></a></div>
         </div>
-        <div class="icon"><i class="fas fa-times-circle"></i></div>
-        <a href="{% url 'gate-incident-list' %}?from_date={{ today_iso|default:'' }}" class="small-box-footer">View incidents <i class="fas fa-arrow-circle-right"></i></a>
       </div>
     </div>
-    <div class="col-lg-3 col-md-4 col-6 analytics-col">
-      <div class="small-box bg-warning h-100">
-        <div class="inner">
-          <h3>{{ incidents_today|default:0 }}</h3>
-          <p>Incidents today</p>
+    <div class="col-lg-3 col-md-6">
+      <div class="metric-card metric-danger">
+        <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
+        <div>
+          <div class="metric-label">Incidents Today</div>
+          <div class="metric-value">{{ incidents_today|default:0 }}</div>
+          <div class="metric-link"><a href="#" class="open-overview-modal" data-overview-title="Incidents today" data-overview-url="{% url 'gate-incident-list' %}?embed=1&from_date={{ today_iso|default:'' }}">View incidents <i class="fas fa-arrow-circle-right"></i></a></div>
         </div>
-        <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
-        <a href="{% url 'gate-incident-list' %}?from_date={{ today_iso|default:'' }}" class="small-box-footer">View incidents <i class="fas fa-arrow-circle-right"></i></a>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+      <div class="metric-card metric-success">
+        <div class="stat-icon"><i class="fas fa-users"></i></div>
+        <div>
+          <div class="metric-label">Registered Students</div>
+          <div class="metric-value">{{ total_students|default:0 }}</div>
+          <div class="metric-link"><a href="#" class="open-overview-modal" data-overview-title="Registered students" data-overview-url="{% url 'gate-student-list' %}?embed=1">View students <i class="fas fa-arrow-circle-right"></i></a></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+      <div class="metric-card metric-neutral">
+        <div class="stat-icon"><i class="fas fa-user-friends"></i></div>
+        <div>
+          <div class="metric-label">Visitors This Month</div>
+          <div class="metric-value">{{ visitors_this_month|default:0 }}</div>
+          <div class="metric-link"><a href="#" class="open-overview-modal" data-overview-title="Visitor log" data-overview-url="{% url 'gate-visitor-list' %}?embed=1">View visitor log <i class="fas fa-arrow-circle-right"></i></a></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+      <div class="metric-card metric-teal">
+        <div class="stat-icon"><i class="fas fa-building"></i></div>
+        <div>
+          <div class="metric-label">Visitors This Year</div>
+          <div class="metric-value">{{ visitors_this_year|default:0 }}</div>
+          <div class="metric-link"><a href="#" class="open-overview-modal" data-overview-title="Visitor yearly summary" data-overview-url="{% url 'gate-visitor-yearly' %}?embed=1">View yearly summary <i class="fas fa-arrow-circle-right"></i></a></div>
+        </div>
       </div>
     </div>
   </div>
-  <div class="row">
-    <div class="col-lg-3 col-md-4 col-6 analytics-col">
-      <div class="small-box bg-success h-100">
-        <div class="inner">
-          <h3>{{ total_students|default:0 }}</h3>
-          <p>Registered students</p>
-        </div>
-        <div class="icon"><i class="fas fa-users"></i></div>
-        <a href="{% url 'gate-student-list' %}" class="small-box-footer">View students <i class="fas fa-arrow-circle-right"></i></a>
-      </div>
-    </div>
-    <div class="col-lg-3 col-md-4 col-6 analytics-col">
-      <div class="small-box bg-secondary h-100">
-        <div class="inner">
-          <h3>{{ visitors_this_month|default:0 }}</h3>
-          <p>Visitors this month</p>
-        </div>
-        <div class="icon"><i class="fas fa-user-friends"></i></div>
-        <a href="{% url 'gate-visitor-list' %}" class="small-box-footer">View visitor log <i class="fas fa-arrow-circle-right"></i></a>
-      </div>
-    </div>
-    <div class="col-lg-3 col-md-4 col-6 analytics-col">
-      <div class="small-box bg-teal h-100">
-        <div class="inner">
-          <h3>{{ visitors_this_year|default:0 }}</h3>
-          <p>Visitors this year</p>
-        </div>
-        <div class="icon"><i class="fas fa-building"></i></div>
-        <a href="{% url 'gate-visitor-yearly' %}" class="small-box-footer">View yearly summary <i class="fas fa-arrow-circle-right"></i></a>
-      </div>
-    </div>
   </div>
+</div>
 </div>
 
 <div class="row">
   <div class="col-12">
-    <div class="card">
-      <div class="card-header">
+    <div class="section-card">
+      <div class="section-head">
         <div class="d-flex flex-wrap align-items-center justify-content-between" style="gap:10px;">
           <h5 class="m-0">School Performance</h5>
           <form method="get" class="form-inline" style="gap:8px; display:flex; flex-wrap:wrap; align-items:center;">
@@ -116,13 +378,13 @@
           </form>
         </div>
       </div>
-      <div class="card-body">
+      <div class="section-body">
         <div class="row">
           <div class="col-lg-8">
             <div class="row">
               <div class="col-12">
-                <div class="card" style="box-shadow:none; border:1px solid rgba(0,0,0,0.06);">
-                  <div class="card-header" style="background:#f8fafc;"><strong>Monthly Gate Entries</strong> <span class="text-muted small">(Granted vs Denied)</span></div>
+                <div class="card subcard">
+                  <div class="card-header"><strong>Monthly Gate Entries</strong> <span class="text-muted small">(Granted vs Denied)</span></div>
                   <div class="card-body">
                     <div style="position:relative; height:280px;">
                       <canvas id="chartMonthlyEntries"></canvas>
@@ -131,8 +393,8 @@
                 </div>
               </div>
               <div class="col-12">
-                <div class="card" style="box-shadow:none; border:1px solid rgba(0,0,0,0.06);">
-                  <div class="card-header" style="background:#f8fafc;"><strong>Monthly Incidents</strong> <span class="text-muted small">(Total)</span></div>
+                <div class="card subcard">
+                  <div class="card-header"><strong>Monthly Incidents</strong> <span class="text-muted small">(Total)</span></div>
                   <div class="card-body">
                     <div style="position:relative; height:240px;">
                       <canvas id="chartMonthlyIncidents"></canvas>
@@ -143,16 +405,16 @@
             </div>
           </div>
           <div class="col-lg-4">
-            <div class="card" style="box-shadow:none; border:1px solid rgba(0,0,0,0.06);">
-              <div class="card-header" style="background:#f8fafc;"><strong>Incidents by Reason</strong></div>
+            <div class="card subcard">
+              <div class="card-header"><strong>Incidents by Reason</strong></div>
               <div class="card-body">
                 <div style="position:relative; height:260px;">
                   <canvas id="chartIncidentReasons"></canvas>
                 </div>
               </div>
             </div>
-            <div class="card" style="box-shadow:none; border:1px solid rgba(0,0,0,0.06);">
-              <div class="card-header" style="background:#f8fafc;"><strong>Annual Trend</strong> <span class="text-muted small">(last years)</span></div>
+            <div class="card subcard">
+              <div class="card-header"><strong>Annual Trend</strong> <span class="text-muted small">(last years)</span></div>
               <div class="card-body">
                 <div style="position:relative; height:240px;">
                   <canvas id="chartAnnualTrend"></canvas>
@@ -166,195 +428,700 @@
   </div>
 </div>
 
-<div class="row">
-  <div class="col-md-6">
-    <div class="card">
-      <div class="card-header"><h5 class="m-0">Recent gate entries</h5></div>
-      <div class="card-body p-0">
-        <table class="table table-sm table-striped mb-0">
-          <thead><tr><th>ID</th><th>Result</th><th>Time</th></tr></thead>
+<!-- Recent entries & incidents -->
+<div class="row" style="margin-top:16px;">
+  <div class="col-md-6 mb-3">
+    <div class="ca-card">
+      <div class="ca-card-head">
+        <div class="ca-card-icon green"><i class="fas fa-door-open"></i></div>
+        <div>
+          <h6 class="ca-card-title">Recent Gate Entries</h6>
+          <span class="ca-card-sub">Latest 5 scans today</span>
+        </div>
+        <a href="{% url 'gate-entry-list' %}" class="ca-card-action">View all <i class="fas fa-arrow-right"></i></a>
+      </div>
+      <div class="ca-card-body p-0">
+        <table class="table table-sm mb-0 ca-table">
+          <thead><tr><th>Student ID</th><th>Result</th><th>Time</th></tr></thead>
           <tbody>
-            {% for e in recent_entries %}
-              <tr>
-                <td><code>{% if e.student %}{{ e.student.student_id }}{% else %}{{ e.notes|default:"—" }}{% endif %}</code></td>
-                <td>{% if e.granted %}<span class="badge badge-success">Granted</span>{% else %}<span class="badge badge-danger">Denied</span>{% endif %}</td>
-                <td>{{ e.timestamp|date:"H:i" }}</td>
-              </tr>
+            {% for e in recent_entries|slice:":5" %}
+            <tr>
+              <td><code style="font-size:0.82rem;color:#14532d;background:#f1f5f9;padding:2px 8px;border-radius:4px;">{% if e.student %}{{ e.student.student_id }}{% else %}{{ e.notes|default:"—" }}{% endif %}</code></td>
+              <td>{% if e.granted %}<span class="ca-badge ca-badge-green"><i class="fas fa-check"></i> Granted</span>{% else %}<span class="ca-badge ca-badge-red"><i class="fas fa-times"></i> Denied</span>{% endif %}</td>
+              <td class="ca-time">{{ e.timestamp|date:"h:i A" }}</td>
+            </tr>
             {% empty %}
-              <tr><td colspan="3" class="text-muted">No entries yet.</td></tr>
+            <tr><td colspan="3" class="text-muted text-center py-4">No entries yet today.</td></tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
-      <div class="card-footer"><a class="btn btn-sm btn-primary" href="{% url 'gate-entry-list' %}">View all entries</a></div>
     </div>
   </div>
-  <div class="col-md-6">
-    <div class="card">
-      <div class="card-header"><h5 class="m-0">Recent incidents</h5></div>
-      <div class="card-body p-0">
-        <table class="table table-sm table-striped mb-0">
+  <div class="col-md-6 mb-3">
+    <div class="ca-card">
+      <div class="ca-card-head">
+        <div class="ca-card-icon red"><i class="fas fa-exclamation-triangle"></i></div>
+        <div>
+          <h6 class="ca-card-title">Recent Incidents</h6>
+          <span class="ca-card-sub">Latest 5 incidents</span>
+        </div>
+        <a href="{% url 'gate-incident-list' %}" class="ca-card-action">View all <i class="fas fa-arrow-right"></i></a>
+      </div>
+      <div class="ca-card-body p-0">
+        <table class="table table-sm mb-0 ca-table">
           <thead><tr><th>Scanned / Student</th><th>Time</th></tr></thead>
           <tbody>
-            {% for i in recent_incidents %}
-              <tr>
-                <td>{% if i.scanned_id %}{{ i.scanned_id }}{% elif i.student %}{{ i.student.student_id }}{% else %}—{% endif %}</td>
-                <td>{{ i.timestamp|date:"H:i" }}</td>
-              </tr>
+            {% for i in recent_incidents|slice:":5" %}
+            <tr>
+              <td><code style="font-size:0.82rem;color:#14532d;background:#f1f5f9;padding:2px 8px;border-radius:4px;">{% if i.scanned_id %}{{ i.scanned_id }}{% elif i.student %}{{ i.student.student_id }}{% else %}—{% endif %}</code></td>
+              <td class="ca-time">{{ i.timestamp|date:"h:i A" }}</td>
+            </tr>
             {% empty %}
-              <tr><td colspan="2" class="text-muted">No incidents.</td></tr>
+            <tr><td colspan="2" class="text-muted text-center py-4">No incidents.</td></tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
-      <div class="card-footer"><a class="btn btn-sm btn-primary" href="{% url 'gate-incident-list' %}">View all incidents</a></div>
     </div>
   </div>
 </div>
 
-<div class="row">
-  <div class="col-12">
-    <div class="card">
-      <div class="card-header"><h5 class="m-0">Visitors &amp; departments visited</h5></div>
-      <div class="card-body p-0">
-        <div class="row no-gutters">
-          <div class="col-md-6">
-            <div class="p-3 border-bottom border-md-0 border-md-right">
-              <h6 class="text-muted mb-2">Top departments visited this month</h6>
-              <table class="table table-sm table-striped mb-0">
-                <thead><tr><th>Department / Office</th><th class="text-right">Visits</th></tr></thead>
-                <tbody>
-                  {% for row in top_departments_monthly %}
-                    <tr>
-                      <td>{{ row.who_to_visit|default:"—" }}</td>
-                      <td class="text-right">{{ row.count }}</td>
-                    </tr>
-                  {% empty %}
-                    <tr><td colspan="2" class="text-muted">No visitor data this month.</td></tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="p-3">
-              <h6 class="text-muted mb-2">Top departments visited this year ({{ selected_year }})</h6>
-              <table class="table table-sm table-striped mb-0">
-                <thead><tr><th>Department / Office</th><th class="text-right">Visits</th></tr></thead>
-                <tbody>
-                  {% for row in top_departments_annually %}
-                    <tr>
-                      <td>{{ row.who_to_visit|default:"—" }}</td>
-                      <td class="text-right">{{ row.count }}</td>
-                    </tr>
-                  {% empty %}
-                    <tr><td colspan="2" class="text-muted">No visitor data this year.</td></tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          </div>
+<!-- Visitors & departments -->
+<div class="ca-card" style="margin-bottom:16px;">
+  <div class="ca-card-head">
+    <div class="ca-card-icon blue"><i class="fas fa-id-badge"></i></div>
+    <div>
+      <h6 class="ca-card-title">Visitors &amp; Departments</h6>
+      <span class="ca-card-sub">Top departments visited</span>
+    </div>
+    <a href="{% url 'gate-visitor-list' %}" class="ca-card-action">View all <i class="fas fa-arrow-right"></i></a>
+  </div>
+  <div class="ca-card-body p-0">
+    <div class="row no-gutters">
+      <div class="col-md-6" style="border-right:1px solid #e2e8f0;">
+        <div class="p-3">
+          <div class="ca-sub-title"><i class="fas fa-calendar-day" style="color:#16a34a;"></i> This Month</div>
+          <table class="table table-sm mb-0 ca-table">
+            <thead><tr><th>Department / Office</th><th class="text-right">Visits</th></tr></thead>
+            <tbody>
+              {% for row in top_departments_monthly|slice:":5" %}
+              <tr>
+                <td>{{ row.who_to_visit|default:"—" }}</td>
+                <td class="text-right"><span class="ca-count-pill">{{ row.count }}</span></td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="2" class="text-muted text-center py-3">No visitor data this month.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
       </div>
-      <div class="card-footer"><a class="btn btn-sm btn-outline-secondary" href="{% url 'gate-visitor-list' %}">View all visitor entries</a></div>
-    </div>
-  </div>
-</div>
-
-<div class="row">
-  <div class="col-12">
-    <div class="card">
-      <div class="card-header"><h5 class="m-0">Event participation (campus analytics)</h5></div>
-      <div class="card-body p-0">
-        <table class="table table-sm table-striped mb-0">
-          <thead><tr><th>Event</th><th>Total tracked</th><th>Participated</th><th>Non-participant</th></tr></thead>
-          <tbody>
-            {% for s in participation_stats %}
+      <div class="col-md-6">
+        <div class="p-3">
+          <div class="ca-sub-title"><i class="fas fa-calendar" style="color:#2563eb;"></i> Year {{ selected_year }}</div>
+          <table class="table table-sm mb-0 ca-table">
+            <thead><tr><th>Department / Office</th><th class="text-right">Visits</th></tr></thead>
+            <tbody>
+              {% for row in top_departments_annually|slice:":5" %}
               <tr>
-                <td>{{ s.event__name|default:"—" }}</td>
-                <td>{{ s.total }}</td>
-                <td>{{ s.participated_count }}</td>
-                <td>{{ s.non_participant_count }}</td>
+                <td>{{ row.who_to_visit|default:"—" }}</td>
+                <td class="text-right"><span class="ca-count-pill">{{ row.count }}</span></td>
               </tr>
-            {% empty %}
-              <tr><td colspan="4" class="text-muted">No event participation data yet.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
+              {% empty %}
+              <tr><td colspan="2" class="text-muted text-center py-3">No visitor data this year.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
-<div class="row mt-3">
-  <div class="col-12">
-    <div class="card">
-      <div class="card-header d-flex flex-wrap align-items-center justify-content-between" style="gap:8px;">
-        <h5 class="m-0">Event results (past events)</h5>
-        <span class="d-flex flex-wrap align-items-center" style="gap:8px;">
-          <span class="text-muted small">Events that have ended — view results and export</span>
-          <a href="{% url 'report-compare-events' %}" class="btn btn-sm btn-outline-secondary" title="Compare two events"><i class="fas fa-balance-scale mr-1"></i> Compare events</a>
-        </span>
+<!-- Event participation -->
+<div class="ca-card" style="margin-bottom:16px;">
+  <div class="ca-card-head">
+    <div class="ca-card-icon teal"><i class="fas fa-users"></i></div>
+    <div>
+      <h6 class="ca-card-title">Event Participation</h6>
+      <span class="ca-card-sub">Campus event analytics</span>
+    </div>
+  </div>
+  <div class="ca-card-body p-0">
+    <table class="table table-sm mb-0 ca-table">
+      <thead><tr><th>Event</th><th class="text-center">Total Tracked</th><th class="text-center">Participated</th><th class="text-center">Non-participant</th></tr></thead>
+      <tbody>
+        {% for s in participation_stats|slice:":5" %}
+        <tr>
+          <td style="font-weight:600;color:#14532d;">{{ s.event__name|default:"—" }}</td>
+          <td class="text-center"><span class="ca-count-pill">{{ s.total }}</span></td>
+          <td class="text-center"><span class="ca-count-pill" style="background:#dcfce7;color:#166534;">{{ s.participated_count }}</span></td>
+          <td class="text-center"><span class="ca-count-pill" style="background:#fee2e2;color:#991b1b;">{{ s.non_participant_count }}</span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-muted text-center py-4">No event participation data yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Event results (past events) -->
+<div class="ca-card" style="margin-bottom:16px;">
+  <div class="ca-card-head">
+    <div class="ca-card-icon amber"><i class="fas fa-trophy"></i></div>
+    <div>
+      <h6 class="ca-card-title">Event Results</h6>
+      <span class="ca-card-sub">Past events — view results and export</span>
+    </div>
+    <a href="{% url 'report-compare-events' %}" class="ca-card-action"><i class="fas fa-balance-scale mr-1"></i> Compare <i class="fas fa-arrow-right"></i></a>
+  </div>
+  <div class="ca-card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 ca-table">
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>Dates</th>
+            <th class="text-center">Tracked</th>
+            <th class="text-center">Participated</th>
+            <th class="text-center">Checked In</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in past_events_with_stats|slice:":5" %}
+          <tr>
+            <td style="font-weight:600;color:#14532d;">{{ row.event.name }}</td>
+            <td class="ca-time" style="white-space:nowrap;">{{ row.event.start_date|date:"M d" }} – {{ row.event.end_date|date:"M d, Y" }}</td>
+            <td class="text-center"><span class="ca-count-pill">{{ row.total_tracked }}</span></td>
+            <td class="text-center"><span class="ca-count-pill" style="background:#dcfce7;color:#166534;">{{ row.participated }}</span></td>
+            <td class="text-center"><span class="ca-count-pill" style="background:#dbeafe;color:#1e40af;">{{ row.checked_in }}</span></td>
+            <td>
+              <div class="d-flex" style="gap:4px;">
+                <a href="{% url 'event-attendance-report' row.event.pk %}" class="ca-action-btn" title="View report"><i class="fas fa-chart-bar"></i></a>
+                <a href="{% url 'event-attendance-report-export-csv' row.event.pk %}" class="ca-action-btn" title="CSV"><i class="fas fa-file-csv"></i></a>
+                <a href="{% url 'event-attendance-report-export-xlsx' row.event.pk %}" class="ca-action-btn" title="Excel"><i class="fas fa-file-excel"></i></a>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-muted text-center py-4">No past events yet. Events appear here after their end date.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Active events -->
+<div class="ca-card" style="margin-bottom:16px;">
+  <div class="ca-card-head">
+    <div class="ca-card-icon green"><i class="fas fa-bolt"></i></div>
+    <div>
+      <h6 class="ca-card-title">Active Events Today</h6>
+      <span class="ca-card-sub">Events currently running</span>
+    </div>
+  </div>
+  <div class="ca-card-body">
+    {% if active_events %}
+    <div class="ca-event-list">
+      {% for e in active_events|slice:":5" %}
+      <div class="ca-event-item">
+        <div class="ca-event-dot"></div>
+        <div>
+          <div style="font-weight:700;color:#14532d;font-size:0.88rem;">{{ e.name }}</div>
+          <div style="font-size:0.78rem;color:#4d7c5e;">{{ e.start_date|date:"M d" }} – {{ e.end_date|date:"M d, Y" }}</div>
+        </div>
       </div>
-      <div class="card-body p-0">
-        <table class="table table-sm table-striped table-hover mb-0">
-          <thead>
-            <tr>
-              <th>Event</th>
-              <th>Dates</th>
-              <th>Total tracked</th>
-              <th>Participated</th>
-              <th>Checked in</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in past_events_with_stats %}
-              <tr>
-                <td>{{ row.event.name }}</td>
-                <td>{{ row.event.start_date|date:"M d, Y" }} – {{ row.event.end_date|date:"M d, Y" }}</td>
-                <td>{{ row.total_tracked }}</td>
-                <td>{{ row.participated }}</td>
-                <td>{{ row.checked_in }}</td>
-                <td>
-                  <a href="{% url 'event-attendance-report' row.event.pk %}" class="btn btn-sm btn-outline-primary" title="View full report"><i class="fas fa-chart-bar mr-1"></i> Report</a>
-                  <a href="{% url 'event-attendance-report-export-csv' row.event.pk %}" class="btn btn-sm btn-outline-secondary" title="Export CSV"><i class="fas fa-file-csv mr-1"></i> CSV</a>
-                  <a href="{% url 'event-attendance-report-export-xlsx' row.event.pk %}" class="btn btn-sm btn-outline-secondary" title="Export Excel"><i class="fas fa-file-excel mr-1"></i> XLSX</a>
-                </td>
-              </tr>
-            {% empty %}
-              <tr><td colspan="6" class="text-muted">No past events yet. Events appear here automatically after their end date.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted mb-0 text-center py-3">No active events today.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Print Report filter modal -->
+<style>
+  .prf-modal .modal-content {
+    border-radius: 16px;
+    border: none;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+  }
+  .prf-modal .modal-header {
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #fff;
+    padding: 18px 24px;
+    border: none;
+  }
+  .prf-modal .modal-header .modal-title {
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: -0.01em;
+  }
+  .prf-modal .modal-header .close {
+    color: #fff;
+    opacity: 0.7;
+    text-shadow: none;
+    font-size: 1.3rem;
+  }
+  .prf-modal .modal-header .close:hover { opacity: 1; }
+  .prf-modal .modal-body {
+    padding: 24px;
+    max-height: 72vh;
+    overflow-y: auto;
+  }
+  .prf-section-title {
+    font-size: 0.76rem;
+    font-weight: 800;
+    color: #16a34a;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #dcfce7;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .prf-section-title i { font-size: 0.82rem; }
+  .prf-modal label {
+    font-weight: 700;
+    font-size: 0.78rem;
+    color: #1a5c35;
+    margin-bottom: 5px;
+  }
+  .prf-modal .form-control {
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    font-size: 0.84rem;
+    padding: 8px 12px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .prf-modal .form-control:focus {
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22,163,74,0.12);
+  }
+  .prf-modal select.form-control {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 14px;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    padding-right: 30px;
+  }
+  .prf-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .prf-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .prf-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .prf-section {
+    margin-bottom: 20px;
+    padding-bottom: 4px;
+  }
+  .prf-section:last-child { margin-bottom: 0; }
+
+  .prf-check-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px 16px;
+  }
+  .prf-check-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #1a5c35;
+  }
+  .prf-check-item:hover { border-color: #16a34a; background: #f0fdf4; }
+  .prf-check-item input[type="checkbox"] {
+    accent-color: #16a34a;
+    width: 16px;
+    height: 16px;
+  }
+
+  .prf-modal .modal-footer {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: 14px 24px;
+    gap: 8px;
+  }
+  .prf-btn-print {
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.84rem;
+    padding: 10px 22px;
+    box-shadow: 0 2px 8px rgba(22,163,74,0.2);
+    transition: all 0.2s ease;
+  }
+  .prf-btn-print:hover {
+    background: linear-gradient(135deg, #15803d, #166534);
+    box-shadow: 0 4px 16px rgba(22,163,74,0.3);
+    transform: translateY(-1px);
+    color: #fff;
+  }
+  .prf-btn-pdf {
+    background: #fff;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.84rem;
+    padding: 10px 18px;
+    transition: all 0.2s ease;
+  }
+  .prf-btn-pdf:hover {
+    background: #fef2f2;
+    border-color: #dc2626;
+    color: #dc2626;
+  }
+  .prf-btn-cancel {
+    background: #f1f5f9;
+    color: #4d7c5e;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.84rem;
+    padding: 10px 18px;
+  }
+  .prf-btn-cancel:hover { background: #e2e8f0; color: #1a5c35; }
+
+  @media (max-width: 767px) {
+    .prf-grid-2, .prf-grid-4 { grid-template-columns: 1fr; }
+    .prf-grid-3 { grid-template-columns: 1fr; }
+    .prf-check-grid { grid-template-columns: 1fr; }
+    .prf-modal .modal-body { padding: 16px; }
+  }
+  @media (min-width: 768px) and (max-width: 991px) {
+    .prf-grid-4 { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+<div class="modal fade prf-modal" id="printReportFilterModal" tabindex="-1" role="dialog" aria-labelledby="printReportFilterModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 780px;">
+    <div class="modal-content">
+      <form method="get" action="{% url 'gate-analytics-report' %}" target="_blank">
+        <input type="hidden" name="report_filter" value="1">
+        <div class="modal-header">
+          <h5 class="modal-title" id="printReportFilterModalTitle"><i class="fas fa-print mr-2"></i>Print Report Settings</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+
+          <!-- Date & Context -->
+          <div class="prf-section">
+            <div class="prf-section-title"><i class="fas fa-calendar-alt"></i> Date Range & Context</div>
+            <div class="prf-grid-2">
+              <div>
+                <label for="reportFromDate">From date</label>
+                <input id="reportFromDate" name="from_date" type="date" class="form-control" value="{{ today_iso }}">
+              </div>
+              <div>
+                <label for="reportToDate">To date</label>
+                <input id="reportToDate" name="to_date" type="date" class="form-control" value="{{ today_iso }}">
+              </div>
+              <div>
+                <label for="reportYear">Year context (annual summaries)</label>
+                <select id="reportYear" name="report_year" class="form-control">
+                  {% for y in available_years %}
+                    <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+                  {% endfor %}
+                  {% if not available_years %}
+                    <option value="{{ selected_year }}" selected>{{ selected_year }}</option>
+                  {% endif %}
+                </select>
+              </div>
+              <div>
+                <label for="reportEventId">Event (for event sections)</label>
+                <select id="reportEventId" name="report_event_id" class="form-control">
+                  <option value="">All events</option>
+                  {% for ev in report_event_choices %}
+                    <option value="{{ ev.id }}">{{ ev.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Entry Scope -->
+          <div class="prf-section">
+            <div class="prf-section-title"><i class="fas fa-filter"></i> Entry Filter Scope</div>
+            <div style="max-width:220px;">
+              <select id="entryFilterScope" name="entry_scope" class="form-control">
+                <option value="all" selected>All</option>
+                <option value="students">Students only</option>
+                <option value="visitors">Visitors only</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Student Filters -->
+          <div id="studentFilterGroup" class="prf-section">
+            <div class="prf-section-title"><i class="fas fa-user-graduate"></i> Student Entries Filters</div>
+            <div class="prf-grid-4">
+              <div>
+                <label for="studentProgram">Program</label>
+                <select id="studentProgram" name="student_program" class="form-control">
+                  <option value="">All programs</option>
+                  {% for value, label in student_program_choices %}
+                    <option value="{{ value }}">{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label for="studentSection">Section</label>
+                <select id="studentSection" name="student_section" class="form-control">
+                  <option value="">All sections</option>
+                  {% for sec in student_section_choices %}
+                    <option value="{{ sec }}">{{ sec }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label for="studentScanType">IN / OUT</label>
+                <select id="studentScanType" name="student_scan_type" class="form-control">
+                  <option value="">All</option>
+                  <option value="IN">IN</option>
+                  <option value="OUT">OUT</option>
+                </select>
+              </div>
+              <div>
+                <label for="studentReason">Reason / early out</label>
+                <select id="studentReason" name="student_reason" class="form-control">
+                  <option value="">All reasons</option>
+                  {% for value, label in student_reason_choices %}
+                    <option value="{{ value }}">{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="prf-grid-2 mt-2" style="max-width:440px;">
+              <div>
+                <label for="studentFromTime">From time</label>
+                <input id="studentFromTime" name="student_from_time" type="time" class="form-control">
+              </div>
+              <div>
+                <label for="studentToTime">To time</label>
+                <input id="studentToTime" name="student_to_time" type="time" class="form-control">
+              </div>
+            </div>
+          </div>
+
+          <!-- Visitor Filters -->
+          <div id="visitorFilterGroup" class="prf-section">
+            <div class="prf-section-title"><i class="fas fa-id-badge"></i> Visitor Entries Filters</div>
+            <div class="prf-grid-2">
+              <div>
+                <label for="visitorDepartment">Department / office</label>
+                <select id="visitorDepartment" name="visitor_department" class="form-control">
+                  <option value="">All departments</option>
+                  {% for value, label in visitor_department_choices %}
+                    <option value="{{ label }}">{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label for="visitorStatus">Status</label>
+                <select id="visitorStatus" name="visitor_status" class="form-control">
+                  <option value="">All statuses</option>
+                  <option value="INSIDE">Inside</option>
+                  <option value="OUTSIDE">Outside</option>
+                </select>
+              </div>
+            </div>
+            <div class="prf-grid-2 mt-2" style="max-width:440px;">
+              <div>
+                <label for="visitorFromTime">From time</label>
+                <input id="visitorFromTime" name="visitor_from_time" type="time" class="form-control">
+              </div>
+              <div>
+                <label for="visitorToTime">To time</label>
+                <input id="visitorToTime" name="visitor_to_time" type="time" class="form-control">
+              </div>
+            </div>
+          </div>
+
+          <!-- Include Sections -->
+          <div class="prf-section">
+            <div class="prf-section-title"><i class="fas fa-th-list"></i> Include Sections</div>
+            <div class="prf-check-grid">
+              <label class="prf-check-item"><input type="checkbox" name="include_summary" value="1" checked> Summary</label>
+              <label class="prf-check-item"><input type="checkbox" name="include_visitors" value="1" checked> Visitors</label>
+              <label class="prf-check-item"><input type="checkbox" name="include_entries" value="1" checked> Recent gate entries</label>
+              <label class="prf-check-item"><input type="checkbox" name="include_incidents" value="1" checked> Recent incidents</label>
+              <label class="prf-check-item"><input type="checkbox" name="include_events" value="1" checked> Event participation</label>
+              <label class="prf-check-item"><input type="checkbox" name="include_active_events" value="1" checked> Active events</label>
+            </div>
+          </div>
+
+          <!-- Signatories -->
+          <div class="prf-section">
+            <div class="prf-section-title"><i class="fas fa-signature"></i> Signatories</div>
+            <div class="prf-grid-2">
+              <div>
+                <label for="firstSignatoryName">First signatory name</label>
+                <input id="firstSignatoryName" name="first_signatory_name" type="text" class="form-control" placeholder="e.g. Juan Dela Cruz" value="{{ default_first_signatory_name|default:'' }}">
+              </div>
+              <div>
+                <label for="firstSignatoryTitle">First signatory title</label>
+                <input id="firstSignatoryTitle" name="first_signatory_title" type="text" class="form-control" placeholder="e.g. Security Officer" value="{{ default_first_signatory_title|default:'' }}">
+              </div>
+              <div>
+                <label for="secondSignatoryName">Second signatory name</label>
+                <input id="secondSignatoryName" name="second_signatory_name" type="text" class="form-control" placeholder="e.g. Maria Santos" value="{{ default_second_signatory_name|default:'' }}">
+              </div>
+              <div>
+                <label for="secondSignatoryTitle">Second signatory title</label>
+                <input id="secondSignatoryTitle" name="second_signatory_title" type="text" class="form-control" placeholder="e.g. Campus Administrator" value="{{ default_second_signatory_title|default:'' }}">
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer d-flex justify-content-between">
+          <button type="button" class="prf-btn-cancel" data-dismiss="modal">Cancel</button>
+          <div class="d-flex" style="gap:8px;">
+            <button type="submit" class="prf-btn-pdf" name="export_format" value="pdf">
+              <i class="fas fa-file-pdf mr-1"></i> Export PDF
+            </button>
+            <button type="submit" class="prf-btn-print"><i class="fas fa-print mr-1"></i> Print Report</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Overview modal (opened from Today Overview cards) -->
+<div class="modal fade" id="overviewEmbedModal" tabindex="-1" role="dialog" aria-labelledby="overviewEmbedModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 1200px;">
+    <div class="modal-content" style="border-radius: 12px; overflow: hidden;">
+      <div class="modal-header py-2" style="background: #f8fcfa; border-bottom: 1px solid var(--monitor-border);">
+        <h5 class="modal-title" id="overviewEmbedModalTitle">Overview details</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body p-0" style="min-height: 70vh;">
+        <iframe id="overviewEmbedIframe" src="about:blank" style="width:100%; height:70vh; border:0;" title="Overview details"></iframe>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-dismiss="modal">Close</button>
       </div>
     </div>
   </div>
 </div>
 
-<div class="row mt-3">
-  <div class="col-12">
-    <div class="card">
-      <div class="card-header"><h5 class="m-0">Active events (today)</h5></div>
-      <div class="card-body">
-        {% if active_events %}
-          <ul class="list-unstyled mb-0">
-            {% for e in active_events %}
-              <li><i class="fas fa-calendar-alt text-info mr-1"></i> {{ e.name }} ({{ e.start_date }} – {{ e.end_date }})</li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <p class="text-muted mb-0">No active events today.</p>
-        {% endif %}
-      </div>
-    </div>
-  </div>
 </div>
+ 
 {% endblock content %}
 
 {% block extrascript %}
 <script>
 (function() {
+  var overviewModal = document.getElementById('overviewEmbedModal');
+  var overviewIframe = document.getElementById('overviewEmbedIframe');
+  var overviewTitle = document.getElementById('overviewEmbedModalTitle');
+  var entryFilterScope = document.getElementById('entryFilterScope');
+  var studentFilterGroup = document.getElementById('studentFilterGroup');
+  var visitorFilterGroup = document.getElementById('visitorFilterGroup');
+
+  function setInputsDisabled(container, disabled) {
+    if (!container) return;
+    container.querySelectorAll('input, select, textarea').forEach(function(el) {
+      el.disabled = !!disabled;
+    });
+  }
+
+  function syncEntryFilterScope() {
+    if (!entryFilterScope) return;
+    var scope = entryFilterScope.value || 'all';
+    var showStudents = (scope === 'all' || scope === 'students');
+    var showVisitors = (scope === 'all' || scope === 'visitors');
+
+    if (studentFilterGroup) {
+      studentFilterGroup.style.display = showStudents ? '' : 'none';
+      setInputsDisabled(studentFilterGroup, !showStudents);
+    }
+    if (visitorFilterGroup) {
+      visitorFilterGroup.style.display = showVisitors ? '' : 'none';
+      setInputsDisabled(visitorFilterGroup, !showVisitors);
+    }
+  }
+
+  if (entryFilterScope) {
+    entryFilterScope.addEventListener('change', syncEntryFilterScope);
+  }
+  $('#printReportFilterModal').on('shown.bs.modal', syncEntryFilterScope);
+  syncEntryFilterScope();
+
+  function normalizeIframeView(frame) {
+    if (!frame || !frame.contentDocument) return;
+    var doc = frame.contentDocument;
+    try {
+      var style = doc.createElement('style');
+      style.setAttribute('data-embed-cleanup', '1');
+      style.textContent = [
+        '.main-sidebar, .main-header, .content-header, .main-footer, .control-sidebar { display:none !important; }',
+        '.wrapper { margin:0 !important; padding:0 !important; }',
+        '.content-wrapper { margin-left:0 !important; min-height:auto !important; }',
+        '.content-wrapper > .content { padding: 8px 10px !important; }',
+        '.btn-outline-secondary .fa-arrow-left, a[href*="gate-analytics"] { }',
+        'a.btn.btn-outline-secondary.btn-sm, a.btn.btn-outline-secondary { display:none !important; }'
+      ].join('\\n');
+      (doc.head || doc.documentElement).appendChild(style);
+    } catch (e) {}
+  }
+
+  if (overviewIframe) {
+    overviewIframe.addEventListener('load', function() {
+      normalizeIframeView(overviewIframe);
+    });
+  }
+
+  document.querySelectorAll('.open-overview-modal').forEach(function(link) {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      var url = this.getAttribute('data-overview-url') || '';
+      var title = this.getAttribute('data-overview-title') || 'Overview details';
+      if (!url) return;
+      if (overviewTitle) overviewTitle.textContent = title;
+      overviewIframe.src = url;
+      $('#overviewEmbedModal').modal('show');
+    });
+  });
+  if (overviewModal && overviewIframe) {
+    $('#overviewEmbedModal').on('hidden.bs.modal', function() {
+      overviewIframe.src = 'about:blank';
+    });
+  }
+
   if (typeof Chart === 'undefined') return;
 
   var monthLabels = JSON.parse('{{ chart_month_labels_json|escapejs }}');
@@ -370,7 +1137,7 @@
   var annualIncidents = JSON.parse('{{ chart_annual_incidents_json|escapejs }}');
 
   Chart.defaults.global.defaultFontFamily = "'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial";
-  Chart.defaults.global.defaultFontColor = '#334155';
+  Chart.defaults.global.defaultFontColor = '#1a5c35';
 
   var ctxEntries = document.getElementById('chartMonthlyEntries');
   if (ctxEntries) {

@@ -15,73 +15,107 @@ def notifications_context(request):
     """
     pending_students_count = 0
     pending_students = []
+    pending_staff_guard_count = 0
+    pending_staff_guard = []
     upcoming_events_count = 0
     upcoming_events = []
     new_events_count = 0
     new_events = []
 
     if request.user.is_authenticated:
-        role = get_user_role(request.user)
-        # Student approvals: admin only (not staff)
-        if role == 'admin':
-            from gate.models import Student
-            pending_students = list(
-                Student.objects.filter(
+        try:
+            role = get_user_role(request.user)
+            # Student approvals: admin only (not staff)
+            if role == 'admin':
+                from gate.models import Student
+                pending_students = list(
+                    Student.objects.filter(
+                        account_status=Student.ACCOUNT_STATUS_PENDING
+                    ).order_by('-created_at')[:10]
+                )
+                pending_students_count = Student.objects.filter(
                     account_status=Student.ACCOUNT_STATUS_PENDING
-                ).order_by('-created_at')[:10]
-            )
-            pending_students_count = Student.objects.filter(
-                account_status=Student.ACCOUNT_STATUS_PENDING
-            ).count()
+                ).count()
 
-        # Events: admin, staff, and faculty
-        if role in ('admin', 'staff', 'faculty'):
-            from gate.models import Event
+            # Staff/Faculty/Guard pending approval: admin, staff, supervisor can see and approve
+            # Use id subquery so distinct + order_by works on both MySQL and PostgreSQL
+            if role in ('admin', 'staff', 'supervisor'):
+                from django.contrib.auth import get_user_model
+                from django.db.models import Q
+                User = get_user_model()
+                staff_guard_ids = User.objects.filter(
+                    Q(groups__name__iexact='staff') |
+                    Q(groups__name__iexact='faculty') |
+                    Q(groups__name__iexact='guard')
+                ).distinct().values_list('id', flat=True)
+                pending_staff_guard = list(
+                    User.objects.filter(is_active=False, id__in=staff_guard_ids)
+                    .order_by('-date_joined')[:10]
+                )
+                pending_staff_guard_count = User.objects.filter(
+                    is_active=False, id__in=staff_guard_ids
+                ).count()
 
-            today = timezone.localdate()
-            now = timezone.now()
+            # Events: admin, staff, faculty, and guard (guards can see announcements/upcoming events)
+            if role in ('admin', 'staff', 'faculty', 'guard'):
+                from gate.models import Event
 
-            # Upcoming: start_date in next 30 days
-            until = today + timedelta(days=30)
-            upcoming_qs = Event.objects.filter(
-                start_date__gte=today,
-                start_date__lte=until,
-                status__in=('scheduled', 'active'),
-            )
-            upcoming_events = list(upcoming_qs.order_by('start_date')[:5])
-            upcoming_events_count = upcoming_qs.count()
+                today = timezone.localdate()
+                now = timezone.now()
 
-            # New: created in last 7 days (any status)
-            new_since = now - timedelta(days=7)
-            new_qs = Event.objects.filter(created_date__gte=new_since).order_by('-created_date')
-            new_events = list(new_qs[:5])
-            new_events_count = new_qs.count()
+                # Upcoming: start_date in next 30 days
+                until = today + timedelta(days=30)
+                upcoming_qs = Event.objects.filter(
+                    start_date__gte=today,
+                    start_date__lte=until,
+                    status__in=('scheduled', 'active'),
+                )
+                upcoming_events = list(upcoming_qs.order_by('start_date')[:5])
+                upcoming_events_count = upcoming_qs.count()
+
+                # New: created in last 7 days (any status)
+                new_since = now - timedelta(days=7)
+                new_qs = Event.objects.filter(created_date__gte=new_since).order_by('-created_date')
+                new_events = list(new_qs[:5])
+                new_events_count = new_qs.count()
+        except Exception:
+            pass
 
     total_notifications_count = (
         int(pending_students_count or 0)
+        + int(pending_staff_guard_count or 0)
         + int(upcoming_events_count or 0)
         + int(new_events_count or 0)
     )
     read_notification_ids = []
     read_student_pks = set()
+    read_staff_guard_pks = set()
     read_event_pks = set()
     if request.user.is_authenticated:
-        from gate.models import NotificationRead
-        read_notification_ids = list(
-            NotificationRead.objects.filter(user=request.user)
-            .values_list('notification_key', flat=True)
-        )
-        for rid in read_notification_ids:
-            if isinstance(rid, str) and rid.startswith('notif_student_'):
-                try:
-                    read_student_pks.add(int(rid.replace('notif_student_', '')))
-                except ValueError:
-                    pass
-            elif isinstance(rid, str) and rid.startswith('notif_event_'):
-                try:
-                    read_event_pks.add(int(rid.replace('notif_event_', '')))
-                except ValueError:
-                    pass
+        try:
+            from gate.models import NotificationRead
+            read_notification_ids = list(
+                NotificationRead.objects.filter(user=request.user)
+                .values_list('notification_key', flat=True)
+            )
+            for rid in read_notification_ids:
+                if isinstance(rid, str) and rid.startswith('notif_student_'):
+                    try:
+                        read_student_pks.add(int(rid.replace('notif_student_', '')))
+                    except ValueError:
+                        pass
+                elif isinstance(rid, str) and rid.startswith('notif_event_'):
+                    try:
+                        read_event_pks.add(int(rid.replace('notif_event_', '')))
+                    except ValueError:
+                        pass
+                elif isinstance(rid, str) and rid.startswith('notif_staff_guard_'):
+                    try:
+                        read_staff_guard_pks.add(int(rid.replace('notif_staff_guard_', '')))
+                    except ValueError:
+                        pass
+        except Exception:
+            pass
 
     # Unread = summary rows (pending, upcoming, new) + each item not yet opened
     unread_notifications_count = 0
@@ -89,6 +123,11 @@ def notifications_context(request):
         unread_notifications_count += 1
     for s in pending_students:
         if s.pk not in read_student_pks:
+            unread_notifications_count += 1
+    if pending_staff_guard_count and 'notif_pending_staff_guard' not in read_notification_ids:
+        unread_notifications_count += 1
+    for u in pending_staff_guard:
+        if u.pk not in read_staff_guard_pks:
             unread_notifications_count += 1
     if upcoming_events_count and 'notif_upcoming_events' not in read_notification_ids:
         unread_notifications_count += 1
@@ -104,14 +143,16 @@ def notifications_context(request):
     NOTIFICATION_DROPDOWN_MAX = 8
     notification_all = []
     if request.user.is_authenticated and (
-        pending_students or upcoming_events or new_events
+        pending_students or pending_staff_guard or upcoming_events or new_events
     ):
         try:
             pending_url = reverse('gate-student-list') + '?pending=1'
             events_url = reverse('event-list')
+            pending_staff_guard_url = reverse('pending-staff-guard-list')
         except Exception:
             pending_url = '#'
             events_url = '#'
+            pending_staff_guard_url = '#'
 
         if pending_students_count:
             notification_all.append({
@@ -131,6 +172,26 @@ def notifications_context(request):
                 'icon': 'fa-user-plus',
                 'is_read': s.pk in read_student_pks,
                 'obj': s,
+            })
+
+        if pending_staff_guard_count:
+            notification_all.append({
+                'type': 'pending_staff_guard_summary',
+                'url': pending_staff_guard_url,
+                'label': f'{pending_staff_guard_count} staff/faculty/guard pending approval',
+                'label_right': '',
+                'icon': 'fa-user-shield',
+                'is_read': 'notif_pending_staff_guard' in read_notification_ids,
+            })
+        for u in pending_staff_guard:
+            notification_all.append({
+                'type': 'staff_guard',
+                'url': pending_staff_guard_url + '?user_id=' + str(u.pk),
+                'label': f'{u.get_full_name() or u.username} ({u.username})',
+                'label_right': '',
+                'icon': 'fa-user-clock',
+                'is_read': u.pk in read_staff_guard_pks,
+                'obj': u,
             })
 
         if new_events_count:
@@ -189,6 +250,8 @@ def notifications_context(request):
     return {
         'pending_students_count': pending_students_count,
         'pending_students': pending_students,
+        'pending_staff_guard_count': pending_staff_guard_count,
+        'pending_staff_guard': pending_staff_guard,
         'upcoming_events_count': upcoming_events_count,
         'upcoming_events': upcoming_events,
         'new_events_count': new_events_count,
@@ -206,17 +269,33 @@ def notifications_context(request):
 
 
 def theme_context(request):
-    """Inject site theme (name, logo, primary color) for theming."""
+    """Inject site theme (name, logo, primary color) for theming. Cached for anonymous to speed up login."""
+    from django.core.cache import cache
+    cache_key = 'site_theme_context'
+    # Anonymous users (login page): use cache to avoid DB hit every time
+    if not request.user.is_authenticated:
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
     try:
         from gate.models import SiteTheme
         theme = SiteTheme.objects.first()
         if theme:
-            return {
+            result = {
                 'site_theme': theme,
                 'site_name': theme.site_name,
                 'site_primary_color': theme.primary_color or '#28a745',
                 'site_logo': theme.logo,
             }
+        else:
+            result = {
+                'site_theme': None,
+                'site_name': 'City College of Bayawan',
+                'site_primary_color': '#28a745',
+                'site_logo': None,
+            }
+        cache.set(cache_key, result, 300)  # 5 min for all users
+        return result
     except Exception:
         pass
     return {
@@ -256,35 +335,42 @@ def guard_notifications_context(request):
     from gate.models import GuardNotification
     from django.db.models import Q
     
-    # Base queryset for unread notifications
-    unread_base = GuardNotification.objects.filter(
-        target_guard=request.user,
-        is_read=False
-    ).filter(
-        Q(expires_at__isnull=True) | Q(expires_at__gt=now)
-    )
-    
-    # Calculate unread count
-    unread_count = unread_base.count()
-    
-    # Check for urgent notifications (before slicing)
-    has_urgent = unread_base.filter(priority='urgent').exists()
-    
-    # Get limited list for display (slice at the end)
-    unread_notifications = unread_base.order_by(
-        # Order by priority (urgent, high, medium, low)
-        Case(
-            When(priority='urgent', then=0),
-            When(priority='high', then=1),
-            When(priority='medium', then=2),
-            When(priority='low', then=3),
-            default=4
-        ),
-        '-created_at'
-    )[:10]  # Limit to 10 most recent unread
-    
-    return {
-        'guard_notifications': list(unread_notifications),
-        'guard_unread_count': unread_count,
-        'guard_has_urgent': has_urgent,
-    }
+    try:
+        # Base queryset for unread notifications
+        unread_base = GuardNotification.objects.filter(
+            target_guard=request.user,
+            is_read=False
+        ).filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=now)
+        )
+        
+        # Calculate unread count
+        unread_count = unread_base.count()
+        
+        # Check for urgent notifications (before slicing)
+        has_urgent = unread_base.filter(priority='urgent').exists()
+        
+        # Get limited list for display (slice at the end)
+        unread_notifications = unread_base.order_by(
+            # Order by priority (urgent, high, medium, low)
+            Case(
+                When(priority='urgent', then=0),
+                When(priority='high', then=1),
+                When(priority='medium', then=2),
+                When(priority='low', then=3),
+                default=4
+            ),
+            '-created_at'
+        )[:10]  # Limit to 10 most recent unread
+        
+        return {
+            'guard_notifications': list(unread_notifications),
+            'guard_unread_count': unread_count,
+            'guard_has_urgent': has_urgent,
+        }
+    except Exception:
+        return {
+            'guard_notifications': [],
+            'guard_unread_count': 0,
+            'guard_has_urgent': False,
+        }

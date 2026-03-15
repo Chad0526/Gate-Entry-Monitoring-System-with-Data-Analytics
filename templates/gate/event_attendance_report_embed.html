@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Attendance Report – {{ event.name }}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <style>
+    :root {
+      --ok: #16a34a; --info: #2563eb; --warn: #d97706; --danger: #dc2626;
+      --text: #14532d; --muted: #4d7c5e; --border: #e2e8f0;
+    }
+    body { margin: 0; padding: 16px; background: #f8fafc; font-family: 'Inter','Segoe UI',sans-serif; font-size: 13px; color: var(--text); }
+
+    .emb-title { font-weight: 800; font-size: 1.1rem; color: var(--text); margin-bottom: 4px; }
+    .emb-sub { font-size: 0.8rem; color: var(--muted); margin-bottom: 14px; }
+
+    .emb-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+    .emb-bar .btn { border-radius: 8px; font-weight: 600; font-size: 0.78rem; padding: 6px 14px; }
+    .emb-search { display: flex; gap: 6px; margin-left: auto; }
+    .emb-search input { border-radius: 6px; border: 1px solid #d1d5db; font-size: 0.8rem; padding: 5px 10px; width: 180px; }
+    .emb-search input:focus { border-color: var(--ok); box-shadow: 0 0 0 2px rgba(22,163,74,0.12); outline: none; }
+    .emb-search button { border-radius: 6px; border: 1px solid #d1d5db; background: #f1f5f9; font-size: 0.78rem; padding: 5px 10px; cursor: pointer; font-weight: 600; color: var(--text); }
+    .emb-search button:hover { background: var(--ok); color: #fff; border-color: var(--ok); }
+
+    .emb-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+    @media (max-width: 600px) { .emb-stats { grid-template-columns: repeat(2, 1fr); } }
+    .emb-stat {
+      background: #fff; border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px; display: flex; align-items: center; gap: 10px;
+    }
+    .emb-stat-icon {
+      width: 36px; height: 36px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0;
+    }
+    .emb-stat-icon.blue { background: #dbeafe; color: var(--info); }
+    .emb-stat-icon.green { background: #dcfce7; color: var(--ok); }
+    .emb-stat-icon.amber { background: #fef3c7; color: var(--warn); }
+    .emb-stat-icon.teal { background: #cffafe; color: #0891b2; }
+    .emb-stat .val { font-size: 1.25rem; font-weight: 800; color: var(--text); line-height: 1; }
+    .emb-stat .lbl { font-size: 0.68rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+    .emb-stat .extra { font-size: 0.65rem; color: #94a3b8; margin-top: 2px; }
+
+    .emb-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .emb-card-head {
+      padding: 10px 16px; background: #f8fafc; border-bottom: 1px solid var(--border);
+      font-weight: 700; font-size: 0.82rem; color: var(--muted); display: flex; align-items: center; gap: 8px;
+    }
+    .emb-card-head i { color: var(--ok); }
+    .emb-table thead th {
+      background: #f1f5f9; color: var(--muted); font-size: 0.7rem; text-transform: uppercase;
+      letter-spacing: 0.04em; font-weight: 700; border-bottom: 2px solid var(--border); padding: 8px 12px; white-space: nowrap;
+    }
+    .emb-table tbody td { padding: 8px 12px; font-size: 0.8rem; color: var(--text); vertical-align: middle; border-bottom: 1px solid #f1f5f9; }
+    .emb-table tbody tr:hover { background: #f0fdf4; }
+    .emb-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 5px; font-size: 0.7rem; font-weight: 700; }
+    .emb-badge-success { background: #dcfce7; color: #166534; }
+    .emb-badge-warn { background: #fef3c7; color: #92400e; }
+    .emb-badge-danger { background: #fee2e2; color: #991b1b; }
+    .emb-badge-override { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .emb-footer { background: #f8fafc; border-top: 1px solid var(--border); padding: 8px 16px; font-size: 0.75rem; color: var(--muted); }
+
+    .emb-export-wrap { position: relative; display: inline-block; }
+    .emb-export-menu {
+      display: none; position: absolute; top: 100%; left: 0; z-index: 1050;
+      min-width: 180px; margin-top: 4px; background: #fff; border: 1px solid var(--border);
+      border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: 4px 0;
+    }
+    .emb-export-wrap.open .emb-export-menu { display: block; }
+    .emb-export-group { padding: 4px 12px 2px; font-size: 0.62rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; }
+    .emb-export-item {
+      display: flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 0.78rem;
+      font-weight: 600; color: var(--text); text-decoration: none;
+    }
+    .emb-export-item:hover { background: #f0fdf4; color: var(--ok); text-decoration: none; }
+    .emb-export-item i { width: 14px; text-align: center; font-size: 0.72rem; }
+  </style>
+</head>
+<body>
+  <div class="emb-title"><i class="fas fa-file-alt mr-2" style="color:var(--ok);"></i>{{ event.name }}</div>
+  <div class="emb-sub">
+    {% if event.venue %}{{ event.venue }} · {% endif %}{{ event.start_date|date:"M d" }} – {{ event.end_date|date:"M d, Y" }}
+  </div>
+
+  <div class="emb-bar">
+    {% if not event_ended %}
+    <a href="{% url 'event-field-trip-scan' event.id %}" target="_top" class="btn btn-success btn-sm"><i class="fas fa-qrcode mr-1"></i> Scanner</a>
+    {% endif %}
+
+    <div class="emb-export-wrap" id="exportWrap">
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="exportToggle"><i class="fas fa-download mr-1"></i> Export <i class="fas fa-chevron-down" style="font-size:0.55rem;margin-left:2px;"></i></button>
+      <div class="emb-export-menu">
+        <div class="emb-export-group">Attendance</div>
+        <a href="{% url 'event-attendance-report-export-csv' event.id %}" class="emb-export-item"><i class="fas fa-file-csv" style="color:var(--ok);"></i> CSV</a>
+        <a href="{% url 'event-attendance-report-export-xlsx' event.id %}" class="emb-export-item"><i class="fas fa-file-excel" style="color:var(--ok);"></i> Excel</a>
+        <a href="{% url 'event-attendance-report-export-pdf' event.id %}" class="emb-export-item"><i class="fas fa-file-pdf" style="color:var(--danger);"></i> PDF</a>
+        <div class="emb-export-group" style="border-top:1px solid var(--border);margin-top:4px;padding-top:6px;">Scan Logs</div>
+        <a href="{% url 'event-scan-logs-export-csv' event.id %}" class="emb-export-item"><i class="fas fa-file-csv" style="color:var(--info);"></i> CSV</a>
+        <a href="{% url 'event-scan-logs-export-xlsx' event.id %}" class="emb-export-item"><i class="fas fa-file-excel" style="color:var(--info);"></i> Excel</a>
+      </div>
+    </div>
+
+    <form method="get" class="emb-search" action="">
+      {% if request.GET.embed %}<input type="hidden" name="embed" value="1">{% endif %}
+      <input type="text" name="q" placeholder="Search student..." value="{{ search_query|default:'' }}">
+      <button type="submit"><i class="fas fa-search"></i></button>
+    </form>
+  </div>
+
+  <div class="emb-stats">
+    <div class="emb-stat">
+      <div class="emb-stat-icon blue"><i class="fas fa-user-check"></i></div>
+      <div><div class="lbl">Checked In</div><div class="val">{{ checked_in }}</div></div>
+    </div>
+    <div class="emb-stat">
+      <div class="emb-stat-icon green"><i class="fas fa-sign-out-alt"></i></div>
+      <div><div class="lbl">Checked Out</div><div class="val">{{ checked_out }}</div></div>
+    </div>
+    <div class="emb-stat">
+      <div class="emb-stat-icon amber"><i class="fas fa-users"></i></div>
+      <div><div class="lbl">Inside Now</div><div class="val">{{ currently_inside }}</div></div>
+    </div>
+    <div class="emb-stat">
+      <div class="emb-stat-icon teal"><i class="fas fa-chart-line"></i></div>
+      <div><div class="lbl">Success Scans</div><div class="val">{{ successful }}</div><div class="extra">Dup: {{ duplicates }} | Invalid: {{ invalid }}{% if overrides %} | Override: {{ overrides }}{% endif %}</div></div>
+    </div>
+  </div>
+
+  <div class="emb-card">
+    <div class="emb-card-head"><i class="fas fa-history"></i> Recent Scan Logs <span style="margin-left:auto;font-size:0.7rem;font-weight:500;color:#94a3b8;">Last 100</span></div>
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 emb-table">
+        <thead>
+          <tr><th>Time</th><th>Student</th><th>Type</th><th>Result</th><th>Device</th><th>Flags</th></tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+          <tr>
+            <td style="font-variant-numeric:tabular-nums;white-space:nowrap;">{{ log.scan_time|date:"M d, h:i:s A" }}</td>
+            <td>{% if log.student %}<strong>{{ log.student.get_full_name }}</strong> <span style="color:#94a3b8;font-size:0.72rem;">{{ log.student.student_id }}</span>{% else %}—{% endif %}</td>
+            <td>
+              {% if log.scan_type == 'IN' %}<span class="emb-badge emb-badge-success"><i class="fas fa-arrow-right" style="font-size:0.55rem;"></i> IN</span>
+              {% elif log.scan_type == 'OUT' %}<span class="emb-badge" style="background:#dbeafe;color:#1e40af;"><i class="fas fa-arrow-left" style="font-size:0.55rem;"></i> OUT</span>
+              {% else %}<span class="emb-badge" style="background:#f1f5f9;color:var(--muted);">{{ log.scan_type }}</span>{% endif %}
+            </td>
+            <td>
+              {% if log.result == 'SUCCESS' %}<span class="emb-badge emb-badge-success"><i class="fas fa-check"></i> Success</span>
+              {% elif log.result == 'DUPLICATE' %}<span class="emb-badge emb-badge-warn"><i class="fas fa-copy"></i> Dup</span>
+              {% else %}<span class="emb-badge emb-badge-danger"><i class="fas fa-times"></i> {{ log.result }}</span>{% endif %}
+            </td>
+            <td style="font-size:0.72rem;color:#94a3b8;">{{ log.device_id|default:"—" }}</td>
+            <td>
+              {% if log.remarks == 'AUDIENCE_OVERRIDE' %}<span class="emb-badge emb-badge-override"><i class="fas fa-exclamation-triangle" style="font-size:0.55rem;"></i> Override</span>
+              {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-muted text-center py-4">No scans yet for this event.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="emb-footer">Showing {{ logs|length }} scan{{ logs|length|pluralize }} from <strong>{{ event.name }}</strong></div>
+  </div>
+
+  <script>
+  (function(){
+    var w=document.getElementById('exportWrap'), t=document.getElementById('exportToggle');
+    if(!w||!t) return;
+    t.addEventListener('click',function(e){e.stopPropagation();w.classList.toggle('open');});
+    document.addEventListener('click',function(e){if(!w.contains(e.target))w.classList.remove('open');});
+  })();
+  </script>
+</body>
+</html>

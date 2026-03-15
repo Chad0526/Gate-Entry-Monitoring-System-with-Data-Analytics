@@ -1,89 +1,219 @@
 {% extends 'base/base.html' %}
 {% load static %}
-{% block title %}Live Dashboard - {{ event.name }} - {{ site_name }}{% endblock title %}
-{% block breadcrumb %}Live Dashboard{% endblock breadcrumb %}
+{% block title %}{% if event_ended %}Event Summary{% else %}Live Dashboard{% endif %} - {{ event.name }} - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}{% if event_ended %}Event Summary{% else %}Live Dashboard{% endif %}{% endblock breadcrumb %}
 
 {% block extrahead %}
-<meta http-equiv="refresh" content="5">
+{% if refresh_seconds %}<meta http-equiv="refresh" content="{{ refresh_seconds }}">{% endif %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
 <style>
-  .live-stat { font-size: 2rem; font-weight: 700; }
-  .live-capacity { font-size: 1.25rem; }
+  .live-wrap { font-family: 'Inter', 'Segoe UI', sans-serif; color: var(--monitor-text, #14532d); }
+  .live-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+  .live-toolbar .badge { font-weight: 600; padding: 0.5rem 0.75rem; }
+  .live-toolbar .btn { border-radius: 10px; font-weight: 600; }
+  .live-refresh-link { font-size: 0.85rem; color: var(--monitor-muted); margin-left: 8px; }
+  .live-refresh-link a { color: var(--ok); font-weight: 600; }
+  .live-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 1.25rem; }
+  @media (max-width: 991px) { .live-stats { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .live-stats { grid-template-columns: 1fr; } }
+  .live-stat-card {
+    background: #fff;
+    border: 1px solid var(--monitor-border, #e2e8f0);
+    border-radius: var(--radius, 12px);
+    padding: 18px 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .live-stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  .live-stat-card .icon-wrap {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; margin-bottom: 10px;
+  }
+  .live-stat-card.checked-in .icon-wrap { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: var(--info, #2563eb); }
+  .live-stat-card.checked-out .icon-wrap { background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: var(--ok, #16a34a); }
+  .live-stat-card.inside .icon-wrap { background: linear-gradient(135deg, #fef3c7, #fde68a); color: var(--warn, #d97706); }
+  .live-stat-card.capacity .icon-wrap { background: linear-gradient(135deg, #f1f5f9, #e2e8f0); color: var(--monitor-muted, #4d7c5e); }
+  .live-stat-card .num { font-size: 1.75rem; font-weight: 800; color: var(--monitor-text, #14532d); line-height: 1.2; }
+  .live-stat-card .lbl { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--monitor-muted); font-weight: 600; margin-top: 4px; }
+  .live-stat-card.capacity .sub { font-size: 0.8rem; color: var(--monitor-muted); margin-top: 6px; }
+  .live-stat-card.capacity .progress { height: 8px; border-radius: 4px; background: var(--monitor-border); margin-top: 8px; }
+  .live-stat-card.capacity .progress-bar { border-radius: 4px; }
+
+  .live-card {
+    background: #fff;
+    border: 1px solid var(--monitor-border, #e2e8f0);
+    border-radius: var(--radius-lg, 14px);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    margin-bottom: 1.25rem;
+    overflow: hidden;
+  }
+  .live-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--monitor-border);
+    background: #f8fafc;
+    font-weight: 700;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--monitor-muted);
+  }
+  .live-card-head i { color: var(--ok); font-size: 1rem; margin-right: 6px; }
+  .live-filter-row {
+    padding: 12px 20px;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--monitor-border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  .live-filter-row form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .live-filter-row .form-control-sm { border-radius: 8px; max-width: 200px; }
+  .live-filter-row .btn-sm { border-radius: 8px; font-weight: 600; }
+  .live-table-wrap { overflow-x: auto; }
+  .live-table {
+    width: 100%;
+    margin: 0;
+    font-size: 0.875rem;
+  }
+  .live-table thead th {
+    background: #f8fafc;
+    color: var(--monitor-muted);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--monitor-border);
+  }
+  .live-table tbody td {
+    padding: 10px 16px;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--monitor-border);
+    color: var(--monitor-text);
+  }
+  .live-table tbody tr:hover { background: rgba(22,163,74,0.03); }
+  .live-table .badge { font-weight: 600; }
+  .live-table .result-success { color: var(--ok); }
+  .live-table .result-duplicate { color: var(--monitor-muted); }
+  .live-table .result-invalid { color: var(--danger, #dc2626); }
+  .live-more { padding: 12px 20px; text-align: center; background: #f8fafc; font-size: 0.85rem; }
+  .live-more a { font-weight: 600; color: var(--ok); }
 </style>
 {% endblock extrahead %}
 
 {% block content %}
-<div class="row mb-2 no-print">
-  <div class="col-12">
-    <span class="badge badge-info">Auto-refresh every 5 seconds</span>
-    <a href="{% url 'event-attendance-report' event.id %}" class="btn btn-sm btn-outline-secondary ml-2">Full report</a>
+<div class="monitor-wrap live-wrap">
+  <div class="live-toolbar no-print">
+    {% if event_ended %}
+    <span class="badge badge-secondary">Event ended · No auto-refresh</span>
+    {% else %}
+    {% if refresh_seconds %}
+    <span class="badge badge-info"><i class="fas fa-sync-alt mr-1"></i> Auto-refresh every {{ refresh_seconds }}s</span>
+    <span class="live-refresh-link"><a href="?refresh=0{% if scan_type_filter %}&type={{ scan_type_filter }}{% endif %}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}">Pause</a></span>
+    {% else %}
+    <span class="badge badge-light text-dark">Refresh paused</span>
+    <span class="live-refresh-link"><a href="?refresh=1{% if scan_type_filter %}&type={{ scan_type_filter }}{% endif %}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}">Resume (5s)</a></span>
+    {% endif %}
+    <span class="live-refresh-link"><a href="?refresh=10{% if scan_type_filter %}&type={{ scan_type_filter }}{% endif %}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}">10s</a></span>
+    <span class="live-refresh-link"><a href="?refresh=30{% if scan_type_filter %}&type={{ scan_type_filter }}{% endif %}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}">30s</a></span>
+    {% endif %}
+    <a href="{% url 'event-attendance-report' event.id %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-file-alt mr-1"></i> Full report</a>
+    <a href="{% url 'event-detail' event.pk %}" class="btn btn-sm btn-outline-secondary">Back to event</a>
   </div>
-</div>
 
-<div class="row">
-  <div class="col-md-3 col-6 mb-3">
-    <div class="card bg-primary text-white">
-      <div class="card-body">
-        <div class="live-stat">{{ checked_in }}</div>
-        <div>Checked In</div>
+  <div class="live-stats">
+    <div class="live-stat-card checked-in">
+      <div class="icon-wrap"><i class="fas fa-sign-in-alt"></i></div>
+      <div class="num">{{ checked_in }}</div>
+      <div class="lbl">Checked in</div>
+    </div>
+    <div class="live-stat-card checked-out">
+      <div class="icon-wrap"><i class="fas fa-sign-out-alt"></i></div>
+      <div class="num">{{ checked_out }}</div>
+      <div class="lbl">Checked out</div>
+    </div>
+    <div class="live-stat-card inside">
+      <div class="icon-wrap"><i class="fas fa-user-friends"></i></div>
+      <div class="num">{{ currently_inside }}</div>
+      <div class="lbl">Currently inside</div>
+    </div>
+    <div class="live-stat-card capacity">
+      <div class="icon-wrap"><i class="fas fa-users"></i></div>
+      <div class="num">{% if capacity %}{{ currently_inside }} / {{ capacity }}{% else %}—{% endif %}</div>
+      <div class="lbl">Capacity</div>
+      {% if capacity %}
+      <div class="sub">{{ capacity_pct }}% full</div>
+      <div class="progress">
+        <div class="progress-bar bg-{{ capacity_status }}" role="progressbar" style="width: {{ capacity_pct }}%;" aria-valuenow="{{ capacity_pct }}" aria-valuemin="0" aria-valuemax="100"></div>
       </div>
+      {% endif %}
     </div>
   </div>
-  <div class="col-md-3 col-6 mb-3">
-    <div class="card bg-success text-white">
-      <div class="card-body">
-        <div class="live-stat">{{ checked_out }}</div>
-        <div>Checked Out</div>
-      </div>
+
+  <div class="live-card">
+    <div class="live-card-head">
+      <span><i class="fas fa-history"></i> Recent scans</span>
+      {% if search_q or scan_type_filter %}<span class="text-muted" style="font-size: 0.75rem; font-weight: 500;">Filtered</span>{% endif %}
     </div>
-  </div>
-  <div class="col-md-3 col-6 mb-3">
-    <div class="card bg-warning text-dark">
-      <div class="card-body">
-        <div class="live-stat">{{ currently_inside }}</div>
-        <div>Currently Inside</div>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-3 col-6 mb-3">
-    <div class="card bg-secondary text-white">
-      <div class="card-body">
-        <div class="live-stat">{{ capacity }}</div>
-        <div>Capacity</div>
-        {% if capacity %}
-        <div class="live-capacity mt-1">({{ capacity_pct }}% full)</div>
-        <div class="progress mt-1" style="height:6px;">
-          <div class="progress-bar bg-{{ capacity_status }}" style="width:{{ capacity_pct }}%"></div>
-        </div>
+    <div class="live-filter-row">
+      <form method="get" action="" class="d-flex flex-wrap align-items-center">
+        <input type="hidden" name="refresh" value="{{ request.GET.refresh|default:'' }}">
+        <select name="type" class="form-control form-control-sm">
+          <option value="">All (IN/OUT)</option>
+          <option value="IN" {% if scan_type_filter == 'IN' %}selected{% endif %}>IN only</option>
+          <option value="OUT" {% if scan_type_filter == 'OUT' %}selected{% endif %}>OUT only</option>
+        </select>
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="Student name or ID" value="{{ search_q|default:'' }}" style="min-width: 160px;">
+        <button type="submit" class="btn btn-sm btn-success"><i class="fas fa-filter mr-1"></i> Apply</button>
+        {% if search_q or scan_type_filter %}
+        <a href="{% url 'event-live-dashboard' event.id %}{% if refresh_seconds %}?refresh={{ refresh_seconds }}{% endif %}" class="btn btn-sm btn-outline-secondary">Clear</a>
         {% endif %}
-      </div>
+      </form>
     </div>
-  </div>
-</div>
-
-<div class="row">
-  <div class="col-12">
-    <div class="card">
-      <div class="card-header">
-        <h5 class="m-0">Recent scans</h5>
-      </div>
-      <div class="card-body p-0">
-        <table class="table table-sm table-striped mb-0">
-          <thead><tr><th>Time</th><th>Student</th><th>Type</th><th>Result</th></tr></thead>
-          <tbody>
-            {% for log in recent %}
-            <tr>
-              <td>{{ log.scan_time|date:"H:i:s" }}</td>
-              <td>{% if log.student %}{{ log.student.student_id }} – {{ log.student.get_full_name }}{% else %}—{% endif %}</td>
-              <td>{{ log.scan_type }}</td>
-              <td><span class="badge {% if log.result == 'SUCCESS' %}badge-success{% else %}badge-warning{% endif %}">{{ log.result }}</span></td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="4" class="text-muted">No scans yet.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+    <div class="live-table-wrap">
+      <table class="table live-table mb-0">
+        <thead>
+          <tr>
+            <th>Date & time</th>
+            <th>Student</th>
+            <th>Type</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in recent %}
+          <tr>
+            <td>{{ log.scan_time|date:"M d, Y H:i:s" }}</td>
+            <td>{% if log.student %}<span class="font-weight-bold">{{ log.student.student_id }}</span> – {{ log.student.get_full_name }}{% else %}—{% endif %}</td>
+            <td><span class="badge badge-{% if log.scan_type == 'IN' %}info{% else %}secondary{% endif %}">{{ log.scan_type }}</span></td>
+            <td>
+              <span class="badge {% if log.result == 'SUCCESS' %}badge-success{% elif log.result == 'DUPLICATE' %}badge-secondary{% else %}badge-warning{% endif %}">{{ log.result }}</span>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="text-muted text-center py-5">No scans yet.{% if search_q or scan_type_filter %} Try clearing filters.{% endif %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
+    {% if recent|length >= recent_limit and recent_limit < 100 %}
+    <div class="live-more">
+      <a href="?limit=50{% if scan_type_filter %}&type={{ scan_type_filter }}{% endif %}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}{% if refresh_seconds %}&refresh={{ refresh_seconds }}{% endif %}">Show more (up to 50)</a>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock content %}

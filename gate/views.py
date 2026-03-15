@@ -6,12 +6,14 @@ from django.views.generic import (
     DeleteView,
     View,
 )
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseRedirect
+from django.core.mail import send_mass_mail
+from django.conf import settings
 
 from gate_analytics.roles import RoleRequiredMixin, role_required
 from .models import (
@@ -109,15 +111,18 @@ def create_event(request):
         event_image_form = EventImageForm(request.POST, request.FILES)
         event_agenda_form = EventAgendaForm(request.POST)
         if event_form.is_valid() and event_image_form.is_valid() and event_agenda_form.is_valid():
-            ef = event_form.save()
-            created_updated(Event, request)
-            event_image_form.save(commit=False)
-            event_image_form.event_form = ef
-            event_image_form.save()
-            
-            event_agenda_form.save(commit=False)
-            event_agenda_form.event_form = ef
-            event_agenda_form.save()
+            ef = event_form.save(commit=False)
+            ef.created_user = request.user
+            ef.updated_user = request.user
+            ef.save()
+
+            img = event_image_form.save(commit=False)
+            img.event = ef
+            img.save()
+
+            agenda = event_agenda_form.save(commit=False)
+            agenda.event = ef
+            agenda.save()
             return redirect('event-list')
     context = {
         'form': event_form,
@@ -157,6 +162,44 @@ class EventCreateView(RoleRequiredMixin, LoginRequiredMixin, CreateView):
         event_agenda.event = evt
         event_agenda.save()
 
+        # Notify staff/faculty/guard by email about the new event, respecting their preferences.
+        try:
+            from django.contrib.auth import get_user_model
+            from gate.models import StaffGuardProfile
+
+            User = get_user_model()
+            profiles = (
+                StaffGuardProfile.objects.select_related('user')
+                .filter(email_notifications_announcements=True, user__is_active=True)
+            )
+            recipient_emails = [p.user.email for p in profiles if p.user and p.user.email]
+            if recipient_emails:
+                site_name = getattr(settings, 'SITE_NAME', 'City College of Bayawan')
+                subject = f"[{site_name}] New event: {evt.name}"
+                event_url = self.request.build_absolute_uri(
+                    reverse('event-detail', kwargs={'pk': evt.pk})
+                )
+                body_lines = [
+                    f"A new event has been created: {evt.name}",
+                    "",
+                    f"Date: {evt.start_date} to {evt.end_date}",
+                    f"Location: {evt.venue or 'TBA'}",
+                    "",
+                    "You can view more details in the event page:",
+                    event_url,
+                ]
+                body = "\n".join(body_lines)
+                from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None)
+                # Send one email per recipient to avoid leaking addresses in To/CC.
+                messages = [
+                    (subject, body, from_email, [email])
+                    for email in recipient_emails
+                ]
+                send_mass_mail(messages, fail_silently=True)
+        except Exception:
+            # Never block event creation if email sending fails.
+            pass
+
         self.object = evt
         return HttpResponseRedirect(self.get_success_url())
     
@@ -176,7 +219,16 @@ class EventListView(RoleRequiredMixin, LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['today'] = timezone.localdate()
+        today = timezone.localdate()
+        context['today'] = today
+        all_events = Event.objects.all()
+        context['total_events'] = all_events.count()
+        context['active_count'] = all_events.filter(status='active', end_date__gte=today).count()
+        context['scheduled_count'] = all_events.filter(status='scheduled', start_date__gt=today).count()
+        context['completed_count'] = (
+            all_events.filter(status='completed').count()
+            + all_events.filter(end_date__lt=today).exclude(status__in=['cancelled', 'completed']).count()
+        )
         return context
 
 
@@ -225,13 +277,25 @@ class EventDetailView(RoleRequiredMixin, LoginRequiredMixin, DetailView):
     context_object_name = 'event'
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
         from django.utils import timezone
+        from .models import EventAttendance, EventRegistration
+        context = super().get_context_data(**kwargs)
         context['today'] = timezone.localdate()
+        event = self.object
+        # Attendance stats (EventAttendance = participated/non-participant; EventRegistration = check-in/out)
+        context['attendance_checked_in_count'] = EventAttendance.objects.filter(event=event).exclude(checked_in_at__isnull=True).count()
+        context['attendance_currently_inside'] = EventAttendance.objects.filter(
+            event=event, checked_in_at__isnull=False, checked_out_at__isnull=True
+        ).count()
+        context['attendance_participated_count'] = EventAttendance.objects.filter(event=event, participated=True).count()
+        reg_count = EventRegistration.objects.filter(event=event).exclude(checked_in_at__isnull=True).count()
+        context['registration_checked_in_count'] = reg_count
+        context['agenda_items'] = list(event.eventagenda_set.all())
         return context
 
 
-class EventDeleteView(LoginRequiredMixin, DeleteView):
+class EventDeleteView(RoleRequiredMixin, LoginRequiredMixin, DeleteView):
+    allowed_roles = EVENT_ROLES
     login_url = 'login'
     model = Event
     template_name = 'events/delete_event.html'
@@ -374,14 +438,21 @@ def search_event_category(request):
 @login_required(login_url='login')
 @role_required('admin', 'faculty', 'staff')
 def search_event(request):
+    today = timezone.localdate()
+    all_events = Event.objects.all()
+    stat_ctx = {
+        'today': today,
+        'total_events': all_events.count(),
+        'active_count': all_events.filter(status='active', end_date__gte=today).count(),
+        'scheduled_count': all_events.filter(status='scheduled', start_date__gt=today).count(),
+        'completed_count': (
+            all_events.filter(status='completed').count()
+            + all_events.filter(end_date__lt=today).exclude(status__in=['cancelled', 'completed']).count()
+        ),
+    }
     if request.method == 'POST':
        data = request.POST['search']
        events = Event.objects.filter(name__icontains=data)
-       context = {
-           'events': events,
-           'today': timezone.localdate(),
-       }
-       return render(request, 'events/event_list.html', context)
-    context = {'events': Event.objects.all(), 'today': timezone.localdate()}
-    return render(request, 'events/event_list.html', context) 
+       return render(request, 'events/event_list.html', {**stat_ctx, 'events': events})
+    return render(request, 'events/event_list.html', {**stat_ctx, 'events': all_events})
     

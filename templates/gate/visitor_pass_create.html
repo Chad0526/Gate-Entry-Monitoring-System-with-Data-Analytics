@@ -1,109 +1,468 @@
 {% extends 'base/base.html' %}
+{% load static %}
 {% block title %}Visitor QR codes - {{ site_name }}{% endblock %}
 {% block breadcrumb %}Visitor QR codes{% endblock %}
 
+{% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
+<style>
+  .vqr-hero {
+    position: relative;
+    overflow: hidden;
+    background-image: linear-gradient(135deg, rgba(22,163,74,0.82), rgba(21,128,61,0.75)), url('/media/event_image/background.jpg'), url('/media/background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: #fff;
+    border-radius: 16px;
+    padding: 28px 24px 22px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 24px rgba(22,163,74,0.18);
+  }
+  .vqr-hero h2 {
+    margin: 0;
+    font-size: 1.45rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.25);
+  }
+  .vqr-hero p {
+    margin: 8px 0 0;
+    font-size: 0.9rem;
+    color: #d1fae5;
+    font-weight: 600;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.3);
+  }
+  .vqr-section-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .vqr-section-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fff;
+  }
+  .vqr-section-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+    color: #16a34a;
+  }
+  .vqr-section-title {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #14532d;
+    margin: 0;
+  }
+  .vqr-section-subtitle {
+    font-size: 0.78rem;
+    color: #4d7c5e;
+    font-weight: 500;
+    margin-top: 2px;
+  }
+  .vqr-section-body {
+    padding: 20px;
+  }
+  .vqr-section-body.p-0 {
+    padding: 0;
+  }
+  .vqr-form-inline {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .vqr-form-inline label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #14532d;
+    margin: 0;
+  }
+  .vqr-form-inline input[type="number"] {
+    width: 80px;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: #1a5c35;
+  }
+  .vqr-form-inline input[type="number"]:focus {
+    border-color: #16a34a;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(22,163,74,0.12);
+  }
+  .vqr-btn-generate {
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    padding: 10px 18px;
+    box-shadow: 0 2px 8px rgba(22,163,74,0.2);
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .vqr-btn-generate:hover {
+    background: linear-gradient(135deg, #15803d, #166534);
+    box-shadow: 0 4px 16px rgba(22,163,74,0.3);
+    transform: translateY(-1px);
+    color: #fff;
+  }
+  .vqr-action-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .vqr-btn-outline {
+    background: #fff;
+    color: #1a5c35;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.82rem;
+    padding: 8px 14px;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+  }
+  .vqr-btn-outline:hover {
+    border-color: #16a34a;
+    color: #16a34a;
+    text-decoration: none;
+    background: #f0fdf4;
+  }
+  .vqr-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .vqr-table thead th {
+    background: #f8fafc;
+    color: #2d6a42;
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid #e2e8f0;
+    padding: 10px 16px;
+    text-align: left;
+  }
+  .vqr-table tbody td {
+    padding: 12px 16px;
+    font-size: 0.84rem;
+    color: #1a5c35;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .vqr-table tbody tr:hover {
+    background: #f0fdf4;
+  }
+  .vqr-empty-state {
+    padding: 24px;
+    text-align: center;
+    color: #4d7c5e;
+    font-size: 0.9rem;
+  }
+  .vqr-legacy-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 14px 20px;
+    background: #f8fafc;
+    border: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #4d7c5e;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+  }
+  .vqr-legacy-toggle:hover {
+    background: #f1f5f9;
+    color: #14532d;
+  }
+  .vqr-legacy-card .vqr-legacy-toggle {
+    border-radius: 14px;
+  }
+  .vqr-legacy-card:has(.collapse.show) .vqr-legacy-toggle {
+    border-radius: 14px 14px 0 0;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .vqr-legacy-toggle i.fa-chevron-down {
+    transition: transform 0.2s ease;
+  }
+  .vqr-legacy-toggle[aria-expanded="true"] i.fa-chevron-down {
+    transform: rotate(180deg);
+  }
+  .vqr-legacy-body {
+    padding: 20px;
+    background: #fff;
+    border-top: 1px solid #e2e8f0;
+  }
+  .vqr-form-group {
+    margin-bottom: 16px;
+  }
+  .vqr-form-group label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #14532d;
+    margin-bottom: 6px;
+  }
+  .vqr-form-group input,
+  .vqr-form-group select,
+  .vqr-form-group textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: #1a5c35;
+  }
+  .vqr-form-group input:focus,
+  .vqr-form-group select:focus,
+  .vqr-form-group textarea:focus {
+    border-color: #16a34a;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(22,163,74,0.12);
+  }
+  .vqr-form-group small {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.78rem;
+    color: #4d7c5e;
+  }
+  .vqr-btn-primary {
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 10px 20px;
+    box-shadow: 0 2px 8px rgba(22,163,74,0.2);
+    transition: all 0.2s ease;
+  }
+  .vqr-btn-primary:hover {
+    background: linear-gradient(135deg, #15803d, #166534);
+    color: #fff;
+  }
+  .vqr-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+  .vqr-badge-success { background: #dcfce7; color: #166534; }
+  .vqr-badge-warning { background: #fef3c7; color: #b45309; }
+  .vqr-badge-secondary { background: #f1f5f9; color: #64748b; }
+  .vqr-qr-link {
+    display: inline-block;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 4px;
+    background: #fff;
+  }
+  .vqr-qr-link img {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    display: block;
+  }
+  .vqr-eid-btn {
+    background: #fff;
+    color: #16a34a;
+    border: 1px solid #16a34a;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .vqr-eid-btn:hover {
+    background: #f0fdf4;
+    color: #15803d;
+  }
+  .eid-action-bar {
+    background: linear-gradient(180deg, #e8e8e8 0%, #d8d8d8 100%) !important;
+    border-top: 1px solid #ccc;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.08), 0 6px 20px rgba(0,0,0,0.12);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .eid-action-btn {
+    color: #555;
+    padding: 6px 10px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 1rem;
+    transition: color 0.15s, background 0.15s;
+  }
+  .eid-action-btn:hover { color: #1a4d2e; background: rgba(0,0,0,0.06); }
+</style>
+{% endblock extrahead %}
+
 {% block content %}
-<div class="card">
-  <div class="card-header">
-    <h5 class="m-0"><i class="fas fa-qrcode mr-1"></i> Generate blank visitor QR codes for printing</h5>
+<div class="monitor-wrap">
+  <!-- Hero -->
+  <div class="vqr-hero">
+    <h2><i class="fas fa-qrcode mr-2"></i>Visitor QR Codes</h2>
+    <p>Generate blank visitor pass codes for printing. Print QRs and use them at the gate scanner for check-in.</p>
   </div>
-  <div class="card-body">
-    <p class="text-muted mb-3">Create a set of reusable pass codes (e.g. VIS-001 to VIS-100) to <strong>print as QR codes</strong> and hand to visitors. At the gate, when a visitor scans the QR, a <strong>pop-up window</strong> will open for check-in (name, purpose, department) or check-out—handled on the Gate scan page, not here.</p>
-    <p class="text-muted small mb-3">This page is for <strong>generation only</strong>. Print the QRs, then use them at the gate scanner.</p>
-    <form method="post" action="{% url 'visitor-pass-create' %}" class="form-inline mb-2" id="generate-slots-form">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="generate_slots">
-      <label class="mr-2">From</label>
-      <input type="number" name="slot_start" value="{% if display_start is not None %}{{ display_start }}{% else %}1{% endif %}" min="1" max="999" class="form-control form-control-sm mr-2" style="width:80px">
-      <label class="mr-2">To</label>
-      <input type="number" name="slot_end" value="{% if display_end is not None %}{{ display_end }}{% else %}100{% endif %}" min="1" max="999" class="form-control form-control-sm mr-2" style="width:80px">
-      <button type="submit" class="btn btn-success"><i class="fas fa-plus mr-1"></i> Generate slots for printing</button>
-    </form>
+
+  <!-- Generate slots card -->
+  <div class="vqr-section-card">
+    <div class="vqr-section-head">
+      <div class="vqr-section-icon"><i class="fas fa-plus"></i></div>
+      <div>
+        <h5 class="vqr-section-title">Generate slots for printing</h5>
+        <p class="vqr-section-subtitle">Create reusable pass codes (e.g. VIS-001 to VIS-100) to print as QR codes and hand to visitors.</p>
+      </div>
+    </div>
+    <div class="vqr-section-body">
+      <p class="text-muted mb-3" style="font-size:0.88rem; color:#4d7c5e;">At the gate, when a visitor scans the QR, a <strong>pop-up window</strong> will open for check-in (name, purpose, department) or check-out—handled on the Gate scan page, not here.</p>
+      <form method="post" action="{% url 'visitor-pass-create' %}" class="vqr-form-inline" id="generate-slots-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="generate_slots">
+        <label>From</label>
+        <input type="number" name="slot_start" value="{% if display_start is not None %}{{ display_start }}{% else %}1{% endif %}" min="1" max="999">
+        <label>To</label>
+        <input type="number" name="slot_end" value="{% if display_end is not None %}{{ display_end }}{% else %}100{% endif %}" min="1" max="999">
+        <button type="submit" class="vqr-btn-generate"><i class="fas fa-plus"></i> Generate slots for printing</button>
+      </form>
+    </div>
   </div>
-</div>
-<div class="card mt-4">
-  <div class="card-header d-flex align-items-center flex-wrap">
-    <h5 class="m-0 mr-2">Recent visitor QR codes</h5>
-    {% if passes %}
-    <a href="{% url 'visitor-pass-print-all' %}{% if display_start is not None and display_end is not None %}?start={{ display_start }}&end={{ display_end }}{% endif %}" target="_blank" class="btn btn-sm btn-outline-primary mr-1"><i class="fas fa-print mr-1"></i> Print all e-ID</a>
-    <a href="{% url 'visitor-pass-print-all' %}{% if display_start is not None and display_end is not None %}?start={{ display_start }}&end={{ display_end }}&{% else %}?{% endif %}download=1" class="btn btn-sm btn-outline-success"><i class="fas fa-download mr-1"></i> Download all e-ID</a>
-    {% endif %}
+
+  <!-- QR table card -->
+  <div class="vqr-section-card">
+    <div class="vqr-section-head">
+      <div class="vqr-section-icon"><i class="fas fa-qrcode"></i></div>
+      <div style="flex:1;">
+        <h5 class="vqr-section-title">Recent visitor QR codes</h5>
+        <p class="vqr-section-subtitle">View, print, or download QR codes and e-ID cards.</p>
+      </div>
+      {% if passes %}
+      <div class="vqr-action-bar" style="margin:0;">
+        <a href="{% url 'visitor-pass-print-all' %}{% if display_start is not None and display_end is not None %}?start={{ display_start }}&end={{ display_end }}{% endif %}" target="_blank" class="vqr-btn-outline"><i class="fas fa-print"></i> Print all e-ID</a>
+        <a href="{% url 'visitor-pass-print-all' %}{% if display_start is not None and display_end is not None %}?start={{ display_start }}&end={{ display_end }}&{% else %}?{% endif %}download=1" class="vqr-btn-outline"><i class="fas fa-download"></i> Download all e-ID</a>
+      </div>
+      {% endif %}
+    </div>
+    <div class="vqr-section-body p-0">
+      {% if passes %}
+      <div style="overflow-x:auto;">
+        <table class="vqr-table">
+          <thead><tr><th>QR code</th><th>Code</th><th>e-ID card</th><th>Status</th><th>Guest / Current visit</th><th>Department</th><th>Valid / Last used</th></tr></thead>
+          <tbody>
+            {% for p in passes %}
+            <tr>
+              <td>
+                <a href="{% url 'visitor-qr-image' code=p.code %}" target="_blank" class="vqr-qr-link" title="Open QR (print or download)">
+                  <img src="{% url 'visitor-qr-image' code=p.code %}" alt="QR {{ p.code }}" width="64" height="64">
+                </a>
+                <a href="{% url 'visitor-qr-image' code=p.code %}" download="visitor-qr-{{ p.code }}.png" target="_blank" class="vqr-btn-outline mt-1" style="padding:6px 10px; font-size:0.78rem;" title="Download QR"><i class="fas fa-download"></i></a>
+              </td>
+              <td><code>{{ p.code }}</code></td>
+              <td>
+                <button type="button" class="vqr-eid-btn e-id-btn" title="View / print electronic ID card" data-code="{{ p.code }}" data-card-url="{% url 'visitor-pass-card' code=p.code %}"><i class="fas fa-id-card"></i> e-ID</button>
+              </td>
+              <td><span class="vqr-badge vqr-badge-{% if p.status == 'AVAILABLE' %}success{% elif p.status == 'IN_USE' %}warning{% else %}secondary{% endif %}">{{ p.get_status_display }}</span></td>
+              <td>{% if p.current_visit %}{{ p.current_visit.full_name }}{% else %}{{ p.guest_name|default:"—" }}{% endif %}</td>
+              <td>{{ p.department|default:"—" }}</td>
+              <td>{% if p.valid_from and p.valid_until %}{{ p.valid_from|date:"M d" }} – {{ p.valid_until|date:"M d, Y" }}{% elif p.last_used_at %}Last used {{ p.last_used_at|date:"M d H:i" }}{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="vqr-empty-state">No visitor QR codes yet. Generate slots above to create blank QRs for printing.</p>
+      {% endif %}
+    </div>
   </div>
-  <div class="card-body p-0">
-    {% if passes %}
-    <table class="table table-sm mb-0">
-      <thead><tr><th>QR code</th><th>Code</th><th>e-ID card</th><th>Status</th><th>Guest / Current visit</th><th>Department</th><th>Valid / Last used</th></tr></thead>
-      <tbody>
-        {% for p in passes %}
-        <tr>
-          <td class="align-middle">
-            <a href="{% url 'visitor-qr-image' code=p.code %}" target="_blank" class="d-inline-block border rounded p-1 bg-white" title="Open QR (print or download)">
-              <img src="{% url 'visitor-qr-image' code=p.code %}" alt="QR {{ p.code }}" width="64" height="64" style="image-rendering: pixelated; image-rendering: crisp-edges; display:block;">
-            </a>
-            <a href="{% url 'visitor-qr-image' code=p.code %}" download="visitor-qr-{{ p.code }}.png" target="_blank" class="btn btn-sm btn-outline-secondary mt-1" title="Download QR"><i class="fas fa-download"></i></a>
-          </td>
-          <td class="align-middle"><code>{{ p.code }}</code></td>
-          <td class="align-middle">
-            <button type="button" class="btn btn-sm btn-outline-primary e-id-btn" title="View / print electronic ID card" data-code="{{ p.code }}" data-card-url="{% url 'visitor-pass-card' code=p.code %}"><i class="fas fa-id-card mr-1"></i> e-ID</button>
-          </td>
-          <td class="align-middle"><span class="badge badge-{% if p.status == 'AVAILABLE' %}success{% elif p.status == 'IN_USE' %}warning{% else %}secondary{% endif %}">{{ p.get_status_display }}</span></td>
-          <td class="align-middle">{% if p.current_visit %}{{ p.current_visit.full_name }}{% else %}{{ p.guest_name|default:"—" }}{% endif %}</td>
-          <td class="align-middle">{{ p.department|default:"—" }}</td>
-          <td class="align-middle">{% if p.valid_from and p.valid_until %}{{ p.valid_from|date:"M d" }} – {{ p.valid_until|date:"M d, Y" }}{% elif p.last_used_at %}Last used {{ p.last_used_at|date:"M d H:i" }}{% else %}—{% endif %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <p class="text-muted p-3 mb-0">No visitor QR codes yet. Generate slots above to create blank QRs for printing.</p>
-    {% endif %}
-  </div>
-</div>
-<div class="card mt-4 border-secondary">
-  <div class="card-header py-2">
-    <h6 class="m-0 text-muted"><i class="fas fa-history mr-1"></i> One-time visitor pass (legacy)</h6>
-  </div>
-  <div class="card-body">
-    <form method="post" class="form-horizontal">
-      {% csrf_token %}
-      <div class="form-group">
-        <label>Guest name *</label>
-        <input type="text" name="guest_name" class="form-control" required placeholder="e.g. Juan Dela Cruz">
+
+  <!-- Legacy pass (collapsible) -->
+  <div class="vqr-section-card vqr-legacy-card" style="border-color:#cbd5e1;">
+    <button class="vqr-legacy-toggle" type="button" data-toggle="collapse" data-target="#vqrLegacyForm" aria-expanded="false" aria-controls="vqrLegacyForm">
+      <span><i class="fas fa-history mr-2"></i>One-time visitor pass (legacy)</span>
+      <i class="fas fa-chevron-down"></i>
+    </button>
+    <div class="collapse" id="vqrLegacyForm">
+      <div class="vqr-legacy-body">
+        <form method="post" class="form-horizontal">
+          {% csrf_token %}
+          <div class="vqr-form-group">
+            <label>Guest name *</label>
+            <input type="text" name="guest_name" required placeholder="e.g. Juan Dela Cruz">
+          </div>
+          <div class="vqr-form-group">
+            <label>Purpose</label>
+            <input type="text" name="purpose" placeholder="e.g. Parent meeting">
+          </div>
+          <div class="vqr-form-group">
+            <label>Department / Office (destination)</label>
+            <select name="department">
+              {% for value, label in campus_departments %}
+              {% if value %}<option value="{{ value }}">{{ label }}</option>{% endif %}
+              {% endfor %}
+            </select>
+            <small>Where the visitor will go on campus.</small>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="vqr-form-group">
+                <label>Valid from (date) *</label>
+                <input type="date" name="valid_from" required>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="vqr-form-group">
+                <label>Valid until (date) *</label>
+                <input type="date" name="valid_until" required>
+              </div>
+            </div>
+          </div>
+          <div class="vqr-form-group">
+            <label>Notes</label>
+            <textarea name="notes" rows="2"></textarea>
+          </div>
+          <button type="submit" class="vqr-btn-primary">Create pass</button>
+        </form>
+        <p class="text-muted small mt-3" style="color:#4d7c5e;">After creating, the pass code (e.g. VISITOR-xxx) can be printed or shown as QR. Use it at the gate scanner (one-time use).</p>
       </div>
-      <div class="form-group">
-        <label>Purpose</label>
-        <input type="text" name="purpose" class="form-control" placeholder="e.g. Parent meeting">
-      </div>
-      <div class="form-group">
-        <label>Department / Office (destination)</label>
-        <select name="department" class="form-control">
-          {% for value, label in campus_departments %}
-          {% if value %}<option value="{{ value }}">{{ label }}</option>{% endif %}
-          {% endfor %}
-        </select>
-        <small class="form-text text-muted">Where the visitor will go on campus.</small>
-      </div>
-      <div class="row">
-        <div class="col-md-6 form-group">
-          <label>Valid from (date) *</label>
-          <input type="date" name="valid_from" class="form-control" required>
-        </div>
-        <div class="col-md-6 form-group">
-          <label>Valid until (date) *</label>
-          <input type="date" name="valid_until" class="form-control" required>
-        </div>
-      </div>
-      <div class="form-group">
-        <label>Notes</label>
-        <textarea name="notes" class="form-control" rows="2"></textarea>
-      </div>
-      <button type="submit" class="btn btn-primary">Create pass</button>
-    </form>
-    <p class="text-muted small mt-3">After creating, the pass code (e.g. VISITOR-xxx) can be printed or shown as QR. Use it at the gate scanner (one-time use).</p>
+    </div>
   </div>
 </div>
 
-<!-- e-ID card modal: pops up when clicking e-ID button -->
+<!-- e-ID card modal -->
 <div class="modal fade" id="eidCardModal" tabindex="-1" role="dialog" aria-labelledby="eidCardModalTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 400px;">
     <div class="modal-content">
@@ -125,28 +484,6 @@
     </div>
   </div>
 </div>
-<style>
-.eid-action-bar {
-  background: linear-gradient(180deg, #e8e8e8 0%, #d8d8d8 100%) !important;
-  border-top: 1px solid #ccc;
-  border-radius: 0 0 12px 12px;
-  box-shadow: 0 -2px 12px rgba(0,0,0,0.08), 0 6px 20px rgba(0,0,0,0.12);
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-.eid-action-btn {
-  color: #555;
-  padding: 6px 10px;
-  border-radius: 8px;
-  text-decoration: none;
-  font-size: 1rem;
-  transition: color 0.15s, background 0.15s;
-}
-.eid-action-btn:hover { color: #1a4d2e; background: rgba(0,0,0,0.06); }
-.eid-action-btn.text { font-size: 0.9rem; }
-</style>
 {% endblock %}
 
 {% block extrascript %}

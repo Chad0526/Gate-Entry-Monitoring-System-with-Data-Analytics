@@ -1,0 +1,2944 @@
+{% extends 'base/login_base.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{% trans 'City College of Bayawan - CCB Gate Entry - Login' %}{% endblock title %}
+
+{% block extrahead %}
+<!-- Font loaded in base/login_header.html for all auth pages -->
+<!-- face-api.js is loaded only when user starts face registration (see extrascript) to avoid blocking login for 10+ mins -->
+{% endblock extrahead %}
+
+{% block content %}
+
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Plus Jakarta Sans', 'Inter', 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  body {
+    background-image:
+      linear-gradient(135deg, rgba(22,163,74,0.08) 0%, rgba(21,128,61,0.06) 50%, rgba(240,253,244,0.9) 100%);
+    background-color: #f0fdf4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: 20px;
+    padding-bottom: 0;
+  }
+  body .auth-page-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    width: 100%;
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 20px 20px 0;
+  }
+
+  .auth-container {
+    background-color: #fff;
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    max-width: 820px;
+    min-height: 500px;
+    margin: 0 auto;
+    border: 1px solid rgba(22,163,74,0.08);
+    transition: box-shadow 0.3s ease;
+  }
+
+  .auth-container:hover {
+    box-shadow: 0 24px 64px rgba(0,0,0,0.1), 0 2px 6px rgba(0,0,0,0.05);
+  }
+
+  .auth-container p {
+    font-size: 13px;
+    line-height: 1.4;
+    letter-spacing: 0.3px;
+    margin: 20px 0;
+  }
+
+  .auth-container span {
+    font-size: 12px;
+    color: #4d7c5e;
+  }
+
+  .auth-container a {
+    color: #16a34a;
+    font-size: 13px;
+    text-decoration: none;
+    margin: 4px 0 20px 0;
+    display: inline-block;
+    width: 100%;
+    text-align: left;
+    font-weight: 500;
+    transition: color 0.2s ease, text-decoration 0.2s ease;
+  }
+
+  .auth-container a:hover {
+    text-decoration: underline;
+    color: #15803d;
+  }
+
+  /* Primary buttons: LOGIN, SUBMIT REGISTRATION – professional hover & active */
+  .auth-container button[type="submit"],
+  .auth-container .btn-submit {
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    color: #fff;
+    font-size: 13px;
+    padding: 12px 22px;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    margin-top: 8px;
+    cursor: pointer;
+    width: 100%;
+    transition: background 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+    box-shadow: 0 4px 14px rgba(22,163,74,0.28);
+  }
+
+  .form-container.sign-in .btn-submit,
+  .form-container.sign-up .btn-submit {
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    box-shadow: 0 4px 14px rgba(22,163,74,0.28);
+  }
+
+  .auth-container button[type="submit"]:hover,
+  .auth-container .btn-submit:hover {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    box-shadow: 0 6px 20px rgba(22,163,74,0.38);
+    transform: translateY(-2px);
+  }
+
+  .auth-container button[type="submit"]:active,
+  .auth-container .btn-submit:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(22,163,74,0.3);
+  }
+
+  /* REGISTER / LOGIN on welcome panel – clear hover & active */
+  .auth-container button.toggle-btn {
+    background-color: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.6);
+    color: #fff;
+    padding: 12px 40px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.25s ease, border-color 0.2s ease, box-shadow 0.25s ease, transform 0.2s ease;
+    backdrop-filter: blur(4px);
+  }
+
+  .toggle-left .toggle-btn,
+  .toggle-right .toggle-btn {
+    border-color: rgba(255,255,255,0.6);
+    color: #fff;
+    background: rgba(255,255,255,0.15);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+  }
+
+  .toggle-left .toggle-btn:hover,
+  .toggle-right .toggle-btn:hover {
+    background: rgba(255,255,255,0.32);
+    border-color: #fff;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+    transform: translateY(-2px);
+  }
+
+  .toggle-left .toggle-btn:active,
+  .toggle-right .toggle-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+  }
+
+  .toggle-btn {
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
+  }
+
+  .auth-container form {
+    background-color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 0 40px;
+    height: 100%;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .auth-container form h1 {
+    margin-bottom: 4px;
+    color: #14532d;
+    font-size: 1.35rem;
+    font-weight: 800;
+    width: 100%;
+    text-align: left;
+    letter-spacing: -0.025em;
+  }
+
+  .auth-container form > span {
+    display: block;
+    width: 100%;
+    text-align: left;
+    margin-bottom: 24px;
+    font-size: 0.8125rem;
+    color: #4d7c5e;
+    line-height: 1.4;
+    font-weight: 500;
+  }
+
+  .auth-container input[type="text"],
+  .auth-container input[type="password"],
+  .auth-container input[type="email"],
+  .auth-container input[type="file"],
+  .auth-container input[type="date"],
+  .auth-container select,
+  .auth-container textarea {
+    background-color: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    margin: 0;
+    padding: 12px 16px;
+    font-size: 13px;
+    border-radius: 10px;
+    width: 100%;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    color: #14532d;
+  }
+
+  .auth-container input[type="text"]:hover,
+  .auth-container input[type="password"]:hover,
+  .auth-container input[type="email"]:hover,
+  .auth-container select:hover,
+  .auth-container textarea:hover {
+    border-color: #cbd5e1;
+  }
+  .auth-container textarea {
+    resize: vertical;
+    min-height: 56px;
+  }
+  .auth-container select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234d7c5e' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+    cursor: pointer;
+  }
+  .auth-container input[type="date"] {
+    cursor: pointer;
+  }
+  .auth-container input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 0.7;
+    cursor: pointer;
+    margin-left: 4px;
+  }
+
+  .auth-container input:focus,
+  .auth-container select:focus,
+  .auth-container textarea:focus {
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22,163,74,0.12);
+    background-color: #fff;
+  }
+
+  .auth-container .form-group {
+    width: 100%;
+    margin: 0 0 18px 0;
+    text-align: left;
+  }
+
+  .auth-container .form-group label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #14532d;
+    margin-bottom: 6px;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .auth-container .form-group small {
+    display: block;
+    font-size: 11px;
+    color: #4d7c5e;
+    margin-top: 2px;
+  }
+
+  .auth-container .error-message,
+  .auth-container .alert-danger,
+  .auth-container .form-group .error-message,
+  .auth-container .error-message.wizard-err,
+  .auth-container .error-message.sg-wizard-err {
+    font-size: 11px !important;
+    color: #b91c1c;
+    margin-top: 4px;
+    font-weight: 500;
+    background: #fef2f2;
+    padding: 4px 8px !important;
+    border-radius: 4px;
+    border-left: 3px solid #dc2626;
+    line-height: 1.3;
+    display: inline-block;
+    max-width: 100%;
+    box-shadow: 0 1px 2px rgba(220, 38, 38, 0.06);
+  }
+
+  .form-container {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    transition: all 0.6s ease-in-out;
+  }
+
+  .form-container.sign-in {
+    left: 0;
+    width: 50%;
+    z-index: 2;
+  }
+
+  .auth-container.active .form-container.sign-in {
+    transform: translateX(100%);
+  }
+
+  .form-container.sign-up {
+    left: 0;
+    width: 50%;
+    opacity: 0;
+    z-index: 1;
+  }
+
+  .auth-container.active .form-container.sign-up {
+    transform: translateX(100%);
+    opacity: 1;
+    z-index: 5;
+    animation: move 0.6s;
+  }
+
+  @keyframes move {
+    0%, 49.99% {
+      opacity: 0;
+      z-index: 1;
+    }
+    50%, 100% {
+      opacity: 1;
+      z-index: 5;
+    }
+  }
+
+  .toggle-container {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 50%;
+    height: 100%;
+    overflow: hidden;
+    transition: all 0.6s ease-in-out;
+    border-radius: 150px 0 0 100px;
+    z-index: 1000;
+  }
+
+  .auth-container.active .toggle-container {
+    transform: translateX(-100%);
+    border-radius: 0 150px 100px 0;
+  }
+
+  .toggle {
+    background-image:
+      linear-gradient(135deg, rgba(22,163,74,0.88), rgba(21,128,61,0.82)),
+      url('/media/event_image/background.jpg'),
+      url('/media/background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    height: 100%;
+    color: #fff;
+    position: relative;
+    left: -100%;
+    width: 200%;
+    transform: translateX(0);
+    transition: all 0.6s ease-in-out;
+  }
+
+  .auth-container.active .toggle {
+    transform: translateX(50%);
+  }
+
+  .toggle-panel {
+    position: absolute;
+    width: 50%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 0 30px;
+    text-align: center;
+    top: 0;
+    transition: all 0.6s ease-in-out;
+    z-index: 10;
+  }
+
+  .toggle-panel .auth-logo {
+    max-width: 120px;
+    max-height: 100px;
+    width: auto;
+    height: auto;
+    margin-bottom: 20px;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.2));
+  }
+
+  .toggle-left {
+    transform: translateX(-200%);
+  }
+
+  .auth-container.active .toggle-left {
+    transform: translateX(0);
+  }
+
+  .toggle-right {
+    right: 0;
+    left: 50%;
+    transform: translateX(0);
+  }
+
+  .auth-container.active .toggle-right {
+    transform: translateX(200%);
+  }
+
+  .toggle-panel h1 {
+    font-size: 1.5rem;
+    margin-bottom: 12px;
+    color: #fff;
+    font-weight: 800;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    letter-spacing: -0.025em;
+  }
+
+  .toggle-panel p {
+    font-size: 0.8125rem;
+    margin-bottom: 28px;
+    color: #d1fae5;
+    line-height: 1.5;
+    font-weight: 600;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.25);
+  }
+
+  .password-wrapper {
+    position: relative;
+    width: 100%;
+  }
+
+  .password-wrapper input {
+    padding-right: 40px;
+  }
+
+  .password-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    z-index: 2;
+    pointer-events: auto;
+    color: #4d7c5e;
+    font-size: 13px;
+    transition: color 0.15s;
+  }
+
+  .password-toggle:hover {
+    color: #16a34a;
+  }
+
+  /* Password strength indicator (Staff/Faculty/Guard registration) */
+  .password-strength-wrap {
+    margin-top: 6px;
+    width: 100%;
+  }
+  .password-strength-bar {
+    display: flex;
+    gap: 4px;
+    width: 100%;
+    margin-bottom: 4px;
+  }
+  .password-strength-segment {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: #e2e8f0;
+    transition: background 0.2s ease;
+  }
+  .password-strength-segment.active.weak { background: #dc2626; }
+  .password-strength-segment.active.fair { background: #ea580c; }
+  .password-strength-segment.active.good { background: #ca8a04; }
+  .password-strength-segment.active.strong { background: #16a34a; }
+  .password-strength-text {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+  }
+  .password-strength-text.weak { color: #dc2626; }
+  .password-strength-text.fair { color: #ea580c; }
+  .password-strength-text.good { color: #ca8a04; }
+  .password-strength-text.strong { color: #16a34a; }
+
+  /* Success/info message: floating toast, transparent so form stays visible; below form header so it doesn’t block “Login” */
+  #django-messages-wrap.auth-messages-wrap {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 420px;
+    z-index: 10000;
+    padding: 0 20px;
+    pointer-events: auto;
+    animation: auth-toast-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  #django-messages-wrap.auth-messages-wrap.auth-message-hide {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+  }
+  @keyframes auth-toast-in {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  }
+  /* Override ccb-theme.css solid #fff so toast is transparent (higher specificity: id + classes) */
+  #django-messages-wrap.auth-messages-wrap .auth-toast,
+  #django-messages-wrap.auth-messages-wrap .django-alert.auth-toast {
+    width: 100%;
+    margin-bottom: 12px;
+    padding: 16px 18px !important;
+    border-radius: 14px !important;
+    border: 1px solid rgba(22, 163, 74, 0.18) !important;
+    border-left: 4px solid #16a34a !important;
+    background: rgba(255, 255, 255, 0.22) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px rgba(22, 163, 74, 0.12), 0 2px 12px rgba(0, 0, 0, 0.06);
+  }
+  #django-messages-wrap.auth-messages-wrap .auth-toast:last-child { margin-bottom: 0; }
+  #django-messages-wrap.auth-messages-wrap .auth-toast .ccb-msg-icon {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 10px !important;
+    background: rgba(22, 163, 74, 0.14) !important;
+    color: #15803d !important;
+    font-size: 0.95rem !important;
+  }
+  #django-messages-wrap.auth-messages-wrap .auth-toast .ccb-msg-body {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: #1e293b !important;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+  #django-messages-wrap.auth-messages-wrap .auth-toast.alert-success .ccb-msg-body {
+    color: #14532d !important;
+  }
+  #django-messages-wrap.auth-messages-wrap .auth-toast .close {
+    color: #64748b !important;
+    opacity: 0.7;
+    padding: 6px !important;
+    margin: -6px -6px -6px 8px !important;
+    border-radius: 8px;
+    transition: background 0.2s, color 0.2s;
+  }
+  #django-messages-wrap.auth-messages-wrap .auth-toast .close:hover {
+    background: rgba(22, 163, 74, 0.08);
+    color: #15803d !important;
+    opacity: 1;
+  }
+  #django-messages-wrap.auth-messages-wrap .auth-toast.alert-danger {
+    border-left-color: #dc2626 !important;
+    border-color: rgba(220, 38, 38, 0.2) !important;
+    background: rgba(255, 255, 255, 0.22) !important;
+    box-shadow: 0 8px 32px rgba(220, 38, 38, 0.08), 0 2px 12px rgba(0, 0, 0, 0.06);
+  }
+  #django-messages-wrap.auth-messages-wrap .auth-toast.alert-warning {
+    border-left-color: #d97706 !important;
+    border-color: rgba(217, 119, 6, 0.2) !important;
+    background: rgba(255, 255, 255, 0.22) !important;
+  }
+  #django-messages-wrap.auth-messages-wrap .auth-toast.alert-info {
+    border-left-color: #0284c7 !important;
+    border-color: rgba(2, 132, 199, 0.18) !important;
+    background: rgba(255, 255, 255, 0.22) !important;
+  }
+
+  /* Footer */
+  body .main-footer {
+    margin-top: auto;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: 100%;
+    max-width: 100%;
+    padding: 14px 20px;
+    text-align: center;
+    font-size: 12px;
+    color: #4d7c5e;
+    background: transparent !important;
+    border: none !important;
+    clear: both;
+    line-height: 1.5;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    display: block;
+  }
+  body .main-footer a {
+    color: #16a34a;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s ease, text-decoration 0.2s ease;
+  }
+  body .main-footer a:hover {
+    color: #15803d;
+    text-decoration: underline;
+  }
+
+  /* Terms & Privacy links below auth card */
+  .auth-page-wrap .mt-3 a {
+    transition: color 0.2s ease, text-decoration 0.2s ease;
+  }
+  .auth-page-wrap .mt-3 a:hover {
+    color: #15803d !important;
+    text-decoration: underline !important;
+  }
+  body .main-footer .footer-dev {
+    display: inline;
+  }
+  .form-container.sign-up form {
+    overflow-y: auto;
+    max-height: 100%;
+    justify-content: flex-start;
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+
+  .face-registration-group label { display: block; margin-bottom: 4px; }
+  .face-registration-group small.d-block { font-size: 11px; color: #555; margin-bottom: 8px; }
+  .face-registration-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .face-registration-actions .btn-face-start {
+    flex: 1;
+    min-width: 140px;
+  }
+  .btn-face-start {
+    width: 100%;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(22,163,74,0.25);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-face-start:hover {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    box-shadow: 0 4px 14px rgba(22,163,74,0.35);
+    transform: translateY(-1px);
+  }
+
+  /* Mobile: touch-friendly tap targets (iOS/Android) */
+  @media (max-width: 768px), (hover: none) and (pointer: coarse) {
+    .face-registration-actions .btn-face-start,
+    .btn-face-choose-file {
+      min-height: 44px;
+      padding: 12px 16px;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    .face-mode-btn {
+      min-height: 44px;
+      padding: 10px 14px;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    .btn-face-capture, .btn-face-done, .btn-face-redo {
+      min-height: 44px;
+      padding: 12px 20px;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+  }
+
+  .face-registration-ui {
+    margin-top: 12px;
+    padding: 14px;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+  }
+  .face-capture-mode {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .face-mode-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+  }
+  .face-mode-btn {
+    padding: 6px 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    color: #4d7c5e;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .face-mode-btn:hover {
+    border-color: #16a34a;
+    color: #16a34a;
+  }
+  .face-mode-btn.active {
+    border-color: #16a34a;
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    color: #fff;
+  }
+  .face-capture-toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 20px;
+    background: #28a745;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .face-capture-toast.show {
+    opacity: 1;
+  }
+  .face-capture-toast i {
+    font-size: 1rem;
+  }
+  .face-video-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 280px;
+    margin: 0 auto 12px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #000;
+  }
+  .face-video-wrap video {
+    width: 100%;
+    display: block;
+  }
+  .face-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  .face-hold-steady {
+    position: absolute;
+    bottom: 36px;
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: 6px 10px;
+    background: rgba(40, 167, 69, 0.9);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+  }
+  .face-instruction {
+    position: absolute;
+    bottom: 52px;
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.25);
+    color: #fff;
+    font-size: 12px;
+    text-align: center;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  }
+  .face-instruction.face-instruction--hidden {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  .btn-face-capture {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    padding: 8px 14px;
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-face-capture:hover { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); }
+  .face-thumbnails {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin: 12px 0;
+  }
+  .face-thumb {
+    width: 56px;
+    text-align: center;
+  }
+  .face-thumb span {
+    display: block;
+    font-size: 10px;
+    color: #555;
+    margin-bottom: 4px;
+  }
+  .face-thumb img {
+    width: 52px;
+    height: 52px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 2px solid #e2e8f0;
+    background: #f1f5f9;
+  }
+  .face-thumb.captured img { border-color: #16a34a; }
+  .btn-face-done {
+    width: 100%;
+    padding: 8px 14px;
+    background: #28a745;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-face-done:hover { background: #218838; }
+  .face-registration-done {
+    margin-top: 12px;
+  }
+  .btn-face-redo {
+    width: 100%;
+  }
+  .face-status { font-size: 12px; color: #28a745; margin-top: 8px; }
+
+  /* ---- Registration wizard ---- */
+  .reg-wizard-progress {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0;
+    margin-bottom: 20px;
+    width: 100%;
+  }
+  .reg-step-indicator {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    min-width: 0;
+  }
+  .reg-step-indicator::before {
+    content: '';
+    position: absolute;
+    top: 15px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #e2e8f0;
+    z-index: 0;
+  }
+  .reg-step-indicator:first-child::before { left: 50%; }
+  .reg-step-indicator:last-child::before { right: 50%; }
+  .reg-step-indicator.done::before,
+  .reg-step-indicator.active::before { background: #16a34a; }
+  .reg-step-dot {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    flex-shrink: 0;
+  }
+  .reg-step-indicator.active .reg-step-dot {
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(22,163,74,0.35);
+    border-color: transparent;
+  }
+  .reg-step-indicator.done .reg-step-dot {
+    background: #16a34a;
+    color: #fff;
+    font-size: 0;
+  }
+  .reg-step-indicator.done .reg-step-dot::after {
+    content: '\f00c';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    font-size: 12px;
+  }
+  .reg-step-label {
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #94a3b8;
+    margin-top: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    transition: color 0.3s;
+    line-height: 1.2;
+    max-width: 100%;
+  }
+  .reg-step-indicator.active .reg-step-label,
+  .reg-step-indicator.done .reg-step-label { color: #16a34a; }
+
+  .reg-wizard-step { display: none; width: 100%; }
+  .reg-wizard-step.active { display: block; }
+
+  /* Compact registration type toggle (like sample: question + small switch + label) */
+  .reg-type-toggle-wrap {
+    width: 100%;
+    margin-bottom: 18px;
+  }
+  .reg-type-toggle-question {
+    font-size: 13px;
+    font-weight: 600;
+    color: #14532d;
+    margin: 0 0 8px 0;
+    line-height: 1.3;
+  }
+  .reg-type-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .reg-type-toggle-switch {
+    position: relative;
+    width: 40px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 11px;
+    background: #cbd5e1;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    flex-shrink: 0;
+    outline: none;
+  }
+  .reg-type-toggle-switch:hover {
+    background: #94a3b8;
+  }
+  .reg-type-toggle-switch[aria-checked="true"] {
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  }
+  .reg-type-toggle-switch[aria-checked="true"]:hover {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  }
+  .reg-type-toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid rgba(22, 163, 74, 0.35);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    transition: transform 0.2s ease;
+    pointer-events: none;
+  }
+  .reg-type-toggle-switch[aria-checked="true"] .reg-type-toggle-thumb {
+    transform: translateX(18px);
+    border-color: rgba(22, 163, 74, 0.4);
+  }
+  .reg-type-toggle-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #14532d;
+  }
+  .reg-form-wrap { width: 100%; }
+  /* Both panels sit in the same content box so Staff form appears where Student was */
+  .reg-panels-container {
+    position: relative;
+    width: 100%;
+    min-height: 320px;
+  }
+  .reg-panels-container #reg-student-wrap,
+  .reg-panels-container #reg-staff-guard-wrap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+  #reg-staff-guard-wrap.reg-panel-active { display: block !important; z-index: 2; }
+  .reg-subtitle {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #14532d;
+    margin: 0 0 4px 0;
+    width: 100%;
+    text-align: left;
+  }
+  .reg-subtitle-desc {
+    font-size: 0.8125rem;
+    color: #4d7c5e;
+    margin-bottom: 20px;
+    width: 100%;
+    text-align: left;
+  }
+
+  .reg-role-switch {
+    width: 100%;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .reg-role-switch-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #4d7c5e;
+    margin: 0;
+    flex-shrink: 0;
+  }
+  .reg-role-select {
+    min-width: 140px;
+    max-width: 200px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #14532d;
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    cursor: pointer;
+    outline: none;
+    font-family: inherit;
+  }
+  .reg-role-select:hover { border-color: #16a34a; }
+  .reg-role-select:focus { border-color: #16a34a; box-shadow: 0 0 0 2px rgba(22,163,74,0.15); }
+
+  /* Staff/Faculty/Guard form: tighter fields and layout */
+  #reg-staff-guard-wrap .reg-row {
+    align-items: start;
+    gap: 16px 20px;
+    grid-template-columns: 1fr 1fr;
+  }
+  #reg-staff-guard-wrap .reg-row .form-group {
+    margin-bottom: 14px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  /* Align Username and Email (and all row pairs): same label height so inputs line up */
+  #reg-staff-guard-wrap .reg-row .form-group label {
+    min-height: 1.5rem;
+    display: block;
+    margin-bottom: 6px;
+    white-space: nowrap; /* keep "Email address *" on one line so input aligns with Username */
+  }
+  #reg-staff-guard-wrap .reg-row .form-group input,
+  #reg-staff-guard-wrap .reg-row .form-group select {
+    width: 100%;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+  #reg-staff-guard-wrap .reg-section-title {
+    margin-bottom: 10px;
+  }
+  #reg-staff-guard-wrap .reg-wizard-step .reg-row {
+    gap: 0 14px;
+  }
+
+  .reg-section-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #4d7c5e;
+    margin: 4px 0 14px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #f0fdf4;
+    width: 100%;
+  }
+
+  .reg-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 16px;
+    width: 100%;
+  }
+  .reg-row .form-group { margin-bottom: 16px; }
+  .reg-row .form-group.full-width { grid-column: 1 / -1; }
+
+  .reg-wizard-nav {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    margin-top: 8px;
+  }
+  .reg-wizard-nav .btn-wizard {
+    flex: 1;
+    padding: 13px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    border: none;
+    text-transform: uppercase;
+  }
+  .btn-wizard-back {
+    background: #f1f5f9;
+    color: #4d7c5e;
+    box-shadow: none;
+  }
+  .btn-wizard-back:hover {
+    background: #e2e8f0;
+    color: #14532d;
+  }
+  .btn-wizard-next {
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(22,163,74,0.28);
+  }
+  .btn-wizard-next:hover {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    box-shadow: 0 6px 20px rgba(22,163,74,0.38);
+    transform: translateY(-2px);
+  }
+  .btn-wizard-next:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(22,163,74,0.3);
+  }
+
+  @media (max-width: 991px) {
+    .reg-row { grid-template-columns: 1fr; gap: 0; }
+    .reg-step-dot { width: 28px; height: 28px; font-size: 12px; }
+    .reg-step-label { font-size: 0.6rem; }
+    .reg-wizard-nav { flex-direction: column; }
+    .reg-wizard-nav .btn-wizard { flex: none; width: 100%; }
+  }
+  @media (max-width: 480px) {
+    .reg-step-label { display: none; }
+    .reg-step-dot { width: 26px; height: 26px; font-size: 11px; }
+  }
+
+  .signature-pad-group label { display: block; margin-bottom: 4px; }
+  .signature-pad-group small.d-block { font-size: 11px; color: #555; margin-bottom: 8px; }
+  .signature-pad-wrap {
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+    display: inline-block;
+    touch-action: none;
+  }
+  #signature-pad {
+    display: block;
+    border-radius: 8px;
+    cursor: crosshair;
+    background: #fff;
+  }
+
+  /* Mobile: hide the duplicate welcome block (we use .toggle-mobile-wrap) */
+  .toggle-mobile-wrap {
+    display: none;
+  }
+  .toggle-mobile-wrap .auth-logo {
+    max-width: 140px;
+    max-height: 110px;
+    width: auto;
+    height: auto;
+    margin-bottom: 24px;
+    object-fit: contain;
+  }
+  .toggle-mobile-wrap h1 {
+    font-size: 1.4rem;
+    margin-bottom: 12px;
+    color: #fff;
+    font-weight: 800;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .toggle-mobile-wrap p {
+    font-size: 0.875rem;
+    margin-bottom: 24px;
+    color: #d1fae5;
+    line-height: 1.5;
+    font-weight: 600;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  .toggle-mobile-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+  }
+  .toggle-mobile-buttons .toggle-btn {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  /* Scaling: use full width when viewport is narrow so content fills the screen */
+  @media (max-width: 900px) {
+    body .auth-page-wrap {
+      max-width: 100%;
+    }
+    .auth-container {
+      max-width: 100%;
+    }
+  }
+
+  /* Responsive: mobile/tablet – Welcome at TOP, then Login OR Register form below */
+  @media (max-width: 991px) {
+    html, body {
+      height: auto;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    body {
+      padding: 8px;
+      padding-bottom: 24px;
+      display: block;
+    }
+    body .auth-page-wrap {
+      padding: 8px 8px 0;
+      min-height: 0;
+      max-width: 100%;
+      flex: none;
+      display: block;
+    }
+    /* Footer only when user scrolls to bottom – in flow, never fixed */
+    body .main-footer {
+      position: static !important;
+      margin-top: 0;
+      padding: 10px 12px 16px;
+      font-size: 11px;
+      line-height: 1.4;
+      color: #64748b;
+      border-top: 1px solid rgba(22, 163, 74, 0.12);
+    }
+    body .main-footer a {
+      color: #16a34a;
+    }
+    .auth-page-wrap .auth-footer-links,
+    .auth-page-wrap .mt-3 {
+      position: static !important;
+    }
+    .auth-container {
+      width: 100%;
+      max-width: 100%;
+      min-height: auto;
+      height: auto;
+      display: flex;
+      flex-direction: column;
+      border-radius: 20px;
+      overflow: visible;
+    }
+    /* Form panels: stack vertically; one scroll for whole page so footer is at end */
+    .form-container {
+      position: relative !important;
+      top: auto !important;
+      left: auto !important;
+      width: 100% !important;
+      height: auto !important;
+      flex: 0 0 auto;
+      transform: none !important;
+      opacity: 1 !important;
+      min-height: 0;
+    }
+    .form-container.sign-in {
+      order: 2;
+      display: flex !important;
+      z-index: 2;
+    }
+    .form-container.sign-up {
+      order: 3;
+      z-index: 1;
+      display: none !important;
+      overflow: visible !important;
+      -webkit-overflow-scrolling: touch;
+    }
+    .auth-container.active .form-container.sign-in {
+      display: none !important;
+    }
+    .auth-container.active .form-container.sign-up {
+      display: flex !important;
+    }
+    .form-container form {
+      padding: 24px 20px 48px;
+      width: 100%;
+      max-width: 100%;
+      align-items: stretch;
+      box-sizing: border-box;
+    }
+    .form-container form h1 {
+      font-size: 1.2rem;
+      margin-bottom: 4px;
+    }
+    .form-container form > span {
+      margin-bottom: 16px;
+      font-size: 0.8125rem;
+    }
+    .auth-container .form-group {
+      margin-bottom: 14px;
+    }
+    .auth-container input[type="text"],
+    .auth-container input[type="password"],
+    .auth-container input[type="email"],
+    .auth-container input[type="file"],
+    .auth-container input[type="date"],
+    .auth-container select,
+    .auth-container textarea {
+      padding: 12px 14px;
+      font-size: 16px;
+      min-height: 48px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .auth-container a {
+      margin: 6px 0 18px 0;
+    }
+    .auth-container button[type="submit"],
+    .auth-container .btn-submit {
+      padding: 14px 20px;
+      margin-top: 10px;
+      min-height: 48px;
+      font-size: 14px;
+    }
+    .form-container.sign-up form {
+      max-height: none;
+    }
+    /* Welcome block first (top) */
+    .toggle-container {
+      position: relative !important;
+      top: auto !important;
+      left: auto !important;
+      width: 100% !important;
+      height: auto !important;
+      min-height: 200px;
+      flex: 0 0 auto;
+      border-radius: 20px 20px 0 0;
+      transform: none !important;
+      order: 1;
+      overflow: visible;
+    }
+    .toggle {
+      position: relative !important;
+      left: 0 !important;
+      width: 100% !important;
+      transform: none !important;
+      min-height: 200px;
+    }
+    .toggle-mobile-wrap {
+      display: flex !important;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 20px;
+      width: 100%;
+      min-height: 200px;
+      text-align: center;
+      box-sizing: border-box;
+    }
+    .toggle-mobile-wrap .auth-logo {
+      max-width: 88px;
+      max-height: 80px;
+      margin-bottom: 12px;
+    }
+    .toggle-mobile-wrap h1 {
+      font-size: 1.35rem;
+      margin-bottom: 8px;
+    }
+    .toggle-mobile-wrap p {
+      font-size: 0.875rem;
+      margin-bottom: 16px;
+      line-height: 1.3;
+    }
+    .toggle-mobile-buttons {
+      flex-direction: column;
+      width: 100%;
+      max-width: 260px;
+      gap: 10px;
+    }
+    .toggle-mobile-buttons .toggle-btn {
+      width: 100%;
+      min-width: 0;
+      padding: 14px 20px;
+      font-size: 14px;
+    }
+    .toggle-panel {
+      display: none !important;
+    }
+  }
+
+  @media (max-width: 480px) {
+    body { padding: 6px; padding-bottom: 20px; }
+    body .auth-page-wrap { padding: 6px 6px 0; }
+    .form-container form {
+      padding: 20px 16px 44px;
+    }
+    .toggle-mobile-wrap {
+      padding: 20px 16px;
+      min-height: 180px;
+    }
+    .toggle-mobile-wrap .auth-logo {
+      max-width: 72px;
+      max-height: 64px;
+    }
+    .toggle-mobile-wrap h1 { font-size: 1.25rem; }
+    .toggle-mobile-wrap p { font-size: 0.8125rem; }
+  }
+</style>
+
+<div class="auth-page-wrap">
+  {% if messages %}
+  <div class="auth-messages-wrap" id="django-messages-wrap" role="region" aria-live="polite">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show django-alert auth-toast" role="alert">
+      <span class="ccb-msg-icon"><i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %}"></i></span>
+      <span class="ccb-msg-body">{{ message }}</span>
+      <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+<div class="auth-container{% if default_panel == 'register' %} active{% endif %}" id="container">
+
+  <div class="form-container sign-in">
+    <form method="post" action="{% url 'login' %}" id="login-form">
+      {% csrf_token %}
+      {% if next %}
+        <input type="hidden" name="next" value="{{ next }}">
+      {% endif %}
+      <h1>{% trans 'Login' %}</h1>
+      <span>{% trans 'Use your username and password' %}</span>
+      <div class="form-group">
+        <label for="id_username">{% trans 'Username' %}</label>
+        <input type="text" name="username" id="id_username" placeholder="{% trans 'Enter your username' %}" required value="{{ request.GET.username|default:'' }}" class="form-control">
+        {% if form.username.errors %}<div class="error-message">{{ form.username.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label for="id_password">{% trans 'Password' %}</label>
+        <div class="password-wrapper">
+          <input type="password" name="password" id="id_password" placeholder="{% trans 'Password' %}" required class="form-control">
+          <i class="fas fa-eye password-toggle" id="togglePassword" role="button" tabindex="0" title="{% trans 'Show password' %}" aria-label="{% trans 'Show or hide password' %}"></i>
+        </div>
+        {% if form.password.errors %}<div class="error-message">{{ form.password.errors.0 }}</div>{% endif %}
+      </div>
+      {% if form.non_field_errors %}
+        <div class="alert-danger login-error-auto-hide" role="alert">{{ form.non_field_errors.0 }}</div>
+      {% endif %}
+      {% if form.errors and not form.non_field_errors %}
+        <div class="alert-danger login-error-auto-hide" role="alert">{% trans 'Invalid username or password.' %}</div>
+      {% endif %}
+      <button type="submit" class="btn-submit" id="login-btn">
+        <i class="fas fa-sign-in-alt"></i> {% trans 'Login' %}
+      </button>
+    </form>
+  </div>
+
+  <div class="form-container sign-up">
+    <form method="post" action="{% url 'register' %}" enctype="multipart/form-data" id="register-form">
+      {% csrf_token %}
+      <h1>{% trans 'Registration' %}</h1>
+      <span>{% trans 'Choose your account type and complete the form' %}</span>
+
+      <!-- Registration type: compact toggle (Are you a student? + switch + label) -->
+      <div class="reg-type-toggle-wrap" role="group" aria-label="{% trans 'Registration type' %}">
+        <p class="reg-type-toggle-question">{% trans 'Are you a student?' %}</p>
+        <div class="reg-type-toggle-row">
+          <button type="button" class="reg-type-toggle-switch" id="reg-type-toggle" role="switch" aria-checked="true" aria-label="{% trans 'Student registration' %}">
+            <span class="reg-type-toggle-thumb"></span>
+          </button>
+          <span class="reg-type-toggle-label" id="reg-type-toggle-label">{% trans 'Student' %}</span>
+        </div>
+      </div>
+      <input type="hidden" name="registration_type" id="registration_type" value="{{ default_reg_type|default:'student' }}">
+      <div class="reg-panels-container">
+      <!-- Student registration (wizard + face + signature) -->
+      <div id="reg-student-wrap" class="reg-form-wrap" data-reg-type="student">
+      <h2 class="reg-subtitle">{% trans 'Student Registration' %}</h2>
+      <p class="reg-subtitle-desc">{% trans 'Pending approval by the Administrator' %}</p>
+      {% if reg_form.non_field_errors %}
+      <div class="alert-danger mb-2">{{ reg_form.non_field_errors.0 }}</div>
+      {% endif %}
+
+      <!-- Progress bar -->
+      <div class="reg-wizard-progress" id="reg-progress">
+        <div class="reg-step-indicator active" data-step="1">
+          <span class="reg-step-dot">1</span>
+          <span class="reg-step-label">{% trans 'Personal' %}</span>
+        </div>
+        <div class="reg-step-indicator" data-step="2">
+          <span class="reg-step-dot">2</span>
+          <span class="reg-step-label">{% trans 'Academic' %}</span>
+        </div>
+        <div class="reg-step-indicator" data-step="3">
+          <span class="reg-step-dot">3</span>
+          <span class="reg-step-label">{% trans 'Verify' %}</span>
+        </div>
+      </div>
+
+      <!-- Step 1: Personal Information -->
+      <div class="reg-wizard-step active" data-step="1">
+        <div class="reg-section-title"><i class="fas fa-user mr-1"></i> {% trans 'Personal Information' %}</div>
+        <div class="reg-row">
+          <div class="form-group full-width">
+            <label for="id_student_id">{% trans 'ID number' %}</label>
+            {{ reg_form.student_id }}
+            <small>{% trans 'Optional – if your school assigned you an ID' %}</small>
+            {% if reg_form.student_id.errors %}<div class="error-message">{{ reg_form.student_id.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label for="id_first_name">{% trans 'First name' %} *</label>
+            {{ reg_form.first_name }}
+            {% if reg_form.first_name.errors %}<div class="error-message">{{ reg_form.first_name.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label for="id_last_name">{% trans 'Last name' %} *</label>
+            {{ reg_form.last_name }}
+            {% if reg_form.last_name.errors %}<div class="error-message">{{ reg_form.last_name.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label for="id_middle_name">{% trans 'Middle name' %}</label>
+            {{ reg_form.middle_name }}
+            {% if reg_form.middle_name.errors %}<div class="error-message">{{ reg_form.middle_name.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label for="id_sex">{% trans 'Sex / Gender' %} *</label>
+            {{ reg_form.sex }}
+            {% if reg_form.sex.errors %}<div class="error-message">{{ reg_form.sex.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label for="id_birthdate">{% trans 'Birthdate' %} *</label>
+            {{ reg_form.birthdate }}
+            {% if reg_form.birthdate.errors %}<div class="error-message">{{ reg_form.birthdate.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label for="id_address">{% trans 'Address' %} *</label>
+            {{ reg_form.address }}
+            {% if reg_form.address.errors %}<div class="error-message">{{ reg_form.address.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group full-width">
+            <label for="id_guardians_parents">{% trans 'Guardians / Parents' %} *</label>
+            {{ reg_form.guardians_parents }}
+            {% if reg_form.guardians_parents.errors %}<div class="error-message">{{ reg_form.guardians_parents.errors.0 }}</div>{% endif %}
+          </div>
+        </div>
+        <div class="reg-wizard-nav">
+          <button type="button" class="btn-wizard btn-wizard-next" data-next="2"><i class="fas fa-arrow-right mr-1"></i> {% trans 'Next: Academic' %}</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Academic & Contact -->
+      <div class="reg-wizard-step" data-step="2">
+        <div class="reg-section-title"><i class="fas fa-graduation-cap mr-1"></i> {% trans 'Academic Details' %}</div>
+        <div class="reg-row">
+          <div class="form-group full-width">
+            <label for="id_email">{% trans 'Email address' %} *</label>
+            {{ reg_form.email }}
+            {% if reg_form.email.errors %}<div class="error-message">{{ reg_form.email.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label for="id_course">{% trans 'Course / Program' %} *</label>
+            {{ reg_form.course }}
+            {% if reg_form.course.errors %}<div class="error-message">{{ reg_form.course.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label for="id_year_level">{% trans 'Year level' %} *</label>
+            {{ reg_form.year_level }}
+            {% if reg_form.year_level.errors %}<div class="error-message">{{ reg_form.year_level.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group full-width">
+            <label for="id_section">{% trans 'Section' %} *</label>
+            {{ reg_form.section }}
+            {% if reg_form.section.errors %}<div class="error-message">{{ reg_form.section.errors.0 }}</div>{% endif %}
+          </div>
+        </div>
+        <div class="reg-section-title" style="margin-top:8px;"><i class="fas fa-phone-alt mr-1"></i> {% trans 'Contact Information' %}</div>
+        <div class="reg-row">
+          <div class="form-group">
+            <label for="id_contact_number">{% trans 'Your contact number' %} *</label>
+            {{ reg_form.contact_number }}
+            {% if reg_form.contact_number.errors %}<div class="error-message">{{ reg_form.contact_number.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label for="id_guardian_contact">{% trans 'Guardian contact number' %} *</label>
+            {{ reg_form.guardian_contact }}
+            {% if reg_form.guardian_contact.errors %}<div class="error-message">{{ reg_form.guardian_contact.errors.0 }}</div>{% endif %}
+          </div>
+        </div>
+        <div class="reg-wizard-nav">
+          <button type="button" class="btn-wizard btn-wizard-back" data-prev="1"><i class="fas fa-arrow-left mr-1"></i> {% trans 'Back' %}</button>
+          <button type="button" class="btn-wizard btn-wizard-next" data-next="3"><i class="fas fa-arrow-right mr-1"></i> {% trans 'Next: Verify' %}</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Verification -->
+      <div class="reg-wizard-step" data-step="3">
+        <div class="reg-section-title"><i class="fas fa-shield-alt mr-1"></i> {% trans 'Identity Verification' %}</div>
+        <div class="form-group face-registration-group">
+          <label>{% trans 'Face registration' %} *</label>
+          <small class="d-block mb-2">{% trans 'Take a picture with your camera or choose a photo from your device.' %}</small>
+          <input type="hidden" name="face_photo_base64" id="face_photo_base64" value="">
+          <input type="file" id="face-photo-file-input" accept="image/*" style="display: none;" aria-label="{% trans 'Choose photo from device' %}">
+          <div class="face-registration-actions mb-2">
+            <button type="button" class="btn-face-start" id="face-registration-btn">
+              <i class="fas fa-camera"></i> {% trans 'Take picture' %}
+            </button>
+            <button type="button" class="btn-face-start btn-face-choose-file" id="face-choose-file-btn">
+              <i class="fas fa-folder-open"></i> {% trans 'Choose from device' %}
+            </button>
+          </div>
+          <div id="face-registration-ui" class="face-registration-ui" style="display: none;">
+            <div class="face-capture-flow" id="face-capture-flow">
+              <div class="face-capture-mode">
+                <span class="face-mode-label">{% trans 'Capture:' %}</span>
+                <button type="button" class="face-mode-btn active" data-mode="auto" id="face-mode-auto">
+                  <i class="fas fa-magic"></i> {% trans 'Automatic' %}
+                </button>
+                <button type="button" class="face-mode-btn" data-mode="manual" id="face-mode-manual">
+                  <i class="fas fa-hand-pointer"></i> {% trans 'Manual' %}
+                </button>
+              </div>
+              <div id="face-capture-toast" class="face-capture-toast" aria-live="polite"></div>
+              <div class="face-video-wrap">
+                <video id="face-video" autoplay playsinline muted></video>
+                <canvas id="face-overlay" class="face-overlay"></canvas>
+                <p id="face-instruction" class="face-instruction"></p>
+                <p id="face-hold-steady" class="face-hold-steady" style="display: none;"></p>
+                <button type="button" class="btn-face-capture btn-face-capture-manual" id="face-capture-btn" style="display: none;">
+                  <i class="fas fa-circle"></i> {% trans 'Capture manually' %}
+                </button>
+              </div>
+              <button type="button" class="btn-face-done" id="face-done-btn" style="display: none;">
+                <i class="fas fa-check"></i> {% trans 'Done' %}
+              </button>
+            </div>
+            <div class="face-thumbnails" id="face-thumbnails">
+              <div class="face-thumb" data-angle="front"><span>{% trans 'Front' %}</span><img alt=""></div>
+            </div>
+            <div class="face-registration-done" id="face-registration-done" style="display: none;">
+              <button type="button" class="btn-face-start btn-face-redo" id="face-redo-btn">
+                <i class="fas fa-check"></i> {% trans 'Face registered – tap to redo' %}
+              </button>
+            </div>
+          </div>
+          <div id="face-registration-status" class="face-status" style="display: none;"></div>
+          {% if reg_form.photo.errors %}<div class="error-message">{{ reg_form.photo.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="form-group signature-pad-group">
+          <label>{% trans 'Electronic signature' %} *</label>
+          <small class="d-block mb-2">{% trans 'Sign below using your finger, mouse, or digital pen.' %}</small>
+          <input type="hidden" name="signature_base64" id="signature_base64" value="">
+          <div class="signature-pad-wrap">
+            <canvas id="signature-pad" width="400" height="180" aria-label="{% trans 'Signature pad' %}"></canvas>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="signature-clear-btn">
+            <i class="fas fa-eraser"></i> {% trans 'Clear' %}
+          </button>
+          <div id="signature-error" class="error-message" style="display: none;"></div>
+        </div>
+        <div class="reg-wizard-nav">
+          <button type="button" class="btn-wizard btn-wizard-back" data-prev="2"><i class="fas fa-arrow-left mr-1"></i> {% trans 'Back' %}</button>
+          <button type="submit" class="btn-wizard btn-wizard-next" id="register-btn"><i class="fas fa-user-plus mr-1"></i> {% trans 'Submit Registration' %}</button>
+        </div>
+      </div>
+    </form>
+      </div>
+
+      <!-- Staff / Faculty / Guard registration: account details only. Other details required after approval on first login. -->
+      <div id="reg-staff-guard-wrap" class="reg-form-wrap" data-reg-type="staff_guard" style="display: none;">
+        <h2 class="reg-subtitle">{% trans 'Staff / Faculty / Guard Registration' %}</h2>
+        <p class="reg-subtitle-desc">{% trans 'Account details only. After approval you will sign in and complete your profile to access the dashboard.' %}</p>
+        <form method="post" action="{% url 'register' %}" id="register-staff-guard-form">
+          {% csrf_token %}
+          <input type="hidden" name="registration_type" value="staff_guard">
+
+          <div class="reg-role-switch" role="group" aria-label="{% trans 'Account type' %}">
+            <label for="{{ staff_guard_form.role.id_for_label }}" class="reg-role-switch-label">{% trans 'I am registering as:' %}</label>
+            {{ staff_guard_form.role }}
+          </div>
+
+          {% if staff_guard_form.non_field_errors %}
+          <div class="alert-danger mb-2">{{ staff_guard_form.non_field_errors.0 }}</div>
+          {% endif %}
+
+          <div class="reg-section-title"><i class="fas fa-id-card mr-1"></i> {% trans 'Account details' %}</div>
+          <div class="reg-row">
+            <div class="form-group">
+              <label for="{{ staff_guard_form.username.id_for_label }}">{% trans 'Username' %} *</label>
+              {{ staff_guard_form.username }}
+              {% if staff_guard_form.username.errors %}<div class="error-message">{{ staff_guard_form.username.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+              <label for="{{ staff_guard_form.email.id_for_label }}">{% trans 'Email address' %} *</label>
+              {{ staff_guard_form.email }}
+              {% if staff_guard_form.email.errors %}<div class="error-message">{{ staff_guard_form.email.errors.0 }}</div>{% endif %}
+            </div>
+          </div>
+          <div class="reg-row">
+            <div class="form-group">
+              <label for="{{ staff_guard_form.first_name.id_for_label }}">{% trans 'First name' %} *</label>
+              {{ staff_guard_form.first_name }}
+              {% if staff_guard_form.first_name.errors %}<div class="error-message">{{ staff_guard_form.first_name.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+              <label for="{{ staff_guard_form.middle_name.id_for_label }}">{% trans 'Middle name' %}</label>
+              {{ staff_guard_form.middle_name }}
+              {% if staff_guard_form.middle_name.errors %}<div class="error-message">{{ staff_guard_form.middle_name.errors.0 }}</div>{% endif %}
+            </div>
+          </div>
+          <div class="reg-row">
+            <div class="form-group full-width">
+              <label for="{{ staff_guard_form.last_name.id_for_label }}">{% trans 'Last name' %} *</label>
+              {{ staff_guard_form.last_name }}
+              {% if staff_guard_form.last_name.errors %}<div class="error-message">{{ staff_guard_form.last_name.errors.0 }}</div>{% endif %}
+            </div>
+          </div>
+          <div class="reg-row">
+            <div class="form-group full-width">
+              <label for="{{ staff_guard_form.password.id_for_label }}">{% trans 'Password' %} *</label>
+              <div class="password-wrapper" id="sg-password-wrapper">
+                {{ staff_guard_form.password }}
+                <i class="fas fa-eye password-toggle sg-password-toggle" role="button" tabindex="0" title="{% trans 'Show password' %}" aria-label="{% trans 'Show or hide password' %}"></i>
+              </div>
+              <div class="password-strength-wrap" id="sg-password-strength-wrap" aria-live="polite">
+                <div class="password-strength-bar">
+                  <span class="password-strength-segment" data-level="1" aria-hidden="true"></span>
+                  <span class="password-strength-segment" data-level="2" aria-hidden="true"></span>
+                  <span class="password-strength-segment" data-level="3" aria-hidden="true"></span>
+                  <span class="password-strength-segment" data-level="4" aria-hidden="true"></span>
+                </div>
+                <span class="password-strength-text" id="sg-password-strength-text"></span>
+              </div>
+              {% if staff_guard_form.password.errors %}<div class="error-message">{{ staff_guard_form.password.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="form-group full-width">
+              <label for="{{ staff_guard_form.password_confirm.id_for_label }}">{% trans 'Confirm password' %} *</label>
+              <div class="password-wrapper" id="sg-password-confirm-wrapper">
+                {{ staff_guard_form.password_confirm }}
+                <i class="fas fa-eye password-toggle sg-password-confirm-toggle" role="button" tabindex="0" title="{% trans 'Show password' %}" aria-label="{% trans 'Show or hide password' %}"></i>
+              </div>
+              {% if staff_guard_form.password_confirm.errors %}<div class="error-message">{{ staff_guard_form.password_confirm.errors.0 }}</div>{% endif %}
+            </div>
+          </div>
+          <div class="reg-wizard-nav" style="margin-top:16px;">
+            <button type="submit" class="btn-wizard btn-wizard-next" id="register-staff-guard-btn"><i class="fas fa-user-plus mr-1"></i> {% trans 'Submit Registration' %}</button>
+          </div>
+        </form>
+      </div>
+      </div>
+  </div>
+
+  <div class="toggle-container">
+    <div class="toggle">
+      <!-- Mobile only: Welcome at top with both Login & Register buttons -->
+      <div class="toggle-mobile-wrap">
+        <img src="{% static 'img/logo.png' %}" alt="CCB Logo" class="auth-logo" width="120" height="100" decoding="async" loading="eager">
+        <h1>{% trans 'Welcome!' %}</h1>
+        <p>{% trans 'City College of Bayawan - CCB Gate Entry' %}</p>
+        <div class="toggle-mobile-buttons">
+          <button type="button" class="toggle-btn" id="mobileLoginBtn" onclick="var c=document.getElementById('container'); if(c){ c.classList.remove('active'); var f=document.querySelector('.form-container.sign-in'); if(f) f.scrollIntoView({behavior:'smooth',block:'start'}); } return false;">{% trans 'Login' %}</button>
+          <button type="button" class="toggle-btn" id="mobileRegisterBtn" onclick="var c=document.getElementById('container'); if(c){ c.classList.add('active'); var f=document.querySelector('.form-container.sign-up'); if(f) f.scrollIntoView({behavior:'smooth',block:'start'}); } return false;">{% trans 'Register' %}</button>
+        </div>
+      </div>
+      <div class="toggle-panel toggle-left">
+        <img src="{% static 'img/logo.png' %}" alt="CCB Logo" class="auth-logo" width="120" height="100" decoding="async" loading="eager">
+        <h1>{% trans 'Welcome!' %}</h1>
+        <p>{% trans 'City College of Bayawan - CCB Gate Entry' %}</p>
+        <button type="button" class="toggle-btn" id="loginToggle" onclick="var c=document.getElementById('container'); if(c) c.classList.remove('active'); return false;">{% trans 'Login' %}</button>
+      </div>
+      <div class="toggle-panel toggle-right">
+        <img src="{% static 'img/logo.png' %}" alt="CCB Logo" class="auth-logo" width="120" height="100" decoding="async" loading="eager">
+        <h1>{% trans 'Welcome!' %}</h1>
+        <p>{% trans 'City College of Bayawan - CCB Gate Entry' %}</p>
+        <button type="button" class="toggle-btn" id="registerToggle" onclick="var c=document.getElementById('container'); if(c) c.classList.add('active'); return false;">{% trans 'Register' %}</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+<p class="text-center mt-3 auth-footer-links" style="font-size: 13px; color: #4d7c5e;"><a href="{% url 'terms' %}" style="color:#16a34a;font-weight:600;text-decoration:none;">Terms &amp; Conditions</a> &middot; <a href="{% url 'privacy-policy' %}" style="color:#16a34a;font-weight:600;text-decoration:none;">Privacy &amp; data policy</a></p>
+
+{% endblock content %}
+
+{% block extrascript %}
+<script>
+  // Registration type: compact toggle (Are you a student? ON = Student, OFF = Staff/Faculty/Guard)
+  (function() {
+    var defaultType = '{{ default_reg_type|default:"student" }}';
+    var studentWrap = document.getElementById('reg-student-wrap');
+    var staffGuardWrap = document.getElementById('reg-staff-guard-wrap');
+    var toggleBtn = document.getElementById('reg-type-toggle');
+    var toggleLabel = document.getElementById('reg-type-toggle-label');
+    var registrationTypeInput = document.getElementById('registration_type');
+    var labelStudent = '{% trans "Student" %}';
+    var labelStaffGuard = '{% trans "Staff / Faculty / Guard" %}';
+
+    function showStudent() {
+      if (studentWrap) studentWrap.style.display = '';
+      if (staffGuardWrap) { staffGuardWrap.style.display = 'none'; staffGuardWrap.classList.remove('reg-panel-active'); }
+      if (toggleBtn) { toggleBtn.setAttribute('aria-checked', 'true'); }
+      if (toggleLabel) toggleLabel.textContent = labelStudent;
+      if (registrationTypeInput) registrationTypeInput.value = 'student';
+    }
+    function showStaffGuard() {
+      if (studentWrap) studentWrap.style.display = 'none';
+      if (staffGuardWrap) {
+        staffGuardWrap.style.display = 'block';
+        staffGuardWrap.classList.add('reg-panel-active');
+        if (typeof staffGuardWrap.sgGoToStep === 'function') staffGuardWrap.sgGoToStep(1);
+      }
+      if (toggleBtn) { toggleBtn.setAttribute('aria-checked', 'false'); }
+      if (toggleLabel) toggleLabel.textContent = labelStaffGuard;
+      if (registrationTypeInput) registrationTypeInput.value = 'staff_guard';
+    }
+
+    if (defaultType === 'staff_guard') showStaffGuard();
+    else showStudent();
+
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        var isStudent = toggleBtn.getAttribute('aria-checked') === 'true';
+        if (isStudent) showStaffGuard();
+        else showStudent();
+      });
+    }
+    if (toggleLabel) {
+      toggleLabel.style.cursor = 'pointer';
+      toggleLabel.addEventListener('click', function() {
+        var isStudent = toggleBtn && toggleBtn.getAttribute('aria-checked') === 'true';
+        if (isStudent) showStaffGuard();
+        else showStudent();
+      });
+    }
+  })();
+</script>
+<script>
+  // Staff/Guard: role dropdown + 3-step wizard with validation (cannot next if required fields empty)
+  (function() {
+    var wrap = document.getElementById('reg-staff-guard-wrap');
+    if (!wrap) return;
+    var formEl = document.getElementById('register-staff-guard-form');
+    var steps = wrap.querySelectorAll('.reg-wizard-step');
+    var indicators = wrap.querySelectorAll('#sg-reg-progress .reg-step-indicator');
+    var currentStep = 1;
+    var totalSteps = 3;
+
+    // Required field names per step (must be filled before Next). Back does not validate.
+    var requiredBySgStep = {
+      1: ['first_name', 'last_name', 'middle_name', 'sex', 'birthdate', 'address'],
+      2: ['email', 'contact_number', 'employee_id', 'department', 'position'],
+      3: ['username', 'password', 'password_confirm']
+    };
+
+    function validateSgStep(stepNum) {
+      var names = requiredBySgStep[stepNum];
+      if (!names || !formEl) return true;
+      var firstBad = null;
+      names.forEach(function(name) {
+        var el = formEl.querySelector('[name="' + name + '"]');
+        if (!el) return;
+        var val = (el.value || '').trim();
+        var grp = el.closest('.form-group');
+        var existing = grp ? grp.querySelector('.error-message.sg-wizard-err') : null;
+        if (existing) existing.remove();
+        if (!val) {
+          if (!firstBad) firstBad = el;
+          if (grp) {
+            var msg = document.createElement('div');
+            msg.className = 'error-message sg-wizard-err';
+            msg.setAttribute('role', 'alert');
+            msg.textContent = '{% trans "This field is required." %}';
+            grp.appendChild(msg);
+          }
+        }
+      });
+      if (firstBad) {
+        firstBad.focus();
+        return false;
+      }
+      return true;
+    }
+
+    function goToSgStep(n) {
+      if (n < 1 || n > totalSteps) return;
+      currentStep = n;
+      // Keep the Staff/Guard panel visible when navigating (so Back never hides the form)
+      wrap.style.display = 'block';
+      wrap.classList.add('reg-panel-active');
+      // Hide the student panel so we don't show the wrong form
+      var studentWrap = document.getElementById('reg-student-wrap');
+      if (studentWrap) studentWrap.style.display = 'none';
+      // Update progress indicators
+      indicators.forEach(function(ind) {
+        var sn = parseInt(ind.getAttribute('data-step'), 10);
+        ind.classList.remove('active', 'done');
+        if (sn < n) ind.classList.add('done');
+        if (sn === n) ind.classList.add('active');
+      });
+      // Show only the target step (use both class and inline display so step content is always visible)
+      var target = document.getElementById('sg-step-' + n);
+      if (!target) target = wrap.querySelector('.reg-wizard-step[data-step="' + n + '"]');
+      steps.forEach(function(s) {
+        s.classList.remove('active');
+        s.style.display = s === target ? 'block' : 'none';
+      });
+      if (target) {
+        target.classList.add('active');
+        target.style.display = 'block';
+      }
+      wrap.scrollTop = 0;
+      // After paint, scroll so progress bar and step content are in view (form values stay in DOM)
+      var progressEl = document.getElementById('sg-reg-progress');
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+          if (progressEl) progressEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
+    }
+
+    wrap.querySelectorAll('.sg-next[data-next]').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        var nextStep = parseInt(btn.getAttribute('data-next'), 10);
+        if (!validateSgStep(currentStep)) return;
+        wrap.querySelectorAll('.error-message.sg-wizard-err').forEach(function(el) { el.remove(); });
+        goToSgStep(nextStep);
+      });
+    });
+    wrap.querySelectorAll('.sg-back[data-prev]').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        wrap.querySelectorAll('.error-message.sg-wizard-err').forEach(function(el) { el.remove(); });
+        goToSgStep(parseInt(btn.getAttribute('data-prev'), 10));
+      });
+    });
+
+    var firstError = wrap.querySelector('.error-message');
+    if (firstError) {
+      var stepEl = firstError.closest('.reg-wizard-step');
+      if (stepEl) {
+        var s = parseInt(stepEl.getAttribute('data-step'), 10);
+        if (s) goToSgStep(s);
+      }
+    }
+
+    // When role dropdown changes, clear the red "This field is required." messages
+    var roleSelect = formEl ? formEl.querySelector('[name="role"]') : null;
+    if (roleSelect) {
+      roleSelect.addEventListener('change', function() {
+        wrap.querySelectorAll('.error-message.sg-wizard-err').forEach(function(el) { el.remove(); });
+      });
+    }
+    // When user fills a required field, remove "This field is required." for that field only
+    [1, 2, 3].forEach(function(stepNum) {
+      var names = requiredBySgStep[stepNum];
+      if (!names) return;
+      names.forEach(function(name) {
+        var el = formEl.querySelector('[name="' + name + '"]');
+        if (!el) return;
+        function clearErr() {
+          var grp = el.closest('.form-group');
+          if (grp) {
+            var err = grp.querySelector('.error-message.sg-wizard-err');
+            if (err) err.remove();
+          }
+        }
+        el.addEventListener('input', clearErr);
+        el.addEventListener('change', clearErr);
+      });
+    });
+    // Expose so toggle can reset to step 1 when switching to Staff/Guard panel
+    wrap.sgGoToStep = goToSgStep;
+  })();
+</script>
+<script>
+  // Staff/Faculty/Guard: password strength indicator + view password eye
+  (function() {
+    var pwWrap = document.getElementById('sg-password-wrapper');
+    var confirmWrap = document.getElementById('sg-password-confirm-wrapper');
+    var strengthWrap = document.getElementById('sg-password-strength-wrap');
+    var strengthText = document.getElementById('sg-password-strength-text');
+    if (!pwWrap) return;
+
+    var pwInput = pwWrap.querySelector('input');
+    var segments = strengthWrap ? strengthWrap.querySelectorAll('.password-strength-segment') : [];
+
+    function getStrength(pwd) {
+      if (!pwd || pwd.length === 0) return { level: 0, label: '' };
+      var level = 0;
+      if (pwd.length >= 6) level++;
+      if (pwd.length >= 10) level++;
+      if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) level++;
+      if (/\d/.test(pwd)) level++;
+      if (/[^a-zA-Z0-9]/.test(pwd)) level++;
+      level = Math.min(4, Math.max(1, level));
+      var labels = ['', '{% trans "Weak" %}', '{% trans "Fair" %}', '{% trans "Good" %}', '{% trans "Strong" %}'];
+      var classes = ['', 'weak', 'fair', 'good', 'strong'];
+      return { level: level, label: labels[level], cls: classes[level] };
+    }
+
+    function updateStrength() {
+      if (!strengthWrap || !strengthText) return;
+      var pwd = (pwInput && pwInput.value) || '';
+      var s = getStrength(pwd);
+      segments.forEach(function(seg, i) {
+        seg.classList.remove('active', 'weak', 'fair', 'good', 'strong');
+        if (i < s.level) {
+          seg.classList.add('active', s.cls);
+        }
+      });
+      strengthText.textContent = s.label;
+      strengthText.className = 'password-strength-text ' + (s.cls || '');
+    }
+
+    if (pwInput && strengthWrap) {
+      pwInput.addEventListener('input', updateStrength);
+      pwInput.addEventListener('change', updateStrength);
+      updateStrength();
+    }
+
+    function bindEyeToggle(wrapper) {
+      if (!wrapper) return;
+      var input = wrapper.querySelector('input');
+      var icon = wrapper.querySelector('.password-toggle');
+      if (!input || !icon) return;
+      function toggle(e) {
+        if (e) e.preventDefault();
+        var isPw = input.type === 'password';
+        input.type = isPw ? 'text' : 'password';
+        icon.classList.toggle('fa-eye', !isPw);
+        icon.classList.toggle('fa-eye-slash', isPw);
+      }
+      icon.addEventListener('click', toggle);
+      icon.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') toggle(e);
+      });
+    }
+    bindEyeToggle(pwWrap);
+    bindEyeToggle(confirmWrap);
+  })();
+</script>
+<script>
+  // Registration wizard: step navigation with per-step validation
+  (function() {
+    var currentStep = 1;
+    var totalSteps = 3;
+    var steps = document.querySelectorAll('.reg-wizard-step');
+    var indicators = document.querySelectorAll('.reg-step-indicator');
+    if (!steps.length) return;
+
+    var requiredByStep = {
+      1: ['id_first_name', 'id_last_name', 'id_sex', 'id_birthdate', 'id_address', 'id_guardians_parents'],
+      2: ['id_email', 'id_course', 'id_year_level', 'id_section', 'id_contact_number', 'id_guardian_contact'],
+      3: ['face_photo_base64', 'signature_base64']
+    };
+
+    function goToStep(n) {
+      if (n < 1 || n > totalSteps) return;
+      steps.forEach(function(s) { s.classList.remove('active'); });
+      indicators.forEach(function(ind) {
+        var sn = parseInt(ind.getAttribute('data-step'), 10);
+        ind.classList.remove('active', 'done');
+        if (sn < n) ind.classList.add('done');
+        if (sn === n) ind.classList.add('active');
+      });
+      var target = document.querySelector('.reg-wizard-step[data-step="' + n + '"]');
+      if (target) target.classList.add('active');
+      currentStep = n;
+      var formEl = document.querySelector('.form-container.sign-up form');
+      if (formEl) formEl.scrollTop = 0;
+      var signUp = document.querySelector('.form-container.sign-up');
+      if (signUp) signUp.scrollTop = 0;
+    }
+
+    function validateStep(n) {
+      var ids = requiredByStep[n] || [];
+      var firstBad = null;
+      ids.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var val = (el.value || '').trim();
+        var grp = el.closest('.form-group');
+        var existing = grp && grp.querySelector('.error-message.wizard-err');
+        if (existing) existing.remove();
+        if (!val) {
+          if (!firstBad) firstBad = el;
+          if (grp) {
+            var msg = document.createElement('div');
+            msg.className = 'error-message wizard-err';
+            msg.textContent = 'This field is required.';
+            grp.appendChild(msg);
+          }
+        }
+      });
+      if (firstBad) {
+        firstBad.focus();
+        return false;
+      }
+      return true;
+    }
+
+    document.querySelectorAll('.btn-wizard-next[data-next]').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (!validateStep(currentStep)) return;
+        document.querySelectorAll('.wizard-err').forEach(function(el) { el.remove(); });
+        goToStep(parseInt(btn.getAttribute('data-next'), 10));
+      });
+    });
+    document.querySelectorAll('.btn-wizard-back[data-prev]').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        document.querySelectorAll('.wizard-err').forEach(function(el) { el.remove(); });
+        goToStep(parseInt(btn.getAttribute('data-prev'), 10));
+      });
+    });
+
+    // When user fills a required field, remove "This field is required." for that field only
+    [1, 2, 3].forEach(function(stepNum) {
+      var ids = requiredByStep[stepNum] || [];
+      ids.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        function clearErr() {
+          var grp = el.closest('.form-group');
+          if (grp) {
+            var err = grp.querySelector('.error-message.wizard-err');
+            if (err) err.remove();
+          }
+        }
+        el.addEventListener('input', clearErr);
+        el.addEventListener('change', clearErr);
+      });
+    });
+
+    {% if reg_form.errors %}
+    var errorFields = [];
+    {% for field in reg_form %}{% if field.errors %}errorFields.push('{{ field.html_name }}');{% endif %}{% endfor %}
+    if (errorFields.length) {
+      var stepForField = {
+        'student_id':1,'first_name':1,'middle_name':1,'last_name':1,'address':1,'birthdate':1,'sex':1,'guardians_parents':1,
+        'email':2,'course':2,'year_level':2,'section':2,'contact_number':2,'guardian_contact':2,
+        'photo':3
+      };
+      var targetStep = 1;
+      for (var i = 0; i < errorFields.length; i++) {
+        var s = stepForField[errorFields[i]];
+        if (s && s > targetStep) targetStep = s;
+      }
+      goToStep(stepForField[errorFields[0]] || 1);
+    }
+    {% endif %}
+  })();
+</script>
+<script>
+  (function() {
+    // Contact number fields: allow digits only (no letters, symbols, spaces)
+    var contactFields = ['id_contact_number', 'id_guardian_contact'];
+    contactFields.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      function allowDigitsOnly() {
+        var v = (el.value || '');
+        var digits = v.replace(/\D/g, '');
+        if (digits.length > 11) digits = digits.slice(0, 11);
+        if (v !== digits) {
+          el.value = digits;
+        }
+      }
+      el.addEventListener('input', allowDigitsOnly);
+      el.addEventListener('paste', function(e) {
+        setTimeout(allowDigitsOnly, 0);
+      });
+      allowDigitsOnly();
+    });
+  })();
+
+  // Electronic signature pad: draw with mouse, touch, or stylus
+  (function() {
+    var canvas = document.getElementById('signature-pad');
+    var clearBtn = document.getElementById('signature-clear-btn');
+    var hidden = document.getElementById('signature_base64');
+    var sigError = document.getElementById('signature-error');
+    if (!canvas || !hidden) return;
+
+    var ctx = canvas.getContext('2d');
+    var isDrawing = false;
+    var lastX = 0, lastY = 0;
+
+    function getPos(e) {
+      var rect = canvas.getBoundingClientRect();
+      var scaleX = canvas.width / rect.width;
+      var scaleY = canvas.height / rect.height;
+      var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
+      };
+    }
+
+    function startDraw(e) {
+      e.preventDefault();
+      isDrawing = true;
+      var p = getPos(e);
+      lastX = p.x;
+      lastY = p.y;
+      canvas.setAttribute('data-has-stroke', 'true');
+      if (sigError) sigError.style.display = 'none';
+      var sigGrp = document.querySelector('.signature-pad-group');
+      if (sigGrp) sigGrp.querySelectorAll('.error-message.wizard-err').forEach(function(el) { el.remove(); });
+    }
+
+    function draw(e) {
+      e.preventDefault();
+      if (!isDrawing) return;
+      var p = getPos(e);
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      lastX = p.x;
+      lastY = p.y;
+    }
+
+    function endDraw(e) {
+      e.preventDefault();
+      if (isDrawing) {
+        isDrawing = false;
+        syncToHidden();
+      }
+    }
+
+    function syncToHidden() {
+      try {
+        var dataUrl = canvas.toDataURL('image/png');
+        if (dataUrl && dataUrl.length > 100) {
+          hidden.value = dataUrl;
+          var sigGrp = document.querySelector('.signature-pad-group');
+          if (sigGrp) sigGrp.querySelectorAll('.error-message.wizard-err').forEach(function(el) { el.remove(); });
+        }
+      } catch (err) {}
+    }
+
+    function clearPad() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      hidden.value = '';
+      canvas.removeAttribute('data-has-stroke');
+      if (sigError) sigError.style.display = 'none';
+    }
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', endDraw);
+    canvas.addEventListener('mouseleave', endDraw);
+    canvas.addEventListener('touchstart', startDraw, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    canvas.addEventListener('touchend', endDraw, { passive: false });
+    canvas.addEventListener('touchcancel', endDraw, { passive: false });
+
+    if (clearBtn) clearBtn.addEventListener('click', clearPad);
+  })();
+
+  (function() {
+    var msgWrap = document.querySelector('.auth-messages-wrap');
+    if (msgWrap) {
+      setTimeout(function() {
+        msgWrap.classList.add('auth-message-hide');
+      }, 5000);
+    }
+  })();
+  (function() {
+    var container = document.getElementById('container');
+    if (!container) return;
+
+    function showRegister() {
+      container.classList.add('active');
+    }
+    function showLogin() {
+      container.classList.remove('active');
+    }
+
+    function bindToggleButtons() {
+      var registerBtn = document.getElementById('registerToggle');
+      var loginBtn = document.getElementById('loginToggle');
+      if (registerBtn && !registerBtn._bound) {
+        registerBtn._bound = true;
+        registerBtn.addEventListener('click', function(e) { e.preventDefault(); showRegister(); });
+      }
+      if (loginBtn && !loginBtn._bound) {
+        loginBtn._bound = true;
+        loginBtn.addEventListener('click', function(e) { e.preventDefault(); showLogin(); });
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bindToggleButtons);
+    } else {
+      bindToggleButtons();
+    }
+    setTimeout(bindToggleButtons, 100);
+
+    var mobileLoginBtn = document.getElementById('mobileLoginBtn');
+    var mobileRegisterBtn = document.getElementById('mobileRegisterBtn');
+    if (container && mobileLoginBtn) {
+      mobileLoginBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        showLogin();
+        var formEl = document.querySelector('.form-container.sign-in');
+        if (formEl) formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+    if (container && mobileRegisterBtn) {
+      mobileRegisterBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        showRegister();
+        var formEl = document.querySelector('.form-container.sign-up');
+        if (formEl) formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+
+    // Password show/hide
+    var toggle = document.getElementById('togglePassword');
+    var password = document.getElementById('id_password');
+    if (toggle && password) {
+      function togglePasswordVisibility(e) {
+        if (e) e.preventDefault();
+        var type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+        password.setAttribute('type', type);
+        toggle.classList.toggle('fa-eye');
+        toggle.classList.toggle('fa-eye-slash');
+      }
+
+      toggle.addEventListener('click', togglePasswordVisibility);
+      toggle.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          togglePasswordVisibility(e);
+        }
+      });
+    }
+
+    // Disable submit buttons on submit
+    var loginForm = document.getElementById('login-form');
+    var registerForm = document.getElementById('register-form');
+    var loginSubmit = document.getElementById('login-btn');
+    var registerSubmit = document.getElementById('register-btn');
+
+    // Auto-hide login error message (e.g. pending approval or invalid credentials) after 5 seconds
+    (function() {
+      var loginError = document.querySelector('.login-error-auto-hide');
+      if (loginError) {
+        setTimeout(function() {
+          loginError.style.display = 'none';
+        }, 5000);
+      }
+    })();
+
+    if (loginForm && loginSubmit) {
+      loginForm.addEventListener('submit', function() {
+        loginSubmit.disabled = true;
+        loginSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> {% trans "Signing in..." %}';
+      });
+    }
+    if (registerForm && registerSubmit) {
+      registerForm.addEventListener('submit', function(e) {
+        if (!document.getElementById('face_photo_base64').value) {
+          e.preventDefault();
+          var grp = document.querySelector('.face-registration-group');
+          if (grp) {
+            var err = grp.querySelector('.error-message');
+            if (err) err.remove();
+            var div = document.createElement('div');
+            div.className = 'error-message';
+            div.textContent = '{% trans "Please complete face registration (capture front)." %}';
+            grp.appendChild(div);
+          }
+          return false;
+        }
+        var sigPad = document.getElementById('signature-pad');
+        var sigHidden = document.getElementById('signature_base64');
+        if (sigPad && sigHidden) {
+          var dataUrl = sigPad.toDataURL('image/png');
+          if (dataUrl && dataUrl.length > 100) sigHidden.value = dataUrl;
+        }
+        if (!(document.getElementById('signature_base64').value || '').trim()) {
+          e.preventDefault();
+          var sigGrp = document.querySelector('.signature-pad-group');
+          var sigErr = document.getElementById('signature-error');
+          if (sigErr) {
+            sigErr.textContent = '{% trans "Please provide your signature above." %}';
+            sigErr.style.display = 'block';
+          }
+          if (sigGrp) sigGrp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return false;
+        }
+        var sigCanvas = document.getElementById('signature-pad');
+        if (sigCanvas && sigCanvas.getAttribute('data-has-stroke') !== 'true') {
+          e.preventDefault();
+          var sigErr = document.getElementById('signature-error');
+          if (sigErr) {
+            sigErr.textContent = '{% trans "Please draw your signature in the box above." %}';
+            sigErr.style.display = 'block';
+          }
+          return false;
+        }
+        registerSubmit.disabled = true;
+        registerSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> {% trans "Submitting..." %}';
+      });
+    }
+    var staffGuardForm = document.getElementById('register-staff-guard-form');
+    var staffGuardBtn = document.getElementById('register-staff-guard-btn');
+    if (staffGuardForm && staffGuardBtn) {
+      staffGuardForm.addEventListener('submit', function() {
+        staffGuardBtn.disabled = true;
+        staffGuardBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> {% trans "Submitting..." %}';
+      });
+    }
+
+    // Face registration – autocapture by angle (face-api.js for pose)
+    // face-api.js is loaded on demand here so the login page is not blocked for minutes by the CDN
+    function loadFaceApiScript() {
+      if (typeof faceApi !== 'undefined' || typeof faceapi !== 'undefined') {
+        return Promise.resolve();
+      }
+      return new Promise(function(resolve, reject) {
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
+        s.async = true;
+        s.onload = function() { resolve(); };
+        s.onerror = function() { reject(new Error('face-api failed to load')); };
+        document.head.appendChild(s);
+      });
+    }
+
+    (function() {
+      var MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights/';
+      var angles = [
+        { id: 'front', label: '{% trans "Face the camera directly (front)" %}' }
+      ];
+      var stream = null;
+      var captures = {};
+      var currentStep = 0;
+      var video = document.getElementById('face-video');
+      var instruction = document.getElementById('face-instruction');
+      var holdSteadyEl = document.getElementById('face-hold-steady');
+      var captureBtn = document.getElementById('face-capture-btn');
+      var doneBtn = document.getElementById('face-done-btn');
+      var startBtn = document.getElementById('face-registration-btn');
+      var ui = document.getElementById('face-registration-ui');
+      var faceCaptureFlow = document.getElementById('face-capture-flow');
+      var faceRegistrationDone = document.getElementById('face-registration-done');
+      var faceRedoBtn = document.getElementById('face-redo-btn');
+      var statusEl = document.getElementById('face-registration-status');
+      var base64Input = document.getElementById('face_photo_base64');
+      var overlay = document.getElementById('face-overlay');
+
+      var stableCount = 0;
+      var lastAngle = null;
+      var STABLE_FRAMES = 5;
+      var detectionRunning = false;
+      var modelsLoaded = false;
+      var NOSE_IDX = 30;
+      var captureMode = 'auto';
+      var toastTimeout = null;
+      var modeAutoBtn = document.getElementById('face-mode-auto');
+      var modeManualBtn = document.getElementById('face-mode-manual');
+      var toastEl = document.getElementById('face-capture-toast');
+      var instructionHideTimeout = null;
+
+      function setCaptureMode(mode) {
+        captureMode = mode;
+        if (modeAutoBtn) modeAutoBtn.classList.toggle('active', mode === 'auto');
+        if (modeManualBtn) modeManualBtn.classList.toggle('active', mode === 'manual');
+        if (mode === 'manual') {
+          detectionRunning = false;
+          holdSteadyEl.style.display = 'none';
+          captureBtn.style.display = 'block';
+          captureBtn.innerHTML = '<i class="fas fa-circle"></i> {% trans "Capture" %}';
+        } else {
+          captureBtn.innerHTML = '<i class="fas fa-circle"></i> {% trans "Capture manually" %}';
+          if (currentStep < angles.length && modelsLoaded && video.srcObject) {
+            detectionRunning = true;
+            runDetection();
+          }
+        }
+        showStep();
+      }
+
+      function showCaptureNotifier(angleId) {
+        var labels = { front: '{% trans "Front" %}', left: '{% trans "Left" %}', right: '{% trans "Right" %}', up: '{% trans "Up" %}', bottom: '{% trans "Down" %}' };
+        var msg = (labels[angleId] || angleId) + ' {% trans "captured!" %}';
+        if (toastTimeout) clearTimeout(toastTimeout);
+        if (toastEl) {
+          toastEl.innerHTML = '<i class="fas fa-check-circle"></i> ' + msg;
+          toastEl.classList.add('show');
+          toastTimeout = setTimeout(function() {
+            toastEl.classList.remove('show');
+            toastTimeout = null;
+          }, 2500);
+        }
+        try {
+          var ctx = new (window.AudioContext || window.webkitAudioContext)();
+          var osc = ctx.createOscillator();
+          var g = ctx.createGain();
+          osc.connect(g);
+          g.connect(ctx.destination);
+          osc.frequency.value = 800;
+          osc.type = 'sine';
+          g.gain.setValueAtTime(0.15, ctx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 0.15);
+        } catch (e) {}
+      }
+
+      function getNosePoint(landmarks) {
+        if (!landmarks) return null;
+        if (landmarks.getNose && typeof landmarks.getNose === 'function') {
+          var nosePoints = landmarks.getNose();
+          if (nosePoints && nosePoints.length) return nosePoints[4] || nosePoints[0];
+        }
+        var positions = landmarks.positions || landmarks._positions || [];
+        if (typeof positions.get === 'function') try { positions = positions.get(); } catch (e) { positions = []; }
+        if (!Array.isArray(positions)) positions = [];
+        var p = positions[NOSE_IDX] || (positions.length > NOSE_IDX ? positions[NOSE_IDX] : null);
+        return p && (p.x != null || p._x != null) ? { x: p.x != null ? p.x : p._x, y: p.y != null ? p.y : p._y } : null;
+      }
+
+      function getCurrentAngle(landmarks, box) {
+        if (!box || (box.width && box.width <= 0)) return null;
+        var nose = getNosePoint(landmarks);
+        var w = Math.max(box.width || 1, 1);
+        var h = Math.max(box.height || 1, 1);
+        var cx = box.x + w / 2;
+        var cy = box.y + h / 2;
+        if (!nose || (nose.x == null && nose.y == null)) return 'front';
+        var hOff = (nose.x - cx) / w;
+        var noseYInBox = (nose.y - box.y) / h;
+        var frontTh = 0.18;
+        var angleThH = 0.14;
+        var upTh = 0.40;
+        var downTh = 0.60;
+        if (Math.abs(hOff) <= frontTh && noseYInBox >= upTh && noseYInBox <= downTh) return 'front';
+        if (hOff > angleThH) return 'left';
+        if (hOff < -angleThH) return 'right';
+        if (noseYInBox < upTh) return 'up';
+        if (noseYInBox > downTh) return 'bottom';
+        return 'front';
+      }
+
+      function showStep() {
+        if (currentStep >= angles.length) {
+          if (instructionHideTimeout) { clearTimeout(instructionHideTimeout); instructionHideTimeout = null; }
+          instruction.classList.remove('face-instruction--hidden');
+          instruction.style.display = '';
+          instruction.textContent = '{% trans "All angles captured. Click Done." %}';
+          holdSteadyEl.style.display = 'none';
+          captureBtn.style.display = 'none';
+          doneBtn.style.display = 'block';
+          detectionRunning = false;
+          return;
+        }
+        var step = angles[currentStep];
+        instruction.textContent = step.label;
+        if (instructionHideTimeout) { clearTimeout(instructionHideTimeout); instructionHideTimeout = null; }
+        instruction.classList.remove('face-instruction--hidden');
+        instruction.style.display = '';
+        if (step.id === 'front') {
+          instructionHideTimeout = setTimeout(function() {
+            if (instruction) {
+              instruction.classList.add('face-instruction--hidden');
+              instruction.style.display = 'none';
+            }
+            instructionHideTimeout = null;
+          }, 5000);
+        }
+        holdSteadyEl.style.display = 'none';
+        holdSteadyEl.textContent = '';
+        stableCount = 0;
+        lastAngle = null;
+        if (captureMode === 'manual') {
+          captureBtn.style.display = 'block';
+          captureBtn.innerHTML = '<i class="fas fa-circle"></i> {% trans "Capture" %}';
+          detectionRunning = false;
+        } else {
+          captureBtn.style.display = 'block';
+          captureBtn.innerHTML = '<i class="fas fa-circle"></i> {% trans "Capture manually" %}';
+          if (modelsLoaded && video.srcObject) {
+            detectionRunning = true;
+            runDetection();
+          }
+        }
+        doneBtn.style.display = 'none';
+      }
+
+      function captureFrame() {
+        if (!video.videoWidth) return null;
+        var canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        return canvas.toDataURL('image/jpeg', 0.9);
+      }
+
+      function doCapture() {
+        var dataUrl = captureFrame();
+        if (!dataUrl) return;
+        var step = angles[currentStep];
+        captures[step.id] = dataUrl;
+        var thumb = document.querySelector('.face-thumb[data-angle="' + step.id + '"]');
+        if (thumb) {
+          thumb.classList.add('captured');
+          var img = thumb.querySelector('img');
+          if (img) img.src = dataUrl;
+        }
+        showCaptureNotifier(step.id);
+        holdSteadyEl.style.display = 'none';
+        holdSteadyEl.textContent = '';
+        currentStep++;
+        showStep();
+      }
+
+      function stopCamera() {
+        detectionRunning = false;
+        if (stream) {
+          stream.getTracks().forEach(function(t) { t.stop(); });
+          stream = null;
+        }
+      }
+
+      function runDetection() {
+        var faceApiLib = typeof faceApi !== 'undefined' ? faceApi : (typeof faceapi !== 'undefined' ? faceapi : null);
+        if (!detectionRunning || captureMode !== 'auto' || !video.srcObject || !modelsLoaded || !faceApiLib) {
+          if (detectionRunning) requestAnimationFrame(runDetection);
+          return;
+        }
+        if (video.readyState < 2 || !video.videoWidth) {
+          requestAnimationFrame(runDetection);
+          return;
+        }
+        var step = angles[currentStep];
+        if (!step) {
+          requestAnimationFrame(runDetection);
+          return;
+        }
+        faceApiLib.detectSingleFace(video, new faceApiLib.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }))
+          .withFaceLandmarks()
+          .then(function(result) {
+            if (!result) {
+              instruction.textContent = step.label;
+              holdSteadyEl.style.display = 'none';
+              stableCount = 0;
+              lastAngle = null;
+              requestAnimationFrame(runDetection);
+              return;
+            }
+            var box = result.detection && result.detection.box;
+            var landmarks = result.landmarks || null;
+            var current = getCurrentAngle(landmarks, box);
+            if (current === null) current = 'front';
+            if (current === step.id) {
+              stableCount++;
+              holdSteadyEl.style.display = 'block';
+              if (stableCount >= STABLE_FRAMES) {
+                holdSteadyEl.textContent = '{% trans "Capturing!" %}';
+                doCapture();
+                requestAnimationFrame(runDetection);
+                return;
+              } else {
+                var pct = Math.round((stableCount / STABLE_FRAMES) * 100);
+                holdSteadyEl.textContent = '{% trans "Hold steady..." %} ' + pct + '%';
+              }
+            } else {
+              stableCount = 0;
+              holdSteadyEl.style.display = 'none';
+              instruction.textContent = step.label;
+            }
+            lastAngle = current;
+            requestAnimationFrame(runDetection);
+          })
+          .catch(function() {
+            requestAnimationFrame(runDetection);
+          });
+      }
+
+      if (modeAutoBtn) modeAutoBtn.addEventListener('click', function() { setCaptureMode('auto'); });
+      if (modeManualBtn) modeManualBtn.addEventListener('click', function() { setCaptureMode('manual'); });
+
+      function startCaptureFlow(fromRedo) {
+        if (fromRedo) {
+          if (faceRegistrationDone) faceRegistrationDone.style.display = 'none';
+          if (faceCaptureFlow) faceCaptureFlow.style.display = 'block';
+        }
+        base64Input.value = '';
+        statusEl.style.display = 'none';
+        captures = {};
+        currentStep = 0;
+        captureMode = modeAutoBtn && modeAutoBtn.classList.contains('active') ? 'auto' : 'manual';
+        instruction.textContent = captureMode === 'auto' ? '{% trans "Loading face detection..." %}' : '{% trans "Position your face, then tap Capture." %}';
+        holdSteadyEl.style.display = 'none';
+        var thumbs = document.querySelectorAll('.face-thumb');
+        thumbs.forEach(function(t) {
+          t.classList.remove('captured');
+          var img = t.querySelector('img');
+          if (img) img.src = '';
+        });
+        var scriptReady = captureMode === 'auto'
+          ? Promise.race([ loadFaceApiScript(), new Promise(function(_, rej) { setTimeout(function() { rej(new Error('timeout')); }, 12000); }) ]).catch(function() { return null; })
+          : Promise.resolve();
+        scriptReady.then(function() {
+          return navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        }).then(function(s) {
+            stream = s;
+            video.srcObject = s;
+            video.onloadedmetadata = function() {
+              overlay.width = video.videoWidth;
+              overlay.height = video.videoHeight;
+            };
+            function startDetection() {
+              if (captureMode === 'manual') {
+                showStep();
+                return;
+              }
+              if (typeof faceApi === 'undefined' && typeof faceapi === 'undefined') {
+                instruction.textContent = '{% trans "Use Capture manually for each angle." %}';
+                setCaptureMode('manual');
+                showStep();
+                return;
+              }
+              if (modelsLoaded) {
+                showStep();
+                detectionRunning = true;
+                runDetection();
+                return;
+              }
+              var lib = typeof faceApi !== 'undefined' ? faceApi : faceapi;
+              Promise.all([
+                lib.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                lib.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
+              ]).then(function() {
+                modelsLoaded = true;
+                showStep();
+                detectionRunning = true;
+                runDetection();
+              }).catch(function(err) {
+                instruction.textContent = '{% trans "Auto-capture unavailable. Use Manual mode." %}';
+                setCaptureMode('manual');
+                showStep();
+              });
+            }
+            video.play().then(function() {
+              setTimeout(startDetection, 400);
+            }).catch(function() {
+              setTimeout(startDetection, 500);
+            });
+          })
+          .catch(function(err) {
+            instruction.textContent = '{% trans "Camera access denied or not available." %}';
+            if (fromRedo) {
+              if (faceRegistrationDone) faceRegistrationDone.style.display = 'block';
+              if (faceCaptureFlow) faceCaptureFlow.style.display = 'none';
+            } else {
+              startBtn.style.display = 'block';
+              ui.style.display = 'none';
+            }
+          });
+      }
+
+      startBtn.addEventListener('click', function() {
+        startBtn.style.display = 'none';
+        document.getElementById('face-choose-file-btn').style.display = 'none';
+        ui.style.display = 'block';
+        startCaptureFlow(false);
+      });
+
+      var faceFileInput = document.getElementById('face-photo-file-input');
+      var faceChooseFileBtn = document.getElementById('face-choose-file-btn');
+      if (faceFileInput && faceChooseFileBtn) {
+        faceChooseFileBtn.addEventListener('click', function() {
+          faceFileInput.value = '';
+          faceFileInput.click();
+        });
+        faceFileInput.addEventListener('change', function() {
+          var file = faceFileInput.files && faceFileInput.files[0];
+          if (!file || !file.type.match(/^image\//)) return;
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            var dataUrl = e.target.result;
+            var img = new Image();
+            img.onload = function() {
+              if (img.width >= 400 && img.height >= 400) {
+                base64Input.value = dataUrl;
+                var faceGrp = document.querySelector('.face-registration-group');
+                if (faceGrp) faceGrp.querySelectorAll('.error-message.wizard-err').forEach(function(el) { el.remove(); });
+                var thumb = document.querySelector('.face-thumb[data-angle="front"]');
+                if (thumb) {
+                  thumb.classList.add('captured');
+                  var thumbImg = thumb.querySelector('img');
+                  if (thumbImg) thumbImg.src = dataUrl;
+                }
+                startBtn.style.display = 'none';
+                faceChooseFileBtn.style.display = 'none';
+                ui.style.display = 'block';
+                if (faceCaptureFlow) faceCaptureFlow.style.display = 'none';
+                if (faceRegistrationDone) faceRegistrationDone.style.display = 'block';
+                statusEl.style.display = 'block';
+                statusEl.textContent = '{% trans "Face registration complete. You can submit the form." %}';
+                if (statusEl.classList) statusEl.classList.remove('text-danger');
+              } else {
+                statusEl.style.display = 'block';
+                statusEl.textContent = '{% trans "Photo too small. Use at least 400×400 for clear verification. Choose a larger image." %}';
+                if (statusEl.classList) statusEl.classList.add('text-danger');
+              }
+            };
+            img.onerror = function() {
+              statusEl.style.display = 'block';
+              statusEl.textContent = '{% trans "Could not load image. Please choose another file." %}';
+              if (statusEl.classList) statusEl.classList.add('text-danger');
+            };
+            img.src = dataUrl;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      if (faceRedoBtn) faceRedoBtn.addEventListener('click', function() {
+        if (faceFileInput) faceFileInput.value = '';
+        startCaptureFlow(true);
+      });
+
+      captureBtn.addEventListener('click', function() {
+        doCapture();
+      });
+
+      doneBtn.addEventListener('click', function() {
+        if (captures.front) {
+          var img = new Image();
+          img.onload = function() {
+            if (img.width >= 400 && img.height >= 400) {
+              base64Input.value = captures.front;
+              var faceGrp = document.querySelector('.face-registration-group');
+              if (faceGrp) faceGrp.querySelectorAll('.error-message.wizard-err').forEach(function(el) { el.remove(); });
+              statusEl.style.display = 'block';
+              statusEl.textContent = '{% trans "Face registration complete. You can submit the form." %}';
+              if (statusEl.classList) statusEl.classList.remove('text-danger');
+              stopCamera();
+              video.srcObject = null;
+              if (faceCaptureFlow) faceCaptureFlow.style.display = 'none';
+              if (faceRegistrationDone) faceRegistrationDone.style.display = 'block';
+            } else {
+              statusEl.style.display = 'block';
+              statusEl.textContent = '{% trans "Photo too small. Use at least 400×400 for clear verification. Retake with camera closer." %}';
+              if (statusEl.classList) statusEl.classList.add('text-danger');
+            }
+          };
+          img.onerror = function() {
+            base64Input.value = captures.front;
+            var faceGrp = document.querySelector('.face-registration-group');
+            if (faceGrp) faceGrp.querySelectorAll('.error-message.wizard-err').forEach(function(el) { el.remove(); });
+            statusEl.style.display = 'block';
+            statusEl.textContent = '{% trans "Face registration complete. You can submit the form." %}';
+            stopCamera();
+            video.srcObject = null;
+            if (faceCaptureFlow) faceCaptureFlow.style.display = 'none';
+            if (faceRegistrationDone) faceRegistrationDone.style.display = 'block';
+          };
+          img.src = captures.front;
+        }
+      });
+
+      document.getElementById('register-form').addEventListener('reset', function() {
+        base64Input.value = '';
+        if (faceFileInput) faceFileInput.value = '';
+        startBtn.innerHTML = '<i class="fas fa-camera"></i> {% trans "Take picture" %}';
+        startBtn.style.display = 'block';
+        if (faceChooseFileBtn) faceChooseFileBtn.style.display = 'inline-block';
+        statusEl.style.display = 'none';
+        ui.style.display = 'none';
+        if (faceRegistrationDone) faceRegistrationDone.style.display = 'none';
+        if (faceCaptureFlow) faceCaptureFlow.style.display = 'block';
+      });
+    })();
+  })();
+</script>
+{% endblock extrascript %}
+
+

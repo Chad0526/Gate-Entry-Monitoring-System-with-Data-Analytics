@@ -3,12 +3,15 @@
 <div id="themeConfirmBackdrop" class="theme-confirm-backdrop" style="display: none;" aria-hidden="true"></div>
 <div id="themeConfirmModal" class="theme-confirm-modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="themeConfirmMessage">
   <div class="theme-confirm-dialog">
+    <div class="theme-confirm-header">
+      <span class="theme-confirm-title"><i class="fas fa-question-circle mr-2"></i>Confirm</span>
+    </div>
     <div class="theme-confirm-body">
       <p id="themeConfirmMessage" class="theme-confirm-message"></p>
     </div>
     <div class="theme-confirm-footer">
       <button type="button" class="theme-confirm-btn theme-confirm-cancel" id="themeConfirmCancel">Cancel</button>
-      <button type="button" class="theme-confirm-btn theme-confirm-ok" id="themeConfirmOk">Confirm</button>
+      <button type="button" class="theme-confirm-btn theme-confirm-ok" id="themeConfirmOk">OK</button>
     </div>
   </div>
 </div>
@@ -63,8 +66,18 @@
   .theme-confirm-modal.theme-confirm-show .theme-confirm-dialog {
     transform: scale(1);
   }
+  .theme-confirm-header {
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    color: #fff;
+    padding: 0.75rem 1.25rem;
+    border-radius: 12px 12px 0 0;
+  }
+  .theme-confirm-title {
+    font-weight: 700;
+    font-size: 1rem;
+  }
   .theme-confirm-body {
-    padding: 1.5rem 1.5rem 0.75rem;
+    padding: 1.25rem 1.5rem 0.75rem;
   }
   .theme-confirm-message {
     margin: 0;
@@ -215,9 +228,24 @@
       });
     });
   }
+  function initThemeConfirmForms() {
+    document.querySelectorAll('form[data-confirm-message]').forEach(function(form) {
+      form.addEventListener('submit', function(e) {
+        if (form._themeConfirmSubmitted) return;
+        e.preventDefault();
+        var msg = form.getAttribute('data-confirm-message');
+        if (!msg) return;
+        window.themeConfirm(msg, function() {
+          form._themeConfirmSubmitted = true;
+          form.submit();
+        });
+      });
+    });
+  }
   function init() {
     initNavbarLogout();
     initReportProxyLinks();
+    initThemeConfirmForms();
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

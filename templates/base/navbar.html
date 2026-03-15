@@ -16,6 +16,30 @@
     border-bottom: 1px solid #e9ecef;
     background: #f8f9fa;
     border-radius: 8px 8px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  #notifications-dropdown .notif-header .mark-all-read-btn {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #28a745;
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+  #notifications-dropdown .notif-header .mark-all-read-btn:hover {
+    background: #e8f5e9;
+    color: #1b7a30;
+  }
+  #notifications-dropdown .notif-header .mark-all-read-btn:disabled {
+    color: #adb5bd;
+    cursor: default;
+    background: none;
   }
   #notifications-dropdown .notif-body {
     max-height: 320px;
@@ -194,19 +218,26 @@
       </li>
     </ul>
 
-    <span class="navbar-text ml-3 font-weight-bold" style="color:#fff;">CCB - Gate Entry</span>
+    <span class="navbar-text ml-3 font-weight-bold">CCB - Gate Entry</span>
 
     <!-- Right navbar links -->
     <ul class="navbar-nav ml-auto">
       {% if user_role == 'guard' %}
-      <!-- Guard Notifications Dropdown -->
+      <!-- Guard Notifications Dropdown (badge only when list is non-empty so badge and dropdown stay in sync) -->
       <li class="nav-item dropdown">
         <a class="nav-link" data-toggle="dropdown" href="#" aria-haspopup="true" aria-expanded="false">
           <i class="far fa-bell"></i>
-          {% if guard_unread_count > 0 %}<span class="badge badge-{% if guard_has_urgent %}danger{% else %}warning{% endif %} navbar-badge" id="guard-notifications-badge">{{ guard_unread_count }}</span>{% endif %}
+          {% if guard_notifications and guard_unread_count > 0 %}<span class="badge badge-{% if guard_has_urgent %}danger{% else %}warning{% endif %} navbar-badge" id="guard-notifications-badge">{{ guard_unread_count }}</span>{% endif %}
         </a>
         <div class="dropdown-menu dropdown-menu-right" id="notifications-dropdown">
-          <div class="notif-header">Guard Notifications</div>
+          <div class="notif-header">
+            <span>Guard Notifications</span>
+            {% if guard_notifications and guard_unread_count > 0 %}
+            <button type="button" class="mark-all-read-btn" id="mark-all-read-btn" title="Mark all as read">
+              <i class="fas fa-check-double"></i> Mark all read
+            </button>
+            {% endif %}
+          </div>
           {% if guard_notifications %}
           <div class="notif-body">
             {% for notification in guard_notifications %}
@@ -238,7 +269,14 @@
           {% if unread_notifications_count %}<span class="badge badge-warning navbar-badge" id="notifications-badge">{{ unread_notifications_count }}</span>{% endif %}
         </a>
         <div class="dropdown-menu dropdown-menu-right" id="notifications-dropdown">
-          <div class="notif-header">Notifications</div>
+          <div class="notif-header">
+            <span>Notifications</span>
+            {% if unread_notifications_count > 0 %}
+            <button type="button" class="mark-all-read-btn" id="staff-mark-all-read-btn" title="Mark all as read">
+              <i class="fas fa-check-double"></i> Mark all read
+            </button>
+            {% endif %}
+          </div>
           {% if notification_all %}
           <div class="notif-body">
             {% for item in notification_all %}
@@ -258,6 +296,13 @@
             </a>
             {% elif item.type == 'events_summary' %}
             <div class="notif-section-title">Upcoming events</div>
+            <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
+              <i class="fas {{ item.icon }} notif-icon"></i>
+              <strong>{{ item.label }}</strong>
+              {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+            </a>
+            {% elif item.type == 'pending_staff_guard_summary' %}
+            <div class="notif-section-title">Staff/Faculty/Guard pending approval</div>
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
               <i class="fas {{ item.icon }} notif-icon"></i>
               <strong>{{ item.label }}</strong>
@@ -317,7 +362,6 @@
               el.style.display = '';
             });
             seeAll.parentElement.style.display = 'none';
-            // Keep the notification card open (Bootstrap closes it on link click; re-open after)
             var menu = document.getElementById('notifications-dropdown');
             var dropdownParent = menu && menu.closest('.dropdown');
             if (dropdownParent && typeof jQuery !== 'undefined') {
@@ -326,6 +370,41 @@
                 jQuery(menu).addClass('show');
               }, 0);
             }
+          });
+        }
+        var markAllBtn = document.getElementById('staff-mark-all-read-btn');
+        if (markAllBtn && dropdown) {
+          markAllBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            markAllBtn.disabled = true;
+            markAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Marking...';
+            fetch('{% url "notifications-mark-all-read" %}', {
+              method: 'POST',
+              headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+              }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (data.success) {
+                dropdown.querySelectorAll('.notif-item.notification-unread').forEach(function(el) {
+                  el.classList.remove('notification-unread');
+                  el.classList.add('notification-read');
+                });
+                if (badge) badge.style.display = 'none';
+                markAllBtn.innerHTML = '<i class="fas fa-check"></i> Done';
+                setTimeout(function() { markAllBtn.style.display = 'none'; }, 1200);
+              } else {
+                markAllBtn.disabled = false;
+                markAllBtn.innerHTML = '<i class="fas fa-check-double"></i> Mark all read';
+              }
+            })
+            .catch(function() {
+              markAllBtn.disabled = false;
+              markAllBtn.innerHTML = '<i class="fas fa-check-double"></i> Mark all read';
+            });
           });
         }
       })();
@@ -347,6 +426,138 @@
             });
           });
         }
+        var markAllBtn = document.getElementById('mark-all-read-btn');
+        if (markAllBtn) {
+          markAllBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            markAllBtn.disabled = true;
+            markAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Marking...';
+            fetch('{% url "guard-notification-mark-all-read" %}', {
+              method: 'POST',
+              headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+              }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (data.success) {
+                dropdown.querySelectorAll('.notif-item.notification-unread').forEach(function(el) {
+                  el.classList.remove('notification-unread');
+                  el.classList.add('notification-read');
+                });
+                if (badge) badge.style.display = 'none';
+                markAllBtn.innerHTML = '<i class="fas fa-check"></i> Done';
+                setTimeout(function() { markAllBtn.style.display = 'none'; }, 1200);
+              } else {
+                markAllBtn.disabled = false;
+                markAllBtn.innerHTML = '<i class="fas fa-check-double"></i> Mark all read';
+              }
+            })
+            .catch(function() {
+              markAllBtn.disabled = false;
+              markAllBtn.innerHTML = '<i class="fas fa-check-double"></i> Mark all read';
+            });
+          });
+        }
+      })();
+      </script>
+      <script>
+      (function() {
+        var pollUrl = '{% url "guard-check-new-notifications" %}';
+        var lastCheck = new Date().toISOString();
+        var dropdown = document.getElementById('notifications-dropdown');
+        var bellLink = dropdown && dropdown.closest('.nav-item.dropdown');
+
+        function refreshNavbarBell() {
+          fetch(pollUrl + '?since=' + encodeURIComponent(lastCheck))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (!data.success) return;
+              var list = data.notifications && Array.isArray(data.notifications) ? data.notifications : [];
+              var count = data.unread_count || 0;
+              if (count > 0 && list.length === 0) count = 0;
+              var hasUrgent = data.has_urgent || false;
+              var badge = document.getElementById('guard-notifications-badge');
+
+              if (count > 0) {
+                if (!badge && bellLink) {
+                  var a = bellLink.querySelector('a.nav-link');
+                  if (a) {
+                    badge = document.createElement('span');
+                    badge.id = 'guard-notifications-badge';
+                    badge.className = 'badge navbar-badge';
+                    a.appendChild(badge);
+                  }
+                }
+                if (badge) {
+                  badge.textContent = count;
+                  badge.className = 'badge navbar-badge ' + (hasUrgent ? 'badge-danger' : 'badge-warning');
+                  badge.style.display = '';
+                }
+                var markAllBtn = document.getElementById('mark-all-read-btn');
+                if (!markAllBtn) {
+                  var header = dropdown && dropdown.querySelector('.notif-header');
+                  if (header && !header.querySelector('.mark-all-read-btn')) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.id = 'mark-all-read-btn';
+                    btn.className = 'mark-all-read-btn';
+                    btn.title = 'Mark all as read';
+                    btn.innerHTML = '<i class="fas fa-check-double"></i> Mark all read';
+                    header.appendChild(btn);
+                  }
+                }
+              } else {
+                if (badge) badge.style.display = 'none';
+              }
+
+              var body = dropdown && dropdown.querySelector('.notif-body');
+              if (body) {
+                if (list.length > 0) {
+                  body.innerHTML = '';
+                  list.forEach(function(n) {
+                    var iconClass = (n && n.priority) === 'urgent' ? 'fa-exclamation-circle' : (n.priority === 'high' ? 'fa-exclamation-triangle' : 'fa-info-circle');
+                    var iconColor = (n && n.priority) === 'urgent' ? '#dc3545' : (n.priority === 'high' ? '#ffc107' : '#17a2b8');
+                    var a = document.createElement('a');
+                    a.href = '{% url "guard-notifications" %}';
+                    a.className = 'notif-item notification-unread';
+                    a.setAttribute('data-notification-id', (n && n.id) != null ? n.id : '');
+                    var timeAgo = (n && n.created_at && String(n.created_at).indexOf('T') !== -1) ? 'Just now' : (n && n.created_at ? String(n.created_at) : '');
+                    var msg = (n && n.message) != null ? String(n.message) : '';
+                    a.innerHTML = '<i class="fas ' + iconClass + ' notif-icon" style="color:' + iconColor + ';"></i>'
+                      + '<strong>' + escapeHtmlNav((n && n.title) != null ? n.title : '') + '</strong>'
+                      + '<span class="notif-label-right">' + escapeHtmlNav(timeAgo) + '</span><br>'
+                      + '<small style="color:#6c757d;">' + escapeHtmlNav(msg.substring(0, 80)) + '</small>';
+                    body.appendChild(a);
+                  });
+                  var footer = dropdown.querySelector('.notif-footer');
+                  if (!footer) {
+                    footer = document.createElement('div');
+                    footer.className = 'notif-footer';
+                    footer.innerHTML = '<a href="{% url "guard-notifications" %}" id="notifications-see-all">See all notifications</a>';
+                    dropdown.appendChild(footer);
+                  }
+                } else {
+                  body.innerHTML = '<div class="notif-empty"><i class="far fa-bell"></i><br>No new notifications</div>';
+                  var footer = dropdown.querySelector('.notif-footer');
+                  if (footer) footer.remove();
+                }
+              }
+              if (list.length > 0) lastCheck = new Date().toISOString();
+            })
+            .catch(function() {});
+        }
+
+        function escapeHtmlNav(text) {
+          var d = document.createElement('div');
+          d.textContent = text;
+          return d.innerHTML;
+        }
+
+        setInterval(refreshNavbarBell, 10000);
+        setTimeout(refreshNavbarBell, 500);
       })();
       </script>
       {% endif %}
@@ -376,6 +587,17 @@
           </a>
           <div class="dropdown-divider"></div>
           {% endif %}
+          <a href="{% url 'profile-edit' %}" class="dropdown-item user-dropdown-item">
+            <i class="fas fa-user-edit user-dropdown-icon"></i>
+            My profile
+          </a>
+          {% if user_role == 'staff' or user_role == 'faculty' or user_role == 'guard' %}
+          <a href="{% url 'account-settings' %}" class="dropdown-item user-dropdown-item">
+            <i class="fas fa-cog user-dropdown-icon"></i>
+            Account
+          </a>
+          {% endif %}
+          <div class="dropdown-divider"></div>
           <a href="{% url 'logout' %}" class="dropdown-item user-dropdown-item" id="navbar-logout-link" data-logout-url="{% url 'logout' %}">
             <i class="fas fa-sign-out-alt user-dropdown-icon"></i>
             Logout

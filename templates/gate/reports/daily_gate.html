@@ -1,9 +1,14 @@
 {% extends 'base/base.html' %}
+{% load static %}
 {% block title %}Reports – Daily Gate – {{ site_name }}{% endblock title %}
-{% block breadcrumb %}Reports / Daily Gate{% endblock breadcrumb %}
+{% block breadcrumb %}Reports{% endblock breadcrumb %}
+{% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
+{% endblock extrahead %}
 
 {% block content %}
-<h5 class="mb-3">Reports – Daily Gate</h5>
+<div class="monitor-wrap">
+{% include 'gate/reports/_reports_tabs.html' %}
 
 {% include 'gate/reports/_filter_bar.html' %}
 
@@ -137,4 +142,5 @@
   </div>
 </div>
 {% endif %}
+</div>
 {% endblock content %}

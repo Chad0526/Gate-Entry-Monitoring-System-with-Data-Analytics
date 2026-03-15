@@ -2,6 +2,7 @@
 Guard Account Enhancement Services
 Provides notification, activity logging, history management, and performance tracking for guards.
 """
+import datetime
 import json
 from datetime import timedelta
 from django.utils import timezone
@@ -610,11 +611,11 @@ class GuardHistoryManager:
         if role == 'guard':
             earliest_allowed = today - timedelta(days=7)
             start_date = timezone.make_aware(
-                timezone.datetime.combine(earliest_allowed, timezone.datetime.min.time())
+                datetime.datetime.combine(earliest_allowed, datetime.time.min)
             )
         else:
             start_date = timezone.make_aware(
-                timezone.datetime.combine(today - timedelta(days=30), timezone.datetime.min.time())
+                datetime.datetime.combine(today - timedelta(days=30), datetime.time.min)
             )
         
         return VisitorVisit.objects.filter(
@@ -640,11 +641,11 @@ class GuardHistoryManager:
         if role == 'guard':
             earliest_allowed = today - timedelta(days=7)
             start_date = timezone.make_aware(
-                timezone.datetime.combine(earliest_allowed, timezone.datetime.min.time())
+                datetime.datetime.combine(earliest_allowed, datetime.time.min)
             )
         else:
             start_date = timezone.make_aware(
-                timezone.datetime.combine(today - timedelta(days=30), timezone.datetime.min.time())
+                datetime.datetime.combine(today - timedelta(days=30), datetime.time.min)
             )
         
         return GateIncident.objects.filter(
@@ -1022,10 +1023,13 @@ class RealtimeDashboardService:
         for entry_data in latest_entries:
             if entry_data['student'] is None:
                 continue
-            latest_entry = GateEntry.objects.get(
-                student_id=entry_data['student'],
-                timestamp=entry_data['latest_timestamp']
-            )
+            try:
+                latest_entry = GateEntry.objects.get(
+                    student_id=entry_data['student'],
+                    timestamp=entry_data['latest_timestamp']
+                )
+            except GateEntry.DoesNotExist:
+                continue
             if latest_entry.scan_type == 'IN':
                 inside_count += 1
         

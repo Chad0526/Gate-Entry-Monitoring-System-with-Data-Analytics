@@ -3,51 +3,166 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Live event entries</title>
-  <meta http-equiv="refresh" content="5">
+  <title>{% if event_ended %}Event Summary{% else %}Live Dashboard{% endif %} – {{ event.name }}</title>
+  {% if refresh_seconds %}<meta http-equiv="refresh" content="{{ refresh_seconds }}">{% endif %}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   <style>
-    body { margin: 0; padding: 8px; background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; }
-    .embed-header { font-weight: 600; color: #1b5e20; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
-    .embed-header small { font-weight: 400; color: #555; }
-    .table-sm th, .table-sm td { padding: .25rem .5rem; }
-    .table thead th { background: #e8f5e9; color: #1b5e20; border-color: rgba(40,167,69,0.3); font-weight: 600; }
-    .embed-wrap { max-height: 360px; overflow-y: auto; background:#fff; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.04); }
+    :root {
+      --ok: #16a34a; --info: #2563eb; --warn: #d97706; --danger: #dc2626;
+      --text: #14532d; --muted: #4d7c5e; --border: #e2e8f0;
+    }
+    body { margin: 0; padding: 16px; background: #f8fafc; font-family: 'Inter','Segoe UI',sans-serif; font-size: 13px; color: var(--text); }
+
+    .emb-title { font-weight: 800; font-size: 1.1rem; color: var(--text); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+    .emb-sub { font-size: 0.8rem; color: var(--muted); margin-bottom: 14px; }
+
+    .emb-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .emb-toolbar .badge { font-weight: 600; padding: 5px 10px; font-size: 0.75rem; }
+    .emb-toolbar a { font-size: 0.78rem; font-weight: 600; color: var(--ok); }
+
+    .emb-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+    @media (max-width: 600px) { .emb-stats { grid-template-columns: repeat(2, 1fr); } }
+    .emb-stat {
+      background: #fff; border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px; text-align: center;
+    }
+    .emb-stat .icon-wrap {
+      width: 36px; height: 36px; border-radius: 8px;
+      display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem; margin-bottom: 6px;
+    }
+    .emb-stat.checked-in .icon-wrap { background: #dbeafe; color: var(--info); }
+    .emb-stat.checked-out .icon-wrap { background: #dcfce7; color: var(--ok); }
+    .emb-stat.inside .icon-wrap { background: #fef3c7; color: var(--warn); }
+    .emb-stat.capacity .icon-wrap { background: #f1f5f9; color: var(--muted); }
+    .emb-stat .num { font-size: 1.35rem; font-weight: 800; color: var(--text); line-height: 1; }
+    .emb-stat .lbl { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; margin-top: 4px; }
+    .emb-stat .progress { height: 6px; border-radius: 3px; margin-top: 6px; }
+
+    .emb-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .emb-card-head {
+      padding: 10px 16px; background: #f8fafc; border-bottom: 1px solid var(--border);
+      font-weight: 700; font-size: 0.82rem; color: var(--muted); display: flex; align-items: center; gap: 8px;
+    }
+    .emb-card-head i { color: var(--ok); }
+    .emb-filter-row {
+      padding: 8px 16px; background: #f8fafc; border-bottom: 1px solid var(--border);
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    }
+    .emb-filter-row select, .emb-filter-row input {
+      border-radius: 6px; border: 1px solid #d1d5db; font-size: 0.78rem; padding: 4px 8px;
+    }
+    .emb-filter-row input { min-width: 140px; }
+    .emb-filter-row select:focus, .emb-filter-row input:focus { border-color: var(--ok); box-shadow: 0 0 0 2px rgba(22,163,74,0.1); outline: none; }
+    .emb-filter-row .btn { font-size: 0.75rem; padding: 4px 10px; border-radius: 6px; font-weight: 600; }
+
+    .emb-table thead th {
+      background: #f1f5f9; color: var(--muted); font-size: 0.7rem; text-transform: uppercase;
+      letter-spacing: 0.04em; font-weight: 700; border-bottom: 2px solid var(--border); padding: 8px 12px;
+    }
+    .emb-table tbody td { padding: 8px 12px; font-size: 0.8rem; color: var(--text); vertical-align: middle; border-bottom: 1px solid #f1f5f9; }
+    .emb-table tbody tr:hover { background: #f0fdf4; }
+    .emb-more { padding: 8px 16px; text-align: center; background: #f8fafc; font-size: 0.78rem; }
+    .emb-more a { font-weight: 600; color: var(--ok); }
   </style>
 </head>
 <body>
-  <div class="embed-header">
-    <span>Live event entries</span>
-    {% if event %}<small class="text-muted">– {{ event.name }}</small>{% endif %}
+  <div class="emb-title">
+    <i class="fas {% if event_ended %}fa-chart-line{% else %}fa-broadcast-tower{% endif %}" style="color:var(--ok);"></i>
+    {{ event.name }}
   </div>
-  <div class="embed-wrap">
-    <table class="table table-sm table-striped mb-0">
-      <thead>
-        <tr>
-          <th>Time</th>
-          <th>Student</th>
-          <th>Type</th>
-          <th>Result</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for log in recent %}
-        <tr>
-          <td>{{ log.scan_time|date:"H:i:s" }}</td>
-          <td>{% if log.student %}{{ log.student.student_id }} – {{ log.student.get_full_name }}{% else %}—{% endif %}</td>
-          <td>{{ log.scan_type }}</td>
-          <td>
-            <span class="badge {% if log.result == 'SUCCESS' %}badge-success{% elif log.result == 'DUPLICATE' %}badge-warning{% else %}badge-secondary{% endif %}">
-              {{ log.result }}
-            </span>
-          </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="4" class="text-muted text-center py-2">No scans yet.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="emb-sub">
+    {% if event_ended %}Event Summary{% else %}Live Dashboard{% endif %}
+    · {{ event.start_date|date:"M d" }} – {{ event.end_date|date:"M d, Y" }}
+  </div>
+
+  <div class="emb-toolbar">
+    {% if event_ended %}
+    <span class="badge badge-secondary">Event ended</span>
+    {% else %}
+      {% if refresh_seconds %}
+      <span class="badge badge-info"><i class="fas fa-sync-alt mr-1"></i> {{ refresh_seconds }}s</span>
+      <a href="?embed=1&refresh=0{% if scan_type_filter %}&type={{ scan_type_filter }}{% endif %}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}">Pause</a>
+      {% else %}
+      <span class="badge badge-light text-dark">Paused</span>
+      <a href="?embed=1&refresh=1{% if scan_type_filter %}&type={{ scan_type_filter }}{% endif %}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}">Resume (5s)</a>
+      {% endif %}
+      <a href="?embed=1&refresh=10{% if scan_type_filter %}&type={{ scan_type_filter }}{% endif %}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}">10s</a>
+      <a href="?embed=1&refresh=30{% if scan_type_filter %}&type={{ scan_type_filter }}{% endif %}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}">30s</a>
+    {% endif %}
+  </div>
+
+  <div class="emb-stats">
+    <div class="emb-stat checked-in">
+      <div class="icon-wrap"><i class="fas fa-sign-in-alt"></i></div>
+      <div class="num">{{ checked_in }}</div>
+      <div class="lbl">Checked in</div>
+    </div>
+    <div class="emb-stat checked-out">
+      <div class="icon-wrap"><i class="fas fa-sign-out-alt"></i></div>
+      <div class="num">{{ checked_out }}</div>
+      <div class="lbl">Checked out</div>
+    </div>
+    <div class="emb-stat inside">
+      <div class="icon-wrap"><i class="fas fa-user-friends"></i></div>
+      <div class="num">{{ currently_inside }}</div>
+      <div class="lbl">Inside</div>
+    </div>
+    <div class="emb-stat capacity">
+      <div class="icon-wrap"><i class="fas fa-users"></i></div>
+      <div class="num">{% if capacity %}{{ currently_inside }}/{{ capacity }}{% else %}—{% endif %}</div>
+      <div class="lbl">Capacity</div>
+      {% if capacity %}
+      <div class="progress"><div class="progress-bar bg-{{ capacity_status }}" style="width:{{ capacity_pct }}%;"></div></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="emb-card">
+    <div class="emb-card-head">
+      <i class="fas fa-history"></i> Recent scans
+      {% if search_q or scan_type_filter %}<span style="margin-left:auto;font-size:0.7rem;font-weight:500;color:#94a3b8;">Filtered</span>{% endif %}
+    </div>
+    <div class="emb-filter-row">
+      <form method="get" action="" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;">
+        <input type="hidden" name="embed" value="1">
+        <input type="hidden" name="refresh" value="{{ request.GET.refresh|default:'' }}">
+        <select name="type">
+          <option value="">All (IN/OUT)</option>
+          <option value="IN" {% if scan_type_filter == 'IN' %}selected{% endif %}>IN only</option>
+          <option value="OUT" {% if scan_type_filter == 'OUT' %}selected{% endif %}>OUT only</option>
+        </select>
+        <input type="text" name="q" placeholder="Student name or ID" value="{{ search_q|default:'' }}">
+        <button type="submit" class="btn btn-sm btn-success"><i class="fas fa-filter"></i> Apply</button>
+        {% if search_q or scan_type_filter %}
+        <a href="?embed=1{% if refresh_seconds %}&refresh={{ refresh_seconds }}{% endif %}" class="btn btn-sm btn-outline-secondary">Clear</a>
+        {% endif %}
+      </form>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 emb-table">
+        <thead>
+          <tr><th>Date & time</th><th>Student</th><th>Type</th><th>Result</th></tr>
+        </thead>
+        <tbody>
+          {% for log in recent %}
+          <tr>
+            <td style="font-variant-numeric:tabular-nums;">{{ log.scan_time|date:"M d, Y H:i:s" }}</td>
+            <td>{% if log.student %}<strong>{{ log.student.student_id }}</strong> – {{ log.student.get_full_name }}{% else %}—{% endif %}</td>
+            <td><span class="badge badge-{% if log.scan_type == 'IN' %}info{% else %}secondary{% endif %}">{{ log.scan_type }}</span></td>
+            <td><span class="badge {% if log.result == 'SUCCESS' %}badge-success{% elif log.result == 'DUPLICATE' %}badge-secondary{% else %}badge-warning{% endif %}">{{ log.result }}</span></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="text-muted text-center py-4">No scans yet.{% if search_q or scan_type_filter %} Try clearing filters.{% endif %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if recent|length >= recent_limit and recent_limit < 100 %}
+    <div class="emb-more">
+      <a href="?embed=1&limit=50{% if scan_type_filter %}&type={{ scan_type_filter }}{% endif %}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}{% if refresh_seconds %}&refresh={{ refresh_seconds }}{% endif %}">Show more (50)</a>
+    </div>
+    {% endif %}
   </div>
 </body>
 </html>
-

@@ -1,0 +1,161 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+{% block title %}{% trans 'Account' %} – {{ site_name }}{% endblock title %}
+{% block breadcrumb %}{% trans 'Account' %}{% endblock breadcrumb %}
+
+{% block extrahead %}
+<style>
+  .account-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    overflow: hidden;
+    max-width: 640px;
+    margin-bottom: 24px;
+  }
+  .account-card .card-header {
+    background: linear-gradient(135deg, rgba(22,163,74,0.9), rgba(21,128,61,0.85));
+    color: #fff;
+    padding: 14px 20px;
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+  .account-card .card-body { padding: 24px; }
+  .account-card .form-group { margin-bottom: 16px; }
+  .account-card .form-group label { font-weight: 600; font-size: 0.9rem; color: #334155; }
+  .account-card .btn-save {
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #fff;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+  .account-card .btn-save:hover { opacity: 0.95; color: #fff; }
+  .password-tips {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+    color: #475569;
+  }
+  .password-tips ul { margin: 8px 0 0 18px; padding: 0; }
+  .password-wrapper { position: relative; width: 100%; }
+  .password-wrapper input { padding-right: 40px; }
+  .password-toggle-account {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #64748b;
+    z-index: 2;
+  }
+  .password-toggle-account:hover { color: #16a34a; }
+</style>
+{% endblock extrahead %}
+
+{% block content %}
+{% if messages %}
+  {% for message in messages %}
+  <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'success' }}{% endif %} alert-dismissible fade show django-alert mb-3" role="alert">
+    <span class="ccb-msg-icon"><i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %}"></i></span>
+    <span class="ccb-msg-body">{{ message }}</span>
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+  </div>
+  {% endfor %}
+{% endif %}
+
+<div class="account-card card">
+  <div class="card-header">{% trans 'Account details' %}</div>
+  <div class="card-body">
+    <form method="post" action="{% url 'account-settings' %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_account">
+      <div class="form-group">
+        <label for="id_account_username">{% trans 'Username' %}</label>
+        {{ account_form.username }}
+        {% if account_form.username.errors %}<div class="text-danger small mt-1">{{ account_form.username.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label for="id_account_email">{% trans 'Email address' %}</label>
+        {{ account_form.email }}
+        {% if account_form.email.errors %}<div class="text-danger small mt-1">{{ account_form.email.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group mb-0">
+        <button type="submit" class="btn btn-save"><i class="fas fa-save mr-1"></i> {% trans 'Save account' %}</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="account-card card">
+  <div class="card-header">{% trans 'Change password' %}</div>
+  <div class="card-body">
+    <p class="text-muted small mb-2">{% trans 'Keep your account secure with a strong password.' %}</p>
+    <p class="password-tips mb-3">
+      {% trans 'Use at least 8 characters, mix upper and lower case letters, numbers, and symbols.' %}
+      <br><strong>{% trans 'Tips' %}:</strong>
+      <ul>
+        <li>{% trans 'Do not reuse old passwords.' %}</li>
+        <li>{% trans 'Avoid names or birthdays.' %}</li>
+      </ul>
+    </p>
+    <form method="post" action="{% url 'account-settings' %}" id="password-change-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="update_password">
+      <div class="form-group">
+        <label for="id_password_old_password">{% trans 'Old password' %}</label>
+        <div class="password-wrapper">
+          {{ password_form.old_password }}
+          <i class="fas fa-lock password-toggle-account" data-target="id_password_old_password" role="button" tabindex="0" aria-label="{% trans 'Show or hide password' %}"></i>
+        </div>
+        {% if password_form.old_password.errors %}<div class="text-danger small mt-1">{{ password_form.old_password.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label for="id_password_new_password">{% trans 'New password' %}</label>
+        <div class="password-wrapper">
+          {{ password_form.new_password }}
+          <i class="fas fa-lock password-toggle-account" data-target="id_password_new_password" role="button" tabindex="0" aria-label="{% trans 'Show or hide password' %}"></i>
+        </div>
+        {% if password_form.new_password.help_text %}<small class="form-text text-muted">{{ password_form.new_password.help_text }}</small>{% endif %}
+        {% if password_form.new_password.errors %}<div class="text-danger small mt-1">{{ password_form.new_password.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label for="id_password_new_password_confirm">{% trans 'New password confirmation' %}</label>
+        <div class="password-wrapper">
+          {{ password_form.new_password_confirm }}
+          <i class="fas fa-lock password-toggle-account" data-target="id_password_new_password_confirm" role="button" tabindex="0" aria-label="{% trans 'Show or hide password' %}"></i>
+        </div>
+        {% if password_form.new_password_confirm.errors %}<div class="text-danger small mt-1">{{ password_form.new_password_confirm.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group mb-0">
+        <button type="submit" class="btn btn-save"><i class="fas fa-key mr-1"></i> {% trans 'Update password' %}</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function() {
+  document.querySelectorAll('.password-toggle-account').forEach(function(icon) {
+    var targetId = icon.getAttribute('data-target');
+    if (!targetId) return;
+    var input = document.getElementById(targetId);
+    if (!input) return;
+    function toggle() {
+      var isPw = input.type === 'password';
+      input.type = isPw ? 'text' : 'password';
+      icon.classList.toggle('fa-lock', !isPw);
+      icon.classList.toggle('fa-lock-open', isPw);
+    }
+    icon.addEventListener('click', function(e) { e.preventDefault(); toggle(); });
+    icon.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+  });
+})();
+</script>
+{% endblock content %}

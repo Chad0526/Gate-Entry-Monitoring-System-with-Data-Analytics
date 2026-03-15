@@ -6,13 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="x-ua-compatible" content="ie=edge">
   <title>{% block title %}{% endblock title %}</title>
-  {% include 'base/header.html' %}
+  {% include 'base/login_header.html' %}
   {% block extrahead %}{% endblock extrahead %}
 </head>
 <body class="hold-transition" style="margin:0; padding:0;">
   {% block content %}{% endblock content %}
   {% include 'base/footer.html' %}
-  {% include 'base/js.html' %}
+  {% include 'base/login_js.html' %}
   {% block extrascript %}{% endblock extrascript %}
 </body>
 </html>

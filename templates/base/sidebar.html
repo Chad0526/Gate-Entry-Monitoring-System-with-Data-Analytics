@@ -1,20 +1,25 @@
 {% load static %}
 {# Gate roles: guard (scan, today entries, incidents, limited reports) | supervisor/staff (+ reports, export, audit, guard activity) | admin (full). #}
+<style>.main-sidebar a.user-panel:hover { background: rgba(255,255,255,0.08); }</style>
 <aside class="main-sidebar sidebar-dark-primary elevation-4">
-    <a href="{% if user_role == 'guard' %}{% url 'guard-dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" class="brand-link">
-      <img src="{% static 'img/logo.png' %}" alt="Logo" class="brand-image elevation-3" style="opacity: .8">
+    <a href="{% if user_role == 'guard' %}{% url 'guard-dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" class="brand-link" style="display:flex;align-items:center;justify-content:center;padding:14px 16px;">
+      <img src="{% static 'img/logo.png' %}" alt="Logo" class="brand-image" style="max-height:36px;border-radius:8px;opacity:.9;">
     </a>
 
     <div class="sidebar">
-      <div class="user-panel mt-3 pb-3 mb-3 d-flex">
-        <div class="image">
-          <img src="{% static 'img/user.jpg' %}" class="img-circle elevation-2" alt="User Image">
+      <a href="{% url 'profile-edit' %}" class="user-panel mt-3 pb-3 mb-3 d-flex" style="align-items:center;gap:12px;padding:0 16px;text-decoration:none;color:inherit;border-radius:8px;transition:background 0.15s ease;" title="Edit your profile">
+        <div class="image" style="flex-shrink:0;">
+          {% if profile_avatar_url %}
+          <img src="{{ profile_avatar_url }}" class="img-circle" alt="Profile" style="width:40px;height:40px;object-fit:cover;border:2px solid rgba(255,255,255,0.12);">
+          {% else %}
+          <img src="{% static 'img/admin.png' %}" class="img-circle" alt="User" style="width:40px;height:40px;object-fit:cover;border:2px solid rgba(255,255,255,0.12);">
+          {% endif %}
         </div>
-        <div class="info">
-          <a href="{% if user_role == 'guard' %}{% url 'guard-dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" class="d-block">{% if request.user.get_full_name %}{{ request.user.get_full_name }}{% else %}{{ request.user.username }}{% endif %}</a>
-          {% if user_role %}<small class="text-muted d-block">{{ user_role|title }}</small>{% endif %}
+        <div class="info" style="min-width:0;">
+          <span class="d-block" style="font-weight:600;font-size:0.88rem;color:#fff;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;">{% if request.user.get_full_name %}{{ request.user.get_full_name }}{% else %}{{ request.user.username }}{% endif %}</span>
+          {% if user_role %}<small style="color:rgba(255,255,255,0.45);font-size:0.72rem;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;">{{ user_role|title }}</small>{% endif %}
         </div>
-      </div>
+      </a>
 
       <nav class="mt-2">
         {% with current=request.resolver_match.url_name %}
@@ -30,7 +35,6 @@
           {% if user_role == 'admin' or user_role == 'staff' or user_role == 'supervisor' or user_role == 'guard' %}
           <li class="nav-header">GATE & ATTENDANCE</li>
           {% if user_role == 'guard' %}
-          {# Guard-specific menu - clean and simple #}
           <li class="nav-item">
             <a href="{% url 'guard-dashboard' %}" class="nav-link {% if current == 'guard-dashboard' %}active{% endif %}">
               <i class="nav-icon fas fa-home"></i>
@@ -70,7 +74,7 @@
               <p>Campus analytics</p>
             </a>
           </li>
-          {% if user_role == 'admin' %}
+          {% if user_role == 'admin' or user_role == 'staff' or user_role == 'faculty' %}
           <li class="nav-item">
             <a href="{% url 'gate-student-list' %}" class="nav-link {% if current == 'gate-student-list' or current == 'gate-student-edit' or current == 'gate-student-create' or current == 'gate-student-import' or current == 'gate-load-slip-list' or current == 'gate-load-slip-create' or current == 'gate-load-slip-edit' %}active{% endif %}">
               <i class="nav-icon fas fa-id-card"></i>
@@ -87,39 +91,12 @@
             </a>
           </li>
           {% endif %}
-          {% if user_role == 'admin' or user_role == 'staff' or user_role == 'supervisor' or user_role == 'guard' %}
           {% if user_role != 'guard' %}
           <li class="nav-item">
-            <a href="{% url 'gate-incident-list' %}" class="nav-link {% if current == 'gate-incident-list' or current == 'gate-incident-report-proxy' %}active{% endif %}">
-              <i class="nav-icon fas fa-exclamation-triangle"></i>
-              <p>Incidents</p>
-            </a>
-          </li>
-          {% endif %}
-          {% endif %}
-          {% if user_role != 'guard' %}
-          <li class="nav-item has-treeview {% if current == 'reports-overview' or current == 'reports-daily-gate' or current == 'reports-event-attendance' or current == 'reports-incidents-overrides' or current == 'reports-exports' %}menu-open{% endif %}">
-            <a href="#" class="nav-link">
+            <a href="{% url 'reports-overview' %}" class="nav-link {% if current == 'reports-overview' or current == 'reports-hub' or current == 'reports-daily-gate' or current == 'reports-event-attendance' or current == 'reports-incidents-overrides' or current == 'reports-exports' %}active{% endif %}">
               <i class="nav-icon fas fa-file-alt"></i>
-              <p>Reports <i class="right fas fa-angle-left"></i></p>
+              <p>Reports</p>
             </a>
-            <ul class="nav nav-treeview">
-              <li class="nav-item">
-                <a href="{% url 'reports-overview' %}" class="nav-link {% if current == 'reports-overview' %}active{% endif %}"><i class="far fa-chart-bar nav-icon"></i><p>Overview</p></a>
-              </li>
-              <li class="nav-item">
-                <a href="{% url 'reports-daily-gate' %}" class="nav-link {% if current == 'reports-daily-gate' %}active{% endif %}"><i class="far fa-door-open nav-icon"></i><p>Daily Gate</p></a>
-              </li>
-              <li class="nav-item">
-                <a href="{% url 'reports-event-attendance' %}" class="nav-link {% if current == 'reports-event-attendance' %}active{% endif %}"><i class="far fa-calendar-check nav-icon"></i><p>Event Attendance</p></a>
-              </li>
-              <li class="nav-item">
-                <a href="{% url 'reports-incidents-overrides' %}" class="nav-link {% if current == 'reports-incidents-overrides' %}active{% endif %}"><i class="far fa-exclamation-triangle nav-icon"></i><p>Incidents & Overrides</p></a>
-              </li>
-              <li class="nav-item">
-                <a href="{% url 'reports-exports' %}" class="nav-link {% if current == 'reports-exports' %}active{% endif %}"><i class="far fa-file-export nav-icon"></i><p>Exports</p></a>
-              </li>
-            </ul>
           </li>
           {% endif %}
           {% if user_role == 'admin' or user_role == 'staff' or user_role == 'supervisor' %}
@@ -151,7 +128,7 @@
           {% if user_role == 'admin' %}
           <li class="nav-header">Administration</li>
           <li class="nav-item">
-            <a href="{% url 'user-list' %}" class="nav-link {% if current == 'user-list' %}active{% endif %}">
+            <a href="{% url 'pending-staff-guard-list' %}" class="nav-link {% if current == 'pending-staff-guard-list' %}active{% endif %}">
               <i class="nav-icon fas fa-users"></i>
               <p>Users</p>
             </a>

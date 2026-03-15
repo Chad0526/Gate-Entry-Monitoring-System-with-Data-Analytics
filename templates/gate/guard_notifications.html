@@ -4,101 +4,206 @@
 {% block breadcrumb %}Notifications{% endblock breadcrumb %}
 
 {% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
 <style>
-  .notification-item {
+  .gn-hero {
+    background-image: linear-gradient(135deg, rgba(22,163,74,0.82), rgba(21,128,61,0.75)), url('/media/event_image/background.jpg'), url('/media/background.jpg');
+    background-size: cover;
+    background-position: center;
+    color: #fff;
+    border-radius: 16px;
+    padding: 28px 24px;
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 24px rgba(22,163,74,0.18);
+  }
+  .gn-hero h2 {
+    margin: 0;
+    font-weight: 800;
+    font-size: 1.65rem;
+    letter-spacing: -0.02em;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.35);
+  }
+  .gn-hero .gn-hero-sub {
+    margin: 6px 0 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #bbf7d0;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+
+  /* Modern notification cards */
+  .gn-notification-item {
     background: #fff;
-    border-radius: 8px;
-    padding: 1.25rem;
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
     margin-bottom: 1rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-    border-left: 4px solid #28a745;
-    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #16a34a;
+    transition: all 0.2s ease;
   }
-  .notification-item:hover {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+  .gn-notification-item:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
   }
-  .notification-item.urgent {
-    border-left-color: #dc3545;
-    background: #fff5f5;
+  .gn-notification-item.urgent {
+    border-left-color: #dc2626;
   }
-  .notification-item.high {
-    border-left-color: #ffc107;
+  .gn-notification-item.high {
+    border-left-color: #d97706;
   }
-  .notification-item.unread {
-    background: #f0f8f4;
+  .gn-notification-item.medium {
+    border-left-color: #0891b2;
   }
-  .notification-header {
+  .gn-notification-item.low {
+    border-left-color: #475569;
+  }
+  .gn-notification-item.unread {
+    background: #f0fdf4;
+  }
+  .gn-notification-header {
     display: flex;
     justify-content: space-between;
-    align-items: start;
+    align-items: flex-start;
     margin-bottom: 0.75rem;
   }
-  .notification-title {
+  .gn-notification-title {
     font-weight: 600;
     font-size: 1.05rem;
-    color: #212529;
-    margin-bottom: 0.25rem;
+    color: #14532d;
+    margin-bottom: 0.35rem;
   }
-  .notification-priority {
+  .gn-priority-badge {
     display: inline-block;
     padding: 0.25rem 0.75rem;
-    border-radius: 12px;
-    font-size: 0.75rem;
+    border-radius: 10px;
+    font-size: 0.7rem;
     font-weight: 600;
     text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
-  .notification-priority.urgent {
-    background: #dc3545;
-    color: #fff;
+  .gn-priority-badge.urgent {
+    background: #fee2e2;
+    color: #dc2626;
   }
-  .notification-priority.high {
-    background: #ffc107;
-    color: #212529;
+  .gn-priority-badge.high {
+    background: #fef3c7;
+    color: #d97706;
   }
-  .notification-priority.medium {
-    background: #17a2b8;
-    color: #fff;
+  .gn-priority-badge.medium {
+    background: #cffafe;
+    color: #0891b2;
   }
-  .notification-priority.low {
-    background: #6c757d;
-    color: #fff;
+  .gn-priority-badge.low {
+    background: #f1f5f9;
+    color: #475569;
   }
-  .notification-message {
-    color: #495057;
+  .gn-notification-message {
+    color: #4d7c5e;
     line-height: 1.6;
     white-space: pre-line;
     margin-bottom: 0.75rem;
   }
-  .notification-footer {
+  .gn-notification-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-size: 0.85rem;
-    color: #6c757d;
+    color: #4d7c5e;
   }
-  .notification-time {
+  .gn-notification-time {
     display: flex;
     align-items: center;
     gap: 0.5rem;
   }
-  .mark-read-btn {
-    padding: 0.25rem 0.75rem;
+  .gn-mark-read-btn {
+    padding: 0.35rem 1rem;
     font-size: 0.85rem;
-    border-radius: 4px;
+    border-radius: 10px;
     cursor: pointer;
     border: none;
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #fff;
+    font-weight: 600;
+    transition: opacity 0.2s, transform 0.15s;
   }
-  .mark-read-btn:hover {
-    background: #218838 !important;
+  .gn-mark-read-btn:hover:not(:disabled) {
+    opacity: 0.92;
+    transform: translateY(-1px);
   }
+  .gn-mark-read-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.8;
+  }
+  .gn-read-badge {
+    color: #4d7c5e;
+    font-size: 0.85rem;
+  }
+  .gn-read-badge i {
+    color: #16a34a;
+  }
+
+  /* Empty state */
+  .gn-empty {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #4d7c5e;
+    background: #f8fafc;
+    border-radius: 14px;
+    border: 1px dashed #e2e8f0;
+  }
+  .gn-empty i {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    opacity: 0.6;
+  }
+  .gn-empty p {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  /* Pagination */
+  .gn-pagination {
+    margin-top: 1.5rem;
+  }
+  .gn-pagination .pagination {
+    margin: 0;
+    gap: 0.25rem;
+  }
+  .gn-pagination .page-item .page-link {
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    color: #14532d;
+    padding: 0.5rem 1rem;
+  }
+  .gn-pagination .page-item .page-link:hover {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #15803d;
+  }
+  .gn-pagination .page-item.active .page-link {
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    border-color: #16a34a;
+    color: #fff;
+  }
+
   @media (max-width: 768px) {
-    .notification-header {
+    .gn-hero {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+    .gn-notification-header {
       flex-direction: column;
       gap: 0.5rem;
     }
-    .notification-footer {
+    .gn-notification-footer {
       flex-direction: column;
-      align-items: start;
+      align-items: flex-start;
       gap: 0.5rem;
     }
   }
@@ -106,66 +211,66 @@
 {% endblock extrahead %}
 
 {% block content %}
-<div class="row">
-  <div class="col-12">
-    <div class="card">
-      <div class="card-header">
-        <h5 class="mb-0"><i class="fas fa-bell"></i> Notifications</h5>
-      </div>
-      <div class="card-body">
-        {% for notification in notifications %}
-        <div class="notification-item {% if not notification.is_read %}unread{% endif %} {{ notification.priority }}" data-notification-id="{{ notification.id }}">
-          <div class="notification-header">
-            <div>
-              <div class="notification-title">{{ notification.title }}</div>
-              <span class="notification-priority {{ notification.priority }}">{{ notification.get_priority_display }}</span>
-            </div>
-          </div>
-          <div class="notification-message">{{ notification.message }}</div>
-          <div class="notification-footer">
-            <div class="notification-time">
-              <i class="fas fa-clock"></i>
-              {{ notification.created_at|date:"M d, Y h:i A" }}
-            </div>
-            <div class="notification-action">
-              {% if not notification.is_read %}
-              <button class="btn btn-sm btn-success mark-read-btn" data-notification-id="{{ notification.id }}" type="button">
-                <i class="fas fa-check"></i> Mark as Read
-              </button>
-              {% else %}
-              <span class="text-muted"><i class="fas fa-check-circle"></i> Read</span>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-        {% empty %}
-        <div class="text-center text-muted py-5">
-          <i class="fas fa-bell-slash fa-3x mb-3"></i>
-          <p>No notifications</p>
-        </div>
-        {% endfor %}
+<div class="monitor-wrap">
+  <div class="gn-hero">
+    <div>
+      <h2>Notifications</h2>
+      <p class="gn-hero-sub">Stay updated with guard alerts and messages</p>
+    </div>
+  </div>
 
-        {% if notifications.has_other_pages %}
-        <nav class="mt-4">
-          <ul class="pagination justify-content-center">
-            {% if notifications.has_previous %}
-            <li class="page-item">
-              <a class="page-link" href="?page={{ notifications.previous_page_number }}">Previous</a>
-            </li>
-            {% endif %}
-            <li class="page-item active">
-              <span class="page-link">Page {{ notifications.number }} of {{ notifications.paginator.num_pages }}</span>
-            </li>
-            {% if notifications.has_next %}
-            <li class="page-item">
-              <a class="page-link" href="?page={{ notifications.next_page_number }}">Next</a>
-            </li>
-            {% endif %}
-          </ul>
-        </nav>
-        {% endif %}
+  <div class="card-body" id="gn-notifications-container">
+    {% for notification in notifications %}
+    <div class="gn-notification-item notification-item {% if not notification.is_read %}unread{% endif %} {{ notification.priority }}" data-notification-id="{{ notification.id }}">
+      <div class="gn-notification-header">
+        <div>
+          <div class="gn-notification-title">{{ notification.title }}</div>
+          <span class="gn-priority-badge {{ notification.priority }}">{{ notification.get_priority_display }}</span>
+        </div>
+      </div>
+      <div class="gn-notification-message">{{ notification.message }}</div>
+      <div class="gn-notification-footer">
+        <div class="gn-notification-time">
+          <i class="fas fa-clock"></i>
+          {{ notification.created_at|date:"M d, Y h:i A" }}
+        </div>
+        <div class="notification-action">
+          {% if not notification.is_read %}
+          <button class="gn-mark-read-btn mark-read-btn" data-notification-id="{{ notification.id }}" type="button">
+            <i class="fas fa-check"></i> Mark as Read
+          </button>
+          {% else %}
+          <span class="gn-read-badge text-muted"><i class="fas fa-check-circle"></i> Read</span>
+          {% endif %}
+        </div>
       </div>
     </div>
+    {% empty %}
+    <div class="gn-empty">
+      <i class="fas fa-bell-slash"></i>
+      <p>No notifications</p>
+    </div>
+    {% endfor %}
+
+    {% if notifications.has_other_pages %}
+    <nav class="gn-pagination">
+      <ul class="pagination justify-content-center">
+        {% if notifications.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ notifications.previous_page_number }}">Previous</a>
+        </li>
+        {% endif %}
+        <li class="page-item active">
+          <span class="page-link">Page {{ notifications.number }} of {{ notifications.paginator.num_pages }}</span>
+        </li>
+        {% if notifications.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ notifications.next_page_number }}">Next</a>
+        </li>
+        {% endif %}
+      </ul>
+    </nav>
+    {% endif %}
   </div>
 </div>
 
@@ -245,7 +350,7 @@ document.addEventListener('DOMContentLoaded', function() {
           // Find the action container and replace its content
           const actionContainer = btn.closest('.notification-action');
           if (actionContainer) {
-            actionContainer.innerHTML = '<span class="text-muted"><i class="fas fa-check-circle"></i> Read</span>';
+            actionContainer.innerHTML = '<span class="gn-read-badge text-muted"><i class="fas fa-check-circle"></i> Read</span>';
           }
         }
       } else {

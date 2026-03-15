@@ -1,9 +1,63 @@
 {% extends 'base/base.html' %}
+{% load static %}
 {% block title %}Gate entries - {{ site_name }}{% endblock title %}
 {% block breadcrumb %}Gate entries{% endblock breadcrumb %}
 
 {% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
 <style>
+  .entries-hero {
+    position: relative;
+    overflow: hidden;
+    background-image:
+      linear-gradient(135deg, rgba(22,163,74,0.82), rgba(21,128,61,0.75)),
+      url('/media/event_image/background.jpg'),
+      url('/media/background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: #fff;
+    border-radius: 16px;
+    padding: 28px 24px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-bottom: 16px;
+    box-shadow: 0 8px 24px rgba(22,163,74,0.18);
+  }
+  .entries-hero h2 {
+    margin: 0;
+    font-size: 1.55rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.25);
+  }
+  .entries-hero p {
+    margin: 4px 0 0;
+    font-size: 0.9rem;
+    color: #d1fae5; font-weight: 600; text-shadow: 0 1px 6px rgba(0,0,0,0.3);
+  }
+  #gate-entries-card {
+    border: 1px solid var(--monitor-border, #e2e8f0);
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+  #gate-entries-card .card-header {
+    background: #fff;
+    border-bottom: 1px solid var(--monitor-border, #e2e8f0);
+  }
+  #gate-entries-card .table thead th {
+    color: var(--monitor-muted, #4d7c5e);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.74rem;
+    font-weight: 700;
+    border-top: 0;
+    background: #f8fafc;
+  }
+  #gate-entries-card .table tbody td { vertical-align: middle; }
   #gate-entries-card .entry-tabs-wrap {
     padding: 0 1.25rem 0;
     background: #f8f9fa;
@@ -43,8 +97,8 @@
   }
   #gate-entries-card .entry-tabs .nav-link.active {
     background: #fff;
-    color: #28a745;
-    border-color: #28a745;
+    color: #16a34a;
+    border-color: #16a34a;
     border-bottom: 2px solid #fff;
     margin-bottom: -1px;
     box-shadow: 0 -2px 4px rgba(0,0,0,0.04);
@@ -100,14 +154,22 @@
   #confirmProxyModal .modal-body { padding: 18px; }
   #confirmProxyModal .modal-body p { margin-bottom: 18px; line-height: 1.5; color: #212529; }
   #confirmProxyModal .modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 0 18px 18px; }
+  @media (max-width: 767px) {
+    .entries-hero {
+      min-height: 108px;
+      padding: 16px 12px;
+    }
+    .entries-hero h2 {
+      font-size: 1.3rem;
+    }
+  }
 </style>
 {% endblock extrahead %}
 
 {% block content %}
-<div class="row mb-2">
-  <div class="col-12">
-    <a href="{% if user_role == 'guard' %}{% url 'guard-dashboard' %}{% else %}{% url 'gate-analytics' %}{% endif %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left mr-1"></i> Back</a>
-  </div>
+<div class="entries-hero">
+  <h2>Gate Entries</h2>
+  <p>Monitor student entries, visitors, and incidents in one live view.</p>
 </div>
 <div class="row">
   <div class="col-12">
@@ -248,7 +310,7 @@
                 <th>Time</th>
                 <th>Visitor name</th>
                 <th>Purpose</th>
-                <th>Who to visit</th>
+                <th>Where to visit</th>
                 <th>Recorded by</th>
               </tr>
             </thead>
@@ -385,7 +447,7 @@
         <div class="detail-value" id="vModalPurpose">—</div>
       </div>
       <div class="detail-row">
-        <div class="detail-label">Who to visit</div>
+        <div class="detail-label">Where to visit</div>
         <div class="detail-value" id="vModalWho">—</div>
       </div>
       <div class="detail-row">

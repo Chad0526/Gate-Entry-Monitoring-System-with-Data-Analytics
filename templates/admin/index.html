@@ -1,0 +1,17 @@
+{% extends "admin/index.html" %}
+{% load i18n static gate_admin %}
+
+{% block content %}
+{% pending_staff_guard_approvals_count as pending_count %}
+{% if pending_count > 0 %}
+<div class="module" style="margin-bottom: 20px; padding: 15px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">
+  <p style="margin: 0; font-weight: 600;">
+    <a href="{% url 'admin:auth_user_changelist' %}?is_active__exact=0">
+      {% blocktrans count counter=pending_count %}1 new staff/faculty/guard account pending approval{% plural %}{{ counter }} new staff/faculty/guard accounts pending approval{% endblocktrans %}
+    </a>
+  </p>
+  <p style="margin: 8px 0 0 0; font-size: 13px; color: #856404;">{% trans "Review and activate accounts in Users." %}</p>
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}

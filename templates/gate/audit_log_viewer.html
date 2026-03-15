@@ -1,63 +1,492 @@
 {% extends 'base/base.html' %}
-{% block title %}View logs - {{ site_name }}{% endblock %}
+{% load static %}
+{% block title %}Activity Log – {{ site_name }}{% endblock %}
 {% block breadcrumb %}View logs{% endblock %}
 
+{% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
+<style>
+  .al-hero {
+    position: relative; overflow: hidden;
+    background-image:
+      linear-gradient(135deg, rgba(22,163,74,0.82), rgba(21,128,61,0.75)),
+      url('/media/event_image/background.jpg'),
+      url('/media/background.jpg');
+    background-size: cover; background-position: center; background-repeat: no-repeat;
+    color: #fff; border-radius: 16px; padding: 28px 24px 22px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 18px;
+  }
+  .al-hero h2 { margin: 0; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.25); }
+  .al-hero p { margin: 4px 0 0; font-size: 0.85rem; color: #d1fae5; font-weight: 600; text-shadow: 0 1px 6px rgba(0,0,0,0.3); }
+  .al-hero-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .al-hero-actions .btn {
+    border: none; border-radius: 10px; font-weight: 600; font-size: 0.84rem; padding: 9px 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12); transition: all .15s ease;
+  }
+  .al-btn-light { background: #fff; color: #16a34a; }
+  .al-btn-light:hover { background: #f0fdf4; color: #15803d; transform: translateY(-1px); text-decoration: none; }
+  .al-btn-shield { background: rgba(255,255,255,0.15); color: #fff; backdrop-filter: blur(4px); }
+  .al-btn-shield:hover { background: rgba(255,255,255,0.25); color: #fff; text-decoration: none; }
+
+  /* Stats */
+  .al-stats { display: grid; grid-template-columns: repeat(5,1fr); gap: 14px; margin-bottom: 18px; }
+  .al-stat-card {
+    background: #fff; border-radius: 14px; padding: 18px 16px;
+    border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    display: flex; align-items: center; gap: 14px;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .al-stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+  .al-stat-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; flex-shrink: 0;
+  }
+  .al-stat-icon.green { background: linear-gradient(135deg,#dcfce7,#bbf7d0); color: #16a34a; }
+  .al-stat-icon.blue { background: linear-gradient(135deg,#dbeafe,#bfdbfe); color: #2563eb; }
+  .al-stat-icon.amber { background: linear-gradient(135deg,#fef3c7,#fde68a); color: #d97706; }
+  .al-stat-icon.slate { background: linear-gradient(135deg,#f1f5f9,#e2e8f0); color: #4d7c5e; }
+  .al-stat-icon.red { background: linear-gradient(135deg,#fee2e2,#fecaca); color: #dc2626; }
+  .al-stat-val { font-size: 1.5rem; font-weight: 800; color: #14532d; line-height: 1; }
+  .al-stat-label { font-size: 0.75rem; color: #4d7c5e; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+
+  /* Filter bar */
+  .al-filter-bar {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+    padding: 14px 18px; display: flex; align-items: center;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 18px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .al-filter-bar label { font-weight: 600; font-size: 0.82rem; color: #14532d; margin: 0; }
+  .al-filter-bar .form-control {
+    border-radius: 8px; border: 1px solid #e2e8f0; font-size: 0.84rem;
+    padding: 7px 12px; max-width: 180px;
+  }
+  .al-filter-bar .form-control:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.1); }
+  .al-filter-btn {
+    padding: 7px 16px; border-radius: 8px; font-weight: 600; font-size: 0.82rem;
+    border: none; cursor: pointer; transition: all .15s ease;
+  }
+  .al-filter-btn.primary { background: linear-gradient(135deg,#16a34a,#15803d); color: #fff; box-shadow: 0 2px 6px rgba(22,163,74,0.2); }
+  .al-filter-btn.primary:hover { background: linear-gradient(135deg,#15803d,#166534); }
+  .al-filter-btn.reset { background: #f8fafc; color: #4d7c5e; border: 1px solid #e2e8f0; text-decoration: none; }
+  .al-filter-btn.reset:hover { border-color: #16a34a; color: #16a34a; background: #f0fdf4; text-decoration: none; }
+  .al-activity-pills { display: flex; gap: 6px; margin-left: auto; }
+  .al-pill {
+    padding: 6px 14px; border-radius: 20px; border: 1px solid #e2e8f0;
+    background: #fff; color: #4d7c5e; font-size: 0.78rem; font-weight: 600;
+    text-decoration: none; transition: all .15s ease;
+  }
+  .al-pill:hover { border-color: #16a34a; color: #16a34a; background: #f0fdf4; text-decoration: none; }
+  .al-pill.active { background: #16a34a; color: #fff; border-color: #16a34a; }
+  .al-pill.active:hover { background: #15803d; text-decoration: none; color: #fff; }
+
+  /* Log table */
+  .al-table-card {
+    background: #fff; border-radius: 14px; border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04); overflow: hidden;
+  }
+  .al-table-head {
+    padding: 14px 18px; border-bottom: 1px solid #e2e8f0;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .al-table-head h6 { margin: 0; font-size: 0.92rem; font-weight: 700; color: #14532d; }
+  .al-table-head .badge { background: #f0fdf4; color: #16a34a; font-weight: 700; font-size: 0.72rem; padding: 4px 10px; border-radius: 20px; }
+  .al-table { width: 100%; border-collapse: collapse; }
+  .al-table thead th {
+    background: #f8fafc; color: #2d6a42; font-weight: 700;
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 12px 16px; border-bottom: 2px solid #e2e8f0;
+  }
+  .al-table tbody td {
+    padding: 12px 16px; font-size: 0.84rem; color: #1a5c35;
+    vertical-align: middle; border-bottom: 1px solid #f1f5f9;
+  }
+  .al-table tbody tr { transition: background .1s ease; }
+  .al-table tbody tr:hover { background: #f0fdf4; }
+  .al-time { font-weight: 600; color: #14532d; white-space: nowrap; font-size: 0.82rem; }
+  .al-user { font-weight: 600; color: #14532d; display: inline-flex; align-items: center; gap: 6px; }
+  .al-user-avatar {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: linear-gradient(135deg,#dcfce7,#bbf7d0); color: #16a34a;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; font-weight: 700; flex-shrink: 0;
+  }
+  .al-action-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 6px; font-size: 0.74rem;
+    font-weight: 700; letter-spacing: 0.02em;
+  }
+  .al-action-login { background: #dcfce7; color: #16a34a; }
+  .al-action-create { background: #dbeafe; color: #2563eb; }
+  .al-action-update { background: #fef3c7; color: #d97706; }
+  .al-action-delete { background: #fee2e2; color: #dc2626; }
+  .al-action-block_ip { background: #fee2e2; color: #dc2626; }
+  .al-action-unblock_ip { background: #dcfce7; color: #16a34a; }
+  .al-action-other { background: #f1f5f9; color: #4d7c5e; }
+  .al-model { font-size: 0.78rem; color: #4d7c5e; font-weight: 500; }
+  .al-model strong { color: #14532d; font-weight: 600; }
+  .al-desc { color: #1a5c35; font-size: 0.82rem; max-width: 300px; }
+  .al-ip { font-family: 'SF Mono','Consolas',monospace; font-size: 0.76rem; color: #4d7c5e; white-space: nowrap; }
+
+  /* Block IP button inline */
+  .al-block-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border-radius: 6px; border: 1px solid #fecaca;
+    background: #fff; color: #dc2626; font-size: 0.7rem; font-weight: 600;
+    cursor: pointer; transition: all .15s ease; margin-left: 6px;
+  }
+  .al-block-btn:hover { background: #fee2e2; border-color: #dc2626; }
+  .al-block-btn i { font-size: 0.62rem; }
+
+  .al-empty { text-align: center; padding: 50px 20px; color: #4d7c5e; }
+  .al-empty i { font-size: 2.5rem; opacity: 0.3; margin-bottom: 10px; display: block; }
+  .al-footer { padding: 12px 18px; border-top: 1px solid #f1f5f9; font-size: 0.78rem; color: #4d7c5e; }
+
+  /* Blocked IPs section */
+  .al-blocked-card {
+    background: #fff; border-radius: 14px; border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04); overflow: hidden; margin-top: 20px;
+  }
+  .al-blocked-head {
+    padding: 14px 18px; border-bottom: 1px solid #e2e8f0; background: #fef2f2;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .al-blocked-head h6 { margin: 0; font-size: 0.92rem; font-weight: 700; color: #991b1b; }
+  .al-blocked-head .badge { background: #dc2626; color: #fff; font-weight: 700; font-size: 0.72rem; padding: 4px 10px; border-radius: 20px; }
+  .al-blocked-table { width: 100%; border-collapse: collapse; }
+  .al-blocked-table thead th {
+    background: #fef2f2; color: #991b1b; font-weight: 700;
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 10px 16px; border-bottom: 2px solid #fecaca;
+  }
+  .al-blocked-table tbody td {
+    padding: 10px 16px; font-size: 0.84rem; color: #1a5c35;
+    vertical-align: middle; border-bottom: 1px solid #f1f5f9;
+  }
+  .al-blocked-table tbody tr:hover { background: #fef2f2; }
+  .al-status-active { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 6px; background: #fee2e2; color: #dc2626; font-size: 0.74rem; font-weight: 700; }
+  .al-status-inactive { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 6px; background: #f1f5f9; color: #4d7c5e; font-size: 0.74rem; font-weight: 700; }
+  .al-unblock-btn {
+    padding: 4px 12px; border-radius: 6px; border: 1px solid #bbf7d0;
+    background: #f0fdf4; color: #16a34a; font-size: 0.74rem; font-weight: 600;
+    cursor: pointer; transition: all .15s ease;
+  }
+  .al-unblock-btn:hover { background: #dcfce7; border-color: #16a34a; }
+  .al-delete-btn {
+    padding: 4px 12px; border-radius: 6px; border: 1px solid #e2e8f0;
+    background: #fff; color: #4d7c5e; font-size: 0.74rem; font-weight: 600;
+    cursor: pointer; transition: all .15s ease;
+  }
+  .al-delete-btn:hover { background: #fef2f2; border-color: #dc2626; color: #dc2626; }
+
+  /* Block IP modal/form */
+  .al-block-form {
+    background: #fff; border: 1px solid #fecaca; border-radius: 14px;
+    padding: 18px 20px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(220,38,38,0.08);
+  }
+  .al-block-form h6 { font-size: 0.9rem; font-weight: 700; color: #991b1b; margin: 0 0 12px; }
+  .al-block-form .form-control { border-radius: 8px; font-size: 0.84rem; }
+  .al-block-form .form-control:focus { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220,38,38,0.1); }
+  .al-block-submit {
+    background: #dc2626; color: #fff; border: none; border-radius: 8px;
+    padding: 8px 20px; font-weight: 700; font-size: 0.84rem; cursor: pointer;
+    transition: all .15s ease;
+  }
+  .al-block-submit:hover { background: #b91c1c; }
+  .al-block-cancel {
+    background: #fff; color: #4d7c5e; border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 7px 16px; font-weight: 600; font-size: 0.84rem; cursor: pointer;
+    transition: all .15s ease;
+  }
+  .al-block-cancel:hover { border-color: #16a34a; color: #16a34a; }
+
+  .al-attempts { font-family: 'SF Mono','Consolas',monospace; font-size: 0.78rem; color: #dc2626; font-weight: 700; }
+
+  @media (max-width: 1199px) { .al-stats { grid-template-columns: repeat(3,1fr); } }
+  @media (max-width: 991px) { .al-stats { grid-template-columns: repeat(2,1fr); } }
+  @media (max-width: 767px) {
+    .al-hero { padding: 22px 18px 16px; flex-direction: column; align-items: flex-start; }
+    .al-hero h2 { font-size: 1.3rem; }
+    .al-stats { grid-template-columns: 1fr; }
+    .al-filter-bar { flex-direction: column; align-items: stretch; }
+    .al-activity-pills { margin-left: 0; }
+    .al-table-card { overflow-x: auto; }
+  }
+</style>
+{% endblock extrahead %}
+
 {% block content %}
-<div class="row mb-3">
-  <div class="col-md-6">
-    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left mr-1"></i> Dashboard</a>
-  </div>
-</div>
-<div class="card">
-  <div class="card-header">
-    <h5 class="m-0">Activity log — who logged in or acted in the system</h5>
-    <p class="text-muted small mb-0 mt-1">For who entered the campus (gate scan in/out), see <a href="{% url 'gate-entry-list' %}">Gate entries</a>.</p>
-  </div>
-  <div class="card-body border-bottom">
-    <form method="get" action="{% url 'audit-log-viewer' %}" class="form-inline flex-wrap align-items-end">
-      <div class="form-group mr-2 mb-2">
-        <label for="filter_date" class="mr-1 small font-weight-bold">Date</label>
-        <input type="date" name="date" id="filter_date" class="form-control form-control-sm" value="{{ filter_date }}" title="Show logs for this day">
-      </div>
-      {% if action_filter %}
-      <input type="hidden" name="action" value="{{ action_filter }}">
-      {% endif %}
-      <button type="submit" class="btn btn-sm btn-primary mr-1 mb-2"><i class="fas fa-filter mr-1"></i> Apply</button>
-      <a href="{% url 'audit-log-viewer' %}{% if action_filter %}?action={{ action_filter }}{% endif %}" class="btn btn-sm btn-outline-secondary mb-2">Reset</a>
-    </form>
-    <div class="mt-2">
-      <span class="text-muted small mr-2">Filter by activity:</span>
-      <a href="{% url 'audit-log-viewer' %}{% if filter_date %}?date={{ filter_date }}{% endif %}" class="btn btn-sm {% if not action_filter %}btn-primary{% else %}btn-outline-primary{% endif %}">All activity</a>
-      <a href="{% url 'audit-log-viewer' %}?action=login{% if filter_date %}&amp;date={{ filter_date }}{% endif %}" class="btn btn-sm {% if action_filter == 'login' %}btn-primary{% else %}btn-outline-primary{% endif %}">Logins only</a>
+<div class="monitor-wrap">
+
+  <!-- Hero -->
+  <div class="al-hero">
+    <div>
+      <h2><i class="fas fa-clipboard-list mr-2" style="opacity:0.8;"></i>Activity Log</h2>
+      <p>{{ site_name|default:"City College of Bayawan" }} – System activity, login history & security</p>
+    </div>
+    <div class="al-hero-actions">
+      <a href="#blockedSection" class="btn al-btn-shield"><i class="fas fa-shield-alt mr-1"></i> Blocked IPs ({{ blocked_count }})</a>
+      <a href="{% url 'dashboard' %}" class="btn al-btn-light"><i class="fas fa-arrow-left mr-1"></i> Dashboard</a>
     </div>
   </div>
-  <div class="card-body p-0">
-    <table class="table table-sm table-striped mb-0">
-      <thead>
-        <tr>
-          <th>Time</th>
-          <th>User</th>
-          <th>Action</th>
-          <th>Model / ID</th>
-          <th>Description</th>
-          <th>IP</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for log in logs %}
-        <tr>
-          <td>{{ log.created_at|date:"Y-m-d H:i" }}</td>
-          <td>{% if log.user %}{% firstof log.user.get_full_name log.user.username %}{% else %}—{% endif %}</td>
-          <td><code>{{ log.action }}</code></td>
-          <td>{% if log.model_name %}{{ log.model_name }}{% if log.object_id %} #{{ log.object_id }}{% endif %}{% else %}—{% endif %}</td>
-          <td>{{ log.description|truncatewords:15 }}</td>
-          <td>{{ log.ip_address|default:"—" }}</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="6" class="text-center text-muted py-4">No audit entries{% if filter_date %} for {{ filter_date }}{% endif %}.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+
+  {% if messages %}
+  {% for message in messages %}
+  <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show django-alert" role="alert">
+    <span class="ccb-msg-icon"><i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %}"></i></span>
+    <span class="ccb-msg-body">{{ message }}</span>
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
   </div>
+  {% endfor %}
+  {% endif %}
+
+  <!-- Stats -->
+  <div class="al-stats">
+    <div class="al-stat-card">
+      <div class="al-stat-icon green"><i class="fas fa-list-alt"></i></div>
+      <div>
+        <div class="al-stat-val">{{ total_logs|default:0 }}</div>
+        <div class="al-stat-label">Total Logs</div>
+      </div>
+    </div>
+    <div class="al-stat-card">
+      <div class="al-stat-icon blue"><i class="fas fa-clock"></i></div>
+      <div>
+        <div class="al-stat-val">{{ today_logs|default:0 }}</div>
+        <div class="al-stat-label">Today's Activity</div>
+      </div>
+    </div>
+    <div class="al-stat-card">
+      <div class="al-stat-icon amber"><i class="fas fa-sign-in-alt"></i></div>
+      <div>
+        <div class="al-stat-val">{{ today_logins|default:0 }}</div>
+        <div class="al-stat-label">Logins Today</div>
+      </div>
+    </div>
+    <div class="al-stat-card">
+      <div class="al-stat-icon slate"><i class="fas fa-users"></i></div>
+      <div>
+        <div class="al-stat-val">{{ unique_users_today|default:0 }}</div>
+        <div class="al-stat-label">Active Users</div>
+      </div>
+    </div>
+    <div class="al-stat-card">
+      <div class="al-stat-icon red"><i class="fas fa-ban"></i></div>
+      <div>
+        <div class="al-stat-val">{{ blocked_count|default:0 }}</div>
+        <div class="al-stat-label">Blocked IPs</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Block IP Form (collapsible) -->
+  <div class="collapse" id="blockIPForm">
+    <form method="post" action="{% url 'block-ip' %}" class="al-block-form">
+      {% csrf_token %}
+      <h6><i class="fas fa-shield-alt mr-1"></i> Block an IP Address</h6>
+      <div class="row align-items-end">
+        <div class="col-md-4">
+          <label style="font-size:0.8rem;font-weight:600;color:#991b1b;">IP Address *</label>
+          <input type="text" name="ip_address" class="form-control" id="blockIpInput" placeholder="e.g. 192.168.1.100" required pattern="[0-9a-fA-F.:]+">
+        </div>
+        <div class="col-md-5">
+          <label style="font-size:0.8rem;font-weight:600;color:#991b1b;">Reason</label>
+          <input type="text" name="reason" class="form-control" placeholder="e.g. Brute-force login attempts" maxlength="500">
+        </div>
+        <div class="col-md-3 d-flex align-items-center" style="gap:8px;padding-top:8px;">
+          <button type="submit" class="al-block-submit"><i class="fas fa-ban mr-1"></i> Block IP</button>
+          <button type="button" class="al-block-cancel" data-toggle="collapse" data-target="#blockIPForm">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Filter Bar -->
+  <form method="get" action="{% url 'audit-log-viewer' %}" class="al-filter-bar">
+    {% if action_filter %}<input type="hidden" name="action" value="{{ action_filter }}">{% endif %}
+    <label for="filter_date"><i class="fas fa-calendar-day mr-1"></i> Date</label>
+    <input type="date" name="date" id="filter_date" class="form-control" value="{{ filter_date }}">
+    <button type="submit" class="al-filter-btn primary"><i class="fas fa-filter mr-1"></i> Apply</button>
+    <a href="{% url 'audit-log-viewer' %}{% if action_filter %}?action={{ action_filter }}{% endif %}" class="al-filter-btn reset">Reset</a>
+    <div class="al-activity-pills">
+      <a href="{% url 'audit-log-viewer' %}{% if filter_date %}?date={{ filter_date }}{% endif %}" class="al-pill {% if not action_filter %}active{% endif %}">
+        <i class="fas fa-list mr-1"></i> All Activity
+      </a>
+      <a href="{% url 'audit-log-viewer' %}?action=login{% if filter_date %}&amp;date={{ filter_date }}{% endif %}" class="al-pill {% if action_filter == 'login' %}active{% endif %}">
+        <i class="fas fa-sign-in-alt mr-1"></i> Logins Only
+      </a>
+    </div>
+  </form>
+
+  <!-- Log Table -->
+  <div class="al-table-card">
+    <div class="al-table-head">
+      <h6><i class="fas fa-stream mr-2" style="color:#16a34a;"></i>Log Entries</h6>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="al-block-btn" type="button" data-toggle="collapse" data-target="#blockIPForm" style="border-color:#dc2626;padding:5px 12px;font-size:0.78rem;">
+          <i class="fas fa-shield-alt"></i> Block IP
+        </button>
+        <span class="badge">{{ logs|length }} record{{ logs|length|pluralize }}</span>
+      </div>
+    </div>
+    {% if logs %}
+    <div class="table-responsive">
+      <table class="al-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>User</th>
+            <th>Action</th>
+            <th>Target</th>
+            <th>Description</th>
+            <th>IP Address</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+          <tr>
+            <td><span class="al-time">{{ log.created_at|date:"M d, Y  H:i" }}</span></td>
+            <td>
+              <span class="al-user">
+                <span class="al-user-avatar">{{ log.user.username|first|upper|default:"?" }}</span>
+                {% if log.user %}{% firstof log.user.get_full_name log.user.username %}{% else %}System{% endif %}
+              </span>
+            </td>
+            <td>
+              {% if log.action == 'login' %}
+                <span class="al-action-badge al-action-login"><i class="fas fa-sign-in-alt"></i> Login</span>
+              {% elif log.action == 'create' %}
+                <span class="al-action-badge al-action-create"><i class="fas fa-plus"></i> Create</span>
+              {% elif log.action == 'update' %}
+                <span class="al-action-badge al-action-update"><i class="fas fa-pen"></i> Update</span>
+              {% elif log.action == 'delete' %}
+                <span class="al-action-badge al-action-delete"><i class="fas fa-trash"></i> Delete</span>
+              {% elif log.action == 'block_ip' %}
+                <span class="al-action-badge al-action-block_ip"><i class="fas fa-ban"></i> Block IP</span>
+              {% elif log.action == 'unblock_ip' %}
+                <span class="al-action-badge al-action-unblock_ip"><i class="fas fa-check-circle"></i> Unblock IP</span>
+              {% else %}
+                <span class="al-action-badge al-action-other"><i class="fas fa-bolt"></i> {{ log.action|title }}</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if log.model_name %}
+                <span class="al-model"><strong>{{ log.model_name }}</strong>{% if log.object_id %} #{{ log.object_id }}{% endif %}</span>
+              {% else %}
+                <span class="al-model" style="opacity:0.5;">—</span>
+              {% endif %}
+            </td>
+            <td><span class="al-desc">{{ log.description|truncatewords:15 }}</span></td>
+            <td>
+              <span class="al-ip">{{ log.ip_address|default:"—" }}</span>
+              {% if log.ip_address and log.ip_address != '127.0.0.1' and log.ip_address != '::1' %}
+              <button type="button" class="al-block-btn" onclick="quickBlock('{{ log.ip_address|escapejs }}')" title="Block this IP">
+                <i class="fas fa-ban"></i>
+              </button>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="al-empty">
+      <i class="fas fa-inbox"></i>
+      <p>No audit entries{% if filter_date %} for <strong>{{ filter_date }}</strong>{% endif %}.</p>
+    </div>
+    {% endif %}
+    <div class="al-footer">
+      Showing {{ logs|length }} log{{ logs|length|pluralize }} (max 500).
+      For gate scan in/out records, see <a href="{% url 'gate-entry-list' %}" style="color:#16a34a;font-weight:600;">Gate entries</a>.
+    </div>
+  </div>
+
+  <!-- Blocked IPs Management -->
+  <div class="al-blocked-card" id="blockedSection">
+    <div class="al-blocked-head">
+      <h6><i class="fas fa-shield-alt mr-2"></i>Blocked IP Addresses</h6>
+      <span class="badge">{{ blocked_count|default:0 }} active</span>
+    </div>
+    {% if blocked_ips %}
+    <div class="table-responsive">
+      <table class="al-blocked-table">
+        <thead>
+          <tr>
+            <th>IP Address</th>
+            <th>Reason</th>
+            <th>Blocked By</th>
+            <th>Blocked At</th>
+            <th>Blocked Requests</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ip in blocked_ips %}
+          <tr>
+            <td><span class="al-ip" style="font-size:0.84rem;font-weight:600;color:#991b1b;">{{ ip.ip_address }}</span></td>
+            <td style="font-size:0.82rem;max-width:250px;">{{ ip.reason|default:"—" }}</td>
+            <td>
+              {% if ip.blocked_by %}
+                <span class="al-user" style="font-size:0.82rem;">
+                  <span class="al-user-avatar" style="width:24px;height:24px;font-size:0.6rem;">{{ ip.blocked_by.username|first|upper }}</span>
+                  {{ ip.blocked_by.username }}
+                </span>
+              {% else %}System{% endif %}
+            </td>
+            <td style="font-size:0.82rem;white-space:nowrap;">{{ ip.blocked_at|date:"M d, Y H:i" }}</td>
+            <td><span class="al-attempts">{{ ip.failed_attempts }}</span></td>
+            <td>
+              {% if ip.is_active %}
+                <span class="al-status-active"><i class="fas fa-circle" style="font-size:0.5rem;"></i> Blocked</span>
+              {% else %}
+                <span class="al-status-inactive"><i class="fas fa-circle" style="font-size:0.5rem;"></i> Inactive</span>
+              {% endif %}
+            </td>
+            <td>
+              <div style="display:flex;gap:4px;">
+                {% if ip.is_active %}
+                <form method="post" action="{% url 'unblock-ip' %}" style="margin:0;" data-confirm-message="Unblock {{ ip.ip_address }}?">
+                  {% csrf_token %}
+                  <input type="hidden" name="ip_id" value="{{ ip.pk }}">
+                  <button type="submit" class="al-unblock-btn"><i class="fas fa-unlock mr-1"></i> Unblock</button>
+                </form>
+                {% endif %}
+                <form method="post" action="{% url 'delete-blocked-ip' %}" style="margin:0;" data-confirm-message="Permanently delete record for {{ ip.ip_address }}?">
+                  {% csrf_token %}
+                  <input type="hidden" name="ip_id" value="{{ ip.pk }}">
+                  <button type="submit" class="al-delete-btn"><i class="fas fa-trash-alt"></i></button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:40px 20px;color:#4d7c5e;">
+      <i class="fas fa-check-circle" style="font-size:2rem;color:#16a34a;opacity:0.4;display:block;margin-bottom:8px;"></i>
+      <p style="font-size:0.88rem;font-weight:600;margin:0;">No blocked IPs. Your system is clean.</p>
+    </div>
+    {% endif %}
+  </div>
+
 </div>
+
+<script>
+function quickBlock(ip) {
+  var form = document.getElementById('blockIPForm');
+  var input = document.getElementById('blockIpInput');
+  if (input) input.value = ip;
+  if (form && !form.classList.contains('show')) {
+    $(form).collapse('show');
+  }
+  if (input) input.focus();
+  window.scrollTo({top: form.offsetTop - 80, behavior: 'smooth'});
+}
+</script>
 {% endblock %}

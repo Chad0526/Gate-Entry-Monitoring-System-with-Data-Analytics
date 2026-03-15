@@ -1,229 +1,504 @@
 {% extends 'base/base.html' %}
+{% load static %}
 {% block title %}Event Detail - {{ event.name|truncatewords:6 }}{% endblock title %}
 {% block breadcrumb %}Event Detail{% endblock breadcrumb %}
 
 {% block extrahead %}
-{% load static %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
 <style>
-  /* Event Detail – beautified, matches CCB theme */
-  #event-detail-card .card {
-    border: none;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    border-radius: 12px;
+  .event-detail-wrap {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    color: var(--monitor-text, #14532d);
+  }
+  .ed-hero {
+    position: relative;
     overflow: hidden;
+    background-image:
+      linear-gradient(135deg, rgba(22,163,74,0.88), rgba(21,128,61,0.8)),
+      url('/media/event_image/background.jpg'),
+      url('/media/background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: #fff;
+    border-radius: var(--radius-lg, 16px);
+    padding: 1.75rem 1.5rem;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 8px 24px rgba(22,163,74,0.22);
   }
-  #event-detail-card .card-header {
-    padding: 1rem 1.25rem;
-    border-bottom: 1px solid rgba(40, 167, 69, 0.2);
-    background: linear-gradient(to right, #e8f5e9 0%, #fff 100%);
-    border-radius: 0;
+  .ed-hero .ed-hero-badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255,255,255,0.9);
+    margin-bottom: 0.5rem;
   }
-  #event-detail-card .card-header h5 {
-    font-size: 1.25rem;
+  .ed-hero h1 {
+    font-size: 1.65rem;
+    font-weight: 800;
+    margin: 0 0 0.35rem 0;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+  }
+  .ed-hero .ed-hero-meta {
+    font-size: 0.9rem;
+    color: #d1fae5;
     font-weight: 600;
-    color: #1e5631;
-    margin: 0;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.25);
   }
-  #event-detail-card .card-header .btn-success {
-    border-radius: 8px;
+  .ed-hero-actions {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .ed-hero-actions .btn {
+    border-radius: 10px;
     font-weight: 600;
     padding: 0.5rem 1rem;
   }
-  #event-detail-card .event-poster-wrap {
-    padding: 1.25rem 1.25rem 0;
-    text-align: center;
+
+  .ed-card {
+    background: var(--monitor-card, #fff);
+    border: 1px solid var(--monitor-border, #e2e8f0);
+    border-radius: var(--radius-lg, 14px);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    margin-bottom: 1.25rem;
+    overflow: hidden;
   }
-  #event-detail-card .event-poster-wrap img {
+  .ed-card-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--monitor-border, #e2e8f0);
+    background: #f8fafc;
+    font-weight: 700;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--monitor-muted, #4d7c5e);
+  }
+  .ed-card-head i { color: var(--ok, #16a34a); font-size: 1rem; }
+  .ed-card-body { padding: 20px; }
+
+  .ed-poster {
+    text-align: center;
+    padding: 0 0 1.25rem;
+  }
+  .ed-poster img {
     max-width: 100%;
     height: auto;
-    max-height: 420px;
+    max-height: 380px;
     object-fit: contain;
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--monitor-border, #e2e8f0);
   }
-  #event-detail-card .event-details {
-    padding: 1.25rem 1.25rem 0.5rem;
+
+  .ed-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem 1.5rem;
   }
-  #event-detail-card .event-detail-row {
+  .ed-field {
+    min-width: 0;
+  }
+  .ed-field .label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--monitor-muted, #4d7c5e);
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    display: block;
+  }
+  .ed-field .value {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--monitor-text, #14532d);
+  }
+  .ed-field .value .badge { font-weight: 600; }
+
+  .ed-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    margin-bottom: 1.25rem;
+  }
+  .ed-stat {
+    background: #f8fafc;
+    border: 1px solid var(--monitor-border, #e2e8f0);
+    border-radius: var(--radius, 12px);
+    padding: 14px 16px;
+    text-align: center;
+  }
+  .ed-stat .num {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--ok, #16a34a);
+    line-height: 1.2;
+  }
+  .ed-stat .lbl {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--monitor-muted, #4d7c5e);
+    font-weight: 600;
+    margin-top: 4px;
+  }
+
+  .ed-description {
+    padding: 1.25rem;
+    background: #f8fafc;
+    border-radius: var(--radius, 12px);
+    border-left: 4px solid var(--ok, #16a34a);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--monitor-text, #14532d);
+    margin-top: 1rem;
+  }
+  .ed-description :first-child { margin-top: 0; }
+  .ed-description :last-child { margin-bottom: 0; }
+
+  .ed-agenda-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .ed-agenda-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--monitor-border, #e2e8f0);
+    font-size: 0.9rem;
+  }
+  .ed-agenda-list li:last-child { border-bottom: none; }
+  .ed-agenda-time {
+    flex-shrink: 0;
+    font-weight: 700;
+    color: var(--monitor-muted, #4d7c5e);
+    font-size: 0.82rem;
+    min-width: 100px;
+  }
+  .ed-agenda-title { font-weight: 600; color: var(--monitor-text, #14532d); }
+  .ed-agenda-meta { font-size: 0.8rem; color: var(--monitor-muted, #4d7c5e); margin-top: 2px; }
+
+  .ed-actions {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
-    padding: 0.65rem 0;
-    border-bottom: 1px solid #f0f0f0;
+    gap: 10px;
+    margin-top: 1rem;
   }
-  #event-detail-card .event-detail-row:last-of-type {
+  .ed-actions .btn {
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+
+  .ed-footer-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    padding-top: 1rem;
+    margin-top: 1rem;
+    border-top: 1px solid var(--monitor-border, #e2e8f0);
+  }
+  .ed-footer-actions .btn { border-radius: 12px; font-weight: 700; padding: 0.6rem 1.25rem; }
+
+  /* ---- modals ---- */
+  .ed-modal .modal-dialog { max-width: 92vw; }
+  .ed-modal .modal-content { border: none; border-radius: var(--radius-lg, 14px); overflow: hidden; }
+  .ed-modal-header {
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #fff;
+    padding: 12px 20px;
     border-bottom: none;
   }
-  #event-detail-card .event-detail-item {
-    flex: 1 1 50%;
-    min-width: 180px;
-    padding: 0.25rem 0.5rem 0.25rem 0;
-  }
-  #event-detail-card .event-detail-label {
-    font-size: 0.8rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    color: #6c757d;
-    display: block;
-    margin-bottom: 0.15rem;
-  }
-  #event-detail-card .event-detail-value {
+  .ed-modal-header .modal-title {
     font-size: 1rem;
-    color: #212529;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
   }
-  #event-detail-card .attendance-reports {
-    margin-top: 1.25rem;
-    padding-top: 1.25rem;
-    border-top: 1px solid #e9ecef;
+  .ed-modal-header .close { color: #fff; opacity: 0.85; text-shadow: none; }
+  .ed-modal-header .close:hover { opacity: 1; }
+  .ed-modal-header-actions { display: flex; align-items: center; gap: 8px; }
+  .ed-modal-header-actions .btn-outline-secondary {
+    color: rgba(255,255,255,0.85);
+    border-color: rgba(255,255,255,0.4);
+    padding: 2px 8px;
+    font-size: 0.78rem;
   }
-  #event-detail-card .attendance-reports-title {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #495057;
-    margin-bottom: 0.75rem;
+  .ed-modal-header-actions .btn-outline-secondary:hover {
+    color: #fff;
+    border-color: #fff;
+    background: rgba(255,255,255,0.15);
   }
-  #event-detail-card .attendance-reports .btn {
-    border-radius: 8px;
-    font-weight: 500;
-    margin-right: 0.5rem;
-    margin-bottom: 0.5rem;
-    padding: 0.45rem 0.9rem;
+  .ed-modal-iframe {
+    width: 100%;
+    height: 75vh;
+    border: none;
+    display: block;
   }
-  #event-detail-card .event-description {
-    margin-top: 1.25rem;
-    padding: 1rem 1.25rem;
-    background: #f8f9fa;
-    border-radius: 10px;
-    border-left: 4px solid #28a745;
-    font-size: 0.95rem;
-    line-height: 1.6;
-    color: #374151;
-  }
-  #event-detail-card .event-detail-footer {
-    padding: 1.25rem 1.25rem 1.5rem;
-    text-align: center;
-    background: #f8f9fa;
-    border-top: 1px solid #e9ecef;
-  }
-  #event-detail-card .event-detail-footer .btn-success {
-    border-radius: 10px;
-    font-weight: 600;
-    padding: 0.6rem 1.5rem;
-    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.25);
+
+  @media (max-width: 768px) {
+    .ed-hero h1 { font-size: 1.35rem; }
+    .ed-grid { grid-template-columns: 1fr; }
+    .ed-stats { grid-template-columns: repeat(2, 1fr); }
+    .ed-modal .modal-dialog { max-width: 98vw; margin: 10px auto; }
+    .ed-modal-iframe { height: 70vh; }
   }
 </style>
 {% endblock extrahead %}
 
 {% block content %}
-<div class="row" id="event-detail-card">
-  <div class="col-md-12">
-    <div class="card">
-      <div class="card-header">
-        <div class="row align-items-center">
-          <div class="col">
-            <h5>Event Detail</h5>
-          </div>
-          <div class="col-auto">
-            <a class="btn btn-success" href="{% url 'event-list' %}"><i class="fas fa-list mr-1"></i> Event List</a>
-          </div>
+<div class="monitor-wrap event-detail-wrap">
+  <div class="ed-hero">
+    <span class="ed-hero-badge">{{ event.category.name }}</span>
+    <h1>{{ event.name }}</h1>
+    <p class="ed-hero-meta">{{ event.venue|default:"Campus" }} · {{ event.start_date|date:"M d, Y" }}{% if event.end_date != event.start_date %} – {{ event.end_date|date:"M d, Y" }}{% endif %}</p>
+    <div class="ed-hero-actions">
+      <a href="{% url 'event-list' %}" class="btn btn-light btn-sm"><i class="fas fa-list mr-1"></i> Event list</a>
+      {% if event.end_date >= today %}{% if user_role == 'admin' or user_role == 'staff' or user_role == 'faculty' %}
+      <a href="{% url 'event-edit' event.pk %}" class="btn btn-outline-light btn-sm"><i class="fas fa-edit mr-1"></i> Edit</a>
+      {% endif %}{% endif %}
+    </div>
+  </div>
+
+  {% if event.eventimage and event.eventimage.image %}
+  <div class="ed-card">
+    <div class="ed-card-body">
+      <div class="ed-poster">
+        <img src="{{ event.eventimage.image.url }}" alt="{{ event.name }}">
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="ed-card">
+    <div class="ed-card-head"><i class="fas fa-info-circle"></i> Event details</div>
+    <div class="ed-card-body">
+      {% if user_role == 'admin' or user_role == 'staff' or user_role == 'faculty' %}
+      <div class="ed-stats">
+        <div class="ed-stat">
+          <div class="num">{{ attendance_checked_in_count|default:0 }}</div>
+          <div class="lbl">Checked in</div>
+        </div>
+        <div class="ed-stat">
+          <div class="num">{{ attendance_currently_inside|default:0 }}</div>
+          <div class="lbl">Currently inside</div>
+        </div>
+        <div class="ed-stat">
+          <div class="num">{{ attendance_participated_count|default:0 }}</div>
+          <div class="lbl">Participated</div>
         </div>
       </div>
-      <div class="card-body p-0">
-        {% if event.eventimage and event.eventimage.image %}
-        <div class="event-poster-wrap">
-          <img src="{{ event.eventimage.image.url }}" alt="{{ event.name }}">
+      {% endif %}
+
+      <div class="ed-grid">
+        <div class="ed-field">
+          <span class="label">Event name</span>
+          <span class="value">{{ event.name }}</span>
+        </div>
+        <div class="ed-field">
+          <span class="label">Category</span>
+          <span class="value">{{ event.category.name }}</span>
+        </div>
+        <div class="ed-field">
+          <span class="label">Venue</span>
+          <span class="value">{{ event.venue|default:"—" }}</span>
+        </div>
+        <div class="ed-field">
+          <span class="label">Start date</span>
+          <span class="value">{{ event.start_date|date:"M. d, Y" }}</span>
+        </div>
+        <div class="ed-field">
+          <span class="label">End date</span>
+          <span class="value">{{ event.end_date|date:"M. d, Y" }}</span>
+        </div>
+        <div class="ed-field">
+          <span class="label">Status</span>
+          <span class="value">
+            {% if event.end_date < today %}
+              <span class="badge badge-secondary">Done</span>
+            {% else %}
+              <span class="badge badge-{% if event.status == 'active' %}success{% elif event.status == 'completed' %}secondary{% elif event.status == 'scheduled' %}info{% else %}light text-dark{% endif %}">{{ event.get_status_display }}</span>
+            {% endif %}
+          </span>
+        </div>
+        <div class="ed-field">
+          <span class="label">Points</span>
+          <span class="value">{{ event.points|default:"—" }}</span>
+        </div>
+        <div class="ed-field">
+          <span class="label">Maximum attendees</span>
+          <span class="value">{{ event.maximum_attende|default:"—" }}</span>
+        </div>
+        {% if event.attendance_mode %}
+        <div class="ed-field">
+          <span class="label">Attendance mode</span>
+          <span class="value">{{ event.get_attendance_mode_display }}</span>
         </div>
         {% endif %}
-        <div class="event-details">
-          <div class="event-detail-row">
-            <div class="event-detail-item">
-              <span class="event-detail-label">Event Name</span>
-              <span class="event-detail-value">{{ event.name }}</span>
-            </div>
-            <div class="event-detail-item">
-              <span class="event-detail-label">Event Category</span>
-              <span class="event-detail-value">{{ event.category }}</span>
-            </div>
-          </div>
-          <div class="event-detail-row">
-            <div class="event-detail-item">
-              <span class="event-detail-label">Venue</span>
-              <span class="event-detail-value">{{ event.venue }}</span>
-            </div>
-            <div class="event-detail-item">
-              <span class="event-detail-label">Start Date</span>
-              <span class="event-detail-value">{{ event.start_date|date:"M. d, Y" }}</span>
-            </div>
-            <div class="event-detail-item">
-              <span class="event-detail-label">End Date</span>
-              <span class="event-detail-value">{{ event.end_date|date:"M. d, Y" }}</span>
-            </div>
-          </div>
-          <div class="event-detail-row">
-            <div class="event-detail-item">
-              <span class="event-detail-label">Status</span>
-              <span class="event-detail-value">
-                {% if event.end_date < today %}
-                  <span class="badge badge-secondary" title="Event ended on {{ event.end_date }}">Done</span>
-                {% else %}
-                  <span class="badge badge-{% if event.status == 'active' %}success{% elif event.status == 'completed' %}secondary{% else %}info{% endif %}">{{ event.get_status_display }}</span>
-                {% endif %}
-              </span>
-            </div>
-            <div class="event-detail-item">
-              <span class="event-detail-label">Points</span>
-              <span class="event-detail-value">{{ event.points|default:"—" }}</span>
-            </div>
-            <div class="event-detail-item">
-              <span class="event-detail-label">Maximum Attendees</span>
-              <span class="event-detail-value">{{ event.maximum_attende|default:"—" }}</span>
-            </div>
-          </div>
-          {% if event.attendance_mode %}
-          <div class="event-detail-row">
-            <div class="event-detail-item">
-              <span class="event-detail-label">Attendance mode</span>
-              <span class="event-detail-value">{{ event.get_attendance_mode_display }}</span>
-            </div>
-          </div>
-          {% endif %}
-          <div class="event-detail-row">
-            <div class="event-detail-item">
-              <span class="event-detail-label">Location type</span>
-              <span class="event-detail-value">{{ event.get_event_location_display }}</span>
-            </div>
-            <div class="event-detail-item">
-              <span class="event-detail-label">Audience</span>
-              <span class="event-detail-value">{{ event.audience_summary }}</span>
-            </div>
-          </div>
-
-          {% if user_role == 'admin' or user_role == 'staff' or user_role == 'faculty' %}
-          <div class="attendance-reports">
-            <div class="attendance-reports-title"><i class="fas fa-chart-bar mr-1"></i> Attendance & reports</div>
-            <a href="{% url 'event-attendance-report' event.id %}" class="btn btn-sm btn-info">Report</a>
-            <a href="{% url 'event-live-dashboard' event.id %}" class="btn btn-sm btn-primary">Live dashboard</a>
-            <a href="{% url 'event-currently-inside' event.id %}" class="btn btn-sm btn-warning">Currently inside</a>
-            <a href="{% url 'event-manage-registrations' event.id %}" class="btn btn-sm btn-secondary">Registrations</a>
-            {% if event.event_location == 'field_trip' %}
-            <a href="{% url 'event-field-trip-scan' event.id %}" class="btn btn-sm btn-success"><i class="fas fa-clipboard-check mr-1"></i> Take attendance</a>
-            {% endif %}
-          </div>
-          {% endif %}
-
-          {% if event.description %}
-          <div class="event-description">
-            {{ event.description|safe }}
-          </div>
-          {% endif %}
+        <div class="ed-field">
+          <span class="label">Location</span>
+          <span class="value">{{ event.get_event_location_display }}</span>
         </div>
-        <div class="event-detail-footer">
-          <a href="{% url 'event-list' %}" class="btn btn-success"><i class="fas fa-arrow-left mr-1"></i> Back to Event List</a>
+        <div class="ed-field">
+          <span class="label">Audience</span>
+          <span class="value">{{ event.audience_summary }}</span>
         </div>
       </div>
     </div>
   </div>
+
+  {% if agenda_items %}
+  <div class="ed-card">
+    <div class="ed-card-head"><i class="fas fa-calendar-day"></i> Agenda</div>
+    <div class="ed-card-body p-0">
+      <ul class="ed-agenda-list">
+        {% for item in agenda_items %}
+        <li>
+          <span class="ed-agenda-time">
+            {% if item.start_time %}{{ item.start_time|time:"g:i A" }}{% if item.end_time %} – {{ item.end_time|time:"g:i A" }}{% endif %}{% else %}—{% endif %}
+          </span>
+          <div>
+            <div class="ed-agenda-title">{{ item.session_name|default:"Session" }}</div>
+            {% if item.speaker_name or item.venue_name %}
+            <div class="ed-agenda-meta">{% if item.speaker_name %}{{ item.speaker_name }}{% endif %}{% if item.venue_name %} · {{ item.venue_name }}{% endif %}</div>
+            {% endif %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if event.description %}
+  <div class="ed-card">
+    <div class="ed-card-head"><i class="fas fa-align-left"></i> Description</div>
+    <div class="ed-card-body">
+      <div class="ed-description">{{ event.description|safe }}</div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if user_role == 'admin' or user_role == 'staff' or user_role == 'faculty' %}
+  <div class="ed-card">
+    <div class="ed-card-head"><i class="fas fa-chart-bar"></i> Attendance & reports</div>
+    <div class="ed-card-body">
+      {% if event.end_date < today %}
+      <p class="text-muted small mb-2"><i class="fas fa-info-circle mr-1"></i> Event ended. Report and Registrations are available for records.</p>
+      {% endif %}
+      <div class="ed-actions">
+        <button type="button" class="btn btn-info btn-sm ed-modal-btn" data-target="#edReportModal" data-src="{% url 'event-attendance-report' event.id %}?embed=1"><i class="fas fa-file-alt mr-1"></i> Report</button>
+        {% if event.end_date < today %}
+        <button type="button" class="btn btn-primary btn-sm ed-modal-btn" data-target="#edSummaryModal" data-src="{% url 'event-live-dashboard' event.id %}?embed=1&refresh=0"><i class="fas fa-chart-line mr-1"></i> Event summary</button>
+        {% else %}
+        <button type="button" class="btn btn-primary btn-sm ed-modal-btn" data-target="#edSummaryModal" data-src="{% url 'event-live-dashboard' event.id %}?embed=1&refresh=0"><i class="fas fa-broadcast-tower mr-1"></i> Live dashboard</button>
+        <a href="{% url 'event-currently-inside' event.id %}" class="btn btn-warning btn-sm"><i class="fas fa-user-check mr-1"></i> Currently inside</a>
+        {% if event.event_location == 'field_trip' %}
+        <a href="{% url 'event-field-trip-scan' event.id %}" class="btn btn-success btn-sm"><i class="fas fa-clipboard-check mr-1"></i> Take attendance</a>
+        {% endif %}
+        {% endif %}
+        <button type="button" class="btn btn-secondary btn-sm ed-modal-btn" data-target="#edRegsModal" data-src="{% url 'event-manage-registrations' event.id %}?embed=1"><i class="fas fa-list-alt mr-1"></i> Registrations</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Report modal -->
+  <div class="modal fade ed-modal" id="edReportModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+      <div class="modal-content">
+        <div class="modal-header ed-modal-header">
+          <h5 class="modal-title"><i class="fas fa-file-alt mr-2"></i> Attendance Report</h5>
+          <div class="ed-modal-header-actions">
+            <a href="{% url 'event-attendance-report' event.id %}" class="btn btn-sm btn-outline-secondary" target="_blank" title="Open in new tab"><i class="fas fa-external-link-alt"></i></a>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          </div>
+        </div>
+        <div class="modal-body p-0">
+          <iframe class="ed-modal-iframe" src="" title="Attendance Report"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Event summary / Live dashboard modal -->
+  <div class="modal fade ed-modal" id="edSummaryModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+      <div class="modal-content">
+        <div class="modal-header ed-modal-header">
+          <h5 class="modal-title"><i class="fas fa-chart-line mr-2"></i> {% if event.end_date < today %}Event Summary{% else %}Live Dashboard{% endif %}</h5>
+          <div class="ed-modal-header-actions">
+            <a href="{% url 'event-live-dashboard' event.id %}" class="btn btn-sm btn-outline-secondary" target="_blank" title="Open in new tab"><i class="fas fa-external-link-alt"></i></a>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          </div>
+        </div>
+        <div class="modal-body p-0">
+          <iframe class="ed-modal-iframe" src="" title="Event Summary"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Registrations modal -->
+  <div class="modal fade ed-modal" id="edRegsModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+      <div class="modal-content">
+        <div class="modal-header ed-modal-header">
+          <h5 class="modal-title"><i class="fas fa-list-alt mr-2"></i> Registrations</h5>
+          <div class="ed-modal-header-actions">
+            <a href="{% url 'event-manage-registrations' event.id %}" class="btn btn-sm btn-outline-secondary" target="_blank" title="Open in new tab"><i class="fas fa-external-link-alt"></i></a>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          </div>
+        </div>
+        <div class="modal-body p-0">
+          <iframe class="ed-modal-iframe" src="" title="Registrations"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="ed-footer-actions">
+    <a href="{% url 'event-list' %}" class="btn btn-success"><i class="fas fa-arrow-left mr-1"></i> Back to event list</a>
+    {% if event.end_date >= today %}{% if user_role == 'admin' or user_role == 'staff' or user_role == 'faculty' %}
+    <a href="{% url 'event-edit' event.pk %}" class="btn btn-outline-success"><i class="fas fa-edit mr-1"></i> Edit event</a>
+    {% endif %}{% endif %}
+  </div>
 </div>
 {% endblock content %}
+
+{% block extrascript %}
+<script>
+(function(){
+  document.querySelectorAll('.ed-modal-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var targetSel = this.getAttribute('data-target');
+      var src = this.getAttribute('data-src');
+      var modal = document.querySelector(targetSel);
+      if(!modal) return;
+      var iframe = modal.querySelector('.ed-modal-iframe');
+      if(iframe && !iframe.getAttribute('src')){
+        iframe.setAttribute('src', src);
+      }
+      $(modal).modal('show');
+    });
+  });
+  $('.ed-modal').on('hidden.bs.modal', function(){
+    var iframe = this.querySelector('.ed-modal-iframe');
+    if(iframe) iframe.removeAttribute('src');
+  });
+})();
+</script>
+{% endblock extrascript %}

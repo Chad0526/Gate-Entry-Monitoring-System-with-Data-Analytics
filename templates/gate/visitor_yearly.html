@@ -1,20 +1,41 @@
 {% extends 'base/base.html' %}
 {% block title %}Visitors this year (summary) - {{ site_name }}{% endblock title %}
-{% block breadcrumb %}Visitors » Yearly summary{% endblock breadcrumb %}
+{% block breadcrumb %}Visitors >> Yearly summary{% endblock breadcrumb %}
+
+{% block extrahead %}
+<style>
+  {% if embed %}
+  .main-sidebar, .main-header, .content-header, .main-footer, .control-sidebar {
+    display: none !important;
+  }
+  .wrapper,
+  .content-wrapper {
+    margin: 0 !important;
+    min-height: auto !important;
+  }
+  .content-wrapper > .content {
+    padding: 8px 10px !important;
+  }
+  {% endif %}
+</style>
+{% endblock extrahead %}
 
 {% block content %}
+{% if not embed %}
 <div class="row mb-2">
   <div class="col-12">
     <a href="{% url 'gate-analytics' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left mr-1"></i> Back</a>
   </div>
 </div>
+{% endif %}
 <div class="row">
   <div class="col-12">
     <div class="card">
       <div class="card-header">
         <div class="d-flex flex-wrap align-items-center justify-content-between" style="gap:10px;">
-          <h5 class="m-0"><i class="fas fa-building mr-1"></i> Visitors this year — by month</h5>
+          <h5 class="m-0"><i class="fas fa-building mr-1"></i> Visitors this year - by month</h5>
           <form method="get" class="form-inline" style="gap:8px; display:flex; flex-wrap:wrap; align-items:center;">
+            {% if embed %}<input type="hidden" name="embed" value="1">{% endif %}
             <label class="mb-0 text-muted" for="yearSelect" style="font-weight:500;">Year</label>
             <select id="yearSelect" name="year" class="form-control form-control-sm" onchange="this.form.submit()" style="min-width:100px;">
               {% for y in available_years %}
@@ -40,9 +61,9 @@
                 <td class="text-right">{{ s.count }}</td>
                 <td>
                   {% if s.count > 0 %}
-                    <a href="{% url 'gate-visitor-list' %}?from_date={{ s.first_day_iso }}&to_date={{ s.last_day_iso }}" class="btn btn-sm btn-outline-primary">View log</a>
+                    <a href="{% url 'gate-visitor-list' %}?from_date={{ s.first_day_iso }}&to_date={{ s.last_day_iso }}{% if embed %}&embed=1{% endif %}" class="btn btn-sm btn-outline-primary">View log</a>
                   {% else %}
-                    <span class="text-muted">—</span>
+                    <span class="text-muted">-</span>
                   {% endif %}
                 </td>
               </tr>
@@ -58,7 +79,7 @@
         </table>
       </div>
       <div class="card-footer">
-        <a href="{% url 'gate-visitor-list' %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-list mr-1"></i> View daily visitor log</a>
+        <a href="{% url 'gate-visitor-list' %}{% if embed %}?embed=1{% endif %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-list mr-1"></i> View daily visitor log</a>
       </div>
     </div>
   </div>

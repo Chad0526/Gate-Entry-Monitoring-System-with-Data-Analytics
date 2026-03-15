@@ -129,10 +129,8 @@ class GatePolicyTests(TestCase):
             self.assertLessEqual(times[0], times[-1])
         # rows should contain at least one blank row and a visitor header row
         self.assertTrue(any(isinstance(r, list) and r and r[0] == 'Visitor Name' for r in rows))
-        # preview should also handle visitors without crashing and provide type column
+        # preview is student-only; it should include Course/Section and student rows
         preview = _reports_export_preview(today, day_start, day_end, 'daily_gate_visits', '', None)
-        self.assertTrue(any(r.get('Type') == 'Visitor' for r in preview))
-        # preview rows should include Course/Section key and our value
         self.assertTrue(any(r.get('Course/Section') == 'BST A' for r in preview))
         # preview name ordering
         self.assertTrue(any(r.get('Name','').startswith('Student,') for r in preview))
@@ -172,10 +170,10 @@ class GatePolicyTests(TestCase):
         # build_data without event_id returns both rows and includes event column
         headers, rows = _reports_export_build_data(today, day_start, day_end, 'event_attendance', '', None)
         self.assertIn('Event', headers)
-        self.assertIn('Course/Section', headers)
+        self.assertIn('Course/Section/Year', headers)
         self.assertTrue(any(r[0] == 'Test' for r in rows))
         self.assertTrue(any(r[0] == 'Other' for r in rows))
-        # first row should have course section value at index 3 (after event,id,name)
+        # build_data should also include course/section/year column at index 3 (after event,id,name)
         self.assertTrue(any(r[3] == 'BST A' for r in rows if len(r) > 3))
         # build_data should be in ascending time order as well
         times_build = [r[4] for r in rows if len(r) > 4 and r[4]]
@@ -225,7 +223,7 @@ class GatePolicyTests(TestCase):
         self.assertTrue(any(r.get('Course/Section') == 'BST A' for r in preview))
         # build_data should likewise include both rows with checkout strings
         headers, rows = _reports_export_build_data(filter_date, day_start, day_end, 'event_attendance', '', None)
-        self.assertIn('Course/Section', headers)
+        self.assertIn('Course/Section/Year', headers)
         self.assertGreaterEqual(len(rows), 2)
         self.assertTrue(any(row[4] != '' for row in rows))
 

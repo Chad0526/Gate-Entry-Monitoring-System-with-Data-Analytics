@@ -15,9 +15,10 @@ def _get_notification_keys(request):
     try:
         resolver_match = resolve(request.path_info)
     except Resolver404:
-        return []
-    name = resolver_match.url_name
-    kwargs = resolver_match.kwargs
+        resolver_match = None
+    name = resolver_match.url_name if resolver_match else None
+    kwargs = resolver_match.kwargs if resolver_match else {}
+    path = (request.path or '').rstrip('/')
 
     if name == "gate-student-list" and request.GET.get("pending") == "1":
         return ["notif_pending_students"]
@@ -33,6 +34,13 @@ def _get_notification_keys(request):
         return ["notif_incidents"]
     if name == "gate-analytics":
         return ["notif_analytics"]
+    # Staff/Faculty/Guard pending approval (in-app page, not Django admin)
+    if name == "pending-staff-guard-list":
+        keys = ["notif_pending_staff_guard"]
+        user_id = request.GET.get("user_id")
+        if user_id and user_id.isdigit():
+            keys.append(f"notif_staff_guard_{user_id}")
+        return keys
     return []
 
 

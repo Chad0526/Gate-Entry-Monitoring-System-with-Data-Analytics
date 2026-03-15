@@ -3,39 +3,217 @@
 {% block title %}Event Attendance Scanner - {{ site_name }}{% endblock title %}
 {% block breadcrumb %}Attendance Scanner{% endblock breadcrumb %}
 
+{% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
+<style>
+.eas-hero {
+  background-image: linear-gradient(135deg, rgba(22,163,74,0.82), rgba(21,128,61,0.75)), url('/media/event_image/background.jpg'), url('/media/background.jpg');
+  background-size: cover;
+  background-position: center;
+  border-radius: 16px;
+  padding: 2rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.eas-hero h2 {
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.25);
+  margin: 0 0 0.5rem 0;
+  font-weight: 700;
+}
+.eas-hero p {
+  color: #d1fae5;
+  font-weight: 600;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.3);
+  margin: 0 0 1rem 0;
+  font-size: 0.95rem;
+}
+.eas-hero-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.eas-btn-event-list {
+  background: #fff;
+  color: #16a34a;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+.eas-btn-event-list:hover {
+  color: #15803d;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  transform: translateY(-1px);
+}
+.eas-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.eas-card {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+.eas-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  transform: translateY(-2px);
+}
+.eas-card-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-width: 0;
+}
+.eas-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.eas-card-icon i {
+  font-size: 1.1rem;
+}
+.eas-card-info h3 {
+  color: #14532d;
+  font-weight: 700;
+  font-size: 1rem;
+  margin: 0 0 0.25rem 0;
+}
+.eas-card-meta {
+  color: #4d7c5e;
+  font-size: 0.8rem;
+}
+.eas-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+.eas-btn-scanner {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  color: #fff;
+  border: none;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+.eas-btn-scanner:hover {
+  color: #fff;
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+.eas-btn-report {
+  background: transparent;
+  color: #16a34a;
+  border: 1px solid #16a34a;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.eas-btn-report:hover {
+  background: rgba(22,163,74,0.08);
+  color: #15803d;
+}
+.eas-empty {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  color: #4d7c5e;
+}
+.eas-empty i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.6;
+}
+.eas-empty p {
+  margin: 0 0 1rem 0;
+  font-size: 0.95rem;
+}
+.eas-empty a {
+  color: #16a34a;
+  font-weight: 600;
+  text-decoration: none;
+}
+.eas-empty a:hover {
+  color: #15803d;
+  text-decoration: underline;
+}
+</style>
+{% endblock extrahead %}
+
 {% block content %}
-<div class="row">
-  <div class="col-12">
-    <div class="card">
-      <div class="card-header">
-        <h5 class="m-0"><i class="fas fa-qrcode"></i> Event Attendance Scanner</h5>
+<div class="monitor-wrap">
+  <div class="row">
+    <div class="col-12">
+      <div class="eas-hero">
+        <h2><i class="fas fa-qrcode mr-2"></i>Event Attendance Scanner</h2>
+        <p>Select an event to open the scanner. Students show their <strong>permanent eEID QR</strong>; you scan to record attendance. No separate event QR.</p>
+        <div class="eas-hero-actions">
+          <a href="{% url 'event-list' %}" class="eas-btn-event-list">
+            <i class="fas fa-list"></i> Event List
+          </a>
+        </div>
       </div>
-      <div class="card-body">
-        <p class="text-muted mb-3">Select an event to open the scanner. Students show their <strong>permanent eEID QR</strong>; you scan to record attendance. No separate event QR.</p>
-        {% if events %}
-        <div class="list-group">
-          {% for event in events %}
-          <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-            <div>
-              <strong>{{ event.name }}</strong>
-              <br>
-              <small class="text-muted">{{ event.start_date|date:"M d, Y" }}{% if event.end_date != event.start_date %} – {{ event.end_date|date:"M d, Y" }}{% endif %} | Audience: {{ event.audience_summary }}</small>
+
+      {% if events %}
+      <div class="eas-cards">
+        {% for event in events %}
+        <div class="eas-card">
+          <div class="eas-card-left">
+            <div class="eas-card-icon">
+              <i class="fas fa-calendar-alt"></i>
             </div>
-            <div>
-              <a href="{% url 'event-field-trip-scan' event.id %}" class="btn btn-primary btn-sm">
-                <i class="fas fa-camera"></i> Open scanner
-              </a>
-              <a href="{% url 'event-attendance-report' event.id %}" class="btn btn-outline-secondary btn-sm">Report</a>
+            <div class="eas-card-info">
+              <h3>{{ event.name }}</h3>
+              <div class="eas-card-meta">
+                {{ event.start_date|date:"M d, Y" }}{% if event.end_date != event.start_date %} – {{ event.end_date|date:"M d, Y" }}{% endif %} | Audience: {{ event.audience_summary }}
+              </div>
             </div>
           </div>
-          {% endfor %}
+          <div class="eas-card-actions">
+            <a href="{% url 'event-field-trip-scan' event.id %}" class="eas-btn-scanner">
+              <i class="fas fa-camera"></i> Open Scanner
+            </a>
+            <a href="{% url 'event-attendance-report' event.id %}" class="eas-btn-report">Report</a>
+          </div>
         </div>
-        {% else %}
-        <p class="text-muted mb-0">No events are scheduled for today. Create or schedule an event, or come back on an event day.</p>
-        {% endif %}
-        <hr class="my-3">
-        <a href="{% url 'event-list' %}" class="btn btn-outline-secondary">Event list</a>
+        {% endfor %}
       </div>
+      {% else %}
+      <div class="eas-empty">
+        <i class="fas fa-calendar-times"></i>
+        <p>No events are scheduled for today. Create or schedule an event, or come back on an event day.</p>
+        <a href="{% url 'event-list' %}"><i class="fas fa-list mr-1"></i>Go to Event List</a>
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>

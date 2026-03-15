@@ -1,9 +1,13 @@
-# Add out_reason_code to gate_gateentry if missing (fixes MySQL when 0036 was applied elsewhere)
+# Add out_reason_code to gate_gateentry if missing (fixes MySQL/SQLite when 0036 was applied elsewhere).
+# PostgreSQL: column is added by 0036 schema migration; this RunPython is a no-op.
 from django.db import migrations, connection
 
 
 def add_out_reason_code_if_missing(apps, schema_editor):
     with connection.cursor() as cursor:
+        # PostgreSQL: 0036 already added the column via AddField; nothing to do.
+        if connection.vendor == 'postgresql':
+            return
         table = connection.ops.quote_name('gate_gateentry')
         # Check if column exists
         if connection.vendor == 'mysql':

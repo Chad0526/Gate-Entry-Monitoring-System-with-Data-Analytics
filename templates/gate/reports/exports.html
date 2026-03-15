@@ -1,9 +1,14 @@
 {% extends 'base/base.html' %}
+{% load static %}
 {% block title %}Reports – Exports – {{ site_name }}{% endblock title %}
-{% block breadcrumb %}Reports / Exports{% endblock breadcrumb %}
+{% block breadcrumb %}Reports{% endblock breadcrumb %}
+{% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
+{% endblock extrahead %}
 
 {% block content %}
-<h5 class="mb-3">Reports – Exports</h5>
+<div class="monitor-wrap">
+{% include 'gate/reports/_reports_tabs.html' %}
 
 <p class="text-muted mb-2">1. Set filters (including <strong>Report type</strong>) and click <strong>Apply filters</strong> &nbsp;→&nbsp; 2. Preview updates below &nbsp;→&nbsp; 3. Download in CSV, Excel, or PDF.</p>
 
@@ -17,10 +22,64 @@
   <div class="card-body p-0">
     {% if template_type == 'export_all' %}
     <p class="text-muted p-3 mb-0">ZIP includes all report types. Use <strong>Download ZIP</strong> below.</p>
+    {% elif template_type == 'daily_gate_visits' %}
+      {% if preview_rows or visitor_preview_rows %}
+      <h6 class="px-3 pt-3 mb-2" style="font-weight:700;color:#14532d;"><i class="fas fa-user-graduate mr-1" style="color:#16a34a;"></i> Students</h6>
+      {% if preview_rows %}
+      <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0">
+          <thead>
+            <tr>
+              {% for key in preview_rows.0.keys %}
+              <th>{{ key }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in preview_rows %}
+            <tr>
+              {% for key, val in row.items %}
+              <td>{% if val != None and val != '' %}{{ val }}{% else %}—{% endif %}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted small px-3 mb-2">No student visits in the selected period.</p>
+      {% endif %}
+
+      <h6 class="px-3 pt-3 mb-2" style="font-weight:700;color:#14532d;border-top:2px solid #e2e8f0;padding-top:16px !important;"><i class="fas fa-id-badge mr-1" style="color:#0284c7;"></i> Visitors</h6>
+      {% if visitor_preview_rows %}
+      <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0">
+          <thead>
+            <tr>
+              {% for key in visitor_preview_rows.0.keys %}
+              <th>{{ key }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in visitor_preview_rows %}
+            <tr>
+              {% for key, val in row.items %}
+              <td>{% if val != None and val != '' %}{{ val }}{% else %}—{% endif %}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted small px-3 mb-3">No visitor entries in the selected period.</p>
+      {% endif %}
+      {% else %}
+      <p class="text-muted p-3 mb-0">No data for this filter.</p>
+      {% endif %}
     {% elif preview_rows %}
-      {% if template_type == 'daily_gate_visits' %}
-      <p class="text-muted p-3 mb-0">Preview shows student visits only; exported file will also include visitors in a separate section.</p>
-      {% elif template_type == 'event_attendance' %}
+      {% if template_type == 'event_attendance' %}
       <p class="text-muted p-3 mb-0">Preview shows up to 50 attendees and covers anyone whose check‑in, check‑out, or record creation occurred in the window; use export for full data.</p>
       {% endif %}
     <div class="table-responsive">
@@ -83,5 +142,6 @@
     </script>
     {% endif %}
   </div>
+</div>
 </div>
 {% endblock content %}

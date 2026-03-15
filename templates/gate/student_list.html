@@ -1,18 +1,75 @@
 {% extends 'base/base.html' %}
+{% load static %}
 {% block title %}Students - {{ site_name }}{% endblock title %}
 {% block breadcrumb %}Students{% endblock breadcrumb %}
 
 {% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
 <style>
-  #students-list-card .card-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+  {% if embed %}
+  .main-sidebar, .main-header, .content-header, .main-footer, .control-sidebar {
+    display: none !important;
+  }
+  .wrapper,
+  .content-wrapper {
+    margin: 0 !important;
+    min-height: auto !important;
+  }
+  .content-wrapper > .content {
+    padding: 8px 10px !important;
+  }
+  {% endif %}
+  .students-hero {
+    position: relative;
+    overflow: hidden;
+    background-image:
+      linear-gradient(135deg, rgba(22,163,74,0.82), rgba(21,128,61,0.75)),
+      url('/media/event_image/background.jpg'),
+      url('/media/background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: #fff;
+    border-radius: 16px;
+    padding: 28px 24px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-bottom: 16px;
+    box-shadow: 0 8px 24px rgba(22,163,74,0.18);
+  }
+  .students-hero h2 {
+    margin: 0;
+    font-size: 1.55rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.25);
+  }
+  .students-hero p {
+    margin: 4px 0 0;
+    font-size: 0.9rem;
+    color: #d1fae5; font-weight: 600; text-shadow: 0 1px 6px rgba(0,0,0,0.3);
+  }
+  #students-list-card {
+    border: 1px solid var(--monitor-border, #e2e8f0);
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+  #students-list-card .card-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;
+    background: #fff;
+    border-bottom: 1px solid var(--monitor-border, #e2e8f0);
+  }
   #students-list-card .card-header .card-tools { margin-left: auto; display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: flex-end; }
-  #students-list-card .filter-row { padding: 0.75rem 1.25rem; background: #f8f9fa; border-bottom: 1px solid #dee2e6; }
+  #students-list-card .filter-row { padding: 0.75rem 1.25rem; background: #f8f9fa; border-bottom: 1px solid var(--monitor-border); }
   #students-list-card .filter-row .form-group { margin-bottom: 0; margin-right: 1rem; }
   #students-list-card .filter-row label { margin-right: 0.35rem; font-weight: 500; color: #495057; }
   #students-list-card .search-row {
     padding: 0.65rem 1.25rem;
-    background: linear-gradient(to bottom, #fffde7 0%, #fff9c4 100%);
-    border-bottom: 1px solid #dee2e6;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--monitor-border, #e2e8f0);
     display: flex;
     align-items: center;
     flex-wrap: wrap;
@@ -78,23 +135,51 @@
     border-radius: 8px;
     font-weight: 500;
   }
+  #students-list-card .btn-sm {
+    border-radius: 8px;
+  }
+  #students-list-card table thead th {
+    color: #1f6a49;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.74rem;
+    border-top: 0;
+    background: #fff9c4;
+  }
+  #students-list-card table tbody td {
+    vertical-align: middle;
+  }
+  #students-list-card .table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(248, 250, 249, 0.8);
+  }
+  @media (max-width: 767px) {
+    .students-hero {
+      min-height: 108px;
+      padding: 16px 12px;
+    }
+    .students-hero h2 {
+      font-size: 1.3rem;
+    }
+  }
 </style>
 {% endblock extrahead %}
 
 {% block content %}
-<div class="row mb-2">
-  <div class="col-12">
-    <a href="{% url 'gate-analytics' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left mr-1"></i> Back</a>
-  </div>
+{% if not embed %}
+<div class="students-hero">
+  <h2>{% if show_pending %}Pending Student Approvals{% else %}Students Registry{% endif %}</h2>
+  <p>{% if show_pending %}Review and approve newly registered students.{% else %}Manage student records and generate e-IDs automatically.{% endif %}{% if not can_edit_students %} <span class="badge badge-light align-middle">View only</span>{% endif %}</p>
 </div>
+{% endif %}
 <div class="row">
   <div class="col-12">
     <div class="card" id="students-list-card">
       <div class="card-header">
         <h5 class="m-0">{% if show_pending %}Pending approvals{% else %}Registered students (QR generated automatically){% endif %}</h5>
+        {% if not embed %}
         <div class="card-tools">
           {% if show_pending %}
-          {% if pending_count > 0 %}
+          {% if pending_count > 0 and can_edit_students %}
           <form id="approve-all-pending-form" method="post" action="{% url 'gate-student-approve-all-pending' %}" class="d-inline mr-1">
             {% csrf_token %}
             <button type="submit" class="btn btn-sm btn-success"><i class="fas fa-check-double mr-1"></i> Approve all ({{ pending_count }})</button>
@@ -103,19 +188,25 @@
           <a href="{% url 'gate-student-list' %}" class="btn btn-sm btn-outline-secondary mr-1"><i class="fas fa-list mr-1"></i> Show all students</a>
           {% else %}
           <a href="{% url 'gate-student-list' %}?pending=1" class="btn btn-sm btn-outline-warning mr-1"><i class="fas fa-clock mr-1"></i> Pending approvals</a>
+          {% if can_edit_students %}
           <a href="{% url 'gate-student-import' %}" class="btn btn-sm btn-success mr-1"><i class="fas fa-file-csv mr-1"></i> Import students (CSV)</a>
           <a href="{% url 'gate-load-slip-upload' %}" class="btn btn-sm btn-success mr-1"><i class="fas fa-file-upload mr-1"></i> Import load slips (CSV/Excel)</a>
-          {% endif %}
           <a href="{% url 'gate-student-export-csv' %}" class="btn btn-sm btn-outline-primary mr-1" title="Download all student data (CSV)"><i class="fas fa-download mr-1"></i> Export all (CSV)</a>
           {% if students %}
           <a href="{% url 'gate-student-eid-print-all' %}{% if filter_course or filter_year_level or filter_section or filter_sex or search_q %}?{% if filter_course %}course={{ filter_course }}&{% endif %}{% if filter_year_level %}year_level={{ filter_year_level }}&{% endif %}{% if filter_section %}section={{ filter_section }}&{% endif %}{% if filter_sex %}sex={{ filter_sex }}&{% endif %}{% if search_q %}q={{ search_q|urlencode }}{% endif %}{% endif %}" target="_blank" class="btn btn-sm btn-outline-primary mr-1"><i class="fas fa-print mr-1"></i> Print all e-ID</a>
           <a href="{% url 'gate-student-eid-print-all' %}{% if filter_course or filter_year_level or filter_section or filter_sex or search_q %}?{% if filter_course %}course={{ filter_course }}&{% endif %}{% if filter_year_level %}year_level={{ filter_year_level }}&{% endif %}{% if filter_section %}section={{ filter_section }}&{% endif %}{% if filter_sex %}sex={{ filter_sex }}&{% endif %}{% if search_q %}q={{ search_q|urlencode }}&{% endif %}download=1{% else %}?download=1{% endif %}" target="_blank" class="btn btn-sm btn-outline-success mr-1"><i class="fas fa-download mr-1"></i> Download all e-ID</a>
           {% endif %}
+          {% endif %}
+          {% if can_edit_students %}
           <a href="{% url 'gate-student-create' %}" class="btn btn-sm btn-primary"><i class="fas fa-plus mr-1"></i> Add student</a>
+          {% endif %}
+          {% endif %}
         </div>
+        {% endif %}
       </div>
       <div class="filter-row d-flex flex-wrap align-items-center">
         <form method="get" action="{% url 'gate-student-list' %}" class="d-flex flex-wrap align-items-center">
+          {% if embed %}<input type="hidden" name="embed" value="1">{% endif %}
           {% if show_pending %}<input type="hidden" name="pending" value="1">{% endif %}
           <div class="form-group mb-0 mr-2">
             <label for="filter-course">Course</label>
@@ -156,11 +247,12 @@
           <button type="submit" class="btn btn-sm btn-outline-secondary mr-1"><i class="fas fa-filter mr-1"></i> Apply</button>
         </form>
         {% if filter_course or filter_year_level or filter_section or filter_sex %}
-        <a href="{% if show_pending %}{% url 'gate-student-list' %}?pending=1{% else %}{% url 'gate-student-list' %}{% endif %}" class="btn btn-sm btn-link text-muted">Clear filters</a>
+        <a href="{% if show_pending %}{% url 'gate-student-list' %}?pending=1{% if embed %}&embed=1{% endif %}{% else %}{% url 'gate-student-list' %}{% if embed %}?embed=1{% endif %}{% endif %}" class="btn btn-sm btn-link text-muted">Clear filters</a>
         {% endif %}
       </div>
       <div class="search-row">
         <form method="get" action="{% url 'gate-student-list' %}" class="d-flex align-items-center flex-wrap" style="gap: 0.5rem; width: 100%;">
+          {% if embed %}<input type="hidden" name="embed" value="1">{% endif %}
           {% if show_pending %}<input type="hidden" name="pending" value="1">{% endif %}
           {% if filter_course %}<input type="hidden" name="course" value="{{ filter_course }}">{% endif %}
           {% if filter_year_level %}<input type="hidden" name="year_level" value="{{ filter_year_level }}">{% endif %}
@@ -206,13 +298,15 @@
                 <td class="align-middle">{{ s.email|default:"—" }}</td>
                 <td class="align-middle">{% if s.account_status == 'APPROVED' %}<span class="badge badge-success">Approved</span>{% elif s.account_status == 'PENDING' %}<span class="badge badge-warning">Pending</span>{% elif s.account_status == 'REJECTED' %}<span class="badge badge-danger">Rejected</span>{% else %}<span class="badge badge-secondary">{{ s.get_account_status_display }}</span>{% endif %}</td>
                 <td class="align-middle">
+                  {% if can_edit_students %}
                   <a href="{% url 'gate-student-edit' s.pk %}{% if show_pending %}?from=pending{% endif %}" class="btn btn-sm btn-info" title="Edit"><i class="fas fa-edit"></i></a>
+                  {% endif %}
                   <a href="{% url 'gate-load-slip-list' s.pk %}" class="btn btn-sm btn-outline-info" title="Load slips (class schedule)"><i class="fas fa-calendar-alt"></i></a>
                   <button type="button" class="btn btn-sm btn-outline-primary student-eid-btn" title="View / print student e-ID card" data-card-url="{% url 'gate-student-eid' s.pk %}"><i class="fas fa-id-card mr-1"></i> e-ID</button>
                 </td>
               </tr>
             {% empty %}
-              <tr><td colspan="8" class="text-muted text-center">{% if show_pending %}No pending approvals. <a href="{% url 'gate-student-list' %}">Show all students</a>{% else %}No students. <a href="{% url 'gate-student-create' %}">Add one</a> or <a href="{% url 'gate-student-import' %}">Import CSV</a>{% endif %}.</td></tr>
+              <tr><td colspan="8" class="text-muted text-center">{% if show_pending %}No pending approvals. <a href="{% url 'gate-student-list' %}">Show all students</a>{% else %}No students.{% if can_edit_students %} <a href="{% url 'gate-student-create' %}">Add one</a> or <a href="{% url 'gate-student-import' %}">Import CSV</a>{% endif %}{% endif %}.</td></tr>
             {% endfor %}
           </tbody>
         </table>
