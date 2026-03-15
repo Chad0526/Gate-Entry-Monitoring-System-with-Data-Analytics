@@ -383,13 +383,14 @@ select.form-control-sm:focus,
   color: var(--ccb-primary-darker) !important;
 }
 
-/* ========== Footer ========== */
+/* ========== Footer (centered on all dashboards) ========== */
 .main-footer {
   background: #fff;
   border-top: 1px solid var(--ccb-border);
   color: var(--ccb-muted);
   font-size: 0.82rem;
   padding: 12px 16px;
+  text-align: center;
 }
 .main-footer a {
   color: var(--ccb-primary);

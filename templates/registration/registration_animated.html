@@ -383,6 +383,30 @@
     font-size: 0.8125rem;
     animation: slideInRight 0.4s ease-in-out;
   }
+
+  /* Mobile: footer takes no space and is hidden until user scrolls down */
+  @media (max-width: 991px) {
+    body:not(.auth-footer-visible) .main-footer {
+      display: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+      max-height: 0 !important;
+      overflow: hidden !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: none !important;
+      transition: opacity 0.35s ease, visibility 0.35s ease;
+    }
+    body.auth-footer-visible .main-footer {
+      display: block !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      pointer-events: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
+  }
 </style>
 
 <div class="container">
@@ -571,3 +595,27 @@
   });
 </script>
 {% endblock %}
+
+{% block extrascript %}
+<script>
+  (function() {
+    var mq = window.matchMedia('(max-width: 991px)');
+    var threshold = 120;
+    function update() {
+      if (!mq.matches) {
+        document.body.classList.remove('auth-footer-visible');
+        return;
+      }
+      if (window.scrollY > threshold) {
+        document.body.classList.add('auth-footer-visible');
+      } else {
+        document.body.classList.remove('auth-footer-visible');
+      }
+    }
+    if (mq.addEventListener) mq.addEventListener('change', update);
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('load', update);
+    update();
+  })();
+</script>
+{% endblock extrascript %}

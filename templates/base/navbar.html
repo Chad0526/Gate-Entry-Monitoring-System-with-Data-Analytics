@@ -1,213 +1,243 @@
 {% load static %}
 <style>
-  /* Notification panel: professional, educational-style */
+  /* Notifications dropdown – CCB dashboard style (sync with ccb-theme) */
   #notifications-dropdown {
-    width: 360px;
+    width: 380px;
     padding: 0;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    border: 1px solid var(--ccb-border, #e2e8f0);
+    border-radius: var(--ccb-radius, 12px);
+    box-shadow: var(--ccb-shadow-lg, 0 10px 25px rgba(0,0,0,0.08));
+    background: var(--ccb-card-bg, #fff);
+    font-family: inherit;
   }
   #notifications-dropdown .notif-header {
-    padding: 12px 16px;
-    font-weight: 600;
-    font-size: 1rem;
-    color: #2c3e50;
-    border-bottom: 1px solid #e9ecef;
-    background: #f8f9fa;
-    border-radius: 8px 8px 0 0;
+    padding: 14px 18px;
+    font-weight: 700;
+    font-size: 1.05rem;
+    letter-spacing: -0.02em;
+    color: var(--ccb-text, #14532d);
+    border-bottom: 1px solid var(--ccb-border, #e2e8f0);
+    background: linear-gradient(180deg, var(--ccb-primary-bg, #f0fdf4) 0%, #fff 100%);
+    border-radius: var(--ccb-radius, 12px) var(--ccb-radius, 12px) 0 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
   }
   #notifications-dropdown .notif-header .mark-all-read-btn {
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     font-weight: 600;
-    color: #28a745;
+    color: var(--ccb-primary, #16a34a);
     cursor: pointer;
     border: none;
     background: none;
-    padding: 2px 6px;
-    border-radius: 4px;
-    transition: background 0.15s, color 0.15s;
+    padding: 6px 10px;
+    border-radius: var(--ccb-radius-sm, 8px);
+    transition: background 0.2s ease, color 0.2s ease;
     white-space: nowrap;
   }
   #notifications-dropdown .notif-header .mark-all-read-btn:hover {
-    background: #e8f5e9;
-    color: #1b7a30;
+    background: rgba(22, 163, 74, 0.12);
+    color: var(--ccb-primary-dark, #15803d);
   }
   #notifications-dropdown .notif-header .mark-all-read-btn:disabled {
-    color: #adb5bd;
+    color: var(--ccb-border, #cbd5e1);
     cursor: default;
     background: none;
   }
   #notifications-dropdown .notif-body {
-    max-height: 320px;
+    max-height: 340px;
     overflow-y: auto;
     overflow-x: hidden;
+    scrollbar-width: thin;
   }
   #notifications-dropdown .notif-section-title {
-    padding: 8px 16px 4px;
+    padding: 12px 18px 6px;
     font-size: 0.7rem;
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: #6c757d;
+    letter-spacing: 0.06em;
+    color: var(--ccb-muted, #4d7c5e);
     background: #fff;
   }
   #notifications-dropdown .notif-item {
     display: block;
-    padding: 10px 16px;
-    color: #495057;
+    padding: 12px 18px;
+    color: var(--ccb-text, #14532d);
     text-decoration: none;
     border: none;
-    border-left: 3px solid transparent;
+    border-left: 4px solid transparent;
     background: #fff;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     font-size: 0.9rem;
+    line-height: 1.4;
+    position: relative;
   }
   #notifications-dropdown .notif-item:hover {
-    background: #f1f3f5;
-    color: #212529;
+    background: var(--ccb-primary-bg, #f0fdf4);
+    color: var(--ccb-primary-darker, #166534);
   }
+  /* Unread: clearly highlighted so you know it's new / not opened yet */
   #notifications-dropdown .notif-item.notification-unread {
-    border-left-color: #28a745;
-    background: #f8fff9;
-    font-weight: 500;
-    color: #212529;
+    border-left-color: var(--ccb-primary, #16a34a);
+    border-left-width: 5px;
+    background: linear-gradient(90deg, rgba(22, 163, 74, 0.14) 0%, rgba(22, 163, 74, 0.04) 30%, #fff 100%);
+    font-weight: 700;
+    color: var(--ccb-text, #14532d);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
   }
   #notifications-dropdown .notif-item.notification-unread:hover {
-    background: #e8f5e9;
+    background: linear-gradient(90deg, rgba(22, 163, 74, 0.18) 0%, rgba(22, 163, 74, 0.06) 30%, var(--ccb-primary-bg, #f0fdf4) 100%);
   }
+  /* Read (already opened): subdued so you can tell it's been seen */
   #notifications-dropdown .notif-item.notification-read {
-    color: #868e96;
-    font-weight: 400;
+    border-left-color: #e2e8f0;
+    border-left-width: 3px;
+    background: #f8fafc;
+    font-weight: 500;
+    color: #94a3b8;
+  }
+  #notifications-dropdown .notif-item.notification-read .notif-icon {
+    color: #cbd5e1;
   }
   #notifications-dropdown .notif-item.notification-read:hover {
-    color: #495057;
+    background: #f1f5f9;
+    color: #64748b;
+  }
+  #notifications-dropdown .notif-item.notification-read:hover .notif-icon {
+    color: #94a3b8;
   }
   #notifications-dropdown .notif-item .notif-icon {
-    width: 28px;
+    width: 32px;
     text-align: center;
-    margin-right: 10px;
-    color: #6c757d;
+    margin-right: 12px;
+    color: var(--ccb-muted, #64748b);
+    font-size: 1rem;
   }
-  #notifications-dropdown .notif-item.notification-unread .notif-icon { color: #28a745; }
+  #notifications-dropdown .notif-item.notification-unread .notif-icon {
+    color: var(--ccb-primary, #16a34a);
+  }
   #notifications-dropdown .notif-item .notif-label-right {
     float: right;
-    font-size: 0.8rem;
-    color: #868e96;
+    font-size: 0.8125rem;
+    color: var(--ccb-muted, #64748b);
+    font-weight: 500;
   }
-  /* Only the "Review" / action label is clickable; hover = green text only, no box */
   #notifications-dropdown .notif-item .notif-label-right-link {
     float: right;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #6c757d;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--ccb-primary, #16a34a);
     text-decoration: none;
-    padding: 0;
+    padding: 2px 0;
     border-radius: 0;
-    transition: color 0.15s ease, text-decoration 0.15s ease;
+    transition: color 0.2s ease, text-decoration 0.2s ease;
   }
   #notifications-dropdown .notif-item .notif-label-right-link:hover {
-    color: #28a745;
+    color: var(--ccb-primary-dark, #15803d);
     text-decoration: underline;
     background: transparent;
   }
   #notifications-dropdown .notif-item.notification-unread .notif-label-right-link {
-    color: #6c757d;
+    color: var(--ccb-primary, #16a34a);
   }
   #notifications-dropdown .notif-item.notification-unread .notif-label-right-link:hover {
-    color: #28a745;
+    color: var(--ccb-primary-darker, #166534);
     background: transparent;
   }
-  /* Pending summary row: whole row not clickable, default cursor */
   #notifications-dropdown .notif-item.notif-item-row-only {
     cursor: default;
     pointer-events: auto;
   }
   #notifications-dropdown .notif-item.notif-item-row-only:hover {
-    background: #f8fff9;
+    background: var(--ccb-primary-bg, #f0fdf4);
     color: inherit;
   }
+  #notifications-dropdown .notif-item.notif-item-row-only.notification-read {
+    background: #f8fafc;
+    border-left-color: #e2e8f0;
+    color: #94a3b8;
+  }
   #notifications-dropdown .notif-item.notif-item-row-only.notification-read:hover {
-    background: #fff;
+    background: #f1f5f9;
   }
   #notifications-dropdown .notif-empty {
-    padding: 24px 16px;
+    padding: 32px 20px;
     text-align: center;
-    color: #868e96;
+    color: var(--ccb-muted, #64748b);
     font-size: 0.9rem;
+    font-weight: 500;
   }
   #notifications-dropdown .notif-empty .fa-bell {
-    font-size: 1.5rem;
-    margin-bottom: 8px;
-    opacity: 0.5;
+    font-size: 2rem;
+    margin-bottom: 10px;
+    opacity: 0.4;
+    color: var(--ccb-primary, #16a34a);
   }
   #notifications-dropdown .notif-footer {
-    padding: 10px 16px;
-    border-top: 1px solid #e9ecef;
-    background: #f8f9fa;
-    border-radius: 0 0 8px 8px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--ccb-border, #e2e8f0);
+    background: var(--ccb-primary-bg, #f0fdf4);
+    border-radius: 0 0 var(--ccb-radius, 12px) var(--ccb-radius, 12px);
   }
   #notifications-dropdown #notifications-see-all {
     display: block;
     text-align: center;
-    padding: 8px 12px;
+    padding: 10px 14px;
     font-size: 0.9rem;
-    font-weight: 600;
-    background: #28a745;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    background: linear-gradient(135deg, var(--ccb-primary, #16a34a) 0%, var(--ccb-primary-dark, #15803d) 100%);
     color: #fff !important;
-    border-radius: 6px;
+    border-radius: var(--ccb-radius-sm, 8px);
     border: none;
     text-decoration: none;
-    transition: background 0.15s ease;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
   }
   #notifications-dropdown #notifications-see-all:hover {
-    background: #218838;
+    box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35);
     color: #fff !important;
   }
 
-  /* User dropdown – matches notifications panel and CCB theme */
+  /* User dropdown – matches notifications and CCB dashboard */
   #user-dropdown {
-    width: 240px;
+    width: 260px;
     padding: 0;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-    background: #fff;
+    border: 1px solid var(--ccb-border, #e2e8f0);
+    border-radius: var(--ccb-radius, 12px);
+    box-shadow: var(--ccb-shadow-lg, 0 10px 25px rgba(0,0,0,0.08));
+    background: var(--ccb-card-bg, #fff);
   }
   #user-dropdown .user-dropdown-item {
     display: flex;
     align-items: center;
-    padding: 12px 16px;
-    color: #212529;
+    padding: 12px 18px;
+    color: var(--ccb-text, #14532d);
     text-decoration: none;
     border: none;
-    border-left: 3px solid transparent;
+    border-left: 4px solid transparent;
     background: #fff;
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     font-size: 0.9rem;
-    font-weight: 500;
+    font-weight: 600;
   }
   #user-dropdown .user-dropdown-item:hover {
-    background: #f1f3f5;
-    color: #1e5631;
-    border-left-color: #28a745;
+    background: var(--ccb-primary-bg, #f0fdf4);
+    color: var(--ccb-primary-darker, #166534);
+    border-left-color: var(--ccb-primary, #16a34a);
   }
   #user-dropdown .user-dropdown-item .user-dropdown-icon {
-    width: 28px;
+    width: 32px;
     text-align: center;
     margin-right: 12px;
-    color: #6c757d;
+    color: var(--ccb-muted, #64748b);
     font-size: 1rem;
   }
   #user-dropdown .user-dropdown-item:hover .user-dropdown-icon {
-    color: #28a745;
+    color: var(--ccb-primary, #16a34a);
   }
   #user-dropdown .dropdown-divider {
     margin: 0;
-    border-top: 1px solid #e9ecef;
+    border-top: 1px solid var(--ccb-border, #e2e8f0);
   }
 </style>
 <nav class="main-header navbar navbar-expand navbar-primary navbar-light">

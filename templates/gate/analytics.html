@@ -290,7 +290,7 @@
         <div>
           <div class="metric-label">Entries Granted Today</div>
           <div class="metric-value">{{ granted_today|default:0 }}</div>
-          <div class="metric-link"><a href="#" class="open-overview-modal" data-overview-title="Gate entries" data-overview-url="{% url 'gate-entry-list' %}?embed=1&from_date={{ today_iso|default:'' }}">View entries <i class="fas fa-arrow-circle-right"></i></a></div>
+          <div class="metric-link"><a href="{% url 'gate-entry-list' %}?from_date={{ today_iso|default:'' }}" class="open-overview-modal" data-overview-title="Gate entries" data-overview-url="{% url 'gate-entry-list' %}?embed=1&from_date={{ today_iso|default:'' }}">View entries <i class="fas fa-arrow-circle-right"></i></a></div>
         </div>
       </div>
     </div>
@@ -300,7 +300,7 @@
         <div>
           <div class="metric-label">Currently Inside</div>
           <div class="metric-value">{{ inside_now|default:0 }}</div>
-          <div class="metric-link"><a href="#" class="open-overview-modal" data-overview-title="Students currently inside" data-overview-url="{% url 'gate-entry-list' %}?embed=1&from_date={{ today_iso|default:'' }}&filter=in">View entries <i class="fas fa-arrow-circle-right"></i></a></div>
+          <div class="metric-link"><a href="{% url 'gate-entry-list' %}?from_date={{ today_iso|default:'' }}&filter=in" class="open-overview-modal" data-overview-title="Students currently inside" data-overview-url="{% url 'gate-entry-list' %}?embed=1&from_date={{ today_iso|default:'' }}&filter=in">View entries <i class="fas fa-arrow-circle-right"></i></a></div>
         </div>
       </div>
     </div>
@@ -310,7 +310,7 @@
         <div>
           <div class="metric-label">Entries Denied Today</div>
           <div class="metric-value">{{ denied_today|default:0 }}</div>
-          <div class="metric-link"><a href="#" class="open-overview-modal" data-overview-title="Entries denied today" data-overview-url="{% url 'gate-incident-list' %}?embed=1&from_date={{ today_iso|default:'' }}">View incidents <i class="fas fa-arrow-circle-right"></i></a></div>
+          <div class="metric-link"><a href="{% url 'gate-incident-list' %}?from_date={{ today_iso|default:'' }}" class="open-overview-modal" data-overview-title="Entries denied today" data-overview-url="{% url 'gate-incident-list' %}?embed=1&from_date={{ today_iso|default:'' }}">View incidents <i class="fas fa-arrow-circle-right"></i></a></div>
         </div>
       </div>
     </div>
@@ -320,7 +320,7 @@
         <div>
           <div class="metric-label">Incidents Today</div>
           <div class="metric-value">{{ incidents_today|default:0 }}</div>
-          <div class="metric-link"><a href="#" class="open-overview-modal" data-overview-title="Incidents today" data-overview-url="{% url 'gate-incident-list' %}?embed=1&from_date={{ today_iso|default:'' }}">View incidents <i class="fas fa-arrow-circle-right"></i></a></div>
+          <div class="metric-link"><a href="{% url 'gate-incident-list' %}?from_date={{ today_iso|default:'' }}" class="open-overview-modal" data-overview-title="Incidents today" data-overview-url="{% url 'gate-incident-list' %}?embed=1&from_date={{ today_iso|default:'' }}">View incidents <i class="fas fa-arrow-circle-right"></i></a></div>
         </div>
       </div>
     </div>
@@ -330,7 +330,7 @@
         <div>
           <div class="metric-label">Registered Students</div>
           <div class="metric-value">{{ total_students|default:0 }}</div>
-          <div class="metric-link"><a href="#" class="open-overview-modal" data-overview-title="Registered students" data-overview-url="{% url 'gate-student-list' %}?embed=1">View students <i class="fas fa-arrow-circle-right"></i></a></div>
+          <div class="metric-link"><a href="{% url 'gate-student-list' %}" class="open-overview-modal" data-overview-title="Registered students" data-overview-url="{% url 'gate-student-list' %}?embed=1">View students <i class="fas fa-arrow-circle-right"></i></a></div>
         </div>
       </div>
     </div>
@@ -340,7 +340,7 @@
         <div>
           <div class="metric-label">Visitors This Month</div>
           <div class="metric-value">{{ visitors_this_month|default:0 }}</div>
-          <div class="metric-link"><a href="#" class="open-overview-modal" data-overview-title="Visitor log" data-overview-url="{% url 'gate-visitor-list' %}?embed=1">View visitor log <i class="fas fa-arrow-circle-right"></i></a></div>
+          <div class="metric-link"><a href="{% url 'gate-visitor-list' %}" class="open-overview-modal" data-overview-title="Visitor log" data-overview-url="{% url 'gate-visitor-list' %}?embed=1">View visitor log <i class="fas fa-arrow-circle-right"></i></a></div>
         </div>
       </div>
     </div>
@@ -350,7 +350,7 @@
         <div>
           <div class="metric-label">Visitors This Year</div>
           <div class="metric-value">{{ visitors_this_year|default:0 }}</div>
-          <div class="metric-link"><a href="#" class="open-overview-modal" data-overview-title="Visitor yearly summary" data-overview-url="{% url 'gate-visitor-yearly' %}?embed=1">View yearly summary <i class="fas fa-arrow-circle-right"></i></a></div>
+          <div class="metric-link"><a href="{% url 'gate-visitor-yearly' %}" class="open-overview-modal" data-overview-title="Visitor yearly summary" data-overview-url="{% url 'gate-visitor-yearly' %}?embed=1">View yearly summary <i class="fas fa-arrow-circle-right"></i></a></div>
         </div>
       </div>
     </div>

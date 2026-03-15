@@ -10,7 +10,9 @@
 {% endblock extrahead %}
 
 {% block content %}
-
+<script>
+  (function(){ try { document.body.classList.remove('auth-footer-visible'); } catch(e) {} })();
+</script>
 <style>
   * {
     margin: 0;
@@ -603,7 +605,7 @@
     width: 100%;
     max-width: 100%;
     padding: 14px 20px;
-    text-align: center;
+    text-align: center !important;
     font-size: 12px;
     color: #4d7c5e;
     background: transparent !important;
@@ -1271,12 +1273,42 @@
     }
     body .auth-page-wrap {
       padding: 8px 8px 0;
-      min-height: 0;
+      min-height: 100vh;
       max-width: 100%;
       flex: none;
       display: block;
     }
-    /* Footer only when user scrolls to bottom – in flow, never fixed */
+    body .auth-page-wrap + .mt-3,
+    body .main-footer {
+      margin-top: 0;
+    }
+    /* Footer and Terms: fully hidden and take NO space until user scrolls down */
+    body:not(.auth-footer-visible) .auth-page-wrap + p.mt-3.auth-footer-links,
+    body:not(.auth-footer-visible) .main-footer {
+      display: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+      max-height: 0 !important;
+      overflow: hidden !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: none !important;
+      line-height: 0 !important;
+      min-height: 0 !important;
+      transition: opacity 0.35s ease, visibility 0.35s ease;
+    }
+    body.auth-footer-visible .auth-page-wrap + p.mt-3.auth-footer-links,
+    body.auth-footer-visible .main-footer {
+      display: block !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      pointer-events: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+      line-height: inherit !important;
+      min-height: auto !important;
+    }
     body .main-footer {
       position: static !important;
       margin-top: 0;
@@ -1285,6 +1317,7 @@
       line-height: 1.4;
       color: #64748b;
       border-top: 1px solid rgba(22, 163, 74, 0.12);
+      text-align: center !important;
     }
     body .main-footer a {
       color: #16a34a;
@@ -2937,6 +2970,28 @@
         if (faceCaptureFlow) faceCaptureFlow.style.display = 'block';
       });
     })();
+  })();
+
+  // Mobile only: show footer and Terms ONLY after user scrolls down (keeps form focused, no footer blocking fields)
+  (function() {
+    var mq = window.matchMedia('(max-width: 991px)');
+    var threshold = 150;
+    function update() {
+      if (!mq.matches) {
+        document.body.classList.remove('auth-footer-visible');
+        return;
+      }
+      if (window.scrollY > threshold) {
+        document.body.classList.add('auth-footer-visible');
+      } else {
+        document.body.classList.remove('auth-footer-visible');
+      }
+    }
+    document.body.classList.remove('auth-footer-visible');
+    if (mq.addEventListener) mq.addEventListener('change', update);
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('load', function() { update(); });
+    update();
   })();
 </script>
 {% endblock extrascript %}
