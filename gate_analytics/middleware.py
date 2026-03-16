@@ -3,6 +3,7 @@ from django.conf import settings as django_settings
 from django.http import HttpResponseForbidden, HttpResponseRedirect
 from django.urls import reverse
 from django.utils.deprecation import MiddlewareMixin
+from django.utils.translation import LANGUAGE_SESSION_KEY, activate
 
 
 def _origin_from_request(request):
@@ -51,6 +52,30 @@ class StaffGuardCompleteProfileMiddleware(MiddlewareMixin):
             return HttpResponseRedirect(reverse('staff-guard-complete-profile'))
         except Exception:
             return None
+
+
+class LanguageFromProfileMiddleware(MiddlewareMixin):
+    """For staff/guard/faculty, set session language and activate language from StaffGuardProfile.preferred_language."""
+    def process_request(self, request):
+        if not getattr(request, 'user', None) or not request.user.is_authenticated:
+            return None
+        try:
+            from gate_analytics.roles import get_user_role
+            from gate.models import StaffGuardProfile
+            role = get_user_role(request.user)
+            if role not in ('staff', 'faculty', 'guard'):
+                return None
+            profile = StaffGuardProfile.objects.filter(user=request.user).first()
+            if not profile or not getattr(profile, 'preferred_language', None):
+                return None
+            lang = (profile.preferred_language or '').strip() or 'en'
+            if lang not in ('en', 'fil'):
+                lang = 'en'
+            request.session[LANGUAGE_SESSION_KEY] = lang
+            activate(lang)
+        except Exception:
+            pass
+        return None
 
 
 class SessionTimeoutMiddleware(MiddlewareMixin):

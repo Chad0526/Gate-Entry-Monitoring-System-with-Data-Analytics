@@ -1,4 +1,5 @@
 {% load static %}
+{% load i18n %}
 {# Gate roles: guard (scan, today entries, incidents, limited reports) | supervisor/staff (+ reports, export, audit, guard activity) | admin (full). #}
 <style>.main-sidebar a.user-panel:hover { background: rgba(255,255,255,0.08); }</style>
 <aside class="main-sidebar sidebar-dark-primary elevation-4">
@@ -28,42 +29,42 @@
           <li class="nav-item">
             <a href="{% url 'dashboard' %}" class="nav-link {% if current == 'dashboard' %}active{% endif %}">
               <i class="nav-icon fas fa-th"></i>
-              <p>Dashboard</p>
+              <p>{% trans "Dashboard" %}</p>
             </a>
           </li>
           {% endif %}
           {% if user_role == 'admin' or user_role == 'staff' or user_role == 'supervisor' or user_role == 'guard' %}
-          <li class="nav-header">GATE & ATTENDANCE</li>
+          <li class="nav-header">{% trans "GATE & ATTENDANCE" %}</li>
           {% if user_role == 'guard' %}
           <li class="nav-item">
             <a href="{% url 'guard-dashboard' %}" class="nav-link {% if current == 'guard-dashboard' %}active{% endif %}">
               <i class="nav-icon fas fa-home"></i>
-              <p>Dashboard</p>
+              <p>{% trans "Dashboard" %}</p>
             </a>
           </li>
           <li class="nav-item">
             <a href="{% url 'guard-entry-list' %}" class="nav-link {% if current == 'guard-entry-list' %}active{% endif %}">
               <i class="nav-icon fas fa-door-open"></i>
-              <p>Entry History</p>
+              <p>{% trans "Entry History" %}</p>
             </a>
           </li>
           <li class="nav-item">
             <a href="{% url 'gate-incident-list' %}" class="nav-link {% if current == 'gate-incident-list' or current == 'gate-incident-report-proxy' %}active{% endif %}">
               <i class="nav-icon fas fa-exclamation-triangle"></i>
-              <p>Incidents</p>
+              <p>{% trans "Incidents" %}</p>
             </a>
           </li>
-          <li class="nav-header">MY ACCOUNT</li>
+          <li class="nav-header">{% trans "MY ACCOUNT" %}</li>
           <li class="nav-item">
             <a href="{% url 'guard-performance' %}" class="nav-link {% if current == 'guard-performance' %}active{% endif %}">
               <i class="nav-icon fas fa-chart-line"></i>
-              <p>My Performance</p>
+              <p>{% trans "My Performance" %}</p>
             </a>
           </li>
           <li class="nav-item">
             <a href="{% url 'guard-activity-log' %}" class="nav-link {% if current == 'guard-activity-log' %}active{% endif %}">
               <i class="nav-icon fas fa-history"></i>
-              <p>My Activity Log</p>
+              <p>{% trans "My Activity Log" %}</p>
             </a>
           </li>
           {% endif %}
@@ -71,14 +72,14 @@
           <li class="nav-item">
             <a href="{% url 'gate-analytics' %}" class="nav-link {% if current == 'gate-analytics' %}active{% endif %}">
               <i class="nav-icon fas fa-chart-bar"></i>
-              <p>Campus analytics</p>
+              <p>{% trans "Campus analytics" %}</p>
             </a>
           </li>
           {% if user_role == 'admin' or user_role == 'staff' or user_role == 'faculty' %}
           <li class="nav-item">
             <a href="{% url 'gate-student-list' %}" class="nav-link {% if current == 'gate-student-list' or current == 'gate-student-edit' or current == 'gate-student-create' or current == 'gate-student-import' or current == 'gate-load-slip-list' or current == 'gate-load-slip-create' or current == 'gate-load-slip-edit' %}active{% endif %}">
               <i class="nav-icon fas fa-id-card"></i>
-              <p>Students</p>
+              <p>{% trans "Students" %}</p>
             </a>
           </li>
           {% endif %}
@@ -87,7 +88,7 @@
           <li class="nav-item">
             <a href="{% url 'gate-entry-list' %}" class="nav-link {% if current == 'gate-entry-list' or current == 'gate-visitor-list' %}active{% endif %}">
               <i class="nav-icon fas fa-door-open"></i>
-              <p>Gate entries</p>
+              <p>{% trans "Gate entries" %}</p>
             </a>
           </li>
           {% endif %}
@@ -95,7 +96,7 @@
           <li class="nav-item">
             <a href="{% url 'reports-overview' %}" class="nav-link {% if current == 'reports-overview' or current == 'reports-hub' or current == 'reports-daily-gate' or current == 'reports-event-attendance' or current == 'reports-incidents-overrides' or current == 'reports-exports' %}active{% endif %}">
               <i class="nav-icon fas fa-file-alt"></i>
-              <p>Reports</p>
+              <p>{% trans "Reports" %}</p>
             </a>
           </li>
           {% endif %}
@@ -103,7 +104,7 @@
           <li class="nav-item">
             <a href="{% url 'guard-activity' %}" class="nav-link {% if current == 'guard-activity' %}active{% endif %}">
               <i class="nav-icon fas fa-user-clock"></i>
-              <p>Guard activity</p>
+              <p>{% trans "Guard activity" %}</p>
             </a>
           </li>
           {% endif %}
@@ -111,57 +112,57 @@
           <li class="nav-item">
             <a href="{% url 'visitor-pass-create' %}" class="nav-link {% if current == 'visitor-pass-create' %}active{% endif %}">
               <i class="nav-icon fas fa-qrcode"></i>
-              <p>Visitor QR codes</p>
+              <p>{% trans "Visitor QR codes" %}</p>
             </a>
           </li>
           {% endif %}
           {% endif %}
           {% if user_role == 'student' %}
-          <li class="nav-header">My Portal</li>
+          <li class="nav-header">{% trans "My Portal" %}</li>
           <li class="nav-item">
             <a href="{% url 'student-portal' %}" class="nav-link {% if current == 'student-portal' %}active{% endif %}">
               <i class="nav-icon fas fa-user-graduate"></i>
-              <p>My attendance & points</p>
+              <p>{% trans "My attendance & points" %}</p>
             </a>
           </li>
           {% endif %}
           {% if user_role == 'admin' %}
-          <li class="nav-header">Administration</li>
+          <li class="nav-header">{% trans "Administration" %}</li>
           <li class="nav-item">
             <a href="{% url 'pending-staff-guard-list' %}" class="nav-link {% if current == 'pending-staff-guard-list' %}active{% endif %}">
               <i class="nav-icon fas fa-users"></i>
-              <p>Users</p>
+              <p>{% trans "Users" %}</p>
             </a>
           </li>
           <li class="nav-item">
             <a href="{% url 'audit-log-viewer' %}" class="nav-link {% if current == 'audit-log-viewer' %}active{% endif %}">
               <i class="nav-icon fas fa-clipboard-list"></i>
-              <p>View logs</p>
+              <p>{% trans "View logs" %}</p>
             </a>
           </li>
           {% endif %}
           {% if user_role == 'admin' or user_role == 'faculty' or user_role == 'staff' %}
-          <li class="nav-header">Events</li>
+          <li class="nav-header">{% trans "Events" %}</li>
           <li class="nav-item">
             <a href="{% url 'event-attendance-scanner' %}" class="nav-link {% if current == 'event-attendance-scanner' or current == 'event-field-trip-scan' %}active{% endif %}">
               <i class="nav-icon fas fa-qrcode"></i>
-              <p>Attendance Scanner</p>
+              <p>{% trans "Attendance Scanner" %}</p>
             </a>
           </li>
           <li class="nav-item has-treeview {% if current == 'event-list' or current == 'event-create' or current == 'event-category-list' or current == 'event-edit' or current == 'event-detail' or current == 'event-delete' %}menu-open{% endif %}">
             <a href="#" class="nav-link">
               <i class="nav-icon fas fa-calendar-alt"></i>
-              <p>Event schedule <i class="right fas fa-angle-left"></i></p>
+              <p>{% trans "Event schedule" %} <i class="right fas fa-angle-left"></i></p>
             </a>
             <ul class="nav nav-treeview">
               <li class="nav-item">
-                <a href="{% url 'event-list' %}" class="nav-link {% if current == 'event-list' or current == 'event-detail' or current == 'event-edit' or current == 'event-delete' %}active{% endif %}"><i class="far fa-list nav-icon"></i><p>Event list</p></a>
+                <a href="{% url 'event-list' %}" class="nav-link {% if current == 'event-list' or current == 'event-detail' or current == 'event-edit' or current == 'event-delete' %}active{% endif %}"><i class="far fa-list nav-icon"></i><p>{% trans "Event list" %}</p></a>
               </li>
               <li class="nav-item">
-                <a href="{% url 'event-create' %}" class="nav-link {% if current == 'event-create' %}active{% endif %}"><i class="far fa-edit nav-icon"></i><p>Create event</p></a>
+                <a href="{% url 'event-create' %}" class="nav-link {% if current == 'event-create' %}active{% endif %}"><i class="far fa-edit nav-icon"></i><p>{% trans "Create event" %}</p></a>
               </li>
               <li class="nav-item">
-                <a href="{% url 'event-category-list' %}" class="nav-link {% if current == 'event-category-list' %}active{% endif %}"><i class="far fa-folder nav-icon"></i><p>Categories</p></a>
+                <a href="{% url 'event-category-list' %}" class="nav-link {% if current == 'event-category-list' %}active{% endif %}"><i class="far fa-folder nav-icon"></i><p>{% trans "Categories" %}</p></a>
               </li>
             </ul>
           </li>

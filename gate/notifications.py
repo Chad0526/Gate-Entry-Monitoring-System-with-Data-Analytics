@@ -1,11 +1,63 @@
-"""Email and in-app notifications: denied entry, capacity alert, daily digest."""
+"""Email and in-app notifications: denied entry, capacity alert, daily digest, announcements to staff/guard/faculty."""
 import datetime
 import logging
 from django.conf import settings
-from django.core.mail import send_mail, EmailMessage
+from django.core.mail import send_mail, send_mass_mail, EmailMessage
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
+
+
+def send_announcement_emails(users, title, message, subject_prefix=None):
+    """
+    Send announcement/event emails only to staff, faculty, and guards who have
+    email_notifications_announcements=True and a non-empty email.
+    Students are never included; they have their own separate email flow
+    (e.g. approval/rejection by admin).
+    users: iterable of User objects (e.g. queryset or list).
+    title: email subject line (or use subject_prefix + title).
+    message: plain text body.
+    subject_prefix: optional prefix like "[CCB] " for subject; uses SITE_NAME if not set.
+    """
+    try:
+        from django.contrib.auth import get_user_model
+        from django.db.models import Q
+        from gate.models import StaffGuardProfile
+
+        User = get_user_model()
+        site_name = getattr(settings, 'SITE_NAME', 'City College of Bayawan')
+        prefix = subject_prefix if subject_prefix is not None else f"[{site_name}] "
+        subject = f"{prefix}{title}" if title else f"{prefix}Announcement"
+
+        # Only staff, faculty, and guards — exclude students (they have separate approval/rejection emails)
+        user_ids = [u.pk for u in users if getattr(u, 'pk', None)]
+        if not user_ids:
+            return
+        non_student_ids = list(
+            User.objects.filter(pk__in=user_ids)
+            .exclude(groups__name__iexact='student')
+            .distinct()
+            .values_list('pk', flat=True)
+        )
+        if not non_student_ids:
+            return
+        profiles = StaffGuardProfile.objects.filter(
+            user_id__in=non_student_ids,
+            email_notifications_announcements=True,
+            user__is_active=True,
+        ).select_related('user')
+        recipient_emails = []
+        for p in profiles:
+            if p.user and getattr(p.user, 'email', None) and str(p.user.email).strip():
+                recipient_emails.append(str(p.user.email).strip())
+        if not recipient_emails:
+            return
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None)
+        body = message or "(No message body)"
+        messages = [(subject, body, from_email, [email]) for email in recipient_emails]
+        send_mass_mail(messages, fail_silently=True)
+    except Exception as e:
+        logger.warning('send_announcement_emails failed: %s', e)
 
 
 def _get_admin_emails():

@@ -1,7 +1,8 @@
 {% extends 'base/base.html' %}
 {% load static %}
-{% block title %}Edit profile – {{ site_name }}{% endblock title %}
-{% block breadcrumb %}My profile{% endblock breadcrumb %}
+{% load i18n %}
+{% block title %}{% trans "Edit profile" %} – {{ site_name }}{% endblock title %}
+{% block breadcrumb %}{% trans "My profile" %}{% endblock breadcrumb %}
 
 {% block extrahead %}
 <style>

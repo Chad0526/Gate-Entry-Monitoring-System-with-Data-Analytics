@@ -140,6 +140,108 @@
     background: linear-gradient(135deg, #218838 0%, #1b5e20 100%);
     color: #fff;
   }
+  /* Account status Rejected/Inactive warning – yellow to soft orange */
+  .account-status-warn-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 1061;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+  }
+  .account-status-warn-backdrop.show {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+  .account-status-warn-dialog {
+    width: 100%;
+    max-width: 440px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e8b84c;
+    overflow: hidden;
+    transform: scale(0.95);
+    transition: transform 0.2s ease;
+  }
+  .account-status-warn-backdrop.show .account-status-warn-dialog {
+    transform: scale(1);
+  }
+  .account-status-warn-header {
+    background: linear-gradient(135deg, #fef5e7 0%, #fdebd0 50%, #f5d78e 100%);
+    color: #7d5a28;
+    padding: 1rem 1.25rem;
+    font-weight: 700;
+    font-size: 1rem;
+    border-bottom: 1px solid #e8b84c;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .account-status-warn-header i {
+    font-size: 1.25rem;
+  }
+  .account-status-warn-body {
+    padding: 1.25rem 1.25rem 0.75rem;
+    color: #2c3e50;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+  .account-status-warn-body p {
+    margin: 0 0 0.75rem 0;
+  }
+  .account-status-warn-body p:last-child {
+    margin-bottom: 0;
+  }
+  .account-status-warn-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem 1.25rem;
+    border-top: 1px solid #fdebd0;
+    background: #fefcf6;
+  }
+  .account-status-warn-btn {
+    font-weight: 600;
+    font-size: 0.9375rem;
+    padding: 0.5rem 1.25rem;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  }
+  .account-status-warn-btn:active {
+    transform: scale(0.98);
+  }
+  .account-status-warn-cancel {
+    background: #fff;
+    color: #495057;
+    border: 2px solid #dee2e6;
+  }
+  .account-status-warn-cancel:hover {
+    background: #f8f9fa;
+    border-color: #adb5bd;
+    color: #212529;
+  }
+  .account-status-warn-confirm {
+    background: linear-gradient(135deg, #e8b84c 0%, #d4a02a 100%);
+    color: #fff;
+  }
+  .account-status-warn-confirm:hover {
+    background: linear-gradient(135deg, #d4a02a 0%, #b8860b 100%);
+    color: #fff;
+  }
 </style>
 <div class="row">
   <div class="col-md-8">
@@ -310,7 +412,7 @@
           <p class="small text-muted">Student ID is encoded in the QR inside the e-ID card. Once saved, the e-ID and QR are generated automatically.</p>
         </div>
         <div class="card-footer">
-          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="submit" class="btn btn-primary" id="studentFormSubmitBtn">Save</button>
           {% if student %}<a href="{% url 'gate-load-slip-list' student.pk %}" class="btn btn-outline-info"><i class="fas fa-calendar-alt mr-1"></i> Load slips</a>{% endif %}
         </div>
       </form>
@@ -356,6 +458,24 @@
   </div>
 </div>
 {% endif %}
+<!-- Account status Rejected/Inactive warning modal -->
+<div id="accountStatusWarnBackdrop" class="account-status-warn-backdrop" aria-hidden="true">
+  <div class="account-status-warn-dialog" role="dialog" aria-modal="true" aria-labelledby="accountStatusWarnTitle">
+    <div class="account-status-warn-header" id="accountStatusWarnTitle">
+      <i class="fas fa-exclamation-triangle"></i>
+      <span>Confirm account status change</span>
+    </div>
+    <div class="account-status-warn-body">
+      <p><strong>You are about to set this student's account status to <span id="accountStatusWarnValue"></span>.</strong></p>
+      <p>The student may lose access to the gate and attendance system. Are you sure you want to save these changes?</p>
+      <p>Click <strong>Save changes</strong> to confirm, or <strong>Cancel</strong> to go back and edit.</p>
+    </div>
+    <div class="account-status-warn-footer">
+      <button type="button" class="account-status-warn-btn account-status-warn-cancel" id="accountStatusWarnCancel">Cancel</button>
+      <button type="button" class="account-status-warn-btn account-status-warn-confirm" id="accountStatusWarnConfirm">Save changes</button>
+    </div>
+  </div>
+</div>
 <!-- Delete photo confirmation modal (matches theme confirm / logout dialog design) -->
 <div id="deletePhotoConfirmBackdrop" class="delete-photo-confirm-backdrop" aria-hidden="true">
   <div class="delete-photo-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deletePhotoConfirmMessage">
@@ -372,6 +492,48 @@
 </div>
 <script>
   (function() {
+    // Account status Rejected/Inactive: show warning before save (cannot save directly)
+    var form = document.querySelector('form[method="post"]');
+    var accountStatusSelect = form ? form.querySelector('select[name="account_status"]') : null;
+    var accountStatusWarnBackdrop = document.getElementById('accountStatusWarnBackdrop');
+    var accountStatusWarnValue = document.getElementById('accountStatusWarnValue');
+    var accountStatusWarnCancel = document.getElementById('accountStatusWarnCancel');
+    var accountStatusWarnConfirm = document.getElementById('accountStatusWarnConfirm');
+    if (form && accountStatusSelect && accountStatusWarnBackdrop) {
+      form.addEventListener('submit', function(e) {
+        var val = (accountStatusSelect.value || '').toUpperCase();
+        if (val === 'REJECTED' || val === 'INACTIVE') {
+          e.preventDefault();
+          if (accountStatusWarnValue) {
+            accountStatusWarnValue.textContent = val === 'REJECTED' ? 'Rejected' : 'Inactive';
+          }
+          accountStatusWarnBackdrop.classList.add('show');
+        }
+      });
+      function hideAccountStatusWarn() {
+        accountStatusWarnBackdrop.classList.remove('show');
+      }
+      if (accountStatusWarnConfirm) {
+        accountStatusWarnConfirm.addEventListener('click', function() {
+          hideAccountStatusWarn();
+          form.submit();
+        });
+      }
+      if (accountStatusWarnCancel) {
+        accountStatusWarnCancel.addEventListener('click', hideAccountStatusWarn);
+      }
+      if (accountStatusWarnBackdrop) {
+        accountStatusWarnBackdrop.addEventListener('click', function(e) {
+          if (e.target === accountStatusWarnBackdrop) hideAccountStatusWarn();
+        });
+      }
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && accountStatusWarnBackdrop.classList.contains('show')) {
+          hideAccountStatusWarn();
+        }
+      });
+    }
+
     var btn = document.getElementById('delete-current-photo');
     if (btn) {
       btn.addEventListener('click', function() {

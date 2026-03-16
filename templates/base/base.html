@@ -45,6 +45,7 @@
     <!-- Main content -->
     <section class="content">
       <div class="container-fluid">
+        {% block messages_area %}
         {% if messages %}
         {# Success/error messages: professional card style, fade after 5s. Override block message_redirect_url for redirect. #}
         <div class="row" id="django-messages-wrap" data-auto-redirect-after="5" data-redirect-url="{% block message_redirect_url %}{% endblock %}">
@@ -59,6 +60,7 @@
           </div>
         </div>
         {% endif %}
+        {% endblock messages_area %}
         {% block content %}
 
         {% endblock content %}

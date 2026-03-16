@@ -1,16 +1,18 @@
 """
 Admin Notification Service
-Handles creation and management of admin/staff notifications.
+Handles creation and management of admin/staff/guard/faculty notifications.
+In-app notifications + email to staff/guard/faculty who opted in (email_notifications_announcements).
 """
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.db.models import Q
-from .models import AdminNotification
+from .models import AdminNotification, GuardNotification
 
 
 class AdminNotificationService:
     """
     Service for creating and managing admin notifications.
+    Broadcast includes staff, faculty, and guards (in-app + email when opted in).
     """
     
     @staticmethod
@@ -18,6 +20,9 @@ class AdminNotificationService:
                           target_user=None, broadcast=False, **kwargs):
         """
         Create a new admin notification.
+        When broadcast=True: notifies admin, staff, supervisor, faculty (AdminNotification),
+        and guards (GuardNotification), then sends email to all who have
+        email_notifications_announcements=True and an email address.
         
         Args:
             notification_type: Type of notification (student_registration, incident, etc.)
@@ -25,41 +30,67 @@ class AdminNotificationService:
             message: Notification message
             priority: Priority level (low, normal, high, urgent)
             target_user: Specific user to notify (None if broadcast)
-            broadcast: Send to all admins/staff
+            broadcast: Send to all admins/staff/faculty/guards
             **kwargs: Additional fields (related_student, related_incident, etc.)
         
         Returns:
             AdminNotification object or list of objects if broadcast
         """
         if broadcast:
-            # Send to all admins and staff (case-insensitive group names)
-            from django.db.models import Q
-            admin_staff_users = User.objects.filter(
+            # Include admin, staff, supervisor, faculty, and guard so everyone gets in-app + optional email
+            broadcast_users = User.objects.filter(
                 Q(groups__name__iexact='admin') |
                 Q(groups__name__iexact='staff') |
-                Q(groups__name__iexact='supervisor')
+                Q(groups__name__iexact='supervisor') |
+                Q(groups__name__iexact='faculty') |
+                Q(groups__name__iexact='guard')
             ).distinct()
             
             notifications = []
-            for user in admin_staff_users:
-                notif = AdminNotification.objects.create(
-                    notification_type=notification_type,
-                    priority=priority,
-                    title=title,
-                    message=message,
-                    target_user=user,
-                    broadcast=True,
-                    related_student=kwargs.get('related_student'),
-                    related_incident=kwargs.get('related_incident'),
-                    related_event=kwargs.get('related_event'),
-                    related_entry=kwargs.get('related_entry'),
-                    expires_at=kwargs.get('expires_at'),
-                )
+            guard_priority = 'urgent' if priority == 'urgent' else 'high' if priority == 'high' else 'medium' if priority == 'normal' else 'low'
+            guard_type_choices = dict(GuardNotification.NOTIFICATION_TYPE_CHOICES)
+            guard_notification_type = notification_type if notification_type in guard_type_choices else 'system'
+            for user in broadcast_users:
+                if user.groups.filter(name__iexact='guard').exists():
+                    # Guards see GuardNotification in their navbar
+                    notif = GuardNotification.objects.create(
+                        notification_type=guard_notification_type,
+                        priority=guard_priority,
+                        title=title,
+                        message=message,
+                        target_guard=user,
+                        broadcast=True,
+                        related_incident=kwargs.get('related_incident'),
+                        related_event=kwargs.get('related_event'),
+                        related_entry=kwargs.get('related_entry'),
+                        expires_at=kwargs.get('expires_at'),
+                    )
+                else:
+                    notif = AdminNotification.objects.create(
+                        notification_type=notification_type,
+                        priority=priority,
+                        title=title,
+                        message=message,
+                        target_user=user,
+                        broadcast=True,
+                        related_student=kwargs.get('related_student'),
+                        related_incident=kwargs.get('related_incident'),
+                        related_event=kwargs.get('related_event'),
+                        related_entry=kwargs.get('related_entry'),
+                        expires_at=kwargs.get('expires_at'),
+                    )
                 notifications.append(notif)
+
+            # Email announcement to all broadcast recipients who opted in (staff/guard/faculty)
+            try:
+                from .notifications import send_announcement_emails
+                send_announcement_emails(broadcast_users, title, message)
+            except Exception:
+                pass
             return notifications
         else:
             # Send to specific user
-            return AdminNotification.objects.create(
+            notif = AdminNotification.objects.create(
                 notification_type=notification_type,
                 priority=priority,
                 title=title,
@@ -72,6 +103,14 @@ class AdminNotificationService:
                 related_entry=kwargs.get('related_entry'),
                 expires_at=kwargs.get('expires_at'),
             )
+            # Optional: send email to this single user if they opted in
+            if target_user:
+                try:
+                    from .notifications import send_announcement_emails
+                    send_announcement_emails([target_user], title, message)
+                except Exception:
+                    pass
+            return notif
     
     @staticmethod
     def notify_student_registration(student):

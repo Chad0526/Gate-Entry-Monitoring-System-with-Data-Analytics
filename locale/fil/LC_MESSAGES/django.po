@@ -1,0 +1,560 @@
+# Django Filipino (Tagalog) translations - CCB Gate Entry
+# Copyright (C) 2026 City College of Bayawan
+# This file is distributed under the same license as the project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-16 12:00+0800\n"
+"PO-Revision-Date: 2026-03-16 12:00+0800\n"
+"Last-Translator: \n"
+"Language: fil\n"
+"Language-Team: Filipino\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+# Preferences & Account
+msgid "Preferences"
+msgstr "Mga Kagustuhan"
+
+msgid "Pref language"
+msgstr "Wika"
+
+msgid "Email notifications for announcements"
+msgstr "Mga abiso sa email para sa mga anunsyo"
+
+msgid "Save preferences"
+msgstr "I-save ang mga kagustuhan"
+
+msgid "Preferences saved."
+msgstr "Nai-save ang mga kagustuhan."
+
+msgid "Account"
+msgstr "Account"
+
+msgid "Account details"
+msgstr "Mga detalye ng account"
+
+msgid "Username"
+msgstr "Username"
+
+msgid "Email address"
+msgstr "Email"
+
+msgid "Save account"
+msgstr "I-save ang account"
+
+msgid "Change password"
+msgstr "Palitan ang password"
+
+msgid "Keep your account secure with a strong password."
+msgstr "Panatilihing secure ang iyong account gamit ang malakas na password."
+
+msgid "Use at least 8 characters, mix upper and lower case letters, numbers, and symbols."
+msgstr "Gumamit ng hindi bababa sa 8 character, halo ng malaki at maliit na titik, numero, at simbolo."
+
+msgid "Tips"
+msgstr "Mga tip"
+
+msgid "Do not reuse old passwords."
+msgstr "Huwag gamitin muli ang mga lumang password."
+
+msgid "Avoid names or birthdays."
+msgstr "Iwasan ang mga pangalan o kaarawan."
+
+msgid "Old password"
+msgstr "Lumang password"
+
+msgid "New password"
+msgstr "Bagong password"
+
+msgid "New password confirmation"
+msgstr "Kumpirmasyon ng bagong password"
+
+msgid "Update password"
+msgstr "I-update ang password"
+
+msgid "Show or hide password"
+msgstr "Ipakita o itago ang password"
+
+# Login & Auth
+msgid "Login"
+msgstr "Mag-log in"
+
+msgid "City College of Bayawan - CCB Gate Entry - Login"
+msgstr "City College of Bayawan - CCB Gate Entry - Mag-log in"
+
+msgid "Use your username and password"
+msgstr "Gamitin ang iyong username at password"
+
+msgid "Enter your username"
+msgstr "Ilagay ang iyong username"
+
+msgid "Password"
+msgstr "Password"
+
+msgid "Show password"
+msgstr "Ipakita ang password"
+
+msgid "Invalid username or password."
+msgstr "Hindi wasto ang username o password."
+
+msgid "Registration"
+msgstr "Pagrehistro"
+
+msgid "Choose your account type and complete the form"
+msgstr "Piliin ang uri ng account at kumpletuhin ang form"
+
+msgid "Register"
+msgstr "Magrehistro"
+
+msgid "Welcome!"
+msgstr "Maligayang pagdating!"
+
+msgid "City College of Bayawan - CCB Gate Entry"
+msgstr "City College of Bayawan - CCB Gate Entry"
+
+# Nav & Dashboard
+msgid "Dashboard"
+msgstr "Dashboard"
+
+msgid "Gate scan"
+msgstr "Gate scan"
+
+msgid "Admin"
+msgstr "Admin"
+
+msgid "My profile"
+msgstr "Aking profile"
+
+msgid "Edit profile"
+msgstr "I-edit ang profile"
+
+msgid "Logout"
+msgstr "Mag-log out"
+
+msgid "Help"
+msgstr "Tulong"
+
+msgid "Guard Notifications"
+msgstr "Mga abiso ng Guard"
+
+msgid "Mark all as read"
+msgstr "Markahang lahat bilang nabasa"
+
+msgid "Mark all read"
+msgstr "Markahang lahat bilang nabasa"
+
+msgid "See all notifications"
+msgstr "Tingnan lahat ng abiso"
+
+msgid "No new notifications"
+msgstr "Walang bagong abiso"
+
+msgid "Notifications"
+msgstr "Mga abiso"
+
+msgid "Pending approvals"
+msgstr "Mga naghihintay na aprubado"
+
+msgid "New events"
+msgstr "Mga bagong event"
+
+msgid "Upcoming events"
+msgstr "Mga paparating na event"
+
+msgid "Staff/Faculty/Guard pending approval"
+msgstr "Staff/Faculty/Guard naghihintay ng aprubado"
+
+# Gate & Sidebar
+msgid "GATE & ATTENDANCE"
+msgstr "GATE AT ATTENDANCE"
+
+msgid "Entry History"
+msgstr "Kasaysayan ng pasok"
+
+msgid "Incidents"
+msgstr "Mga insidente"
+
+msgid "MY ACCOUNT"
+msgstr "AKING ACCOUNT"
+
+msgid "My Performance"
+msgstr "Aking performance"
+
+msgid "My Activity Log"
+msgstr "Aking activity log"
+
+msgid "Campus analytics"
+msgstr "Campus analytics"
+
+msgid "Students"
+msgstr "Mga mag-aaral"
+
+msgid "Gate entries"
+msgstr "Mga gate entry"
+
+msgid "Reports"
+msgstr "Mga ulat"
+
+msgid "Guard activity"
+msgstr "Aktibidad ng guard"
+
+msgid "Visitor QR codes"
+msgstr "Visitor QR codes"
+
+msgid "My Portal"
+msgstr "Aking Portal"
+
+msgid "My attendance & points"
+msgstr "Aking attendance at points"
+
+msgid "Administration"
+msgstr "Administrasyon"
+
+msgid "Users"
+msgstr "Mga user"
+
+msgid "View logs"
+msgstr "Tingnan ang mga log"
+
+msgid "Events"
+msgstr "Mga event"
+
+msgid "Attendance Scanner"
+msgstr "Attendance Scanner"
+
+msgid "Event schedule"
+msgstr "Iskedyul ng event"
+
+msgid "Event list"
+msgstr "Listahan ng event"
+
+msgid "Create event"
+msgstr "Gumawa ng event"
+
+msgid "Categories"
+msgstr "Mga kategorya"
+
+msgid "Edit your profile"
+msgstr "I-edit ang iyong profile"
+
+msgid "Profile"
+msgstr "Profile"
+
+msgid "User"
+msgstr "User"
+
+# Guard Dashboard
+msgid "Guard Dashboard"
+msgstr "Guard Dashboard"
+
+msgid "Good Morning"
+msgstr "Magandang umaga"
+
+msgid "Good Afternoon"
+msgstr "Magandang hapon"
+
+msgid "Good Evening"
+msgstr "Magandang gabi"
+
+msgid "You're on duty — keep it up!"
+msgstr "Naka-duty ka — ipagpatuloy!"
+
+msgid "Started"
+msgstr "Nagsimula"
+
+msgid "Duration"
+msgstr "Tagal"
+
+msgid "Scans"
+msgstr "Mga scan"
+
+msgid "Post"
+msgstr "Post"
+
+msgid "Clock Out"
+msgstr "Mag-clock out"
+
+msgid "You're not currently clocked in"
+msgstr "Hindi ka kasalukuyang naka-clock in"
+
+msgid "Start Your Shift"
+msgstr "Simulan ang iyong shift"
+
+msgid "Clock in to access the scanner, log entries, and begin your shift."
+msgstr "Mag-clock in para ma-access ang scanner, i-log ang mga entry, at simulang ang iyong shift."
+
+msgid "Clock In Now"
+msgstr "Mag-clock in ngayon"
+
+msgid "Quick Actions"
+msgstr "Mabilis na aksyon"
+
+msgid "Scanner"
+msgstr "Scanner"
+
+msgid "Entries"
+msgstr "Mga entry"
+
+msgid "Performance"
+msgstr "Performance"
+
+msgid "Today's Overview"
+msgstr "Overview ngayong araw"
+
+msgid "Inside"
+msgstr "Nasa loob"
+
+msgid "On campus"
+msgstr "Nasa campus"
+
+msgid "Denied"
+msgstr "Tinanggihan"
+
+msgid "Blocked"
+msgstr "Hinadlangan"
+
+msgid "Incidents"
+msgstr "Mga insidente"
+
+msgid "Reported"
+msgstr "Nai-report"
+
+msgid "On Duty"
+msgstr "Naka-duty"
+
+msgid "Guards active"
+msgstr "Mga aktibong guard"
+
+msgid "Hourly Activity (24h)"
+msgstr "Oras-oras na aktibidad (24h)"
+
+msgid "No activity data available"
+msgstr "Walang available na data ng aktibidad"
+
+msgid "Active Alerts"
+msgstr "Mga aktibong alerto"
+
+msgid "Recent Activity"
+msgstr "Kamakailang aktibidad"
+
+msgid "No recent activity"
+msgstr "Walang kamakailang aktibidad"
+
+# Analytics
+msgid "Campus Analytics"
+msgstr "Campus Analytics"
+
+msgid "Gate Analytics"
+msgstr "Gate Analytics"
+
+# Complete profile
+msgid "Complete your profile"
+msgstr "Kumpletuhin ang iyong profile"
+
+msgid "Your account has been approved. Please fill in the following details to finish setting up your profile. You will then have full access to your dashboard. This applies to staff, faculty, and guards."
+msgstr "Na-aprubahan na ang iyong account. Pakikompletuhin ang sumusunod na detalye para matapos ang pag-setup ng iyong profile. Makakakuha ka ng full access sa iyong dashboard. Naaangkop ito sa staff, faculty, at guards."
+
+msgid "Please complete all required fields. Fields marked with * are required."
+msgstr "Pakikompletuhin ang lahat ng kinakailangang field. Ang mga field na may * ay kinakailangan."
+
+msgid "Personal information"
+msgstr "Personal na impormasyon"
+
+msgid "Sex / Gender"
+msgstr "Kasarian"
+
+msgid "Birthdate"
+msgstr "Petsa ng kapanganakan"
+
+msgid "Address"
+msgstr "Address"
+
+msgid "Contact number"
+msgstr "Numero ng contact"
+
+msgid "Profile photo"
+msgstr "Larawan sa profile"
+
+msgid "Work details"
+msgstr "Mga detalye sa trabaho"
+
+msgid "Employee / ID number"
+msgstr "Employee / ID number"
+
+msgid "Department / Office"
+msgstr "Department / Opisina"
+
+msgid "Position / Title"
+msgstr "Posisyon / Titulo"
+
+msgid "Save and continue to dashboard"
+msgstr "I-save at magpatuloy sa dashboard"
+
+# Student registration
+msgid "Student"
+msgstr "Mag-aaral"
+
+msgid "Staff / Faculty / Guard"
+msgstr "Staff / Faculty / Guard"
+
+msgid "Student Registration"
+msgstr "Pagrehistro ng mag-aaral"
+
+msgid "Pending approval by the Administrator"
+msgstr "Naghihintay ng aprubado mula sa Administrator"
+
+msgid "Personal"
+msgstr "Personal"
+
+msgid "Academic"
+msgstr "Akademiko"
+
+msgid "Verify"
+msgstr "I-verify"
+
+msgid "Personal Information"
+msgstr "Personal na impormasyon"
+
+msgid "ID number"
+msgstr "Numero ng ID"
+
+msgid "Optional – if your school assigned you an ID"
+msgstr "Opsiyonal – kung nag-assign ang school sa iyo ng ID"
+
+msgid "First name"
+msgstr "Pangalan"
+
+msgid "Last name"
+msgstr "Apelyido"
+
+msgid "Middle name"
+msgstr "Gitnang pangalan"
+
+msgid "Guardians / Parents"
+msgstr "Mga guardian / magulang"
+
+msgid "Next: Academic"
+msgstr "Susunod: Akademiko"
+
+msgid "Academic Details"
+msgstr "Mga detalye sa akademiko"
+
+msgid "Course / Program"
+msgstr "Kurso / Programa"
+
+msgid "Year level"
+msgstr "Taon"
+
+msgid "Section"
+msgstr "Seksyon"
+
+msgid "Contact Information"
+msgstr "Impormasyon sa contact"
+
+msgid "Your contact number"
+msgstr "Iyong numero ng contact"
+
+msgid "Guardian contact number"
+msgstr "Numero ng contact ng guardian"
+
+msgid "Back"
+msgstr "Bumalik"
+
+msgid "Next: Verify"
+msgstr "Susunod: I-verify"
+
+msgid "Identity Verification"
+msgstr "Pagpapatunay ng identity"
+
+msgid "Face registration"
+msgstr "Face registration"
+
+msgid "Take a picture with your camera or choose a photo from your device."
+msgstr "Kumuha ng litrato gamit ang camera o pumili ng larawan mula sa iyong device."
+
+msgid "Choose photo from device"
+msgstr "Pumili ng larawan mula sa device"
+
+msgid "Take picture"
+msgstr "Kumuha ng litrato"
+
+msgid "Choose from device"
+msgstr "Pumili mula sa device"
+
+msgid "Capture:"
+msgstr "Kunin:"
+
+msgid "Automatic"
+msgstr "Awtomatiko"
+
+msgid "Manual"
+msgstr "Manwal"
+
+msgid "Capture manually"
+msgstr "Kunin nang manwal"
+
+msgid "Done"
+msgstr "Tapos"
+
+msgid "Front"
+msgstr "Harap"
+
+msgid "Face registered – tap to redo"
+msgstr "Na-register ang mukha – i-tap para ulitin"
+
+msgid "Electronic signature"
+msgstr "Electronic na pirma"
+
+msgid "Sign below using your finger, mouse, or digital pen."
+msgstr "Pirmahan sa ibaba gamit ang iyong daliri, mouse, o digital pen."
+
+msgid "Signature pad"
+msgstr "Signature pad"
+
+msgid "Clear"
+msgstr "Burahin"
+
+msgid "Submit Registration"
+msgstr "Isumite ang pagrehistro"
+
+msgid "Staff / Faculty / Guard Registration"
+msgstr "Pagrehistro ng Staff / Faculty / Guard"
+
+msgid "Account details only. After approval you will sign in and complete your profile to access the dashboard."
+msgstr "Mga detalye ng account lamang. Pagkatapos ng aprubado ay mag-sign in ka at kumpletuhin ang iyong profile para ma-access ang dashboard."
+
+msgid "Registration type"
+msgstr "Uri ng pagrehistro"
+
+msgid "Are you a student?"
+msgstr "Mag-aaral ka ba?"
+
+msgid "Student registration"
+msgstr "Pagrehistro ng mag-aaral"
+
+msgid "I am registering as:"
+msgstr "Nagrehistro ako bilang:"
+
+msgid "Account type"
+msgstr "Uri ng account"
+
+msgid "Account details"
+msgstr "Mga detalye ng account"
+
+msgid "Confirm password"
+msgstr "Kumpirmahin ang password"
+
+msgid "Submit Registration"
+msgstr "Isumite ang pagrehistro"
+
+msgid "Redirecting to registration..."
+msgstr "Nagre-redirect sa pagrehistro..."
+
+# Misc
+msgid "This field is required."
+msgstr "Kinakailangan ang field na ito."

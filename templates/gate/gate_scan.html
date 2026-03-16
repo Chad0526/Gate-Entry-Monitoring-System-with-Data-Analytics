@@ -1,4 +1,5 @@
 {% load static %}
+{% load i18n %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1355,16 +1356,17 @@ h1{ font-size:20px; font-weight:700; letter-spacing:.02em; }
                             <i class="fas fa-chevron-down"></i>
                         </button>
                         <div class="header-user-dropdown-menu" id="headerUserDropdownMenu" role="menu">
-                            <a href="{% if user_role == 'guard' %}{% url 'guard-dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" role="menuitem"><i class="fas fa-th-large"></i> Dashboard</a>
-                            <a href="{% url 'profile-edit' %}" role="menuitem"><i class="fas fa-user-edit"></i> My profile</a>
+                            <a href="{% if user_role == 'guard' %}{% url 'guard-dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" role="menuitem"><i class="fas fa-th-large"></i> {% trans "Dashboard" %}</a>
+                            <a href="{% url 'profile-edit' %}" role="menuitem"><i class="fas fa-user-edit"></i> {% trans "My profile" %}</a>
                             {% if user_role == 'staff' or user_role == 'faculty' or user_role == 'guard' %}
-                            <a href="{% url 'account-settings' %}" role="menuitem"><i class="fas fa-cog"></i> Account</a>
+                            <a href="{% url 'account-settings' %}" role="menuitem"><i class="fas fa-cog"></i> {% trans "Account" %}</a>
+                            <a href="{% url 'preferences' %}" role="menuitem"><i class="fas fa-sliders-h"></i> {% trans "Preferences" %}</a>
                             {% endif %}
                             {% if user_role == 'admin' %}
-                            <a href="{% url 'admin:index' %}" role="menuitem" target="_blank" rel="noopener"><i class="fas fa-user-cog"></i> Admin</a>
+                            <a href="{% url 'admin:index' %}" role="menuitem" target="_blank" rel="noopener"><i class="fas fa-user-cog"></i> {% trans "Admin" %}</a>
                             {% endif %}
-                            <button type="button" id="gate-scan-help-btn" role="menuitem" title="Help"><i class="fas fa-question-circle"></i> Help</button>
-                            <a href="{% url 'logout' %}" class="logout-item" role="menuitem" id="gate-scan-logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                            <button type="button" id="gate-scan-help-btn" role="menuitem" title="{% trans 'Help' %}"><i class="fas fa-question-circle"></i> {% trans "Help" %}</button>
+                            <a href="{% url 'logout' %}" class="logout-item" role="menuitem" id="gate-scan-logout"><i class="fas fa-sign-out-alt"></i> {% trans "Logout" %}</a>
                         </div>
                     </div>
               </div>

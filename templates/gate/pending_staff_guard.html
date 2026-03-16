@@ -122,12 +122,14 @@
   .psg-actions-dropdown .psg-action-approve:hover .psg-action-icon { background: #bbf7d0; }
   .psg-actions-dropdown .psg-action-deactivate .psg-action-icon { background: #f1f5f9; color: #64748b; }
   .psg-actions-dropdown .psg-action-deactivate:hover { background: #f8fafc; color: #475569; }
-  .psg-actions-dropdown .psg-action-deny .psg-action-icon { background: #fef3c7; color: #b45309; }
-  .psg-actions-dropdown .psg-action-deny:hover { background: #fffbeb; color: #b45309; }
-  .psg-actions-dropdown .psg-action-deny:hover .psg-action-icon { background: #fde68a; }
-  .psg-actions-dropdown .psg-action-delete .psg-action-icon { background: #fee2e2; color: #dc2626; }
-  .psg-actions-dropdown .psg-action-delete:hover { background: #fef2f2; color: #dc2626; }
-  .psg-actions-dropdown .psg-action-delete:hover .psg-action-icon { background: #fecaca; }
+  /* Deny: goldenrod/mustard like "Save changes" confirm (yellow–orange) */
+  .psg-actions-dropdown .psg-action-deny .psg-action-icon { background: linear-gradient(135deg, #fef5e7 0%, #fdebd0 100%); color: #b8860b; }
+  .psg-actions-dropdown .psg-action-deny:hover { background: #fefcf6; color: #8b6914; }
+  .psg-actions-dropdown .psg-action-deny:hover .psg-action-icon { background: linear-gradient(135deg, #e8b84c 0%, #d4a02a 100%); color: #fff; }
+  /* Delete: stronger orange-red */
+  .psg-actions-dropdown .psg-action-delete .psg-action-icon { background: #fed7d7; color: #c53030; }
+  .psg-actions-dropdown .psg-action-delete:hover { background: #fef2f2; color: #9b2c2c; }
+  .psg-actions-dropdown .psg-action-delete:hover .psg-action-icon { background: #e53e3e; color: #fff; }
   #psgEditModal .modal-header { background: linear-gradient(135deg, rgba(22,163,74,0.9), rgba(21,128,61,0.85)); color: #fff; border-radius: 0; }
   #psgEditModal .modal-content { border-radius: 12px; overflow: hidden; }
   #psgEditModal .form-group label { font-weight: 600; font-size: 0.9rem; }
@@ -221,7 +223,7 @@
                 {% endif %}
                 <div class="dropdown-divider"></div>
                 <div class="dropdown-header">Access &amp; remove</div>
-                <form method="post" action="{% url 'pending-staff-guard-list' %}" class="dropdown-item-form" data-confirm-message="Deny access for this account? They will not be able to log in.">
+                <form method="post" action="{% url 'pending-staff-guard-list' %}" class="dropdown-item-form" data-confirm-message="Deny access for this account? They will not be able to log in." data-confirm-deny="1">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="deny">
                   <input type="hidden" name="user_id" value="{{ user.pk }}">
@@ -230,7 +232,7 @@
                     <span class="psg-action-label">Deny</span>
                   </button>
                 </form>
-                <form method="post" action="{% url 'pending-staff-guard-list' %}" class="dropdown-item-form" data-confirm-message="Permanently delete this account? This cannot be undone.">
+                <form method="post" action="{% url 'pending-staff-guard-list' %}" class="dropdown-item-form" data-confirm-message="Permanently delete this account? This cannot be undone." data-confirm-danger="1">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="delete">
                   <input type="hidden" name="user_id" value="{{ user.pk }}">

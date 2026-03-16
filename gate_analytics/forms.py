@@ -258,31 +258,19 @@ class PasswordChangeForm(forms.Form):
         return cleaned
 
 
-# Common choices for staff/guard preferences
+# Common choices for staff/guard preferences (language + email only)
 PREF_LANGUAGE_CHOICES = [
     ('en', 'English'),
     ('fil', 'Filipino'),
 ]
-PREF_TIMEZONE_CHOICES = [
-    ('UTC', 'UTC'),
-    ('Asia/Manila', 'Asia/Manila'),
-    ('America/New_York', 'America/New York'),
-    ('America/Los_Angeles', 'America/Los Angeles'),
-    ('Europe/London', 'Europe/London'),
-]
 
 
 class UserPreferencesForm(forms.Form):
-    """Preferences for staff/guard: language, timezone, email notifications for announcements (no SMS)."""
+    """Preferences for staff/guard/faculty: language and email notifications for announcements only."""
     preferred_language = forms.ChoiceField(
         choices=PREF_LANGUAGE_CHOICES,
         widget=forms.Select(attrs={'class': 'form-control'}),
         label='Pref language',
-    )
-    preferred_timezone = forms.ChoiceField(
-        choices=PREF_TIMEZONE_CHOICES,
-        widget=forms.Select(attrs={'class': 'form-control'}),
-        label='Pref timezone',
     )
     email_notifications_announcements = forms.BooleanField(
         required=False,

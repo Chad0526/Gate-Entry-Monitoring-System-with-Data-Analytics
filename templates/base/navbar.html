@@ -1,4 +1,5 @@
 {% load static %}
+{% load i18n %}
 <style>
   /* Notifications dropdown – CCB dashboard style (sync with ccb-theme) */
   #notifications-dropdown {
@@ -261,10 +262,10 @@
         </a>
         <div class="dropdown-menu dropdown-menu-right" id="notifications-dropdown">
           <div class="notif-header">
-            <span>Guard Notifications</span>
+            <span>{% trans "Guard Notifications" %}</span>
             {% if guard_notifications and guard_unread_count > 0 %}
-            <button type="button" class="mark-all-read-btn" id="mark-all-read-btn" title="Mark all as read">
-              <i class="fas fa-check-double"></i> Mark all read
+            <button type="button" class="mark-all-read-btn" id="mark-all-read-btn" title="{% trans 'Mark all as read' %}">
+              <i class="fas fa-check-double"></i> {% trans "Mark all read" %}
             </button>
             {% endif %}
           </div>
@@ -281,11 +282,11 @@
             {% endfor %}
           </div>
           <div class="notif-footer">
-            <a href="{% url 'guard-notifications' %}" id="notifications-see-all">See all notifications</a>
+            <a href="{% url 'guard-notifications' %}" id="notifications-see-all">{% trans "See all notifications" %}</a>
           </div>
           {% else %}
           <div class="notif-body">
-            <div class="notif-empty"><i class="far fa-bell"></i><br>No new notifications</div>
+            <div class="notif-empty"><i class="far fa-bell"></i><br>{% trans "No new notifications" %}</div>
           </div>
           {% endif %}
         </div>
@@ -300,10 +301,10 @@
         </a>
         <div class="dropdown-menu dropdown-menu-right" id="notifications-dropdown">
           <div class="notif-header">
-            <span>Notifications</span>
+            <span>{% trans "Notifications" %}</span>
             {% if unread_notifications_count > 0 %}
-            <button type="button" class="mark-all-read-btn" id="staff-mark-all-read-btn" title="Mark all as read">
-              <i class="fas fa-check-double"></i> Mark all read
+            <button type="button" class="mark-all-read-btn" id="staff-mark-all-read-btn" title="{% trans 'Mark all as read' %}">
+              <i class="fas fa-check-double"></i> {% trans "Mark all read" %}
             </button>
             {% endif %}
           </div>
@@ -311,28 +312,28 @@
           <div class="notif-body">
             {% for item in notification_all %}
             {% if item.type == 'pending_summary' %}
-            <div class="notif-section-title">Pending approvals</div>
+            <div class="notif-section-title">{% trans "Pending approvals" %}</div>
             <div class="notif-item notif-item-row-only{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
               <i class="fas {{ item.icon }} notif-icon"></i>
               <strong>{{ item.label }}</strong>
               <a href="{{ item.url }}" class="notif-label-right-link" data-notif-unread="{% if not item.is_read %}1{% endif %}">{{ item.label_right }}</a>
             </div>
             {% elif item.type == 'new_events_summary' %}
-            <div class="notif-section-title">New events</div>
+            <div class="notif-section-title">{% trans "New events" %}</div>
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
               <i class="fas {{ item.icon }} notif-icon"></i>
               <strong>{{ item.label }}</strong>
               {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
             </a>
             {% elif item.type == 'events_summary' %}
-            <div class="notif-section-title">Upcoming events</div>
+            <div class="notif-section-title">{% trans "Upcoming events" %}</div>
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
               <i class="fas {{ item.icon }} notif-icon"></i>
               <strong>{{ item.label }}</strong>
               {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
             </a>
             {% elif item.type == 'pending_staff_guard_summary' %}
-            <div class="notif-section-title">Staff/Faculty/Guard pending approval</div>
+            <div class="notif-section-title">{% trans "Staff/Faculty/Guard pending approval" %}</div>
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
               <i class="fas {{ item.icon }} notif-icon"></i>
               <strong>{{ item.label }}</strong>
@@ -349,12 +350,12 @@
           </div>
           {% if notification_has_more %}
           <div class="notif-footer">
-            <a href="#" id="notifications-see-all">See all notifications</a>
+            <a href="#" id="notifications-see-all">{% trans "See all notifications" %}</a>
           </div>
           {% endif %}
           {% else %}
           <div class="notif-body">
-            <div class="notif-empty"><i class="far fa-bell"></i><br>No new notifications</div>
+            <div class="notif-empty"><i class="far fa-bell"></i><br>{% trans "No new notifications" %}</div>
           </div>
           {% endif %}
         </div>
@@ -444,6 +445,8 @@
       <script>
       (function() {
         var dropdown = document.getElementById('notifications-dropdown');
+        var i18nSeeAll = "{% trans 'See all notifications' %}";
+        var i18nNoNew = "{% trans 'No new notifications' %}";
         var badge = document.getElementById('guard-notifications-badge');
         if (dropdown && badge) {
           dropdown.querySelectorAll('a.notif-item.notification-unread[href]').forEach(function(link) {
@@ -566,11 +569,11 @@
                   if (!footer) {
                     footer = document.createElement('div');
                     footer.className = 'notif-footer';
-                    footer.innerHTML = '<a href="{% url "guard-notifications" %}" id="notifications-see-all">See all notifications</a>';
+                    footer.innerHTML = '<a href="{% url "guard-notifications" %}" id="notifications-see-all">' + (typeof i18nSeeAll !== 'undefined' ? i18nSeeAll : 'See all notifications') + '</a>';
                     dropdown.appendChild(footer);
                   }
                 } else {
-                  body.innerHTML = '<div class="notif-empty"><i class="far fa-bell"></i><br>No new notifications</div>';
+                  body.innerHTML = '<div class="notif-empty"><i class="far fa-bell"></i><br>' + (typeof i18nNoNew !== 'undefined' ? i18nNoNew : 'No new notifications') + '</div>';
                   var footer = dropdown.querySelector('.notif-footer');
                   if (footer) footer.remove();
                 }
@@ -600,37 +603,41 @@
           {% if user_role != 'guard' %}
           <a href="{% url 'dashboard' %}" class="dropdown-item user-dropdown-item">
             <i class="fas fa-tachometer-alt user-dropdown-icon"></i>
-            Dashboard
+            {% trans "Dashboard" %}
           </a>
           <div class="dropdown-divider"></div>
           {% else %}
           <a href="{% url 'gate-scan' %}" class="dropdown-item user-dropdown-item">
             <i class="fas fa-qrcode user-dropdown-icon"></i>
-            Gate scan
+            {% trans "Gate scan" %}
           </a>
           <div class="dropdown-divider"></div>
           {% endif %}
           {% if user_role == 'admin' %}
           <a href="{% url 'admin:index' %}" class="dropdown-item user-dropdown-item" target="_blank" rel="noopener">
             <i class="fas fa-user-cog user-dropdown-icon"></i>
-            Admin
+            {% trans "Admin" %}
           </a>
           <div class="dropdown-divider"></div>
           {% endif %}
           <a href="{% url 'profile-edit' %}" class="dropdown-item user-dropdown-item">
             <i class="fas fa-user-edit user-dropdown-icon"></i>
-            My profile
+            {% trans "My profile" %}
           </a>
           {% if user_role == 'staff' or user_role == 'faculty' or user_role == 'guard' %}
           <a href="{% url 'account-settings' %}" class="dropdown-item user-dropdown-item">
             <i class="fas fa-cog user-dropdown-icon"></i>
-            Account
+            {% trans "Account" %}
+          </a>
+          <a href="{% url 'preferences' %}" class="dropdown-item user-dropdown-item">
+            <i class="fas fa-sliders-h user-dropdown-icon"></i>
+            {% trans "Preferences" %}
           </a>
           {% endif %}
           <div class="dropdown-divider"></div>
           <a href="{% url 'logout' %}" class="dropdown-item user-dropdown-item" id="navbar-logout-link" data-logout-url="{% url 'logout' %}">
             <i class="fas fa-sign-out-alt user-dropdown-icon"></i>
-            Logout
+            {% trans "Logout" %}
           </a>
         </div>
       </li>

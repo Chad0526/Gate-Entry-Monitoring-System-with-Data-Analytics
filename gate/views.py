@@ -162,15 +162,22 @@ class EventCreateView(RoleRequiredMixin, LoginRequiredMixin, CreateView):
         event_agenda.event = evt
         event_agenda.save()
 
-        # Notify staff/faculty/guard by email about the new event, respecting their preferences.
+        # Notify only staff/faculty/guard by email (not students; students have separate approval/rejection emails).
         try:
             from django.contrib.auth import get_user_model
+            from django.db.models import Q
             from gate.models import StaffGuardProfile
 
             User = get_user_model()
             profiles = (
                 StaffGuardProfile.objects.select_related('user')
                 .filter(email_notifications_announcements=True, user__is_active=True)
+                .filter(
+                    Q(user__groups__name__iexact='staff')
+                    | Q(user__groups__name__iexact='faculty')
+                    | Q(user__groups__name__iexact='guard')
+                )
+                .distinct()
             )
             recipient_emails = [p.user.email for p in profiles if p.user and p.user.email]
             if recipient_emails:

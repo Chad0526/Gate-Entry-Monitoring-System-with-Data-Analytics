@@ -60,16 +60,6 @@
 {% endblock extrahead %}
 
 {% block content %}
-{% if messages %}
-  {% for message in messages %}
-  <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'success' }}{% endif %} alert-dismissible fade show django-alert mb-3" role="alert">
-    <span class="ccb-msg-icon"><i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %}"></i></span>
-    <span class="ccb-msg-body">{{ message }}</span>
-    <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-  </div>
-  {% endfor %}
-{% endif %}
-
 <div class="account-card card">
   <div class="card-header">{% trans 'Account details' %}</div>
   <div class="card-body">

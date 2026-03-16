@@ -414,7 +414,7 @@ def account_settings(request):
 
 @login_required
 def preferences_view(request):
-    """Preferences for staff/guard: language, timezone, email notifications for announcements (no SMS)."""
+    """Preferences for staff/guard/faculty: language and email notifications only (no timezone)."""
     from django.contrib import messages
     user = request.user
     role = get_user_role(user)
@@ -423,17 +423,22 @@ def preferences_view(request):
     profile, _ = StaffGuardProfile.objects.get_or_create(user=user, defaults={})
     form = UserPreferencesForm(initial={
         'preferred_language': profile.preferred_language or 'en',
-        'preferred_timezone': profile.preferred_timezone or 'Asia/Manila',
         'email_notifications_announcements': profile.email_notifications_announcements,
     })
     if request.method == 'POST':
         form = UserPreferencesForm(request.POST)
         if form.is_valid():
-            profile.preferred_language = (form.cleaned_data.get('preferred_language') or 'en')[:10]
-            profile.preferred_timezone = (form.cleaned_data.get('preferred_timezone') or 'Asia/Manila')[:63]
+            lang = (form.cleaned_data.get('preferred_language') or 'en')[:10]
+            if lang not in ('en', 'fil'):
+                lang = 'en'
+            profile.preferred_language = lang
             profile.email_notifications_announcements = form.cleaned_data.get('email_notifications_announcements', True)
-            profile.save(update_fields=['preferred_language', 'preferred_timezone', 'email_notifications_announcements'])
-            messages.success(request, 'Preferences saved.')
+            profile.save(update_fields=['preferred_language', 'email_notifications_announcements'])
+            from django.utils.translation import LANGUAGE_SESSION_KEY, activate, gettext as _
+            request.session[LANGUAGE_SESSION_KEY] = lang
+            request.session.modified = True
+            activate(lang)
+            messages.success(request, _('Preferences saved.'))
             return redirect('preferences')
     return render(request, 'users/preferences.html', {
         'form': form,

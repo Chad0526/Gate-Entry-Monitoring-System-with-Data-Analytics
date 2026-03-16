@@ -735,7 +735,7 @@ def admin_send_guard_notification_view(request):
             messages.error(request, "Invalid recipient selection.")
             return redirect('guard-activity')
         
-        # Create notifications
+        # Create in-app notifications
         created_count = 0
         for guard in guards:
             GuardNotification.objects.create(
@@ -747,6 +747,13 @@ def admin_send_guard_notification_view(request):
                 broadcast=broadcast
             )
             created_count += 1
+
+        # Send email to guards who have email and opted in (email_notifications_announcements)
+        try:
+            from gate.notifications import send_announcement_emails
+            send_announcement_emails(guards, title, message_text)
+        except Exception:
+            pass
         
         messages.success(request, f"Notification sent to {created_count} guard(s).")
         return redirect('guard-activity')

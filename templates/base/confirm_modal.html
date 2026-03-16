@@ -125,6 +125,32 @@
     background: linear-gradient(135deg, #218838 0%, #1b5e20 100%);
     color: #fff;
   }
+  /* Deny/warning confirm: golden/mustard header and OK button (like "Save changes") */
+  .theme-confirm-modal.theme-confirm-deny .theme-confirm-header {
+    background: linear-gradient(135deg, #fef5e7 0%, #fdebd0 50%, #f5d78e 100%);
+    color: #7d5a28;
+  }
+  .theme-confirm-modal.theme-confirm-deny .theme-confirm-ok {
+    background: linear-gradient(135deg, #e8b84c 0%, #d4a02a 100%);
+    color: #fff;
+  }
+  .theme-confirm-modal.theme-confirm-deny .theme-confirm-ok:hover {
+    background: linear-gradient(135deg, #d4a02a 0%, #b8860b 100%);
+    color: #fff;
+  }
+  /* Delete/danger confirm: light red + red combination (soft header, clear red button) */
+  .theme-confirm-modal.theme-confirm-danger .theme-confirm-header {
+    background: linear-gradient(135deg, #fef2f2 0%, #ffe4e6 50%, #fecaca 100%);
+    color: #9f1239;
+  }
+  .theme-confirm-modal.theme-confirm-danger .theme-confirm-ok {
+    background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+    color: #fff;
+  }
+  .theme-confirm-modal.theme-confirm-danger .theme-confirm-ok:hover {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: #fff;
+  }
 </style>
 <script>
 (function() {
@@ -135,19 +161,31 @@
   var btnCancel = document.getElementById('themeConfirmCancel');
   var currentConfirmCb = null;
   var currentCancelCb = null;
+  var currentConfirmOptions = {};
 
   function hide() {
     if (backdrop) backdrop.classList.remove('theme-confirm-show');
-    if (modal) modal.classList.remove('theme-confirm-show');
+    if (modal) {
+      modal.classList.remove('theme-confirm-show');
+      modal.classList.remove('theme-confirm-danger');
+      modal.classList.remove('theme-confirm-deny');
+    }
     if (backdrop) backdrop.style.display = 'none';
     if (modal) modal.style.display = 'none';
     currentConfirmCb = null;
     currentCancelCb = null;
+    currentConfirmOptions = {};
   }
 
   function show(msg) {
     if (!messageEl || !backdrop || !modal) return;
     messageEl.textContent = msg;
+    modal.classList.remove('theme-confirm-danger', 'theme-confirm-deny');
+    if (currentConfirmOptions.danger) {
+      modal.classList.add('theme-confirm-danger');
+    } else if (currentConfirmOptions.deny) {
+      modal.classList.add('theme-confirm-deny');
+    }
     backdrop.style.display = 'block';
     modal.style.display = 'flex';
     requestAnimationFrame(function() {
@@ -186,10 +224,11 @@
     }
   });
 
-  window.themeConfirm = function(message, onConfirmCallback, onCancelCallback) {
+  window.themeConfirm = function(message, onConfirmCallback, onCancelCallback, options) {
     if (!message) message = 'Are you sure?';
     currentConfirmCb = onConfirmCallback || null;
-    currentCancelCb = onCancelCallback || null;
+    currentCancelCb = typeof onCancelCallback === 'function' ? onCancelCallback : null;
+    currentConfirmOptions = options && typeof options === 'object' ? options : {};
     show(message);
   };
 
@@ -235,10 +274,13 @@
         e.preventDefault();
         var msg = form.getAttribute('data-confirm-message');
         if (!msg) return;
+        var options = {};
+        if (form.getAttribute('data-confirm-danger')) options.danger = true;
+        if (form.getAttribute('data-confirm-deny')) options.deny = true;
         window.themeConfirm(msg, function() {
           form._themeConfirmSubmitted = true;
           form.submit();
-        });
+        }, null, options);
       });
     });
   }
