@@ -37,6 +37,7 @@ from .models import (
     BlockedIP,
 )
 from .audit import log_action
+from .notifications import notify_student_status_change
 
 
 @admin.register(Event)
@@ -66,11 +67,79 @@ class StudentAdmin(admin.ModelAdmin):
     list_display = ('student_id', 'get_full_name', 'sex', 'email', 'has_signature', 'is_active', 'created_at')
     search_fields = ('student_id', 'first_name', 'middle_name', 'last_name', 'email')
     list_filter = ('sex', 'is_active')
+    actions = ['resend_approval_email']
 
     def has_signature(self, obj):
         return bool(obj.signature)
     has_signature.boolean = True
     has_signature.short_description = 'Signature'
+
+    def resend_approval_email(self, request, queryset):
+        sent = 0
+        for student in queryset.filter(account_status=Student.ACCOUNT_STATUS_APPROVED).exclude(email__isnull=True).exclude(email=''):
+            try:
+                notify_student_status_change(student, new_status=Student.ACCOUNT_STATUS_APPROVED)
+                sent += 1
+            except Exception:
+                pass
+        self.message_user(request, f'Approval email sent to {sent} student(s).')
+    resend_approval_email.short_description = 'Resend approval email'
+
+
+    def save_model(self, request, obj, form, change):
+        """
+        Ensure student approval via Django admin behaves like the custom views:
+        - When account_status changes to APPROVED, set is_active=True, approved_by/approved_at.
+        - Send the student an email about the new status.
+        """
+        old_status = None
+        if change and obj.pk:
+            try:
+                old_status = Student.objects.only('account_status').get(pk=obj.pk).account_status
+            except Student.DoesNotExist:
+                old_status = None
+
+        super().save_model(request, obj, form, change)
+
+        new_status = obj.account_status
+        if new_status == Student.ACCOUNT_STATUS_APPROVED and old_status != Student.ACCOUNT_STATUS_APPROVED:
+            # Sync approval metadata
+            if not obj.approved_at:
+                obj.approved_at = timezone.now()
+            if not obj.approved_by_id:
+                obj.approved_by = request.user
+            if not obj.is_active:
+                obj.is_active = True
+            obj.save(update_fields=['approved_by', 'approved_at', 'is_active'])
+            log_action(
+                request,
+                'student_approved_admin',
+                'Student',
+                object_id=obj.pk,
+                description=f'Student {obj.student_id} approved via Django admin',
+            )
+        elif new_status in (Student.ACCOUNT_STATUS_REJECTED, Student.ACCOUNT_STATUS_INACTIVE) and old_status not in (
+            Student.ACCOUNT_STATUS_REJECTED,
+            Student.ACCOUNT_STATUS_INACTIVE,
+        ):
+            if obj.is_active:
+                obj.is_active = False
+                obj.save(update_fields=['is_active'])
+            log_action(
+                request,
+                'student_status_changed_admin',
+                'Student',
+                object_id=obj.pk,
+                description=f'Student {obj.student_id} status set to {new_status} via Django admin',
+            )
+
+        # If status changed at all, notify the student (best-effort).
+        if old_status is not None and new_status != old_status:
+            try:
+                notify_student_status_change(obj, new_status=new_status)
+            except Exception:
+                # Fail silently in admin, but keep the status change.
+                pass
 
 
 class LoadSlipSubjectInline(admin.TabularInline):

@@ -2,6 +2,9 @@ import datetime
 from django.db import models
 from django.urls import reverse
 from ckeditor_uploader.fields import RichTextUploadingField
+from django.utils import timezone
+from django.db.models.signals import pre_save, post_save
+from django.dispatch import receiver
 
 
 class EventCategory(models.Model):
@@ -439,6 +442,63 @@ class Student(models.Model):
     def get_full_name(self):
         parts = [self.first_name, self.middle_name, self.last_name]
         return ' '.join(p for p in parts if p).strip()
+
+
+@receiver(pre_save, sender=Student)
+def _student_store_previous_status(sender, instance, **kwargs):
+    """
+    Remember previous account_status so we can detect changes in post_save,
+    no matter where the save came from (admin, custom views, shell, etc.).
+    """
+    if not instance.pk:
+        instance._old_account_status = None
+        return
+    try:
+        instance._old_account_status = sender.objects.only('account_status').get(pk=instance.pk).account_status
+    except sender.DoesNotExist:
+        instance._old_account_status = None
+
+
+@receiver(post_save, sender=Student)
+def _student_handle_status_change(sender, instance, created, **kwargs):
+    """
+    Centralize student approval logic:
+    - When status changes to APPROVED: ensure is_active=True, approved_at set, send approval email.
+    - When status changes to REJECTED/INACTIVE: ensure is_active=False, send status email.
+    This guarantees email + flags even if different parts of the app change the status.
+    """
+    from .notifications import notify_student_status_change  # local import to avoid circulars
+
+    old_status = getattr(instance, '_old_account_status', None)
+    new_status = instance.account_status
+    if old_status == new_status:
+        return
+
+    changed_fields = []
+
+    if new_status == Student.ACCOUNT_STATUS_APPROVED:
+        if not instance.is_active:
+            instance.is_active = True
+            changed_fields.append('is_active')
+        if not instance.approved_at:
+            instance.approved_at = timezone.now()
+            changed_fields.append('approved_at')
+        if changed_fields:
+            sender.objects.filter(pk=instance.pk).update(
+                **{field: getattr(instance, field) for field in changed_fields}
+            )
+        try:
+            notify_student_status_change(instance, new_status=new_status)
+        except Exception:
+            pass
+    elif new_status in (Student.ACCOUNT_STATUS_REJECTED, Student.ACCOUNT_STATUS_INACTIVE):
+        if instance.is_active:
+            instance.is_active = False
+            sender.objects.filter(pk=instance.pk).update(is_active=False)
+        try:
+            notify_student_status_change(instance, new_status=new_status)
+        except Exception:
+            pass
 
 
 class StaffGuardProfile(models.Model):

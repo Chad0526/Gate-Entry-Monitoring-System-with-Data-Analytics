@@ -2,7 +2,7 @@
 import datetime
 import logging
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMessage
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -154,19 +154,16 @@ def notify_student_status_change(student, new_status=None):
         ]
         body = "\n".join(body_lines)
 
-        # Send to the student, and BCC the system sender so there is an audit trail.
-        recipients = [email]
+        # Send only to the student. BCC the system sender for audit (so student's inbox is the only To:).
         sender = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@localhost')
-        if sender and sender not in recipients:
-            recipients.append(sender)
-
-        send_mail(
+        msg = EmailMessage(
             subject,
             body,
             sender,
-            recipients,
-            fail_silently=False,  # surface any SMTP errors in the server log
+            [email],
+            bcc=[sender] if sender and sender != email else [],
         )
+        msg.send(fail_silently=False)
     except Exception as e:
         logger.warning('notify_student_status_change failed: %s', e)
 

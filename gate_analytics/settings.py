@@ -150,6 +150,11 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
 LOGIN_URL = '/login/'
 
+# Upload limits: registration form has photo + signature; mobile cameras can send 3–5 MB+
+# Default is 2.5 MB, which causes RequestDataTooBig on phone registration.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024   # 10 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
+
 # Database
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
 # Set DB_ENGINE in .env: sqlite (default), mysql, or postgresql.
