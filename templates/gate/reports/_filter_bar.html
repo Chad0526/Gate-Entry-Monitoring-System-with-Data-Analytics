@@ -230,6 +230,100 @@
       {% endfor %}
 
       <div class="rf-controls report-filter-controls-row">
+        {% if show_report_type_filter %}
+          <input type="hidden" name="date_range" value="custom">
+          <div class="rf-group" style="min-width:220px;">
+            <span class="rf-label">Gate entries / Events</span>
+            <select name="template" id="reports-mode-select" class="form-control form-control-sm" style="width:220px;">
+              <option value="daily_gate_visits"{% if template_type == 'daily_gate_visits' %} selected{% endif %}>Gate entries</option>
+              <option value="event_attendance"{% if template_type == 'event_attendance' %} selected{% endif %}>Events</option>
+            </select>
+          </div>
+
+          <div id="report-program-wrap" class="rf-group" style="display:{% if template_type != 'event_attendance' %}flex{% else %}none{% endif %};">
+            <span class="rf-label">Program</span>
+            <select name="program" class="form-control form-control-sm" style="width:180px;">
+              <option value="">All programs</option>
+              {% for code, label in program_choices %}
+              <option value="{{ code }}"{% if request.GET.program == code %} selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div id="report-year-level-wrap" class="rf-group" style="display:{% if template_type != 'event_attendance' %}flex{% else %}none{% endif %};">
+            <span class="rf-label">Year</span>
+            <select name="year_level" class="form-control form-control-sm" style="width:150px;">
+              <option value="">All years</option>
+              {% for code, label in year_level_choices %}
+              <option value="{{ code }}"{% if request.GET.year_level == code %} selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div id="report-section-wrap" class="rf-group" style="display:{% if template_type != 'event_attendance' %}flex{% else %}none{% endif %};">
+            <span class="rf-label">Section</span>
+            <select name="section" class="form-control form-control-sm" style="width:180px;">
+              <option value="">All sections</option>
+              {% for sec in section_choices %}
+              <option value="{{ sec }}"{% if request.GET.section == sec %} selected{% endif %}>{{ sec }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div id="report-event-io-wrap" class="rf-group" style="display:flex;">
+            <span class="rf-label">In / Out</span>
+            {% with selected_io=request.GET.event_io|default:'' %}
+            <select name="event_io" class="form-control form-control-sm" style="width:120px;">
+              <option value=""{% if selected_io == '' %} selected{% endif %}>Any</option>
+              <option value="IN"{% if selected_io == 'IN' %} selected{% endif %}>IN</option>
+              <option value="OUT"{% if selected_io == 'OUT' %} selected{% endif %}>OUT</option>
+            </select>
+            {% endwith %}
+          </div>
+
+          <div id="report-audience-wrap" class="rf-group" style="display:{% if template_type != 'event_attendance' %}flex{% else %}none{% endif %};">
+            <span class="rf-label">Audience</span>
+            {% with selected_audience=audience_filter|default:'all' %}
+            <select name="audience" class="form-control form-control-sm" style="width:150px;">
+              <option value="all"{% if selected_audience == 'all' %} selected{% endif %}>All</option>
+              <option value="students"{% if selected_audience == 'students' %} selected{% endif %}>Students only</option>
+              <option value="visitors"{% if selected_audience == 'visitors' %} selected{% endif %}>Visitors only</option>
+            </select>
+            {% endwith %}
+          </div>
+
+          <div id="report-specific-event-wrap" class="rf-group" style="display:{% if template_type == 'event_attendance' %}flex{% else %}none{% endif %};">
+            <span class="rf-label">Specific event</span>
+            <select name="event_id" class="form-control form-control-sm" style="width:240px; max-width:100%;">
+              <option value="">All events</option>
+              {% if active_events %}
+                {% for ev in active_events %}
+                <option value="{{ ev.id }}"{% if event_id == ev.id %} selected{% endif %}>{{ ev.name }}</option>
+                {% endfor %}
+              {% else %}
+                <option value="" disabled>(No events found)</option>
+              {% endif %}
+            </select>
+          </div>
+
+          <div class="rf-group">
+            <span class="rf-label">From date</span>
+            <input type="date" name="from_date" class="form-control form-control-sm" value="{{ from_date_str }}" style="width:130px;">
+          </div>
+          <div class="rf-group">
+            <span class="rf-label">To date</span>
+            <input type="date" name="to_date" class="form-control form-control-sm" value="{{ to_date_str }}" style="width:130px;">
+          </div>
+
+          <div class="rf-group">
+            <span class="rf-label">From time</span>
+            <input type="time" name="from_time" class="form-control form-control-sm" value="{{ from_time }}" placeholder="00:00" style="width:100px;">
+          </div>
+          <div class="rf-group">
+            <span class="rf-label">To time</span>
+            <input type="time" name="to_time" class="form-control form-control-sm" value="{{ to_time }}" placeholder="23:59" style="width:100px;">
+          </div>
+        {% else %}
         <div class="rf-group">
           <span class="rf-label">Date range</span>
           <div class="ccb-custom-dropdown-wrap report-type-dropdown-wrap" id="report-date-range-wrap" style="width:140px;">
@@ -300,7 +394,7 @@
           <div class="report-type-dropdown-wrap" id="report-type-dropdown-wrap">
             <input type="hidden" name="template" id="filter-report-type-input" value="{{ template_type|default:'overview_summary' }}">
             <button type="button" class="form-control form-control-sm report-type-trigger text-left" id="report-type-trigger" aria-haspopup="listbox" aria-expanded="false" aria-label="Report type for preview and export" style="width:220px; max-width:100%;">
-              <span class="report-type-trigger-text">{% if template_type == 'export_all' %}All reports (ZIP){% elif template_type == 'overview_summary' %}Summary{% elif template_type == 'recent_activity' %}Recent activity{% elif template_type == 'daily_gate_visits' %}Visits{% elif template_type == 'inside_now' %}Inside now{% elif template_type == 'early_outs' %}Early outs{% elif template_type == 'raw_entries' %}Raw entries{% elif template_type == 'event_attendance' %}Event attendance{% elif template_type == 'incidents_log' %}Incidents log{% elif template_type == 'incidents_proxy' %}Proxy only{% elif template_type == 'incidents_overrides' %}Overrides{% elif template_type == 'by_guard' %}By guard{% else %}Summary{% endif %}</span>
+              <span class="report-type-trigger-text">{% if template_type == 'export_all' %}All reports (ZIP){% elif template_type == 'overview_summary' %}Summary{% elif template_type == 'recent_activity' %}Recent activity{% elif template_type == 'daily_gate_visits' %}Visits{% elif template_type == 'inside_now' %}Inside now{% elif template_type == 'raw_entries' %}Raw entries{% elif template_type == 'event_attendance' %}Event attendance{% elif template_type == 'by_personnel' %}By recorder{% else %}Summary{% endif %}</span>
               <i class="fas fa-chevron-down report-type-chevron" aria-hidden="true"></i>
             </button>
             <div class="report-type-dropdown-panel" id="report-type-dropdown-panel" role="listbox" aria-hidden="true" style="max-height:240px; overflow-y:auto;">
@@ -311,21 +405,17 @@
               <div class="report-type-group-label">Daily Gate</div>
               <div class="report-type-option{% if template_type == 'daily_gate_visits' %} selected{% endif %}" role="option" data-value="daily_gate_visits" tabindex="0">Visits</div>
               <div class="report-type-option{% if template_type == 'inside_now' %} selected{% endif %}" role="option" data-value="inside_now" tabindex="0">Inside now</div>
-              <div class="report-type-option{% if template_type == 'early_outs' %} selected{% endif %}" role="option" data-value="early_outs" tabindex="0">Early outs</div>
               <div class="report-type-option{% if template_type == 'raw_entries' %} selected{% endif %}" role="option" data-value="raw_entries" tabindex="0">Raw entries</div>
               <div class="report-type-group-label">Event Attendance</div>
               <div class="report-type-option{% if template_type == 'event_attendance' %} selected{% endif %}" role="option" data-value="event_attendance" tabindex="0">Event attendance</div>
-              <div class="report-type-group-label">Incidents & Overrides</div>
-              <div class="report-type-option{% if template_type == 'incidents_log' %} selected{% endif %}" role="option" data-value="incidents_log" tabindex="0">Incidents log</div>
-              <div class="report-type-option{% if template_type == 'incidents_proxy' %} selected{% endif %}" role="option" data-value="incidents_proxy" tabindex="0">Proxy only</div>
-              <div class="report-type-option{% if template_type == 'incidents_overrides' %} selected{% endif %}" role="option" data-value="incidents_overrides" tabindex="0">Overrides</div>
-              <div class="report-type-option{% if template_type == 'by_guard' %} selected{% endif %}" role="option" data-value="by_guard" tabindex="0">By guard</div>
+              <div class="report-type-group-label">Recorder</div>
+              <div class="report-type-option{% if template_type == 'by_personnel' %} selected{% endif %}" role="option" data-value="by_personnel" tabindex="0">By recorder</div>
             </div>
           </div>
         </div>
         {% endif %}
         {% if show_event_filter and active_events %}
-        <div id="report-event-wrap" class="rf-group" style="display:{% if event_id %}flex{% else %}none{% endif %};">
+        <div id="report-event-wrap" class="rf-group" style="display:{% if template_type == 'event_attendance' or event_id %}flex{% else %}none{% endif %};">
           <span class="rf-label">Event</span>
           <div class="ccb-custom-dropdown-wrap report-type-dropdown-wrap" id="report-event-wrap-dropdown" style="width:200px;">
             <input type="hidden" name="event_id" id="report-event-input" value="{{ event_id|default:'' }}">
@@ -341,6 +431,7 @@
             </div>
           </div>
         </div>
+        {% endif %}
         {% endif %}
       </div>
 
@@ -372,38 +463,33 @@
     </div>
     {% endif %}
 
-    <div style="margin-top:10px;">
-      <button class="rf-more-toggle" type="button" data-toggle="collapse" data-target="#collapse-more-filters" aria-expanded="false" aria-controls="collapse-more-filters">
-        <i class="fas fa-chevron-down"></i> More filters
-      </button>
-      <div id="collapse-more-filters" class="collapse" style="margin-top:10px;">
-        <div class="rf-controls" style="padding:12px 0 4px;">
-          <div class="rf-group">
-            <span class="rf-label">Status</span>
-            <select name="scan_type" class="form-control form-control-sm" style="width:100px;">
-              <option value="">Any</option>
-              <option value="IN" {% if request.GET.scan_type == 'IN' %}selected{% endif %}>IN</option>
-              <option value="OUT" {% if request.GET.scan_type == 'OUT' %}selected{% endif %}>OUT</option>
-            </select>
-          </div>
-          <div class="rf-group">
-            <span class="rf-label">Granted</span>
-            <select name="granted_filter" class="form-control form-control-sm" style="width:100px;">
-              <option value="">Any</option>
-              <option value="1" {% if request.GET.granted_filter == '1' %}selected{% endif %}>Granted</option>
-              <option value="0" {% if request.GET.granted_filter == '0' %}selected{% endif %}>Denied</option>
-            </select>
-          </div>
-          <div class="rf-group">
-            <span class="rf-label">Forced OUT (no IN)</span>
-            <select name="forced_out" class="form-control form-control-sm" style="width:100px;">
-              <option value="">Any</option>
-              <option value="1" {% if request.GET.forced_out == '1' %}selected{% endif %}>Yes</option>
-            </select>
+    {% if not show_report_type_filter %}
+      <div style="margin-top:10px;">
+        <button class="rf-more-toggle" type="button" data-toggle="collapse" data-target="#collapse-more-filters" aria-expanded="false" aria-controls="collapse-more-filters">
+          <i class="fas fa-chevron-down"></i> More filters
+        </button>
+        <div id="collapse-more-filters" class="collapse" style="margin-top:10px;">
+          <div class="rf-controls" style="padding:12px 0 4px;">
+            <div class="rf-group">
+              <span class="rf-label">Status</span>
+              <select name="scan_type" class="form-control form-control-sm" style="width:100px;">
+                <option value="">Any</option>
+                <option value="IN" {% if request.GET.scan_type == 'IN' %}selected{% endif %}>IN</option>
+                <option value="OUT" {% if request.GET.scan_type == 'OUT' %}selected{% endif %}>OUT</option>
+              </select>
+            </div>
+            <div class="rf-group">
+              <span class="rf-label">Granted</span>
+              <select name="granted_filter" class="form-control form-control-sm" style="width:100px;">
+                <option value="">Any</option>
+                <option value="1" {% if request.GET.granted_filter == '1' %}selected{% endif %}>Granted</option>
+                <option value="0" {% if request.GET.granted_filter == '0' %}selected{% endif %}>Denied</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    {% endif %}
   </div>
 </div>
 
@@ -535,6 +621,35 @@
       if (evInput && !evInput.hasAttribute('name')) evInput.setAttribute('name', 'event_id');
     }
   });
+
+  var modeSelect = document.getElementById('reports-mode-select');
+  var programWrap = document.getElementById('report-program-wrap');
+  var eventIoWrap = document.getElementById('report-event-io-wrap');
+  var yearWrap = document.getElementById('report-year-level-wrap');
+  var sectionWrap = document.getElementById('report-section-wrap');
+  var audienceWrap = document.getElementById('report-audience-wrap');
+  var eventWrap = document.getElementById('report-event-wrap'); // legacy (non-export pages)
+  var specificEventWrap = document.getElementById('report-specific-event-wrap');
+  function syncReportModeUI() {
+    var isEvents = modeSelect && modeSelect.value === 'event_attendance';
+    if (programWrap) programWrap.style.display = isEvents ? 'none' : 'flex';
+    // Keep IN/OUT visible for both Gate entries and Events modes.
+    if (eventIoWrap) eventIoWrap.style.display = 'flex';
+    if (yearWrap) yearWrap.style.display = isEvents ? 'none' : 'flex';
+    if (sectionWrap) sectionWrap.style.display = isEvents ? 'none' : 'flex';
+    if (audienceWrap) audienceWrap.style.display = isEvents ? 'none' : 'flex';
+    if (eventWrap) eventWrap.style.display = isEvents ? 'flex' : 'none';
+    if (specificEventWrap) specificEventWrap.style.display = isEvents ? 'flex' : 'none';
+  }
+  if (modeSelect) {
+    // Switching Gate entries/Events should re-render the correct filter set
+    // server-side (specific events dropdown vs year/section inputs).
+    modeSelect.addEventListener('change', function() {
+      syncReportModeUI();
+      form.submit();
+    });
+    syncReportModeUI();
+  }
 
   toggleCustomDates();
   toggleTime();

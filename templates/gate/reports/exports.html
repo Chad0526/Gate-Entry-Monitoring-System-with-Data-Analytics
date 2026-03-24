@@ -10,20 +10,21 @@
 <div class="monitor-wrap">
 {% include 'gate/reports/_reports_tabs.html' %}
 
-<p class="text-muted mb-2">1. Set filters (including <strong>Report type</strong>) and click <strong>Apply filters</strong> &nbsp;→&nbsp; 2. Preview updates below &nbsp;→&nbsp; 3. Download in CSV, Excel, or PDF.</p>
+<p class="text-muted mb-2">1. Set filters and click <strong>Apply filters</strong> &nbsp;→&nbsp; 2. Preview updates below &nbsp;→&nbsp; 3. Download in CSV, Excel, or PDF (or Print).</p>
 
 {% include 'gate/reports/_filter_bar.html' %}
 
 <div class="card mb-3">
   <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
     <h6 class="m-0">Preview</h6>
-    <span class="small text-muted">Report: <strong id="preview-report-label">{% if template_type == 'export_all' %}All reports (ZIP){% elif template_type == 'daily_gate_visits' %}Visits{% elif template_type == 'overview_summary' %}Summary{% elif template_type == 'recent_activity' %}Recent activity{% elif template_type == 'inside_now' %}Inside now{% elif template_type == 'early_outs' %}Early outs{% elif template_type == 'raw_entries' %}Raw entries{% elif template_type == 'event_attendance' %}Event attendance{% elif template_type == 'incidents_log' %}Incidents log{% elif template_type == 'incidents_proxy' %}Proxy only{% elif template_type == 'incidents_overrides' %}Overrides{% elif template_type == 'by_guard' %}By guard{% else %}{{ template_type }}{% endif %}</strong></span>
+    <span class="small text-muted">Report: <strong id="preview-report-label">{% if template_type == 'export_all' %}All reports (ZIP){% elif template_type == 'daily_gate_visits' %}Gate entries{% elif template_type == 'overview_summary' %}Summary{% elif template_type == 'recent_activity' %}Recent activity{% elif template_type == 'inside_now' %}Inside now{% elif template_type == 'raw_entries' %}Raw entries{% elif template_type == 'event_attendance' %}Events{% elif template_type == 'by_personnel' %}By recorder{% else %}{{ template_type }}{% endif %}</strong></span>
   </div>
   <div class="card-body p-0">
     {% if template_type == 'export_all' %}
     <p class="text-muted p-3 mb-0">ZIP includes all report types. Use <strong>Download ZIP</strong> below.</p>
     {% elif template_type == 'daily_gate_visits' %}
       {% if preview_rows or visitor_preview_rows %}
+      {% if audience_filter != 'visitors' %}
       <h6 class="px-3 pt-3 mb-2" style="font-weight:700;color:#14532d;"><i class="fas fa-user-graduate mr-1" style="color:#16a34a;"></i> Students</h6>
       {% if preview_rows %}
       <div class="table-responsive">
@@ -49,7 +50,9 @@
       {% else %}
       <p class="text-muted small px-3 mb-2">No student visits in the selected period.</p>
       {% endif %}
+      {% endif %}
 
+      {% if audience_filter != 'students' %}
       <h6 class="px-3 pt-3 mb-2" style="font-weight:700;color:#14532d;border-top:2px solid #e2e8f0;padding-top:16px !important;"><i class="fas fa-id-badge mr-1" style="color:#0284c7;"></i> Visitors</h6>
       {% if visitor_preview_rows %}
       <div class="table-responsive">
@@ -74,6 +77,7 @@
       </div>
       {% else %}
       <p class="text-muted small px-3 mb-3">No visitor entries in the selected period.</p>
+      {% endif %}
       {% endif %}
       {% else %}
       <p class="text-muted p-3 mb-0">No data for this filter.</p>
@@ -109,7 +113,12 @@
 </div>
 
 <div class="card">
-  <div class="card-header"><h6 class="m-0">Export</h6></div>
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap" style="gap:10px;">
+    <h6 class="m-0">Export</h6>
+    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print();">
+      <i class="fas fa-print mr-1"></i> Print
+    </button>
+  </div>
   <div class="card-body">
     <p class="small text-muted mb-2">Downloads use the filters applied above.</p>
     {% if template_type == 'export_all' %}

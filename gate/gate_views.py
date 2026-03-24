@@ -16,8 +16,9 @@ from django.urls import reverse
 from django.conf import settings
 from django.templatetags.static import static
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
 from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils import timezone
 from django.contrib import messages
 from django.db.models import Count, Q, Case, When, IntegerField, Sum, F
@@ -30,15 +31,17 @@ from collections import defaultdict
 
 from .notifications import notify_student_status_change
 
-from gate_analytics.roles import role_required, has_role
-from .models import Student, GateEntry, GateIncident, Event, EventAttendance, EventRegistration, AttendanceLog, ScannerDevice, GeneratedReport, VisitorEntry, VisitorPass, VisitorVisit, StudentLoadSlip, LoadSlipSubject, CAMPUS_DEPARTMENT_CHOICES, SiteTheme, GuardShift, AuditLog, AdminNotification, BlockedIP
-from .forms import StudentForm, StudentLoadSlipForm, LoadSlipSubjectFormSet, LoadSlipUploadForm
-from .services.import_loadslip import import_loadslip, parse_schedule_safe
+from gate_analytics.roles import role_required, has_role, get_user_role
+from .models import Student, GateEntry, GateIncident, Event, EventAttendance, EventRegistration, AttendanceLog, ScannerDevice, GeneratedReport, VisitorEntry, VisitorPass, VisitorVisit, CAMPUS_DEPARTMENT_CHOICES, SiteTheme, GateShift, AuditLog, AdminNotification, BlockedIP
+from .forms import StudentForm
 from .policy import (
     get_student_current_state,
     evaluate_scan,
     get_gate_policy,
+    daily_gate_repeat_cooldown,
+    _entry_is_in_direction,
 )
+from .gate_personnel_views import staff_gate_scanner_session_active_for_user
 
 
 def _register_or_touch_scanner_device(device_id):
@@ -67,6 +70,45 @@ def _audit_kwargs_for_gate_entry(request, device_id=None):
     return {'device_id': device_id or '', 'ip_address': ip}
 
 
+def _guard_embed_query_token_ok(request):
+    """GET ?embed=1&guard_token=... matches GATE_GUARD_DISPLAY_TOKEN (gate entry list iframe)."""
+    embed = (request.GET.get('embed') or '').strip().lower() in ('1', 'true', 'yes')
+    token = (request.GET.get('guard_token') or '').strip()
+    expected = getattr(settings, 'GATE_GUARD_DISPLAY_TOKEN', '') or ''
+    return bool(embed and expected and token == expected)
+
+
+def _guard_embed_get_token_ok(request):
+    """GET ?guard_token=... only (e.g. event attendees iframe — no embed=1 in URL)."""
+    token = (request.GET.get('guard_token') or '').strip()
+    expected = getattr(settings, 'GATE_GUARD_DISPLAY_TOKEN', '') or ''
+    return bool(expected and token == expected)
+
+
+def _resolve_save_scan_actor(request):
+    """
+    Who is recording this scan: logged-in gate staff, or guard monitor (GATE_GUARD_DISPLAY_TOKEN).
+    Returns User for audit, None when token is valid but no GATE_GUARD_EMBED_RECORDED_BY_USER_ID, or False if unauthorized.
+    """
+    token = (request.POST.get('guard_token') or request.headers.get('X-Gate-Guard-Token') or '').strip()
+    expected = getattr(settings, 'GATE_GUARD_DISPLAY_TOKEN', '') or ''
+    if token and expected and token == expected:
+        uid = getattr(settings, 'GATE_GUARD_EMBED_RECORDED_BY_USER_ID', None)
+        if uid:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            try:
+                return User.objects.get(pk=int(uid))
+            except (ValueError, User.DoesNotExist):
+                pass
+        return None
+    if request.user.is_authenticated:
+        role = get_user_role(request.user)
+        if role in ('admin', 'staff', 'faculty', 'supervisor'):
+            return request.user
+    return False
+
+
 def _fmt_student_name(student):
     """Return name in "Last, First Middle" order for exports and preview.
     Falls back to get_full_name() if fields are missing to avoid blank output.
@@ -87,6 +129,28 @@ def _fmt_student_name(student):
     if lname:
         return f"{lname}, {full}".strip(', ')
     return full
+
+
+PER_PAGE_OPTIONS = [10, 20, 30, 50, 100]
+
+
+def _get_per_page_and_query(request, param_name='page'):
+    """Return (per_page, query_extra, query_extra_base). Default per_page 10."""
+    raw = request.GET.get('per_page', '10')
+    try:
+        per_page = int(raw)
+        if per_page not in PER_PAGE_OPTIONS:
+            per_page = 10
+    except (ValueError, TypeError):
+        per_page = 10
+    q_extra = request.GET.copy()
+    q_extra.pop(param_name, None)
+    query_extra = q_extra.urlencode()
+    q_base = request.GET.copy()
+    q_base.pop(param_name, None)
+    q_base.pop('per_page', None)
+    query_extra_base = q_base.urlencode()
+    return per_page, query_extra, query_extra_base
 
 
 def _gate_entries_to_visits(entries):
@@ -173,7 +237,7 @@ def _granted_visits_count_for_date(date, daily_gate_only=False):
     return _granted_visits_count_for_bounds(day_start, day_end, daily_gate_only=daily_gate_only)
 
 
-def _granted_visits_count_for_bounds(day_start, day_end, daily_gate_only=False):
+def _granted_visits_count_for_bounds(day_start, day_end, daily_gate_only=False, report_timestamp_q=None):
     """Count granted visits between two aware datetimes (inclusive start, exclusive end).
     Entries are grouped into visits (IN/OUT pairs) before counting.
 
@@ -182,10 +246,11 @@ def _granted_visits_count_for_bounds(day_start, day_end, daily_gate_only=False):
 
     If daily_gate_only=True only entries with event=None and visitor_visit=None are
     considered.
+
+    When report_timestamp_q is set (multi-day + time-of-day window), use it instead of day bounds.
     """
-    qs = GateEntry.objects.filter(
-        timestamp__gte=day_start, timestamp__lt=day_end, granted=True
-    )
+    qs = GateEntry.objects.filter(granted=True)
+    qs = _apply_report_timestamp_filter(qs, report_timestamp_q, day_start, day_end)
     if daily_gate_only:
         qs = qs.filter(event__isnull=True, visitor_visit__isnull=True)
     entries = list(qs.order_by('-timestamp')[:500])
@@ -272,13 +337,54 @@ def _local_year_bounds(year):
     return year_start, year_end
 
 
+def _report_per_day_time_window_q(start_d, end_d, t_from, t_to, field_name, tz):
+    """OR of field in [d+t_from, d+t_to) for each calendar day from start_d through end_d (inclusive)."""
+    q = Q()
+    d = start_d
+    while d <= end_d:
+        ds = timezone.make_aware(datetime.datetime.combine(d, t_from), tz)
+        de = timezone.make_aware(datetime.datetime.combine(d, t_to), tz)
+        q |= Q(**{f'{field_name}__gte': ds, f'{field_name}__lt': de})
+        d += datetime.timedelta(days=1)
+    return q
+
+
+def _apply_report_timestamp_filter(qs, report_timestamp_q, day_start, day_end):
+    if report_timestamp_q is not None:
+        return qs.filter(report_timestamp_q)
+    return qs.filter(timestamp__gte=day_start, timestamp__lt=day_end)
+
+
+def _apply_report_checked_in_at_filter(qs, report_checked_in_at_q, day_start, day_end):
+    if report_checked_in_at_q is not None:
+        return qs.filter(report_checked_in_at_q)
+    return qs.filter(checked_in_at__gte=day_start, checked_in_at__lt=day_end)
+
+
+def _apply_report_checked_out_at_filter(qs, report_checked_out_at_q, day_start, day_end):
+    if report_checked_out_at_q is not None:
+        return qs.filter(report_checked_out_at_q)
+    return qs.filter(checked_out_at__gte=day_start, checked_out_at__lt=day_end)
+
+
+def _apply_report_recorded_at_filter(qs, report_recorded_at_q, day_start, day_end):
+    if report_recorded_at_q is not None:
+        return qs.filter(report_recorded_at_q)
+    return qs.filter(recorded_at__gte=day_start, recorded_at__lt=day_end)
+
+
 def _report_filter_from_request(request):
     """
     Parse report filter from GET. Default: Today (local day).
     Supports: date_range (today, yesterday, this_week, last_7_days, last_30_days, custom),
     from_date, to_date (for custom range), all_day (ignore time when set),
     from_time, to_time, search, event_id.
-    Returns: (filter_date, day_start, day_end, from_time, to_time, search_q, event_id, date_range_label, from_date_str, to_date_str, time_error).
+    Returns: (filter_date, day_start, day_end, from_time, to_time, search_q, event_id,
+            date_range_label, from_date_str, to_date_str, time_error,
+            report_timestamp_q, report_checked_in_at_q, report_checked_out_at_q, report_recorded_at_q).
+    When the selected calendar range spans multiple days and both from_time and to_time are set,
+    the four *_q values are OR-of-daily windows (same clock on each day); otherwise they are None
+    and callers use day_start/day_end. Single-day ranges still use a single [day_start, day_end) pair.
     """
     tz = timezone.get_current_timezone()
     today = timezone.localdate()
@@ -357,19 +463,38 @@ def _report_filter_from_request(request):
         except ValueError:
             pass
 
+    report_timestamp_q = None
+    report_checked_in_at_q = None
+    report_checked_out_at_q = None
+    report_recorded_at_q = None
+
     # Time window (only when not all_day)
     time_error = False
-    if from_time or to_time:
+    if not all_day and (from_time or to_time):
         if from_time and to_time:
             try:
                 t_from = datetime.time.fromisoformat(from_time)
                 t_to = datetime.time.fromisoformat(to_time)
-                dt_from = timezone.make_aware(datetime.datetime.combine(filter_date, t_from), tz)
-                dt_to = timezone.make_aware(datetime.datetime.combine(filter_date, t_to), tz)
-                if dt_to <= dt_from:
+                if t_to <= t_from:
                     time_error = True
                     to_time = ''
+                elif from_date_str != to_date_str:
+                    try:
+                        start_d = datetime.date.fromisoformat(from_date_str)
+                        end_d = datetime.date.fromisoformat(to_date_str)
+                        if end_d >= start_d:
+                            report_timestamp_q = _report_per_day_time_window_q(start_d, end_d, t_from, t_to, 'timestamp', tz)
+                            report_checked_in_at_q = _report_per_day_time_window_q(start_d, end_d, t_from, t_to, 'checked_in_at', tz)
+                            report_checked_out_at_q = _report_per_day_time_window_q(start_d, end_d, t_from, t_to, 'checked_out_at', tz)
+                            report_recorded_at_q = _report_per_day_time_window_q(start_d, end_d, t_from, t_to, 'recorded_at', tz)
+                        else:
+                            time_error = True
+                            to_time = ''
+                    except ValueError:
+                        pass
                 else:
+                    dt_from = timezone.make_aware(datetime.datetime.combine(filter_date, t_from), tz)
+                    dt_to = timezone.make_aware(datetime.datetime.combine(filter_date, t_to), tz)
                     day_start = dt_from
                     day_end = dt_to
             except ValueError:
@@ -405,7 +530,11 @@ def _report_filter_from_request(request):
         }
         date_range_label = labels.get(date_range, str(filter_date))
 
-    return filter_date, day_start, day_end, from_time, to_time, search_q, event_id, date_range_label, from_date_str, to_date_str, time_error
+    return (
+        filter_date, day_start, day_end, from_time, to_time, search_q, event_id,
+        date_range_label, from_date_str, to_date_str, time_error,
+        report_timestamp_q, report_checked_in_at_q, report_checked_out_at_q, report_recorded_at_q,
+    )
 
 
 def _report_applied_filter_chips(request, date_range_label, from_time, to_time, search_q, event_id, active_events=None):
@@ -618,114 +747,13 @@ def _format_event_time_12h(dt):
     return local.strftime('%m/%d/%Y') + ' {}:{:02d} {}'.format(h12, local.minute, am_pm)
 
 
-# Weekday name for load slip: Python Monday=0 .. Sunday=6
-_WEEKDAY_NAMES = ('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun')
-
-
-def _current_school_year_semester(now=None):
-    """Return (school_year, semester) for the given date. CCB: 1st ~ Aug–Dec, 2nd ~ Jan–May, summer ~ Jun–Jul."""
-    if now is None:
-        now = timezone.now()
-    if hasattr(now, 'date'):
-        now = now.date()
-    year = getattr(now, 'year', now.year)
-    month = getattr(now, 'month', now.month)
-    if month >= 8:  # Aug–Dec → 1st sem, e.g. 2025-2026
-        return f'{year}-{year + 1}', '1st'
-    if month >= 6:  # Jun–Jul → summer
-        return f'{year - 1}-{year}', 'summer'
-    # Jan–May → 2nd sem
-    return f'{year - 1}-{year}', '2nd'
-
-
-def _get_slip_sessions_today(slip, today_day):
-    """
-    Return list of (start_time, end_time, subject_code) for today from the slip.
-    Expands subject.schedule when set (one row per course); else uses day/start_time/end_time.
-    """
-    sessions = []
-    for subj in slip.subjects.all():
-        if subj.schedule:
-            entries = parse_schedule_safe(subj.schedule)
-            for day, start_t, end_t in entries:
-                if day == today_day:
-                    sessions.append((start_t, end_t, subj.subject_code))
-        else:
-            if subj.day == today_day:
-                sessions.append((subj.start_time, subj.end_time, subj.subject_code))
-    return sessions
-
-
-def _student_in_class_now(student, now=None):
-    """
-    Check if student is currently in a class based on their load slip schedule.
-    Returns (in_class: bool, class_until: time or None, subject_code: str or None).
-    """
-    if now is None:
-        now = timezone.localtime(timezone.now())
-    now_time = now.time() if hasattr(now, 'time') else now
-    if hasattr(now, 'weekday'):
-        weekday = now.weekday()  # Mon=0 .. Sun=6
-    else:
-        weekday = getattr(now, 'weekday', lambda: 0)()
-    today_day = _WEEKDAY_NAMES[weekday]
-
-    school_year, semester = _current_school_year_semester(now)
-    slip = StudentLoadSlip.objects.filter(
-        student=student,
-        school_year=school_year,
-        semester=semester,
-    ).prefetch_related('subjects').first()
-    if not slip:
-        return False, None, None
-
-    sessions = _get_slip_sessions_today(slip, today_day)
-    for start_t, end_t, subject_code in sorted(sessions, key=lambda x: x[1]):
-        if start_t <= now_time < end_t:
-            return True, end_t, subject_code
-    return False, None, None
-
-
-def _student_all_classes_done_today(student, now=None):
-    """
-    Returns (all_done: bool, based_on_schedule: bool).
-    all_done: student has no more classes today (no load slip, no subjects today,
-    or current time is after the end of their last class). Used to allow exit without reason.
-    based_on_schedule: True only when we actually used a load slip to determine this
-    (so UI can show "Based on class schedule" vs "No class schedule on file").
-    """
-    if now is None:
-        now = timezone.localtime(timezone.now())
-    now_time = now.time() if hasattr(now, 'time') else now
-    if hasattr(now, 'weekday'):
-        weekday = now.weekday()
-    else:
-        weekday = getattr(now, 'weekday', lambda: 0)()
-    today_day = _WEEKDAY_NAMES[weekday]
-
-    school_year, semester = _current_school_year_semester(now)
-    slip = StudentLoadSlip.objects.filter(
-        student=student,
-        school_year=school_year,
-        semester=semester,
-    ).prefetch_related('subjects').first()
-    if not slip:
-        return True, False  # No schedule = treat as done, but not "based on schedule"
-
-    sessions = _get_slip_sessions_today(slip, today_day)
-    if not sessions:
-        return True, True  # No classes today = done (based on schedule)
-    last_end = max(end_t for _, end_t, _ in sessions)
-    return (now_time >= last_end, True)
-
-
-# Lunch break: 11:59 AM–12:59 PM — students may OUT without reason; outside this window, valid reason required (class hours)
+# Lunch break: 11:59 AM–12:59 PM — relaxed OUT handling during lunch
 LUNCH_EXIT_START = datetime.time(11, 59, 0)   # 11:59 AM
 LUNCH_EXIT_END = datetime.time(12, 59, 59)    # 12:59:59 PM (inclusive)
 
 
 def _is_lunch_exit_window(now=None):
-    """True if current time is in lunch break (11:59 AM–12:59 PM), when students can OUT without reason."""
+    """True if current time is in lunch break (11:59 AM–12:59 PM)."""
     if now is None:
         now = timezone.localtime(timezone.now())
     now_time = now.time() if hasattr(now, 'time') else now
@@ -757,39 +785,37 @@ def _is_within_event_window(event, now=None, grace_minutes=30):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
+@role_required('admin', 'staff', 'faculty', 'supervisor')
+@ensure_csrf_cookie
 def gate_scan(request):
-    """Gate kiosk: scan QR (student_id) or enter ID manually. Event tracking only for admin/staff (not guards)."""
+    """Gate kiosk: assigned staff logs in and scans; physical security may assist (no separate login)."""
     from gate_analytics.roles import get_user_role
-    from gate.models import GuardShift
-    from django.contrib import messages
-    
     user_role = get_user_role(request.user)
-    
-    # Check if guard is clocked in (only for guards)
-    if user_role == 'guard':
-        is_clocked_in = GuardShift.objects.filter(
-            guard=request.user,
-            shift_end__isnull=True
-        ).exists()
-        
-        if not is_clocked_in:
-            messages.error(request, "You must clock in before accessing the scanner.")
-            return redirect('guard-dashboard')
-    
     active_events = _get_active_events()
+    kiosk_mode = (request.GET.get('kiosk') or '').strip().lower() in ('1', 'true', 'yes', 'on')
+    full_scanner_ui = (request.GET.get('full') or '').strip().lower() in ('1', 'true', 'yes', 'on')
+    use_console = getattr(settings, 'GATE_STAFF_GATE_CONSOLE_ONLY', True) and not full_scanner_ui
+    gate_scanner_session_active = staff_gate_scanner_session_active_for_user(request.user)
+    if use_console:
+        return render(request, 'gate/gate_scan_staff_console.html', {
+            'site_name': getattr(settings, 'SITE_NAME', 'City College of Bayawan'),
+            'page_title': 'Gate console',
+            'user_role': user_role,
+            'gate_scanner_session_active': gate_scanner_session_active,
+        })
     return render(request, 'gate/gate_scan.html', {
         'site_name': 'City College of Bayawan',
         'page_title': 'Gate Entry - Scan Student ID',
         'active_events': active_events,
         'campus_departments': CAMPUS_DEPARTMENT_CHOICES,
         'user_role': user_role,
+        'kiosk_mode': kiosk_mode,
+        'guard_student_popup_style': getattr(settings, 'GATE_GUARD_STUDENT_POPUP_STYLE', 'split'),
+        'gate_scanner_session_active': gate_scanner_session_active,
     })
 
 
 @require_GET
-@login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
 def gate_scan_sw(request):
     """Serve the gate scan service worker (for offline support)."""
     static_dirs = getattr(settings, 'STATICFILES_DIRS', None) or []
@@ -798,6 +824,54 @@ def gate_scan_sw(request):
         return HttpResponse('/* service worker not found */', content_type='application/javascript')
     with open(path, 'r', encoding='utf-8') as f:
         return HttpResponse(f.read(), content_type='application/javascript')
+
+
+@require_GET
+def guard_scanner_dashboard(request):
+    """Guard monitor: full-screen embedded gate QR scanner (same token as GATE_GUARD_DISPLAY_TOKEN)."""
+    from urllib.parse import urlencode
+    expected = getattr(settings, 'GATE_GUARD_DISPLAY_TOKEN', '') or ''
+    if not expected:
+        return HttpResponseForbidden(
+            'Guard display is not configured. Set GATE_GUARD_DISPLAY_TOKEN in the server environment.'
+        )
+    token = (request.GET.get('token') or '').strip()
+    if token != expected:
+        return HttpResponseForbidden('Invalid or missing token.')
+    embed_scanner_url = request.build_absolute_uri(
+        reverse('gate-embed-scanner') + '?' + urlencode({'token': token})
+    )
+    return render(request, 'gate/guard_scanner_dashboard.html', {
+        'embed_scanner_url': embed_scanner_url,
+        'site_name': getattr(settings, 'SITE_NAME', 'City College of Bayawan'),
+    })
+
+
+@require_GET
+@ensure_csrf_cookie
+def gate_scan_guard_embed(request):
+    """Token-only gate scanner for guard monitors (camera + IN/OUT; no staff login)."""
+    expected = getattr(settings, 'GATE_GUARD_DISPLAY_TOKEN', '') or ''
+    if not expected:
+        return HttpResponseForbidden(
+            'Guard embed is not configured. Set GATE_GUARD_DISPLAY_TOKEN in the server environment.'
+        )
+    token = (request.GET.get('token') or '').strip()
+    if token != expected:
+        return HttpResponseForbidden('Invalid or missing token.')
+    active_events = _get_active_events()
+    return render(request, 'gate/gate_scan.html', {
+        'site_name': getattr(settings, 'SITE_NAME', 'City College of Bayawan'),
+        'page_title': 'Gate Entry - Scan Student ID',
+        'active_events': active_events,
+        'campus_departments': CAMPUS_DEPARTMENT_CHOICES,
+        'user_role': 'staff',
+        'kiosk_mode': True,
+        'guard_embed': True,
+        'guard_embed_token': token,
+        'guard_student_popup_style': getattr(settings, 'GATE_GUARD_STUDENT_POPUP_STYLE', 'split'),
+        'gate_scanner_session_active': False,
+    })
 
 
 @require_GET
@@ -845,7 +919,7 @@ def lookup_student(request):
 
 @require_POST
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
+@role_required('admin', 'staff', 'faculty', 'supervisor')
 @transaction.atomic
 def record_entry(request):
     """Record gate entry: grant or deny. Creates GateEntry, optionally GateIncident and EventAttendance."""
@@ -869,42 +943,36 @@ def record_entry(request):
             return JsonResponse({'ok': True, 'message': 'Entry granted'})
         return redirect('gate-scan')
     elif not granted:
-        # Deny: create incident; if we have student_pk, also create GateEntry(denied)
+        # Deny: record GateEntry(denied) only (incidents feature removed)
         student = None
         if student_pk:
             try:
                 student = Student.objects.get(pk=student_pk)
             except Student.DoesNotExist:
                 pass
-        incident = GateIncident.objects.create(
-            student=student,
-            scanned_id=student_id or request.POST.get('scanned_id', ''),
-            reason=reason,
-            details=notes,
-            guard_alerted=True,
-        )
-        from .audit import log_action
-        log_action(request, 'incident_created', 'GateIncident', object_id=incident.pk, description=f'Entry denied: {reason} – {incident.scanned_id or (student.student_id if student else "?")}')
-        from .notifications import notify_denied_entry
-        notify_denied_entry(incident, student_id=student_id, scanned_id=incident.scanned_id)
         if student:
             GateEntry.objects.create(
-                student=student, granted=False, incident=incident, notes=notes, recorded_by=request.user,
+                student=student, granted=False, incident=None, notes=notes, recorded_by=request.user,
                 **_audit_kwargs_for_gate_entry(request),
             )
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({'ok': True, 'message': 'Entry denied, incident recorded'})
+            return JsonResponse({'ok': True, 'message': 'Entry denied'})
         return redirect('gate-scan')
 
     return JsonResponse({'ok': False, 'error': 'Invalid request'}, status=400)
 
 
 @require_POST
-@login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
 @transaction.atomic
 def save_scan(request):
     """Record a scan from the QR scanner or manual entry. Returns JSON for the scanner UI."""
+    actor = _resolve_save_scan_actor(request)
+    if actor is False:
+        return JsonResponse({
+            'success': False,
+            'message': 'Unauthorized',
+            'color': 'error',
+        }, status=403)
     student_id = (request.POST.get('student_id') or '').strip()
     manual_status = (request.POST.get('manual_status') or '').strip().upper()  # IN or OUT
     local_time = request.POST.get('local_time', '').strip()
@@ -941,7 +1009,7 @@ def save_scan(request):
         if pass_obj.status == VisitorPass.STATUS_DISABLED:
             return JsonResponse({
                 'success': False,
-                'message': 'This pass is disabled. Contact the guard.',
+                'message': 'This pass is disabled. Contact staff at the gate.',
                 'color': 'error',
             })
         if pass_obj.status == VisitorPass.STATUS_AVAILABLE:
@@ -1016,7 +1084,7 @@ def save_scan(request):
             student=guest,
             granted=True,
             notes=f"Visitor: {pass_obj.guest_name or 'Guest'} ({pass_obj.code})",
-            recorded_by=request.user,
+            recorded_by=actor,
             **_audit_kwargs_for_gate_entry(request),
         )
         pass_obj.used_at = now
@@ -1033,21 +1101,13 @@ def save_scan(request):
 
     student = Student.objects.filter(student_id=student_id).first()
     if not student:
-        incident = GateIncident.objects.create(
-            scanned_id=student_id,
-            reason='not_registered',
-            details='Gate scan attempt: student not registered in the system.',
-            guard_alerted=False,
-        )
-        from .audit import log_action
-        log_action(request, 'incident_created', 'GateIncident', object_id=incident.pk, description=f'Not registered: {student_id}')
         GateEntry.objects.create(
             student=None,
             granted=False,
-            incident=incident,
+            incident=None,
             notes='Not registered',
             result='NOT_FOUND',
-            recorded_by=request.user,
+            recorded_by=actor,
             **_audit_kwargs_for_gate_entry(request, device_id=device_id),
         )
         return JsonResponse({
@@ -1058,22 +1118,13 @@ def save_scan(request):
             'color': 'warning',
         })
     if not student.is_active:
-        incident = GateIncident.objects.create(
-            student=student,
-            scanned_id=student_id,
-            reason='other',
-            details='Gate scan attempt: student not active (pending approval).',
-            guard_alerted=False,
-        )
-        from .audit import log_action
-        log_action(request, 'incident_created', 'GateIncident', object_id=incident.pk, description=f'Not approved (inactive): {student_id}')
         GateEntry.objects.create(
             student=student,
             granted=False,
-            incident=incident,
+            incident=None,
             notes='Not active (pending approval)',
             result='NOT_APPROVED',
-            recorded_by=request.user,
+            recorded_by=actor,
             **_audit_kwargs_for_gate_entry(request, device_id=device_id),
         )
         photo_url = None
@@ -1201,8 +1252,7 @@ def save_scan(request):
                 'first_scan_time': first_time,
             })
     else:
-        # Daily gate only (no event selected): IN/OUT is based on student load slip (StudentLoadSlip + LoadSlipSubject).
-        # evaluate_scan() uses get_student_sessions_today(), in_class_now(), has_class_after(), etc. See gate/policy.py and docs/QR_SCAN_LOAD_SLIP_FLOW.md.
+        # Daily gate (no event): IN/OUT from evaluate_scan() — college-style, no class schedule.
         state = get_student_current_state(student, today, daily_gate_only=True)
         suggested = 'OUT' if state == 'INSIDE' else 'IN'
         status = manual_status if manual_status in ('IN', 'OUT') else suggested
@@ -1214,16 +1264,16 @@ def save_scan(request):
             timestamp__gte=day_start, timestamp__lt=day_end,
         )
         latest_today = today_entries.order_by('-timestamp').first()
-        already_today = latest_today is not None and (latest_today.notes or '').strip().upper() != 'OUT'
-        # Block only when student is still "in" (last entry was IN) and this scan is also IN (no duplicate IN).
-        if already_today and status == 'IN':
-            now_dt = timezone.localtime(timezone.now())
+        already_inside = latest_today is not None and _entry_is_in_direction(latest_today)
+        now_dt = timezone.localtime(timezone.now())
+        # Lunch: staff tries IN while already inside during lunch — auto OUT (before repeat cooldown).
+        if already_inside and status == 'IN':
             in_lunch_window = _is_lunch_exit_window(now_dt)
             if in_lunch_window:
                 # During lunch (11:59 AM–12:59 PM): automatically record OUT and return success — no modal
                 eval_out = evaluate_scan(
                     student, 'OUT', now_dt,
-                    guard_override_reason=None,
+                    personnel_override_reason=None,
                     daily_gate_only=True,
                 )
                 if not eval_out['allowed']:
@@ -1235,8 +1285,7 @@ def save_scan(request):
                         'out_reason_text': 'Lunch break',
                         'schedule_hint': '',
                         'next_suggested': 'IN',
-                        'has_load_slip': eval_out.get('has_load_slip', True),
-                        'schedule_based': True,
+                        'schedule_based': False,
                     }
                 GateEntry.objects.create(
                     student=student,
@@ -1247,7 +1296,7 @@ def save_scan(request):
                     notes='OUT',
                     out_reason=eval_out.get('out_reason_text') or 'Lunch break',
                     out_reason_code=eval_out.get('out_reason_code') or 'LUNCH',
-                    recorded_by=request.user,
+                    recorded_by=actor,
                     **_audit_kwargs_for_gate_entry(request, device_id=device_id),
                 )
                 time_str = now_dt.strftime('%I:%M %p')
@@ -1279,51 +1328,56 @@ def save_scan(request):
                     'next_suggested': 'IN',
                     'all_classes_done': False,
                 })
-            first_today = today_entries.order_by('timestamp').first()
-            first_time = timezone.localtime(first_today.timestamp).strftime('%I:%M %p') if first_today else ''
-            photo_url = None
-            if student.photo:
-                try:
-                    photo_url = request.build_absolute_uri(student.photo.url)
-                except Exception:
-                    pass
-            in_class, class_until, _ = _student_in_class_now(student)
-            class_until_str = class_until.strftime('%I:%M %p') if class_until else None
-            all_classes_done, all_classes_done_based_on_schedule = _student_all_classes_done_today(student, now_dt)
-            return JsonResponse({
-                'success': False,
-                'already_scanned': True,
-                'message': f'{student.get_full_name()} was already scanned at gate today. No duplicate entry recorded.',
-                'color': 'warning',
-                'student_name': student.get_full_name(),
-                'student': {
-                    'first_name': student.first_name,
-                    'middle_name': student.middle_name or '',
-                    'last_name': student.last_name,
-                    'student_id': student.student_id,
-                    'email': student.email or '',
-                    'photo_url': photo_url or '',
-                    'course_or_section': getattr(student, 'course_or_section', '') or '',
-                    'year_level': getattr(student, 'year_level', '') or '',
-                },
-                'first_scan_time': first_time,
-                'in_class_now': in_class,
-                'class_until': class_until_str,
-                'in_lunch_window': in_lunch_window,
-                'in_lunch_exit_window': in_lunch_window,
-                'all_classes_done': all_classes_done,
-                'all_classes_done_based_on_schedule': all_classes_done_based_on_schedule,
-            })
+        # Global repeat cooldown: minimum time after ANY daily gate scan before the next (default).
+        # Without this, auto IN/OUT suggestion always alternates, so "same-direction" cooldown never triggers on QR scans.
+        _cool_scope = getattr(settings, 'GATE_SCAN_REPEAT_COOLDOWN_SCOPE', 'global')
+        if _cool_scope == 'global' and latest_today:
+            cooldown_td = daily_gate_repeat_cooldown()
+            elapsed_since_last = now_dt - timezone.localtime(latest_today.timestamp)
+            if elapsed_since_last < cooldown_td:
+                secs_left = max(0.0, (cooldown_td - elapsed_since_last).total_seconds())
+                mins_left = max(1, int((secs_left + 59) // 60))
+                first_today = today_entries.order_by('timestamp').first()
+                first_time = timezone.localtime(first_today.timestamp).strftime('%I:%M %p') if first_today else ''
+                photo_url = None
+                if student.photo:
+                    try:
+                        photo_url = request.build_absolute_uri(student.photo.url)
+                    except Exception:
+                        pass
+                return JsonResponse({
+                    'success': False,
+                    'already_scanned': True,
+                    'repeat_cooldown': True,
+                    'message': (
+                        f'{student.get_full_name()} was scanned recently. '
+                        f'Please wait {mins_left} more minute(s) before the next gate scan.'
+                    ),
+                    'color': 'warning',
+                    'student_name': student.get_full_name(),
+                    'student': {
+                        'first_name': student.first_name,
+                        'middle_name': student.middle_name or '',
+                        'last_name': student.last_name,
+                        'student_id': student.student_id,
+                        'email': student.email or '',
+                        'photo_url': photo_url or '',
+                        'course_or_section': getattr(student, 'course_or_section', '') or '',
+                        'year_level': getattr(student, 'year_level', '') or '',
+                    },
+                    'first_scan_time': first_time,
+                    'in_lunch_window': _is_lunch_exit_window(now_dt),
+                    'in_lunch_exit_window': _is_lunch_exit_window(now_dt),
+                })
 
-        # Daily gate: apply time-policy + schedule-policy (allow/deny/require-reason)
-        now_dt = timezone.localtime(timezone.now())
-        guard_reason = (request.POST.get('out_reason') or request.POST.get('reason') or '').strip() or None
+        # Daily gate: college-style IN/OUT (evaluate_scan — no class schedule)
+        override_reason = (request.POST.get('out_reason') or request.POST.get('reason') or request.POST.get('note') or '').strip() or None
         eval_result = evaluate_scan(
             student, status, now_dt,
-            guard_override_reason=guard_reason,  # required for override when in-class or OUTSIDE
+            personnel_override_reason=override_reason,  # required for forced OUT when still OUTSIDE
             daily_gate_only=True,
         )
-        # Safety net: during lunch window (11:59 AM–12:59 PM), allow both IN and OUT without reason
+        # Safety net: during lunch window (11:59 AM–12:59 PM), allow both IN and OUT
         if not eval_result['allowed'] and _is_lunch_exit_window(now_dt):
             if status == 'OUT':
                 eval_result = {
@@ -1331,12 +1385,11 @@ def save_scan(request):
                     'result': 'SUCCESS',
                     'message': 'Lunch break exit allowed.',
                     'out_reason_code': 'LUNCH',
-                    'out_reason_text': guard_reason or 'Lunch break',
+                    'out_reason_text': override_reason or 'Lunch break',
                     'schedule_hint': eval_result.get('schedule_hint', ''),
                     'next_suggested': 'IN',
-                    'deny_reason': '',
-                    'has_load_slip': eval_result.get('has_load_slip', True),
-                    'schedule_based': True,
+                    'deny_detail': '',
+                    'schedule_based': False,
                 }
             elif status == 'IN':
                 eval_result = {
@@ -1347,9 +1400,8 @@ def save_scan(request):
                     'out_reason_text': '',
                     'schedule_hint': eval_result.get('schedule_hint', ''),
                     'next_suggested': 'OUT',
-                    'deny_reason': '',
-                    'has_load_slip': eval_result.get('has_load_slip', True),
-                    'schedule_based': True,
+                    'deny_detail': '',
+                    'schedule_based': False,
                 }
         if not eval_result['allowed']:
             photo_url = None
@@ -1359,8 +1411,9 @@ def save_scan(request):
                 except Exception:
                     pass
             now_str = now_dt.strftime('%I:%M %p')
-            in_class, class_until, _ = _student_in_class_now(student)
-            all_classes_done, all_classes_done_based_on_schedule = _student_all_classes_done_today(student, now_dt)
+            in_class = False
+            all_classes_done = True
+            all_classes_done_based_on_schedule = False
             in_lunch_window = _is_lunch_exit_window(now_dt)
             return JsonResponse({
                 'success': False,
@@ -1368,8 +1421,8 @@ def save_scan(request):
                 'color': 'warning',
                 'schedule_hint': eval_result.get('schedule_hint', ''),
                 'next_suggested': eval_result.get('next_suggested', suggested),
-                'deny_reason': eval_result.get('deny_reason', ''),
-                'require_reason': eval_result.get('result') == 'REQUIRE_REASON',
+                'deny_detail': eval_result.get('deny_detail', eval_result.get('deny_reason', '')),
+                'require_note': eval_result.get('result') == 'REQUIRE_REASON',
                 'status': status,
                 'time': now_str,
                 'denied': True,
@@ -1387,9 +1440,8 @@ def save_scan(request):
                 'all_classes_done': all_classes_done,
                 'all_classes_done_based_on_schedule': all_classes_done_based_on_schedule,
                 'in_class_now': in_class,
-                'class_until': class_until.strftime('%I:%M %p') if class_until else None,
-                'has_load_slip': eval_result.get('has_load_slip', False),
-                'schedule_based': eval_result.get('schedule_based', True),
+                'class_until': None,
+                'schedule_based': eval_result.get('schedule_based', False),
                 'in_lunch_exit_window': in_lunch_window,
             })
         gate_eval_result = eval_result
@@ -1407,15 +1459,15 @@ def save_scan(request):
         notes=notes,
         out_reason=out_reason_text,
         out_reason_code=out_reason_code or '',
-        recorded_by=request.user,
+        recorded_by=actor,
         **_audit_kwargs_for_gate_entry(request, device_id=device_id),
     )
     
-    # Log guard activity for scan
-    if request.user.groups.filter(name='Guard').exists():
-        from .guard_services import GuardActivityLogger
-        GuardActivityLogger.log_scan(
-            guard=request.user,
+    # Log gate activity for scan (staff/faculty/supervisor/admin)
+    if actor is not None and get_user_role(actor) in ('admin', 'staff', 'faculty', 'supervisor'):
+        from .gate_personnel_services import GateActivityLogger
+        GateActivityLogger.log_scan(
+            guard=actor,
             entry=entry,
             device_id=device_id,
             ip_address=request.META.get('REMOTE_ADDR')
@@ -1476,8 +1528,7 @@ def save_scan(request):
     if gate_eval_result:
         resp['schedule_hint'] = gate_eval_result.get('schedule_hint', '')
         resp['next_suggested'] = gate_eval_result.get('next_suggested', 'OUT' if state == 'INSIDE' else 'IN')
-        resp['has_load_slip'] = gate_eval_result.get('has_load_slip', False)
-        resp['schedule_based'] = gate_eval_result.get('schedule_based', True)
+        resp['schedule_based'] = gate_eval_result.get('schedule_based', False)
         if status == 'OUT' and (gate_eval_result.get('out_reason_code') == 'ALL_CLASSES_DONE'):
             resp['all_classes_done'] = True
         if gate_eval_result.get('forced_out_no_in'):
@@ -1487,10 +1538,7 @@ def save_scan(request):
 
 
 @require_POST
-@login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
 @transaction.atomic
-
 def scan_event_qr(request):
     """
     Hybrid event attendance scanning - accepts BOTH:
@@ -1499,6 +1547,14 @@ def scan_event_qr(request):
     
     Expects: {event_id, qr, scan_type, device_id, client_scan_time}
     """
+    actor = _resolve_save_scan_actor(request)
+    if actor is False:
+        return JsonResponse({
+            'ok': False,
+            'result': 'DENIED',
+            'message': 'Unauthorized',
+            'color': 'error',
+        }, status=403)
     import datetime as py_datetime
     
     event_id = request.POST.get('event_id', '').strip()
@@ -1537,7 +1593,7 @@ def scan_event_qr(request):
             'color': 'error',
         }, status=400)
 
-    recorded_by = request.user if getattr(request, 'user', None) and getattr(request.user, 'is_authenticated', False) else None
+    recorded_by = actor
 
     # Auto-register scanner device on first use so dashboard shows "current scanner devices"
     _register_or_touch_scanner_device(device_id)
@@ -1781,7 +1837,7 @@ def scan_event_qr(request):
                 inside = EventAttendance.objects.filter(event=event, checked_in_at__isnull=False, checked_out_at__isnull=True).count()
                 notify_capacity_alert(event, inside, cap)
                 # Also create guard notifications for capacity alerts
-                from .guard_services import check_event_capacity_and_alert
+                from .gate_personnel_services import check_event_capacity_and_alert
                 check_event_capacity_and_alert(event)
             
         elif scan_type == 'OUT':
@@ -1878,7 +1934,7 @@ def scan_event_qr(request):
                 inside = EventAttendance.objects.filter(event=event, checked_in_at__isnull=False, checked_out_at__isnull=True).count()
                 notify_capacity_alert(event, inside, cap)
                 # Also create guard notifications for capacity alerts
-                from .guard_services import check_event_capacity_and_alert
+                from .gate_personnel_services import check_event_capacity_and_alert
                 check_event_capacity_and_alert(event)
         
         elif scan_type == 'OUT':
@@ -1937,28 +1993,9 @@ def scan_event_qr(request):
             )
             is_early_checkout = now < event_end_datetime
             
-            # If early checkout and no reason provided, require reason
             early_out_reason = request.POST.get('early_out_reason', '').strip()
-            if is_early_checkout and not early_out_reason:
-                # Return response requiring reason
-                return JsonResponse({
-                    'ok': False,
-                    'result': 'REQUIRE_EVENT_REASON',
-                    'require_event_reason': True,
-                    'message': f'{student.get_full_name()} is leaving before event ends. Please provide a reason.',
-                    'color': 'warning',
-                    'student': {
-                        'student_id': student.student_id,
-                        'name': student.get_full_name(),
-                    },
-                    'event': {
-                        'name': event.name,
-                        'end_date': event.end_date.strftime('%Y-%m-%d'),
-                        'end_time': event_end_datetime.strftime('%I:%M %p'),
-                    },
-                }, status=200)
             
-            # Record check-out (with reason if early)
+            # Record check-out (optional early-out note for reports)
             attendance.checked_out_at = now
             if is_early_checkout and early_out_reason:
                 attendance.early_out_reason = early_out_reason
@@ -2048,9 +2085,9 @@ def scan_event_qr(request):
 
 
 @require_POST
-@login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
 def register_student_from_scan(request):
+    if _resolve_save_scan_actor(request) is False:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
     student_id = (request.POST.get('student_id') or '').strip()
     first_name = (request.POST.get('first_name') or '').strip()
     middle_name = (request.POST.get('middle_name') or '').strip()
@@ -2129,10 +2166,11 @@ def _resolve_visitor_department(department_value, who_to_visit_other):
 
 
 @require_POST
-@login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
 def record_visitor_entry(request):
-    """Record a manual visitor entry: guard allows a visitor to enter (name, purpose, department/office). Optional face photo as proof."""
+    """Record a manual visitor entry: staff allows a visitor to enter (name, purpose, department/office). Optional face photo as proof."""
+    actor = _resolve_save_scan_actor(request)
+    if actor is False:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
     visitor_name = (request.POST.get('visitor_name') or '').strip()
     purpose = (request.POST.get('purpose') or '').strip()
     department_value = (request.POST.get('department') or '').strip()
@@ -2151,7 +2189,7 @@ def record_visitor_entry(request):
         visitor_name=visitor_name,
         purpose=purpose,
         who_to_visit=who_to_visit,
-        recorded_by=request.user,
+        recorded_by=actor,
     )
     if photo_file:
         entry_kwargs['photo'] = photo_file
@@ -2165,17 +2203,17 @@ def record_visitor_entry(request):
     })
 
 
-# Minimum reason length to allow exit during class hours
-EARLY_OUT_REASON_MIN_LENGTH = 5
+EARLY_OUT_REASON_MIN_LENGTH = 5  # legacy; event early-out no longer requires a minimum-length note
 
 
 @require_POST
-@login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
 def record_early_out(request):
-    """Record OUT when student was already scanned today. Block exit during class hours unless a valid reason is provided."""
+    """Record OUT when student was already scanned today (daily gate). Uses same policy as gate scan."""
+    actor = _resolve_save_scan_actor(request)
+    if actor is False:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
     student_id = (request.POST.get('student_id') or '').strip()
-    reason = (request.POST.get('reason') or '').strip()
+    reason = (request.POST.get('note') or request.POST.get('reason') or '').strip()
 
     if not student_id:
         return JsonResponse({
@@ -2205,15 +2243,15 @@ def record_early_out(request):
         }, status=400)
 
     now_dt = timezone.localtime(timezone.now())
-    guard_reason = (reason or '').strip() or None
-    eval_result = evaluate_scan(student, 'OUT', now_dt, guard_override_reason=guard_reason, daily_gate_only=True)
+    override_reason = (reason or '').strip() or None
+    eval_result = evaluate_scan(student, 'OUT', now_dt, personnel_override_reason=override_reason, daily_gate_only=True)
     if not eval_result['allowed']:
         return JsonResponse({
             'success': False,
             'blocked_during_class': eval_result.get('result') in ('DENIED', 'REQUIRE_REASON'),
             'message': eval_result['message'],
             'schedule_hint': eval_result.get('schedule_hint', ''),
-            'require_reason': eval_result.get('result') == 'REQUIRE_REASON',
+            'require_note': eval_result.get('result') == 'REQUIRE_REASON',
         }, status=400)
 
     out_reason_code = eval_result.get('out_reason_code') or ''
@@ -2227,7 +2265,7 @@ def record_early_out(request):
         notes='OUT',
         out_reason=out_reason_text,
         out_reason_code=out_reason_code,
-        recorded_by=request.user,
+        recorded_by=actor,
         **_audit_kwargs_for_gate_entry(request),
     )
 
@@ -2247,7 +2285,7 @@ def record_early_out(request):
         'status': 'OUT',
         'student_name': student.get_full_name(),
         'time': time_str,
-        'out_reason': reason,
+        'out_note': reason,
         'student': {
             'first_name': student.first_name,
             'middle_name': student.middle_name or '',
@@ -2262,11 +2300,12 @@ def record_early_out(request):
 # ---------- Reusable visitor pass: check-in / check-out lifecycle ----------
 
 @require_POST
-@login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
 @transaction.atomic
 def visitor_checkin_submit(request):
     """Submit visitor check-in form (reusable pass). Creates VisitorVisit, sets pass IN_USE, GateEntry(IN)."""
+    actor = _resolve_save_scan_actor(request)
+    if actor is False:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
     pass_code = (request.POST.get('pass_code') or '').strip()
     full_name = (request.POST.get('full_name') or '').strip()
     purpose = (request.POST.get('purpose') or '').strip()
@@ -2293,7 +2332,7 @@ def visitor_checkin_submit(request):
         purpose=purpose,
         department=department,
         checked_in_at=now,
-        checked_in_by=request.user,
+        checked_in_by=actor,
         status=VisitorVisit.STATUS_INSIDE,
         notes=notes,
     )
@@ -2312,7 +2351,7 @@ def visitor_checkin_submit(request):
         result='SUCCESS',
         scan_type='IN',
         notes='IN',
-        recorded_by=request.user,
+        recorded_by=actor,
         **_audit_kwargs_for_gate_entry(request),
     )
 
@@ -2329,11 +2368,12 @@ def visitor_checkin_submit(request):
 
 
 @require_POST
-@login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
 @transaction.atomic
 def visitor_checkout_submit(request):
     """Check out visitor (same pass scanned). Sets visit OUTSIDE, pass AVAILABLE, GateEntry(OUT)."""
+    actor = _resolve_save_scan_actor(request)
+    if actor is False:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
     pass_code = (request.POST.get('pass_code') or '').strip()
     visit_id = request.POST.get('visit_id')
     if not pass_code and not visit_id:
@@ -2363,7 +2403,7 @@ def visitor_checkout_submit(request):
         }, status=400)
 
     visit.checked_out_at = now
-    visit.checked_out_by = request.user
+    visit.checked_out_by = actor
     visit.status = VisitorVisit.STATUS_OUTSIDE
     visit.save(update_fields=['checked_out_at', 'checked_out_by', 'status'])
     if request.FILES.get('photo_out'):
@@ -2383,7 +2423,7 @@ def visitor_checkout_submit(request):
         result='SUCCESS',
         scan_type='OUT',
         notes='OUT',
-        recorded_by=request.user,
+        recorded_by=actor,
         **_audit_kwargs_for_gate_entry(request),
     )
 
@@ -2398,15 +2438,16 @@ def visitor_checkout_submit(request):
 
 
 @require_POST
-@login_required(login_url='/login/')
-@role_required('admin', 'staff')
 @transaction.atomic
 def visitor_force_checkout(request):
-    """Force checkout a visitor (e.g. lost pass, no return). Requires reason."""
+    """Force checkout a visitor (e.g. lost pass, no return). Requires a short staff note."""
+    actor = _resolve_save_scan_actor(request)
+    if actor is False:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
     visit_id = request.POST.get('visit_id')
-    reason = (request.POST.get('reason') or '').strip()
+    reason = (request.POST.get('note') or request.POST.get('reason') or '').strip()
     if not visit_id or not reason or len(reason) < 3:
-        return JsonResponse({'success': False, 'message': 'Visit ID and reason (min 3 chars) required.'}, status=400)
+        return JsonResponse({'success': False, 'message': 'Visit ID and a short note (min 3 characters) required.'}, status=400)
 
     visit = VisitorVisit.objects.filter(id=visit_id, status=VisitorVisit.STATUS_INSIDE).select_related('pass_obj').first()
     if not visit:
@@ -2414,7 +2455,7 @@ def visitor_force_checkout(request):
 
     now = timezone.now()
     visit.checked_out_at = now
-    visit.checked_out_by = request.user
+    visit.checked_out_by = actor
     visit.status = VisitorVisit.STATUS_OUTSIDE
     visit.notes = (visit.notes or '') + f'\n[Force checkout] {reason}'
     visit.save(update_fields=['checked_out_at', 'checked_out_by', 'status', 'notes'])
@@ -2432,7 +2473,7 @@ def visitor_force_checkout(request):
         result='SUCCESS',
         scan_type='OUT',
         notes=f'OUT (force: {reason[:100]})',
-        recorded_by=request.user,
+        recorded_by=actor,
         **_audit_kwargs_for_gate_entry(request),
     )
     return JsonResponse({'success': True, 'message': f'Visit force-checked out. Pass {pass_obj.code} released.'})
@@ -2466,7 +2507,7 @@ def visitor_disable_pass(request):
 
 @require_POST
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
+@role_required('admin', 'staff', 'faculty', 'supervisor')
 def mark_participation(request):
     """Mark student as participated or non-participant for an event."""
     student_pk = request.POST.get('student_pk')
@@ -2483,9 +2524,9 @@ def mark_participation(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
+@role_required('admin', 'staff', 'supervisor', 'faculty')
 def analytics_dashboard(request):
-    """Campus analytics: gate stats, incidents, event participation."""
+    """Analytics: gate stats, event participation (incidents feature removed)."""
     today = timezone.localdate()
     day_start, day_end = _local_day_bounds(today)
 
@@ -2496,15 +2537,14 @@ def analytics_dashboard(request):
     # Student gate visits only (daily gate, no event/visitor) so count matches Gate entry list
     granted_today = _granted_visits_count_for_date(today, daily_gate_only=True)
     denied_entries_count = entries_today.filter(granted=False).count()
-    incidents_today = GateIncident.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end).count()
-    denied_today = max(denied_entries_count, incidents_today)
+    denied_today = denied_entries_count
     total_students = Student.objects.filter(is_active=True).count()
     inside_now = _currently_inside_count(today)
     active_events = _get_active_events()
     report_event_choices = Event.objects.order_by('-start_date', 'name')[:150]
     past_events_with_stats = _get_past_events_with_stats(limit=20)
     recent_entries = GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end).select_related('student').order_by('-timestamp')[:10]
-    recent_incidents = GateIncident.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end).select_related('student').order_by('-timestamp')[:10]
+    recent_incidents = []
     participation_stats = EventAttendance.objects.values('event__name').annotate(
         total=Count('id'),
         participated_count=Count(Case(When(participated=True, then=1), output_field=IntegerField())),
@@ -2512,8 +2552,7 @@ def analytics_dashboard(request):
     )
 
     years_entries = GateEntry.objects.annotate(y=ExtractYear('timestamp')).values_list('y', flat=True).distinct()
-    years_incidents = GateIncident.objects.annotate(y=ExtractYear('timestamp')).values_list('y', flat=True).distinct()
-    data_years = {y for y in list(years_entries) + list(years_incidents) if y}
+    data_years = {y for y in list(years_entries) if y}
 
     default_years = {today.year - i for i in range(0, 6)}
     available_years = sorted(data_years.union(default_years).union({selected_year}))
@@ -2539,40 +2578,9 @@ def analytics_dashboard(request):
             else:
                 monthly_denied[m - 1] += 1
 
-    incidents_for_year = GateIncident.objects.filter(
-        timestamp__gte=year_start, timestamp__lt=year_end,
-    ).values_list('timestamp', flat=True)
-    for ts in incidents_for_year:
-        local_ts = timezone.localtime(ts)
-        if local_ts.year != selected_year:
-            continue
-        m = local_ts.month
-        if 1 <= m <= 12:
-            monthly_incidents[m - 1] += 1
-
-    reason_rows = (
-        GateIncident.objects
-        .filter(timestamp__gte=year_start, timestamp__lt=year_end)
-        .values('reason')
-        .annotate(total=Count('id'))
-        .order_by('-total')
-    )
     reason_labels = []
     reason_counts = []
-    reason_color_map = {
-        'identity_mismatch': '#ef4444',
-        'invalid_id': '#f59e0b',
-        'not_registered': '#3b82f6',
-        'proxy_attendance': '#8b5cf6',
-        'other': '#64748b',
-    }
     reason_colors = []
-    for r in reason_rows:
-        code = (r.get('reason') or '').strip()
-        label = dict(GateIncident.REASON_CHOICES).get(code, code or 'Other')
-        reason_labels.append(label)
-        reason_counts.append(int(r.get('total') or 0))
-        reason_colors.append(reason_color_map.get(code, '#64748b'))
 
     # Visitor stats (monthly and annually) – use local datetime bounds for timezone correctness
     # Include both VisitorEntry (manual log) and VisitorVisit (reusable pass check-ins) to match visitor list page
@@ -2591,13 +2599,35 @@ def analytics_dashboard(request):
         + VisitorVisit.objects.filter(checked_in_at__year=selected_year).count()
     )
 
+    # Student daily gate (granted IN/OUT scans only; excludes events and visitor rows) — matches gate entry list + analytics links
+    first_of_month = today.replace(day=1)
+    month_start_bounds, _ = _local_day_bounds(first_of_month)
+    student_entries_this_month = GateEntry.objects.filter(
+        timestamp__gte=month_start_bounds,
+        timestamp__lt=day_end,
+        granted=True,
+        student_id__isnull=False,
+        event__isnull=True,
+        visitor_visit__isnull=True,
+    ).count()
+    ys, ye = _local_year_bounds(selected_year)
+    student_entries_this_year = GateEntry.objects.filter(
+        timestamp__gte=ys,
+        timestamp__lt=ye,
+        granted=True,
+        student_id__isnull=False,
+        event__isnull=True,
+        visitor_visit__isnull=True,
+    ).count()
+    year_end_for_link = min(datetime.date(selected_year, 12, 31), today)
+
     # Top departments/offices visited (who_to_visit) – monthly and annually; include VisitorEntry + VisitorVisit to match visitor list
     top_departments_monthly, top_departments_annually = _top_departments_visitors(month_start, day_end, selected_year)
 
     annual_years = available_years[-6:] if len(available_years) > 6 else available_years
     annual_granted = []
     annual_denied = []
-    annual_inc = []
+    annual_inc = [0] * len(annual_years)
     for y in annual_years:
         y_start, y_end = _local_year_bounds(int(y))
         annual_granted.append(
@@ -2605,9 +2635,6 @@ def analytics_dashboard(request):
         )
         annual_denied.append(
             GateEntry.objects.filter(timestamp__gte=y_start, timestamp__lt=y_end, granted=False).count()
-        )
-        annual_inc.append(
-            GateIncident.objects.filter(timestamp__gte=y_start, timestamp__lt=y_end).count()
         )
 
     theme = SiteTheme.objects.first()
@@ -2628,7 +2655,7 @@ def analytics_dashboard(request):
         'today_iso': today.isoformat(),
         'granted_today': granted_today,
         'denied_today': denied_today,
-        'incidents_today': incidents_today,
+        'incidents_today': 0,
         'total_students': total_students,
         'inside_now': inside_now,
         'active_events': active_events,
@@ -2640,6 +2667,12 @@ def analytics_dashboard(request):
         'available_years': available_years,
         'visitors_this_month': visitors_this_month,
         'visitors_this_year': visitors_this_year,
+        'student_entries_this_month': student_entries_this_month,
+        'student_entries_this_year': student_entries_this_year,
+        'student_entries_month_from': first_of_month.isoformat(),
+        'student_entries_month_to': today.isoformat(),
+        'student_entries_year_from': datetime.date(selected_year, 1, 1).isoformat(),
+        'student_entries_year_to': year_end_for_link.isoformat(),
         'top_departments_monthly': top_departments_monthly,
         'top_departments_annually': top_departments_annually,
         'chart_month_labels_json': json.dumps(month_labels),
@@ -2667,355 +2700,10 @@ def analytics_dashboard(request):
 
 @require_GET
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
+@role_required('admin', 'staff', 'supervisor', 'faculty')
 def analytics_report(request):
-    """Printable campus analytics report with optional range/section filters and signatories."""
-    today = timezone.localdate()
-    export_format = (request.GET.get('export_format') or '').strip().lower()
-    from_date_str = (request.GET.get('from_date') or '').strip()
-    to_date_str = (request.GET.get('to_date') or '').strip()
-    selected_year_raw = (request.GET.get('report_year') or request.GET.get('year') or '').strip()
-    report_event_id_raw = (request.GET.get('report_event_id') or '').strip()
-
-    try:
-        from_date = datetime.date.fromisoformat(from_date_str) if from_date_str else today
-    except ValueError:
-        from_date = today
-    try:
-        to_date = datetime.date.fromisoformat(to_date_str) if to_date_str else from_date
-    except ValueError:
-        to_date = from_date
-    if to_date < from_date:
-        from_date, to_date = to_date, from_date
-
-    selected_year = int(selected_year_raw) if selected_year_raw.isdigit() else to_date.year
-    report_event_id = int(report_event_id_raw) if report_event_id_raw.isdigit() else None
-
-    include_keys = (
-        'include_summary',
-        'include_visitors',
-        'include_entries',
-        'include_incidents',
-        'include_events',
-        'include_active_events',
-    )
-    has_include_filters = (request.GET.get('report_filter') or '').strip() == '1' or any(k in request.GET for k in include_keys)
-
-    def _include_on(key):
-        if not has_include_filters:
-            return True
-        return (request.GET.get(key) or '').strip() in ('1', 'true', 'on', 'yes')
-
-    include_summary = _include_on('include_summary')
-    include_visitors = _include_on('include_visitors')
-    include_entries = _include_on('include_entries')
-    include_incidents = _include_on('include_incidents')
-    include_events = _include_on('include_events')
-    include_active_events = _include_on('include_active_events')
-
-    first_signatory_name = (request.GET.get('first_signatory_name') or '').strip()
-    first_signatory_title = (request.GET.get('first_signatory_title') or '').strip()
-    second_signatory_name = (request.GET.get('second_signatory_name') or '').strip()
-    second_signatory_title = (request.GET.get('second_signatory_title') or '').strip()
-    student_program = (request.GET.get('student_program') or '').strip()
-    student_section = (request.GET.get('student_section') or '').strip()
-    student_scan_type = (request.GET.get('student_scan_type') or '').strip().upper()
-    student_reason = (request.GET.get('student_reason') or '').strip()
-    student_from_time_str = (request.GET.get('student_from_time') or '').strip()
-    student_to_time_str = (request.GET.get('student_to_time') or '').strip()
-    visitor_type = (request.GET.get('visitor_type') or '').strip().lower()  # all|manual|pass
-    visitor_department = (request.GET.get('visitor_department') or '').strip()
-    visitor_status = (request.GET.get('visitor_status') or '').strip().upper()  # INSIDE|OUTSIDE
-    visitor_purpose = (request.GET.get('visitor_purpose') or '').strip()
-    visitor_from_time_str = (request.GET.get('visitor_from_time') or '').strip()
-    visitor_to_time_str = (request.GET.get('visitor_to_time') or '').strip()
-
-    day_start, _ = _local_day_bounds(from_date)
-    _, day_end = _local_day_bounds(to_date)
-    report_range_start = day_start
-    report_range_end = day_end
-    tz = timezone.get_current_timezone()
-
-    def _build_range(start_date, end_date, start_time_str, end_time_str):
-        start_dt, _ = _local_day_bounds(start_date)
-        _, end_dt = _local_day_bounds(end_date)
-        try:
-            if start_time_str:
-                t_from = datetime.time.fromisoformat(start_time_str)
-                start_dt = timezone.make_aware(datetime.datetime.combine(start_date, t_from), tz)
-        except ValueError:
-            pass
-        try:
-            if end_time_str:
-                t_to = datetime.time.fromisoformat(end_time_str)
-                end_dt = timezone.make_aware(datetime.datetime.combine(end_date, t_to), tz)
-                if end_dt <= start_dt:
-                    end_dt = end_dt + datetime.timedelta(days=1)
-        except ValueError:
-            pass
-        return start_dt, end_dt
-
-    student_range_start, student_range_end = _build_range(
-        from_date, to_date, student_from_time_str, student_to_time_str
-    )
-    visitor_range_start, visitor_range_end = _build_range(
-        from_date, to_date, visitor_from_time_str, visitor_to_time_str
-    )
-    start_of_month = to_date.replace(day=1)
-    month_start, _ = _local_day_bounds(start_of_month)
-
-    entries_qs = GateEntry.objects.filter(
-        timestamp__gte=student_range_start, timestamp__lt=student_range_end, student__isnull=False
-    )
-    if student_program:
-        entries_qs = entries_qs.filter(student__course=student_program)
-    if student_section:
-        entries_qs = entries_qs.filter(student__section__iexact=student_section)
-    if student_scan_type in ('IN', 'OUT'):
-        entries_qs = entries_qs.filter(scan_type=student_scan_type)
-    if student_reason:
-        if student_reason == 'EARLY_OUT':
-            entries_qs = entries_qs.filter(scan_type='OUT').filter(
-                (Q(out_reason_code__isnull=False) & ~Q(out_reason_code='')) |
-                (Q(out_reason__isnull=False) & ~Q(out_reason=''))
-            )
-        else:
-            entries_qs = entries_qs.filter(out_reason_code=student_reason)
-
-    granted_today = entries_qs.filter(granted=True).count()
-    denied_entries_count = entries_qs.filter(granted=False).count()
-    incidents_today = GateIncident.objects.filter(timestamp__gte=report_range_start, timestamp__lt=report_range_end).count()
-    denied_today = max(denied_entries_count, incidents_today)
-    total_students = Student.objects.filter(is_active=True).count()
-    inside_now = _currently_inside_count(to_date)
-    active_events = Event.objects.filter(
-        status__in=('active', 'scheduled'),
-        start_date__lte=to_date,
-        end_date__gte=from_date,
-    ).order_by('start_date', 'name')
-    selected_event_name = ''
-    if report_event_id:
-        active_events = active_events.filter(pk=report_event_id)
-        try:
-            selected_event_name = Event.objects.filter(pk=report_event_id).values_list('name', flat=True).first() or ''
-        except Exception:
-            selected_event_name = ''
-    recent_entries = entries_qs.select_related('student', 'recorded_by').order_by('-timestamp')[:50]
-    recent_incidents = GateIncident.objects.filter(timestamp__gte=report_range_start, timestamp__lt=report_range_end).select_related('student').order_by('-timestamp')[:50]
-    event_attendance_qs = EventAttendance.objects.filter(
-        event__start_date__lte=to_date,
-        event__end_date__gte=from_date,
-    )
-    if report_event_id:
-        event_attendance_qs = event_attendance_qs.filter(event_id=report_event_id)
-    participation_stats = event_attendance_qs.values('event__name').annotate(
-        total=Count('id'),
-        participated_count=Count(Case(When(participated=True, then=1), output_field=IntegerField())),
-        non_participant_count=Count(Case(When(participated=False, then=1), output_field=IntegerField())),
-    ).order_by('event__name')
-    event_attendance_rows = event_attendance_qs.select_related('student', 'event').order_by(
-        'event__name', 'student__last_name', 'student__first_name'
-    )[:300]
-    event_participated_rows = [r for r in event_attendance_rows if r.participated][:150]
-    event_present_rows = [r for r in event_attendance_rows if r.checked_in_at is not None][:150]
-    event_absent_rows = [r for r in event_attendance_rows if r.checked_in_at is None][:150]
-    visitor_entry_period = VisitorEntry.objects.filter(timestamp__gte=visitor_range_start, timestamp__lt=visitor_range_end)
-    visitor_visit_period = VisitorVisit.objects.filter(checked_in_at__gte=visitor_range_start, checked_in_at__lt=visitor_range_end)
-    if visitor_department:
-        visitor_entry_period = visitor_entry_period.filter(who_to_visit__icontains=visitor_department)
-        visitor_visit_period = visitor_visit_period.filter(department__icontains=visitor_department)
-    if visitor_purpose:
-        visitor_entry_period = visitor_entry_period.filter(purpose__icontains=visitor_purpose)
-        visitor_visit_period = visitor_visit_period.filter(purpose__icontains=visitor_purpose)
-    if visitor_status in ('INSIDE', 'OUTSIDE'):
-        visitor_visit_period = visitor_visit_period.filter(status=visitor_status)
-        if visitor_type in ('', 'all'):
-            visitor_entry_period = visitor_entry_period.none()
-    if visitor_type == 'manual':
-        visitor_visit_period = visitor_visit_period.none()
-    elif visitor_type == 'pass':
-        visitor_entry_period = visitor_entry_period.none()
-
-    year_start, year_end = _local_year_bounds(selected_year)
-    visitor_entry_year = VisitorEntry.objects.filter(timestamp__gte=year_start, timestamp__lt=year_end)
-    visitor_visit_year = VisitorVisit.objects.filter(checked_in_at__gte=year_start, checked_in_at__lt=year_end)
-    if visitor_department:
-        visitor_entry_year = visitor_entry_year.filter(who_to_visit__icontains=visitor_department)
-        visitor_visit_year = visitor_visit_year.filter(department__icontains=visitor_department)
-    if visitor_purpose:
-        visitor_entry_year = visitor_entry_year.filter(purpose__icontains=visitor_purpose)
-        visitor_visit_year = visitor_visit_year.filter(purpose__icontains=visitor_purpose)
-    if visitor_status in ('INSIDE', 'OUTSIDE'):
-        visitor_visit_year = visitor_visit_year.filter(status=visitor_status)
-        if visitor_type in ('', 'all'):
-            visitor_entry_year = visitor_entry_year.none()
-    if visitor_type == 'manual':
-        visitor_visit_year = visitor_visit_year.none()
-    elif visitor_type == 'pass':
-        visitor_entry_year = visitor_entry_year.none()
-
-    visitors_this_month = visitor_entry_period.count() + visitor_visit_period.count()
-    visitors_this_year = visitor_entry_year.count() + visitor_visit_year.count()
-
-    monthly_counter = defaultdict(int)
-    for dept in visitor_entry_period.values_list('who_to_visit', flat=True):
-        monthly_counter[(dept or '').strip() or '—'] += 1
-    for dept in visitor_visit_period.values_list('department', flat=True):
-        monthly_counter[(dept or '').strip() or '—'] += 1
-    top_departments_monthly = [
-        {'who_to_visit': name, 'count': count}
-        for name, count in sorted(monthly_counter.items(), key=lambda it: it[1], reverse=True)[:10]
-    ]
-
-    annual_counter = defaultdict(int)
-    for dept in visitor_entry_year.values_list('who_to_visit', flat=True):
-        annual_counter[(dept or '').strip() or '—'] += 1
-    for dept in visitor_visit_year.values_list('department', flat=True):
-        annual_counter[(dept or '').strip() or '—'] += 1
-    top_departments_annually = [
-        {'who_to_visit': name, 'count': count}
-        for name, count in sorted(annual_counter.items(), key=lambda it: it[1], reverse=True)[:10]
-    ]
-
-    visitor_rows = []
-    for v in visitor_entry_period[:120]:
-        visitor_rows.append(SimpleNamespace(
-            full_name=v.visitor_name,
-            purpose=v.purpose or '',
-            department=v.who_to_visit or '',
-            status='Manual log',
-            timestamp=v.timestamp,
-            entry_type='Manual',
-        ))
-    for v in visitor_visit_period[:120]:
-        visitor_rows.append(SimpleNamespace(
-            full_name=v.full_name,
-            purpose=v.purpose or '',
-            department=v.department or '',
-            status=v.get_status_display(),
-            timestamp=v.checked_in_at,
-            entry_type='Pass scan',
-        ))
-    visitor_rows = sorted(visitor_rows, key=lambda x: x.timestamp, reverse=True)[:50]
-
-    theme = SiteTheme.objects.first()
-    first_signatory_name = first_signatory_name or (getattr(theme, 'default_first_signatory_name', '') or '').strip()
-    first_signatory_title = first_signatory_title or (getattr(theme, 'default_first_signatory_title', '') or '').strip()
-    second_signatory_name = second_signatory_name or (getattr(theme, 'default_second_signatory_name', '') or '').strip()
-    second_signatory_title = second_signatory_title or (getattr(theme, 'default_second_signatory_title', '') or '').strip()
-
-    logo_url = ''
-    try:
-        if theme and theme.logo:
-            logo_url = request.build_absolute_uri(theme.logo.url)
-    except Exception:
-        pass
-    if not logo_url:
-        try:
-            logo_url = request.build_absolute_uri(static('img/logo.png'))
-        except Exception:
-            logo_url = ''
-
-    if from_date == to_date:
-        date_range_label = from_date.strftime('%B %d, %Y')
-    else:
-        date_range_label = f"{from_date.strftime('%B %d, %Y')} to {to_date.strftime('%B %d, %Y')}"
-
-    context = {
-        'site_name': 'City College of Bayawan',
-        'report_date': today,
-        'from_date': from_date,
-        'to_date': to_date,
-        'date_range_label': date_range_label,
-        'granted_today': granted_today,
-        'denied_today': denied_today,
-        'incidents_today': incidents_today,
-        'total_students': total_students,
-        'inside_now': inside_now,
-        'active_events': active_events,
-        'recent_entries': recent_entries,
-        'recent_incidents': recent_incidents,
-        'participation_stats': participation_stats,
-        'visitors_this_month': visitors_this_month,
-        'visitors_this_year': visitors_this_year,
-        'top_departments_monthly': top_departments_monthly,
-        'top_departments_annually': top_departments_annually,
-        'selected_year': selected_year,
-        'logo_url': logo_url,
-        'include_summary': include_summary,
-        'include_visitors': include_visitors,
-        'include_entries': include_entries,
-        'include_incidents': include_incidents,
-        'include_events': include_events,
-        'include_active_events': include_active_events,
-        'first_signatory_name': first_signatory_name,
-        'first_signatory_title': first_signatory_title,
-        'second_signatory_name': second_signatory_name,
-        'second_signatory_title': second_signatory_title,
-        'recent_visitors': visitor_rows,
-        'selected_student_program': student_program,
-        'selected_student_section': student_section,
-        'selected_student_scan_type': student_scan_type,
-        'selected_student_reason': student_reason,
-        'selected_student_from_time': student_from_time_str,
-        'selected_student_to_time': student_to_time_str,
-        'selected_visitor_type': visitor_type,
-        'selected_visitor_department': visitor_department,
-        'selected_visitor_status': visitor_status,
-        'selected_visitor_purpose': visitor_purpose,
-        'selected_visitor_from_time': visitor_from_time_str,
-        'selected_visitor_to_time': visitor_to_time_str,
-        'selected_event_name': selected_event_name,
-        'selected_event_id': report_event_id,
-        'event_participated_rows': event_participated_rows,
-        'event_present_rows': event_present_rows,
-        'event_absent_rows': event_absent_rows,
-        'export_format': export_format,
-    }
-
-    if export_format == 'pdf':
-        try:
-            from xhtml2pdf import pisa
-
-            def _pdf_link_callback(uri, rel):
-                if not uri:
-                    return uri
-                if uri.startswith('http://') or uri.startswith('https://'):
-                    return uri
-                if settings.MEDIA_URL and uri.startswith(settings.MEDIA_URL):
-                    media_path = os.path.join(settings.MEDIA_ROOT, uri.replace(settings.MEDIA_URL, ''))
-                    if os.path.exists(media_path):
-                        return media_path
-                if settings.STATIC_URL and uri.startswith(settings.STATIC_URL):
-                    static_path = finders.find(uri.replace(settings.STATIC_URL, ''))
-                    if static_path:
-                        return static_path
-                    if getattr(settings, 'STATIC_ROOT', None):
-                        static_root_path = os.path.join(settings.STATIC_ROOT, uri.replace(settings.STATIC_URL, ''))
-                        if os.path.exists(static_root_path):
-                            return static_root_path
-                return uri
-
-            html = render_to_string('gate/analytics_report.html', context, request=request)
-            response = HttpResponse(content_type='application/pdf')
-            filename = f"campus_analytics_{from_date.isoformat()}_{to_date.isoformat()}.pdf"
-            response['Content-Disposition'] = f'attachment; filename="{filename}"'
-            pisa_status = pisa.CreatePDF(
-                src=io.BytesIO(html.encode('utf-8')),
-                dest=response,
-                link_callback=_pdf_link_callback,
-                encoding='utf-8',
-            )
-            if not pisa_status.err:
-                return response
-            return HttpResponse(
-                'PDF export failed while rendering the document. Please adjust filters/content and try again.',
-                status=500
-            )
-        except Exception as e:
-            return HttpResponse(f'PDF export failed: {str(e)}', status=500)
-
-    return render(request, 'gate/analytics_report.html', context)
+    """Redirect: analytics is view-only per panel; print report removed."""
+    return redirect('gate-analytics')
 
 
 @require_GET
@@ -3348,10 +3036,11 @@ def _render_card_html_to_pdf_playwright(html, base_url):
         return None
 
 
-def _visitor_pass_list_for_user(request):
-    """Return passes list for visitor_pass_create and print-all.
+def _visitor_pass_list_for_user(request, no_limit=False):
+    """Return passes queryset for visitor_pass_create and print-all.
     When a range (start/end) is in the URL, show all passes in that range so staff can view/print
-    existing slots (regardless of who created them). Otherwise show recent passes for the whole campus."""
+    existing slots (regardless of who created them). Otherwise show recent passes for the whole campus.
+    If no_limit=True, return full queryset (for pagination); otherwise default case is capped at 200 for print-all."""
     start_param = request.GET.get('start')
     end_param = request.GET.get('end')
     if start_param is not None and end_param is not None:
@@ -3360,14 +3049,15 @@ def _visitor_pass_list_for_user(request):
             if 1 <= s <= 999 and 1 <= e <= 999 and s <= e:
                 code_min = VisitorPass.generate_reusable_code(s)
                 code_max = VisitorPass.generate_reusable_code(e)
-                # Show all passes in range so staff can see/print slots created by anyone
                 return VisitorPass.objects.filter(
                     code__gte=code_min, code__lte=code_max
                 ).order_by('code')
         except (TypeError, ValueError):
             pass
-    # Default: show recent passes for all staff (not just the creator) so QRs remain visible across logins
-    return VisitorPass.objects.all().order_by('-created_at')[:200]
+    qs = VisitorPass.objects.all().order_by('-created_at')
+    if not no_limit:
+        qs = qs[:200]
+    return qs
 
 
 def _render_visitor_eid_card_png(pass_obj, site_name='City College of Bayawan'):
@@ -3687,13 +3377,24 @@ def student_list(request):
     if filter_sex:
         clear_params['sex'] = filter_sex
     from django.urls import reverse
+    from django.core.paginator import Paginator
     clear_search_url = reverse('gate-student-list') + ('?' + urlencode(clear_params) if clear_params else '')
+
+    per_page, query_extra, query_extra_base = _get_per_page_and_query(request)
+    paginator = Paginator(students, per_page)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
 
     return render(request, 'gate/student_list.html', {
         'site_name': 'City College of Bayawan',
         'can_edit_students': can_edit_students,
         'embed': embed,
-        'students': students,
+        'students': page_obj.object_list,
+        'page_obj': page_obj,
+        'query_extra': query_extra,
+        'query_extra_base': query_extra_base,
+        'per_page': per_page,
+        'per_page_options': PER_PAGE_OPTIONS,
         'show_pending': show_pending,
         'pending_count': pending_count,
         'filter_course': filter_course,
@@ -3710,9 +3411,9 @@ def student_list(request):
 
 @login_required(login_url='/login/')
 @role_required('admin', 'staff', 'supervisor')
-def pending_staff_guard_list(request):
+def pending_staff_personnel_list(request):
     """
-    In-app page to list Staff/Faculty/Guard users with Status column (Pending/Approved)
+    In-app page to list Staff/Faculty users with Status column (Pending/Approved)
     and actions to Approve or Deactivate. Replaces linking to Django admin.
     """
     from django.contrib.auth import get_user_model
@@ -3724,10 +3425,9 @@ def pending_staff_guard_list(request):
     # Subquery for IDs so distinct() + order_by() works on both MySQL and PostgreSQL
     id_qs = User.objects.filter(
         Q(groups__name__iexact='staff') |
-        Q(groups__name__iexact='faculty') |
-        Q(groups__name__iexact='guard')
+        Q(groups__name__iexact='faculty')
     ).distinct().values_list('id', flat=True)
-    qs = User.objects.filter(id__in=id_qs).order_by('-date_joined').select_related('staff_guard_profile')
+    qs = User.objects.filter(id__in=id_qs).order_by('-date_joined').select_related('staff_personnel_profile')
 
     if show_only_pending:
         qs = qs.filter(is_active=False)
@@ -3736,20 +3436,20 @@ def pending_staff_guard_list(request):
     if request.method == 'POST':
         from django.utils.http import urlencode
         from django.contrib.auth.models import Group
-        from .models import StaffGuardProfile
+        from .models import StaffPersonnelProfile
 
         action = (request.POST.get('action') or '').strip()
         user_id = request.POST.get('user_id')
         params = {}
         if show_only_pending:
             params['pending'] = '1'
-        redirect_url = reverse('pending-staff-guard-list') + ('?' + urlencode(params) if params else '')
+        redirect_url = reverse('pending-staff-personnel-list') + ('?' + urlencode(params) if params else '')
 
         if action == 'edit_user' and user_id:
             try:
                 u = User.objects.get(pk=user_id)
-                if not (u.groups.filter(name__iexact='staff').exists() or u.groups.filter(name__iexact='faculty').exists() or u.groups.filter(name__iexact='guard').exists()):
-                    messages.error(request, 'User is not a staff/faculty/guard account.')
+                if not (u.groups.filter(name__iexact='staff').exists() or u.groups.filter(name__iexact='faculty').exists()):
+                    messages.error(request, 'User is not a staff or faculty account.')
                     return redirect(redirect_url)
                 new_username = (request.POST.get('username') or '').strip()
                 if new_username and User.objects.filter(username__iexact=new_username).exclude(pk=u.pk).exists():
@@ -3762,16 +3462,16 @@ def pending_staff_guard_list(request):
                     u.username = new_username
                 u.save(update_fields=['first_name', 'last_name', 'email', 'username'])
                 role = (request.POST.get('role') or '').strip().lower()
-                if role in ('staff', 'faculty', 'guard'):
+                if role in ('staff', 'faculty'):
                     role_groups = Group.objects.filter(
-                        Q(name__iexact='staff') | Q(name__iexact='faculty') | Q(name__iexact='guard')
+                        Q(name__iexact='staff') | Q(name__iexact='faculty')
                     )
                     for g in role_groups:
                         u.groups.remove(g)
                     grp = Group.objects.filter(name__iexact=role).first()
                     if grp:
                         u.groups.add(grp)
-                profile, _ = StaffGuardProfile.objects.get_or_create(user=u, defaults={})
+                profile, _ = StaffPersonnelProfile.objects.get_or_create(user=u, defaults={})
                 profile.middle_name = (request.POST.get('middle_name') or '')[:100]
                 profile.contact_number = (request.POST.get('contact_number') or '')[:20]
                 profile.department = (request.POST.get('department') or '')[:150]
@@ -3787,7 +3487,7 @@ def pending_staff_guard_list(request):
         if action and user_id:
             try:
                 u = User.objects.get(pk=user_id)
-                if u.groups.filter(name__iexact='staff').exists() or u.groups.filter(name__iexact='faculty').exists() or u.groups.filter(name__iexact='guard').exists():
+                if u.groups.filter(name__iexact='staff').exists() or u.groups.filter(name__iexact='faculty').exists():
                     if action == 'approve':
                         u.is_active = True
                         u.save(update_fields=['is_active'])
@@ -3814,13 +3514,13 @@ def pending_staff_guard_list(request):
     def get_role(u):
         for g in u.groups.all():
             n = (g.name or '').lower()
-            if n in ('staff', 'faculty', 'guard'):
+            if n in ('staff', 'faculty'):
                 return g.name or n.title()
         return '—'
 
     def get_profile_dict(u):
         try:
-            p = u.staff_guard_profile
+            p = u.staff_personnel_profile
             return {
                 'middle_name': p.middle_name or '',
                 'contact_number': p.contact_number or '',
@@ -3832,20 +3532,29 @@ def pending_staff_guard_list(request):
         except Exception:
             return {'middle_name': '', 'contact_number': '', 'department': '', 'position': '', 'employee_id': '', 'address': ''}
 
-    users_with_role = [(u, get_role(u), get_profile_dict(u)) for u in qs]
+    from django.core.paginator import Paginator
+    per_page, query_extra, query_extra_base = _get_per_page_and_query(request)
+    paginator = Paginator(qs, per_page)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+    users_with_role = [(u, get_role(u), get_profile_dict(u)) for u in page_obj.object_list]
+
     # Pending count: same filter, DB-agnostic (MySQL and PostgreSQL)
     pending_count = User.objects.filter(
         is_active=False,
         id__in=User.objects.filter(
             Q(groups__name__iexact='staff') |
-            Q(groups__name__iexact='faculty') |
-            Q(groups__name__iexact='guard')
+            Q(groups__name__iexact='faculty')
         ).distinct().values_list('id', flat=True)
     ).count()
 
     return render(request, 'gate/pending_staff_guard.html', {
         'site_name': 'City College of Bayawan',
         'users_with_role': users_with_role,
+        'page_obj': page_obj,
+        'query_extra': query_extra,
+        'query_extra_base': query_extra_base,
+        'per_page': per_page,
+        'per_page_options': PER_PAGE_OPTIONS,
         'show_only_pending': show_only_pending,
         'pending_count': pending_count,
     })
@@ -4008,190 +3717,11 @@ def student_edit(request, pk):
     })
 
 
-@login_required(login_url='/login/')
-@role_required('admin')
-def load_slip_list(request, student_pk):
-    """List load slips for a student. Registrar adds/edits from here."""
-    student = get_object_or_404(Student, pk=student_pk)
-    slips = student.load_slips.prefetch_related('subjects').order_by('-school_year', 'semester')
-    return render(request, 'gate/load_slip_list.html', {
-        'site_name': 'City College of Bayawan',
-        'student': student,
-        'slips': slips,
-    })
-
-
-@login_required(login_url='/login/')
-@role_required('admin')
-def load_slip_create(request, student_pk):
-    """Create a new load slip for a student (header + subjects formset)."""
-    student = get_object_or_404(Student, pk=student_pk)
-    slip_form = StudentLoadSlipForm(request.POST or None)
-    formset = LoadSlipSubjectFormSet(request.POST or None, instance=None)
-    if request.method == 'POST' and slip_form.is_valid():
-        slip = slip_form.save(commit=False)
-        slip.student = student
-        if StudentLoadSlip.objects.filter(student=student, school_year=slip.school_year, semester=slip.semester).exists():
-            messages.error(request, f'A load slip for {slip.school_year} {slip.semester} already exists for this student.')
-            return render(request, 'gate/load_slip_form.html', {
-                'site_name': 'City College of Bayawan',
-                'student': student,
-                'slip_form': slip_form,
-                'formset': formset,
-                'title': 'Add Load Slip',
-            })
-        slip.save()
-        formset = LoadSlipSubjectFormSet(request.POST, instance=slip)
-        if formset.is_valid():
-            formset.save()
-            messages.success(request, f'Load slip for {slip.school_year} {slip.semester} saved.')
-            return redirect('gate-load-slip-list', student_pk=student.pk)
-        messages.info(request, 'Load slip created. Add or fix subject rows below and save.')
-        return redirect('gate-load-slip-edit', student_pk=student.pk, slip_pk=slip.pk)
-    return render(request, 'gate/load_slip_form.html', {
-        'site_name': 'City College of Bayawan',
-        'student': student,
-        'slip_form': slip_form,
-        'formset': formset,
-        'title': 'Add Load Slip',
-    })
-
-
-@login_required(login_url='/login/')
-@role_required('admin')
-def load_slip_edit(request, student_pk, slip_pk):
-    """Edit an existing load slip and its subjects."""
-    student = get_object_or_404(Student, pk=student_pk)
-    slip = get_object_or_404(StudentLoadSlip, pk=slip_pk, student=student)
-    slip_form = StudentLoadSlipForm(request.POST or None, instance=slip)
-    formset = LoadSlipSubjectFormSet(request.POST or None, instance=slip)
-    if request.method == 'POST' and slip_form.is_valid() and formset.is_valid():
-        slip_form.save()
-        formset.save()
-        messages.success(request, f'Load slip {slip.school_year} {slip.semester} updated.')
-        return redirect('gate-load-slip-list', student_pk=student.pk)
-    return render(request, 'gate/load_slip_form.html', {
-        'site_name': 'City College of Bayawan',
-        'student': student,
-        'slip': slip,
-        'slip_form': slip_form,
-        'formset': formset,
-        'title': 'Edit Load Slip',
-    })
-
-
-@require_GET
-@login_required(login_url='/login/')
-@role_required('admin')
-def load_slip_export_csv(request, student_pk, slip_pk):
-    """Export one load slip as CSV in slip-style (one row per course, SCHEDULE like TTH/ 10:00-11:30 AM)."""
-    student = get_object_or_404(Student, pk=student_pk)
-    slip = get_object_or_404(StudentLoadSlip, pk=slip_pk, student=student)
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = (
-        'attachment; filename="load_slip_{}_{}_{}.csv"'.format(
-            student.student_id, slip.school_year.replace('-', '_'), slip.semester
-        )
-    )
-    response.write('\ufeff')
-    writer = csv.writer(response)
-    writer.writerow([
-        'student_id', 'school_year', 'semester', 'CODE', 'COURSE TITLE', 'SECTION', 'UNITS', 'SCHEDULE', 'ROOM', 'instructor',
-    ])
-    for subj in slip.subjects.all().order_by('day', 'start_time'):
-        if subj.schedule:
-            schedule_str = subj.schedule
-        else:
-            start_str = subj.start_time.strftime('%I:%M %p') if hasattr(subj.start_time, 'strftime') else str(subj.start_time)
-            end_str = subj.end_time.strftime('%I:%M %p') if hasattr(subj.end_time, 'strftime') else str(subj.end_time)
-            schedule_str = f"{subj.day}/ {start_str}-{end_str}"
-        writer.writerow([
-            student.student_id,
-            slip.school_year,
-            slip.semester,
-            subj.subject_code,
-            subj.subject_title,
-            subj.section,
-            subj.units,
-            schedule_str,
-            subj.room or '',
-            subj.instructor or '',
-        ])
-    return response
-
-
-@require_GET
-@login_required(login_url='/login/')
-@role_required('admin')
-def load_slip_template_csv(request):
-    """Download CSV template. ?format=slip = slip-style (CODE, COURSE TITLE, SCHEDULE like TTH/ 10:00-11:30 AM)."""
-    slip_style = request.GET.get('format') == 'slip'
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = (
-        'attachment; filename="load_slip_template_slip_style.csv"' if slip_style
-        else 'attachment; filename="load_slip_import_template.csv"'
-    )
-    response.write('\ufeff')
-    writer = csv.writer(response)
-    if slip_style:
-        # Template matches CCB enrollment load slip: CODE, COURSE TITLE, SECTION, UNITS, SCHEDULE, ROOM
-        writer.writerow([
-            'student_id', 'school_year', 'semester', 'CODE', 'COURSE TITLE', 'SECTION', 'UNITS', 'SCHEDULE', 'ROOM', 'instructor',
-        ])
-        sample_rows = [
-            ('20250202', '2025-2026', '2nd', 'GE 6', 'Purposive Communication', 'B', '3', 'TTH/ 10:00-11:30 AM', 'CCB 9', ''),
-            ('20250202', '2025-2026', '2nd', 'ENT 102', 'Pricing and Costing', 'B', '3', 'MWF/ 11:00-12:00 AM', 'CCB 6', ''),
-            ('20250202', '2025-2026', '2nd', 'ENT 103', 'Human Resource Management', 'B', '3', 'MWF/ 5:30-6:30 PM', 'CCB 5', ''),
-            ('20250202', '2025-2026', '2nd', 'ENT 104', 'Innovation Management', 'B', '3', 'MWF/ 6:30-7:30 PM', 'CCB 10', ''),
-            ('20250202', '2025-2026', '2nd', 'BME 105', 'Operations Management (TQM)', 'B', '3', 'TTH/ 2:30-4:00 PM', 'CCB 6', ''),
-            ('20250202', '2025-2026', '2nd', 'PATHFIT 2', 'Physical Activity Towards Health and Fitness- Exercise Based Fitness Activities', 'B', '2', 'TTH/ 1:00-2:00 PM', 'CCB 4', ''),
-            ('20250202', '2025-2026', '2nd', 'NSTP 2', 'National Service Training Program', 'B', '3', 'SAT/ 1:00-5:00 PM', 'CCB Grounds', ''),
-            ('20250202', '2025-2026', '2nd', 'EN OM', 'Enhancement (For OFF-TRACK Senior High School Graduates) Organization and Management', 'B', '3', 'MWF/ 1:00-2:00 PM', 'CCB 10', ''),
-            ('20250202', '2025-2026', '2nd', 'EN BMKTG', 'Business Marketing', 'B', '3', 'MWF/ 3:00-4:00 PM', 'CCB 4', ''),
-        ]
-        for row in sample_rows:
-            writer.writerow(row)
-    else:
-        writer.writerow([
-            'student_id', 'school_year', 'semester', 'subject_code', 'subject_title',
-            'section', 'units', 'day', 'start_time', 'end_time', 'room', 'instructor',
-        ])
-        writer.writerow([
-            '2026-001', '2025-2026', '1st', 'IT101', 'Intro to Computing', 'BSIT-1A',
-            '3', 'Mon', '07:30', '09:00', 'RM101', 'Mr. Cruz',
-        ])
-        writer.writerow([
-            '2026-001', '2025-2026', '1st', 'IT101', 'Intro to Computing', 'BSIT-1A',
-            '3', 'Wed', '07:30', '09:00', 'RM101', 'Mr. Cruz',
-        ])
-        writer.writerow([
-            '2026-001', '2025-2026', '1st', 'GE102', 'Purposive Comm', 'BSIT-1A',
-            '3', 'Tue', '09:00', '10:30', 'RM202', 'Ms. Reyes',
-        ])
-    return response
-
-
-@require_GET
-@login_required(login_url='/login/')
-@role_required('admin')
-def load_slip_sample_batch_csv(request):
-    """Download sample load slip CSV: 50 students (20240001–20240050), matches sample_students_50 (sections A/B/C by student)."""
-    sample_path = os.path.join(os.path.dirname(__file__), 'sample_batch_loadslip_50_students.csv')
-    if not os.path.isfile(sample_path):
-        from django.http import HttpResponseNotFound
-        return HttpResponseNotFound('Sample file not found.')
-    with open(sample_path, 'rb') as f:
-        content = f.read()
-    response = HttpResponse(content, content_type='text/csv; charset=utf-8-sig')
-    response['Content-Disposition'] = 'attachment; filename="sample_loadslip_50_students.csv"'
-    return response
-
-
 @require_GET
 @login_required(login_url='/login/')
 @role_required('admin')
 def student_sample_csv(request):
-    """Download sample students CSV: 50 students (20240001–20240050) with full details, matches load slip batch."""
+    """Download sample students CSV: 50 students (20240001–20240050) with full details."""
     sample_path = os.path.join(os.path.dirname(__file__), 'sample_students_50.csv')
     if not os.path.isfile(sample_path):
         from django.http import HttpResponseNotFound
@@ -4203,161 +3733,30 @@ def student_sample_csv(request):
     return response
 
 
-@login_required(login_url='/login/')
-@role_required('admin')
-def load_slip_upload(request):
-    """Upload CSV or Excel to import load slips. Supports import by filter (course/year/section) with no student IDs in file."""
-    from django.core.exceptions import ValidationError
-    from .services.import_loadslip import import_loadslip_by_filter
-    form = LoadSlipUploadForm(request.POST or None, request.FILES or None)
-    result = None
-    if request.method == 'POST' and form.is_valid():
-        f = form.cleaned_data['file']
-        replace_existing = form.cleaned_data['replace_existing']
-        import_by_filter = form.cleaned_data.get('import_by_filter')
-        batch_course = (form.cleaned_data.get('batch_course') or '').strip()
-        batch_year_level = (form.cleaned_data.get('batch_year_level') or '').strip()
-        batch_section = (form.cleaned_data.get('batch_section') or '').strip()
-
-        if import_by_filter:
-            # Apply file (no student_id) to all students matching course + year + section(s)
-            school_year = (form.cleaned_data.get('filter_school_year') or '').strip()
-            semester = (form.cleaned_data.get('filter_semester') or '').strip()
-            sections_list = None
-            if batch_section:
-                sections_list = [s.strip() for s in batch_section.split(',') if s.strip()]
-            try:
-                result = import_loadslip_by_filter(
-                    file_obj=f,
-                    filename=f.name,
-                    school_year=school_year,
-                    semester=semester,
-                    course=batch_course,
-                    year_level=batch_year_level,
-                    sections_list=sections_list,
-                    replace_existing=replace_existing,
-                )
-            except ValidationError as e:
-                messages.error(request, str(e))
-                result = None
-            else:
-                if result.get('errors'):
-                    messages.warning(
-                        request,
-                        f"Import completed with {len(result['errors'])} error(s). See list below."
-                    )
-                    request.session['load_slip_import_errors'] = result['errors']
-                else:
-                    messages.success(request, 'Import completed successfully.')
-                    request.session.pop('load_slip_import_errors', None)
-                    updated_keys = result.get('updated_slip_keys', [])
-                    created = result.get('created_subjects', 0)
-                    if updated_keys:
-                        from .audit import log_action
-                        log_action(request, 'bulk_import', 'StudentLoadSlip', object_id='', description=f'Load slip import (filter): {len(updated_keys)} student(s), {created} subject(s)')
-                        messages.info(
-                            request,
-                            f"Applied load slip to {len(updated_keys)} student(s) matching Course=%s, Year=%s%s. %s subject(s) created per student."
-                            % (batch_course, batch_year_level,
-                               (', Sections=%s' % batch_section) if sections_list else ' (all sections)',
-                               created // len(updated_keys) if updated_keys else 0)
-                        )
-                    return redirect('gate-load-slip-upload')
-        else:
-            # Original: file has student_id; optional batch update of Student records
-            try:
-                result = import_loadslip(
-                    file_obj=f,
-                    filename=f.name,
-                    uploaded_by=request.user,
-                    replace_existing=replace_existing,
-                )
-            except ValidationError as e:
-                messages.error(request, str(e))
-                result = None
-            else:
-                updated_keys = result.get('updated_slip_keys', [])
-                student_ids = list({sid for sid, _sy, _sem in updated_keys})
-                if student_ids and (batch_course or batch_year_level or batch_section):
-                    update_kw = {}
-                    if batch_course:
-                        update_kw['course'] = batch_course
-                    if batch_year_level:
-                        update_kw['year_level'] = batch_year_level
-                    if batch_section:
-                        update_kw['section'] = batch_section
-                    if update_kw:
-                        Student.objects.filter(student_id__in=student_ids).update(**update_kw)
-                        messages.info(request, 'Batch applied: course/year/section updated for %s student(s) in this file.' % len(student_ids))
-                if result.get('errors'):
-                    messages.warning(
-                        request,
-                        f"Import completed with {len(result['errors'])} error(s). See list below."
-                    )
-                    request.session['load_slip_import_errors'] = result['errors']
-                else:
-                    request.session.pop('load_slip_import_errors', None)
-                    messages.success(request, 'Import completed successfully.')
-                    from .audit import log_action
-                    n_students = len({sid for sid, _sy, _sem in updated_keys}) if updated_keys else 0
-                    log_action(request, 'bulk_import', 'StudentLoadSlip', object_id='', description=f'Load slip import: {n_students} student(s) updated')
-                    created = result.get('created_subjects', 0)
-                    if updated_keys:
-                        by_sem = {}
-                        for sid, sy, sem in updated_keys:
-                            key = f"{sy} {sem}"
-                            by_sem.setdefault(key, []).append(sid)
-                        parts = [f"{sem_key} for {', '.join(sids)}" if len(sids) <= 3 else f"{sem_key} for {len(sids)} student(s)" for sem_key, sids in sorted(by_sem.items())]
-                        messages.info(
-                            request,
-                            f"{created} course(s) imported. Updated: {'; '.join(parts)}. Other semesters unchanged."
-                        )
-                    elif created:
-                        messages.info(request, f"{created} course(s) imported. Load slip(s) updated.")
-                    else:
-                        messages.info(request, f"Load slips updated: {result.get('updated_slips', 0)}.")
-                    return redirect('gate-load-slip-upload')
-    return render(request, 'gate/upload_loadslip.html', {
-        'site_name': 'City College of Bayawan',
-        'form': form,
-        'result': result,
-    })
-
-
-@login_required(login_url='/login/')
-@role_required('admin')
-def load_slip_import_errors_csv(request):
-    """Download the last load slip import errors as CSV (from session). Optional follow-up to load_slip_upload when errors occurred."""
-    errors = request.session.get('load_slip_import_errors') or []
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="load_slip_import_errors.csv"'
-    writer = csv.writer(response)
-    writer.writerow(['#', 'Error'])
-    for i, err in enumerate(errors, start=1):
-        writer.writerow([i, err] if isinstance(err, str) else [i, str(err)])
-    return response
-
-
-@login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard', 'supervisor')
+@require_GET
 def entry_list(request):
-    """List gate entries. Guards see today only; Supervisor/Admin can filter by date."""
+    """List gate entries. Staff/Admin/Supervisor can filter by date. Embed + guard_token for guard monitor iframe."""
+    from django.contrib.auth.views import redirect_to_login
     from gate_analytics.roles import get_user_role
-    user_role = get_user_role(request.user)
+    if _guard_embed_query_token_ok(request):
+        user_role = 'staff'
+    else:
+        if not request.user.is_authenticated:
+            return redirect_to_login(next=request.get_full_path())
+        user_role = get_user_role(request.user)
+        if user_role not in ('admin', 'staff', 'supervisor', 'faculty'):
+            return HttpResponseForbidden('Access denied')
 
     q = (request.GET.get('q') or '').strip()
     f = (request.GET.get('filter') or '').strip().lower()
 
     from_date = (request.GET.get('from_date') or '').strip()
+    to_date = (request.GET.get('to_date') or '').strip()
     from_time = (request.GET.get('from_time') or '').strip()
-    # Guards: today only (no date picker / no historical data)
-    if user_role == 'guard':
-        from_date = timezone.localdate().isoformat()
-        from_time = ''
-    elif not from_date:
+    if not from_date:
         from_date = timezone.localdate().isoformat()
 
-    entries_qs = GateEntry.objects.select_related('student', 'incident', 'event').order_by('-timestamp')
+    entries_qs = GateEntry.objects.select_related('student', 'event').order_by('-timestamp')
     if q:
         entries_qs = entries_qs.filter(
             Q(student__student_id__icontains=q) |
@@ -4378,26 +3777,56 @@ def entry_list(request):
         entries_qs = entries_qs.filter(notes__iexact='OUT')
 
     filter_date = None
+    filter_to_date = None
     try:
         if from_date:
             filter_date = datetime.date.fromisoformat(from_date)
     except ValueError:
         filter_date = None
+    try:
+        if to_date:
+            filter_to_date = datetime.date.fromisoformat(to_date)
+    except ValueError:
+        filter_to_date = None
 
-    # Use local-timezone day bounds so "this date" matches the calendar day (fixes USE_TZ + __date in UTC)
+    range_mode = bool(filter_date and filter_to_date and filter_to_date >= filter_date)
+    range_start = range_end_exclusive = None
+
+    # Use local-timezone day bounds so ranges match calendar days (fixes USE_TZ vs UTC)
     if filter_date:
-        day_start, day_end = _local_day_bounds(filter_date)
-        tz = timezone.get_current_timezone()
-        entries_qs = entries_qs.filter(timestamp__gte=day_start, timestamp__lt=day_end)
-        if from_time:
-            try:
-                start_t = datetime.time.fromisoformat(from_time)
-                start_dt = timezone.make_aware(datetime.datetime.combine(filter_date, start_t), tz)
-                entries_qs = entries_qs.filter(timestamp__gte=start_dt)
-            except ValueError:
-                pass
+        if range_mode:
+            range_start = _local_day_bounds(filter_date)[0]
+            range_end_exclusive = _local_day_bounds(filter_to_date)[1]
+            entries_qs = entries_qs.filter(timestamp__gte=range_start, timestamp__lt=range_end_exclusive)
+        else:
+            day_start, day_end = _local_day_bounds(filter_date)
+            range_start, range_end_exclusive = day_start, day_end
+            entries_qs = entries_qs.filter(timestamp__gte=day_start, timestamp__lt=day_end)
+            if from_time:
+                tz = timezone.get_current_timezone()
+                try:
+                    start_t = datetime.time.fromisoformat(from_time)
+                    start_dt = timezone.make_aware(datetime.datetime.combine(filter_date, start_t), tz)
+                    entries_qs = entries_qs.filter(timestamp__gte=start_dt)
+                except ValueError:
+                    pass
 
-    entries = list(entries_qs[:200])
+    # Daily student gate only (matches analytics / yearly summary counts). Without this, pagination
+    # mixes event + visitor rows so "View log" shows a handful of student rows vs hundreds counted.
+    student_gate_only = (request.GET.get('student_gate_only') or '').strip().lower() in ('1', 'true', 'yes')
+    if student_gate_only:
+        entries_qs = entries_qs.filter(
+            student_id__isnull=False,
+            event__isnull=True,
+            visitor_visit__isnull=True,
+        )
+
+    from django.core.paginator import Paginator
+    per_page, query_extra, query_extra_base = _get_per_page_and_query(request)
+    paginator_entries = Paginator(entries_qs, per_page)
+    page_number = request.GET.get('page', 1)
+    page_obj_entries = paginator_entries.get_page(page_number)
+    entries = list(page_obj_entries.object_list)
     # Student entries = gate entries NOT linked to an event, and not visitor (daily gate in/out only)
     entries_student_only = [e for e in entries if e.event_id is None and e.student_id is not None]
     # Visitor entries (reusable pass check-in/out) for same date
@@ -4407,16 +3836,16 @@ def entry_list(request):
     visits = _gate_entries_to_visits(entries_student_only)
     event_visits = _gate_entries_to_visits(entries_event_only)
 
-    # Visitors for same date (for tab inside Gate entries) — legacy VisitorEntry + reusable pass VisitorVisit
+    # Visitors for same date or range (for tab inside Gate entries) — legacy VisitorEntry + reusable pass VisitorVisit
     visitors_qs = VisitorEntry.objects.select_related('recorded_by').order_by('-timestamp')
-    if filter_date:
-        visitors_qs = visitors_qs.filter(timestamp__gte=day_start, timestamp__lt=day_end)
+    if filter_date and range_start is not None:
+        visitors_qs = visitors_qs.filter(timestamp__gte=range_start, timestamp__lt=range_end_exclusive)
     visitor_entries = list(visitors_qs[:200])
-    # Reusable pass check-ins (VisitorVisit) for same date — same shape as VisitorEntry for template
+    # Reusable pass check-ins (VisitorVisit) — same shape as VisitorEntry for template
     visit_rows = []
-    if filter_date:
+    if filter_date and range_start is not None:
         visitor_visits_qs = VisitorVisit.objects.filter(
-            checked_in_at__gte=day_start, checked_in_at__lt=day_end
+            checked_in_at__gte=range_start, checked_in_at__lt=range_end_exclusive
         ).select_related('checked_in_by').order_by('-checked_in_at')[:200]
         for vv in visitor_visits_qs:
             visit_rows.append(SimpleNamespace(
@@ -4429,46 +3858,15 @@ def entry_list(request):
             ))
     visitors = sorted(visitor_entries + visit_rows, key=lambda x: x.timestamp, reverse=True)[:200]
 
-    # Incidents for same date (for Incidents tab beside Student entries / Visitors)
-    incidents_qs = GateIncident.objects.select_related('student').order_by('-timestamp')
-    if filter_date:
-        incidents_qs = incidents_qs.filter(timestamp__gte=day_start, timestamp__lt=day_end)
-        if from_time:
-            try:
-                start_t = datetime.time.fromisoformat(from_time)
-                start_dt = timezone.make_aware(datetime.datetime.combine(filter_date, start_t), tz)
-                incidents_qs = incidents_qs.filter(timestamp__gte=start_dt)
-            except ValueError:
-                pass
-    if q:
-        incidents_qs = incidents_qs.filter(
-            Q(scanned_id__icontains=q) |
-            Q(student__student_id__icontains=q) |
-            Q(student__first_name__icontains=q) |
-            Q(student__last_name__icontains=q) |
-            Q(details__icontains=q)
-        )
-    incidents = list(incidents_qs[:200])
+    # Incidents feature removed: no incidents tab or proxy report
+    incidents = []
+    visits_display = [(in_e, out_e, None, False) for in_e, out_e in visits]
 
-    # Students (and scanned_id) already reported for proxy this date -> show "Reported" button
-    proxy_reported_student_pks = { i.student_id for i in incidents if i.reason == 'proxy_attendance' and i.student_id }
-    proxy_reported_scanned_ids = { (i.scanned_id or '').strip() for i in incidents if i.reason == 'proxy_attendance' and (i.scanned_id or '').strip() }
-
-    # Map student_id -> incident for same date (so Incident column can show proxy etc. even when not linked to a GateEntry)
-    student_incident_map = { i.student_id: i for i in incidents if i.student_id }
-    # Fallback: incidents with no student but scanned_id set (e.g. reported before we linked inactive students)
-    scanned_id_incident_map = { i.scanned_id: i for i in incidents if not i.student_id and (i.scanned_id or '').strip() }
-    visits_display = []
-    for in_e, out_e in visits:
-        entry = in_e or out_e
-        sid_pk = entry.student_id
-        sid_str = entry.student.student_id if entry.student_id else ''
-        inc = student_incident_map.get(sid_pk) or (scanned_id_incident_map.get(sid_str) if sid_str else None)
-        already_reported = sid_pk in proxy_reported_student_pks or (sid_str in proxy_reported_scanned_ids if sid_str else False)
-        visits_display.append((in_e, out_e, inc, already_reported))
-
-    # Students currently inside (last scan on this date is IN) — so "View entries" can show who is still on campus
-    currently_inside = _currently_inside_list(filter_date) if filter_date else []
+    # Students currently inside — only meaningful for a single calendar day (not a multi-day range)
+    if filter_date and not range_mode:
+        currently_inside = _currently_inside_list(filter_date)
+    else:
+        currently_inside = None
 
     context = {
         'site_name': 'City College of Bayawan',
@@ -4482,9 +3880,16 @@ def entry_list(request):
         'q': q,
         'filter': f,
         'from_date': from_date or timezone.localdate().isoformat(),
+        'to_date': to_date,
         'from_time': from_time,
+        'student_gate_only': student_gate_only,
         'hide_controls': (request.GET.get('hide_controls') or '').strip() in ('1', 'true', 'True'),
         'user_role': user_role,
+        'page_obj': page_obj_entries,
+        'query_extra': query_extra,
+        'query_extra_base': query_extra_base,
+        'per_page': per_page,
+        'per_page_options': PER_PAGE_OPTIONS,
     }
     if request.GET.get('embed'):
         context['embed'] = True
@@ -4492,11 +3897,16 @@ def entry_list(request):
     return render(request, 'gate/entry_list.html', context)
 
 
-@login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty')
 @require_GET
 def event_attendees_embed(request):
     """Embeddable event attendees list for a single event (used beside event title on gate scan when tracking)."""
+    from django.contrib.auth.views import redirect_to_login
+    from gate_analytics.roles import get_user_role
+    if not _guard_embed_get_token_ok(request):
+        if not request.user.is_authenticated:
+            return redirect_to_login(next=request.get_full_path())
+        if get_user_role(request.user) not in ('admin', 'staff', 'faculty', 'supervisor'):
+            return HttpResponseForbidden('Access denied')
     event_id = (request.GET.get('event_id') or '').strip()
     if not event_id:
         return render(request, 'gate/event_attendees_embed.html', {
@@ -4517,7 +3927,7 @@ def event_attendees_embed(request):
     entries_qs = GateEntry.objects.filter(
         event_id=event.id,
         timestamp__gte=day_start, timestamp__lt=day_end,
-    ).select_related('student', 'incident').order_by('-timestamp')
+    ).select_related('student').order_by('-timestamp')
     entries = list(entries_qs[:200])
     event_visits = _gate_entries_to_visits(entries)
     return render(request, 'gate/event_attendees_embed.html', {
@@ -4528,7 +3938,7 @@ def event_attendees_embed(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
+@role_required('admin', 'staff', 'faculty', 'supervisor')
 def visitor_entry_list(request):
     """List visitor entries (manual log + reusable pass check-ins). Default to today. Supports from_date only (single day) or from_date+to_date (range), and search by name."""
     from_date = (request.GET.get('from_date') or '').strip()
@@ -4556,14 +3966,14 @@ def visitor_entry_list(request):
         range_start, _ = _local_day_bounds(filter_date)
         _, range_end = _local_day_bounds(filter_to_date)
         qs = qs.filter(timestamp__gte=range_start, timestamp__lt=range_end)
-        visitor_entries = list(qs[:500])
+        visitor_entries = list(qs[:3000])
         visit_qs = VisitorVisit.objects.filter(
             checked_in_at__gte=range_start, checked_in_at__lt=range_end
         ).select_related('checked_in_by').order_by('-checked_in_at')
         if q:
             visit_qs = visit_qs.filter(full_name__icontains=q)
         visit_rows = []
-        for vv in visit_qs[:500]:
+        for vv in visit_qs[:3000]:
             visit_rows.append(SimpleNamespace(
                 timestamp=vv.checked_in_at,
                 visitor_name=vv.full_name,
@@ -4576,14 +3986,14 @@ def visitor_entry_list(request):
         # Single day
         day_start, day_end = _local_day_bounds(filter_date)
         qs = qs.filter(timestamp__gte=day_start, timestamp__lt=day_end)
-        visitor_entries = list(qs[:200])
+        visitor_entries = list(qs[:3000])
         visit_qs = VisitorVisit.objects.filter(
             checked_in_at__gte=day_start, checked_in_at__lt=day_end
         ).select_related('checked_in_by').order_by('-checked_in_at')
         if q:
             visit_qs = visit_qs.filter(full_name__icontains=q)
         visit_rows = []
-        for vv in visit_qs[:200]:
+        for vv in visit_qs[:3000]:
             visit_rows.append(SimpleNamespace(
                 timestamp=vv.checked_in_at,
                 visitor_name=vv.full_name,
@@ -4593,13 +4003,24 @@ def visitor_entry_list(request):
                 photo=vv.photo_in,
             ))
     else:
-        visitor_entries = list(qs[:200])
+        visitor_entries = list(qs[:3000])
         visit_rows = []
 
-    visitors = sorted(visitor_entries + visit_rows, key=lambda x: x.timestamp, reverse=True)[:500]
+    visitors_all = sorted(visitor_entries + visit_rows, key=lambda x: x.timestamp, reverse=True)
+    from django.core.paginator import Paginator
+    per_page, query_extra, query_extra_base = _get_per_page_and_query(request)
+    paginator = Paginator(visitors_all, per_page)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+    visitors = list(page_obj.object_list)
+
     context = {
         'site_name': 'City College of Bayawan',
         'visitors': visitors,
+        'page_obj': page_obj,
+        'query_extra': query_extra,
+        'query_extra_base': query_extra_base,
+        'per_page': per_page,
+        'per_page_options': PER_PAGE_OPTIONS,
         'from_date': from_date,
         'to_date': to_date or '',
         'filter_to_date': filter_to_date,
@@ -4612,7 +4033,7 @@ def visitor_entry_list(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
+@role_required('admin', 'staff', 'faculty', 'supervisor')
 def visitor_yearly_summary(request):
     """Yearly visitor summary: visitors per month for a selected year. Uses local time bounds (no DB __year)."""
     embed = (request.GET.get('embed') or '').strip().lower() in ('1', 'true', 'yes')
@@ -4684,113 +4105,78 @@ def visitor_yearly_summary(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
-def incident_list(request):
-    """List gate incidents (denied entries, alerts). Default to today when no date given."""
-    q = (request.GET.get('q') or '').strip()
-    f = (request.GET.get('filter') or '').strip().lower()
-    from_date = (request.GET.get('from_date') or '').strip()
-    from_time = (request.GET.get('from_time') or '').strip()
-    # Default to today so modal shows latest (today's) incidents
-    if not from_date:
-        from_date = timezone.localdate().isoformat()
+@role_required('admin', 'staff', 'faculty', 'supervisor')
+def student_entries_yearly_summary(request):
+    """Yearly student gate summary: granted daily-gate scans per month (same rules as analytics student entry counts)."""
+    embed = (request.GET.get('embed') or '').strip().lower() in ('1', 'true', 'yes')
+    today = timezone.localdate()
+    selected_year_raw = (request.GET.get('year') or '').strip()
+    selected_year = int(selected_year_raw) if selected_year_raw.isdigit() else today.year
 
-    incidents_qs = GateIncident.objects.select_related('student').order_by('-timestamp')
-    if q:
-        incidents_qs = incidents_qs.filter(
-            Q(scanned_id__icontains=q) |
-            Q(student__student_id__icontains=q) |
-            Q(student__first_name__icontains=q) |
-            Q(student__middle_name__icontains=q) |
-            Q(student__last_name__icontains=q) |
-            Q(details__icontains=q)
-        )
+    year_start, year_end = _local_year_bounds(selected_year)
 
-    if f in ('identity_mismatch', 'invalid_id', 'not_registered', 'proxy_attendance', 'other'):
-        incidents_qs = incidents_qs.filter(reason=f)
-    elif f == 'alerted_yes':
-        incidents_qs = incidents_qs.filter(guard_alerted=True)
-    elif f == 'alerted_no':
-        incidents_qs = incidents_qs.filter(guard_alerted=False)
+    ts_list = GateEntry.objects.filter(
+        timestamp__gte=year_start,
+        timestamp__lt=year_end,
+        granted=True,
+        student_id__isnull=False,
+        event__isnull=True,
+        visitor_visit__isnull=True,
+    ).values_list('timestamp', flat=True)
 
-    filter_date = None
-    try:
-        if from_date:
-            filter_date = datetime.date.fromisoformat(from_date)
-    except ValueError:
-        filter_date = None
+    entry_by_month = defaultdict(int)
+    for ts in ts_list:
+        if ts is not None:
+            local_ts = timezone.localtime(ts)
+            if 1 <= local_ts.month <= 12:
+                entry_by_month[local_ts.month] += 1
 
-    if filter_date:
-        day_start, day_end = _local_day_bounds(filter_date)
-        incidents_qs = incidents_qs.filter(timestamp__gte=day_start, timestamp__lt=day_end)
-        if from_time:
-            try:
-                start_t = datetime.time.fromisoformat(from_time)
-                tz = timezone.get_current_timezone()
-                start_dt = timezone.make_aware(datetime.datetime.combine(filter_date, start_t), tz)
-                incidents_qs = incidents_qs.filter(timestamp__gte=start_dt)
-            except ValueError:
-                pass
+    monthly_stats = []
+    total_year = 0
+    for month_num in range(1, 13):
+        count = entry_by_month.get(month_num, 0)
+        total_year += count
+        first_day = datetime.date(selected_year, month_num, 1)
+        _, last_day_num = calendar.monthrange(selected_year, month_num)
+        last_day = datetime.date(selected_year, month_num, last_day_num)
+        monthly_stats.append({
+            'month': month_num,
+            'month_name': calendar.month_name[month_num],
+            'count': count,
+            'first_day_iso': first_day.isoformat(),
+            'last_day_iso': last_day.isoformat(),
+        })
 
-    incidents = incidents_qs[:200]
+    years_qs = GateEntry.objects.filter(
+        student_id__isnull=False,
+        event__isnull=True,
+        visitor_visit__isnull=True,
+    ).annotate(y=ExtractYear('timestamp')).values_list('y', flat=True).distinct()
+    data_years = {y for y in list(years_qs) if y}
+    all_years = (data_years | {today.year, selected_year}) - {None}
+    available_years = sorted(all_years, reverse=True)
+
     context = {
         'site_name': 'City College of Bayawan',
-        'incidents': incidents,
-        'q': q,
-        'filter': f,
-        'from_date': from_date or timezone.localdate().isoformat(),
-        'from_time': from_time,
+        'embed': embed,
+        'selected_year': selected_year,
+        'monthly_stats': monthly_stats,
+        'total_year': total_year,
+        'available_years': available_years,
     }
-    if request.GET.get('embed'):
-        return render(request, 'gate/incident_list_embed.html', context)
-    return render(request, 'gate/incident_list.html', context)
+    return render(request, 'gate/student_entries_yearly.html', context)
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
-def report_proxy_attendance(request):
-    """Guard/admin: create an alert (incident) for proxy attendance based on student identity."""
-    if request.method != 'POST':
-        initial_student_id = (request.GET.get('student_id') or '').strip()
-        return render(request, 'gate/report_proxy_attendance.html', {
-            'site_name': 'City College of Bayawan',
-            'initial_student_id': initial_student_id,
-        })
-    student_id = (request.POST.get('student_id') or '').strip()
-    details = (request.POST.get('details') or '').strip()
-    if not student_id:
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({'success': False, 'message': 'Please enter a Student ID.'}, status=400)
-        messages.error(request, 'Please enter a Student ID.')
-        return redirect('gate-incident-report-proxy')
-    if not details:
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({'success': False, 'message': 'Please provide details of what was observed.'}, status=400)
-        messages.error(request, 'Please provide details of what was observed.')
-        return redirect('gate-incident-report-proxy')
-    # Link incident to student record when it exists (even if inactive) so it shows in Gate entries Incident column
-    student = Student.objects.filter(student_id=student_id).first()
-    incident = GateIncident.objects.create(
-        student=student,
-        scanned_id=student_id,
-        reason='proxy_attendance',
-        details=details,
-        guard_alerted=True,
-    )
-    from .audit import log_action
-    log_action(request, 'incident_created', 'GateIncident', object_id=incident.pk, description=f'Proxy attendance reported: {student_id}')
-    from .notifications import notify_denied_entry
-    notify_denied_entry(incident, scanned_id=student_id)
-    
-    # Create guard notification alert (broadcast to all on-duty guards)
-    from .guard_services import GuardNotificationService
-    GuardNotificationService.create_incident_alert(incident, broadcast=True)
-    
-    msg = 'Proxy attendance alert recorded for %s. Guard alerted.' % (student_id,)
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return JsonResponse({'success': True, 'message': msg})
-    messages.success(request, msg)
-    return redirect('gate-incident-list')
+def incident_list_redirect(request):
+    """Redirect to analytics (incidents feature removed)."""
+    return redirect('gate-analytics')
+
+
+@login_required(login_url='/login/')
+def reports_incidents_overrides_redirect(request):
+    """Redirect to reports hub (incidents feature removed)."""
+    return redirect('reports-hub')
 
 
 @login_required(login_url='/login/')
@@ -5014,9 +4400,9 @@ def import_students_csv(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
-def guard_today_report(request):
-    """Guard-facing 'Today' report: today's entries, incidents, visitors. HTML or CSV export."""
+@role_required('admin', 'staff')
+def gate_today_report(request):
+    """Today's report at the gate: today's entries and visitors. Staff at gate use this. HTML or CSV export."""
     today = timezone.localdate()
     day_start, day_end = _local_day_bounds(today)
 
@@ -5026,10 +4412,7 @@ def guard_today_report(request):
     ).select_related('student', 'recorded_by').order_by('-timestamp')
     entries = list(entries_qs[:500])
 
-    incidents_qs = GateIncident.objects.filter(
-        timestamp__gte=day_start, timestamp__lt=day_end
-    ).select_related('student').order_by('-timestamp')
-    incidents = list(incidents_qs[:500])
+    incidents = []
 
     visitor_entries = list(VisitorEntry.objects.filter(
         timestamp__gte=day_start, timestamp__lt=day_end
@@ -5059,19 +4442,15 @@ def guard_today_report(request):
             rec = (e.recorded_by.get_full_name() or e.recorded_by.username) if e.recorded_by else '—'
             w.writerow(['', timezone.localtime(e.timestamp).strftime('%Y-%m-%d %I:%M %p'), e.student.student_id if e.student else '—', name, 'Granted' if e.granted else 'Denied', rec])
         w.writerow([])
-        w.writerow(['Incidents', 'Time', 'Scanned ID', 'Student', 'Reason', 'Details'])
-        for i in incidents:
-            w.writerow(['', timezone.localtime(i.timestamp).strftime('%Y-%m-%d %I:%M %p'), i.scanned_id or '—', i.student.student_id if i.student else '—', i.get_reason_display(), (i.details or '')[:200]])
-        w.writerow([])
         w.writerow(['Visitors', 'Time', 'Name', 'Purpose', 'Who to visit', 'Recorded by'])
         for v in visitors:
             rec = (getattr(v.recorded_by, 'get_full_name', lambda: '')() or getattr(v.recorded_by, 'username', '—')) if getattr(v, 'recorded_by', None) else '—'
             w.writerow(['', timezone.localtime(v.timestamp).strftime('%Y-%m-%d %I:%M %p'), getattr(v, 'visitor_name', getattr(v, 'full_name', '—')), getattr(v, 'purpose', '—'), getattr(v, 'who_to_visit', getattr(v, 'department', '—')), rec])
         response = HttpResponse(buf.getvalue(), content_type='text/csv; charset=utf-8')
-        response['Content-Disposition'] = f'attachment; filename="guard_report_{today.isoformat()}.csv"'
+        response['Content-Disposition'] = f'attachment; filename="gate_report_{today.isoformat()}.csv"'
         return response
 
-    return render(request, 'gate/guard_today_report.html', {
+    return render(request, 'gate/gate_today_report.html', {
         'site_name': 'City College of Bayawan',
         'today': today,
         'entries': entries,
@@ -5152,7 +4531,11 @@ def event_manage_registrations(request, event_id):
             Q(student__first_name__icontains=search_q) |
             Q(student__last_name__icontains=search_q)
         )
-    registrations = list(registrations_qs)
+    per_page, query_extra, query_extra_base = _get_per_page_and_query(request)
+    from django.core.paginator import Paginator
+    paginator = Paginator(registrations_qs, per_page)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+    registrations = list(page_obj.object_list)
 
     from django.utils import timezone
     today = timezone.localdate()
@@ -5164,6 +4547,11 @@ def event_manage_registrations(request, event_id):
         'today': today,
         'event_ended': event_ended,
         'registrations': registrations,
+        'page_obj': page_obj,
+        'query_extra': query_extra,
+        'query_extra_base': query_extra_base,
+        'per_page': per_page,
+        'per_page_options': PER_PAGE_OPTIONS,
         'total_registered': total_registered,
         'checked_in': checked_in,
         'checked_out': checked_out,
@@ -5228,7 +4616,11 @@ def event_attendance_report(request, event_id):
             Q(student__first_name__icontains=q) |
             Q(student__last_name__icontains=q)
         )
-    logs = logs_qs
+    per_page, query_extra, query_extra_base = _get_per_page_and_query(request)
+    from django.core.paginator import Paginator
+    paginator = Paginator(logs_qs, per_page)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+    logs = list(page_obj.object_list)
     
     # Stats (on full set for this event, not filtered)
     stats_qs = AttendanceLog.objects.filter(event=event, voided=False)
@@ -5254,7 +4646,12 @@ def event_attendance_report(request, event_id):
         'event': event,
         'today': today,
         'event_ended': event_ended,
-        'logs': logs[:100],
+        'logs': logs,
+        'page_obj': page_obj,
+        'query_extra': query_extra,
+        'query_extra_base': query_extra_base,
+        'per_page': per_page,
+        'per_page_options': PER_PAGE_OPTIONS,
         'search_query': q,
         'total_scans': total_scans,
         'successful': successful,
@@ -5656,10 +5053,20 @@ def student_portal(request):
 # ----- New Reports Menu (Overview, Daily Gate, Event Attendance, Incidents & Overrides, Exports) -----
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
+@role_required('admin', 'staff', 'faculty', 'supervisor')
 def reports_overview(request):
-    """Reports Overview: KPIs for selected date, hourly chart, recent activity. Default: Today."""
-    filter_date, day_start, day_end, from_time, to_time, search_q, event_id, date_range_label, from_date_str, to_date_str, time_error = _report_filter_from_request(request)
+    """Reports Overview.
+
+    This menu now defaults to the Export/Print flow (reports-exports) so the
+    Reports sidebar stays simple: filter + preview + export.
+    """
+    from django.urls import reverse
+    base_url = reverse('reports-exports')
+    query_string = request.META.get('QUERY_STRING') or ''
+    if query_string:
+        base_url = f'{base_url}?{query_string}'
+    return redirect(base_url)
+    filter_date, day_start, day_end, from_time, to_time, search_q, event_id, date_range_label, from_date_str, to_date_str, time_error, report_timestamp_q, report_checked_in_at_q, report_checked_out_at_q, report_recorded_at_q = _report_filter_from_request(request)
     # Student daily gate only (no event, no visitor)
     entries_qs = GateEntry.objects.filter(
         timestamp__gte=day_start, timestamp__lt=day_end,
@@ -5679,7 +5086,7 @@ def reports_overview(request):
         timestamp__gte=day_start, timestamp__lt=day_end,
         granted=False, event__isnull=True, visitor_visit__isnull=True,
     ).count()
-    incidents_count = GateIncident.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end).count()
+    incidents_count = 0  # Incidents feature removed
     # Forced OUT (no IN): visits where in_entry is None, out_entry is not None
     forced_out_no_in = sum(1 for in_e, out_e in visits if in_e is None and out_e is not None)
     # Top early-out reasons (out_reason_code)
@@ -5690,24 +5097,29 @@ def reports_overview(request):
         out_reason_code__isnull=False,
     ).exclude(out_reason_code='').values('out_reason_code').annotate(c=Count('id')).order_by('-c')[:10]
     top_early_out = list(early_out_qs)
+    # PH time window for reports: 6:00 AM–10:00 PM (class day + allowance)
+    report_hours = list(range(6, 23))  # 6..22 inclusive
+    hour_to_idx = {h: i for i, h in enumerate(report_hours)}
+
     # Hourly buckets for chart (IN and OUT by hour)
     hourly_in = defaultdict(int)
     hourly_out = defaultdict(int)
     for e in entries:
         h = timezone.localtime(e.timestamp).hour if timezone.is_aware(e.timestamp) else e.timestamp.hour
+        if h not in hour_to_idx:
+            continue
         if getattr(e, 'scan_type', None) == 'OUT' or (e.notes or '').strip().upper() == 'OUT':
             hourly_out[h] += 1
         else:
             hourly_in[h] += 1
-    hours = list(range(24))
-    hourly_chart = [{'hour': h, 'in': hourly_in[h], 'out': hourly_out[h]} for h in hours]
+    hourly_chart = [{'hour': h, 'in': hourly_in[h], 'out': hourly_out[h]} for h in report_hours]
     hourly_chart_json = json.dumps(hourly_chart)
     # Recent activity (last 20)
     recent = list(entries_qs.order_by('-timestamp')[:20])
     entries_list_url = reverse('gate-entry-list') + f'?from_date={filter_date.isoformat()}'
-    incidents_list_url = reverse('gate-incident-list') + f'?from_date={filter_date.isoformat()}'
+    incidents_list_url = reverse('gate-entry-list') + f'?from_date={filter_date.isoformat()}&filter=denied'
 
-    # Heatmap: day × hour (last 7 days)
+    # Heatmap: day × hour (last 7 days, 6 AM–10 PM PH time)
     heatmap_days = []
     heatmap_data = []
     heatmap_max = 1
@@ -5715,15 +5127,16 @@ def reports_overview(request):
         d = filter_date - datetime.timedelta(days=(6 - i))
         heatmap_days.append(d)
         ds, de = _local_day_bounds(d)
-        hour_counts = [0] * 24
+        hour_counts = [0] * len(report_hours)
         entries_hm = GateEntry.objects.filter(
             timestamp__gte=ds, timestamp__lt=de,
             event__isnull=True, visitor_visit__isnull=True,
         )
         for e in entries_hm:
             h = timezone.localtime(e.timestamp).hour if timezone.is_aware(e.timestamp) else e.timestamp.hour
-            if 0 <= h < 24:
-                hour_counts[h] += 1
+            idx = hour_to_idx.get(h)
+            if idx is not None:
+                hour_counts[idx] += 1
         heatmap_data.append(hour_counts)
         heatmap_max = max(heatmap_max, max(hour_counts))
     heatmap_display = []
@@ -5759,6 +5172,7 @@ def reports_overview(request):
         'heatmap_rows': heatmap_rows,
         'heatmap_max': heatmap_max,
         'heatmap_json': heatmap_json,
+        'heatmap_hours': report_hours,
         'from_date_str': from_date_str,
         'to_date_str': to_date_str,
         'time_error': time_error,
@@ -5768,17 +5182,17 @@ def reports_overview(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
+@role_required('admin', 'staff', 'faculty', 'supervisor')
 def reports_daily_gate(request):
-    """Daily Gate: Visits, Inside Now, Early Outs, Trends. Sub-tab via ?tab=visits|inside_now|early_outs|trends."""
-    filter_date, day_start, day_end, from_time, to_time, search_q, event_id, date_range_label, from_date_str, to_date_str, time_error = _report_filter_from_request(request)
+    """Daily Gate: Visits, Inside Now, Trends. Sub-tab via ?tab=visits|inside_now|trends."""
+    filter_date, day_start, day_end, from_time, to_time, search_q, event_id, date_range_label, from_date_str, to_date_str, time_error, report_timestamp_q, report_checked_in_at_q, report_checked_out_at_q, report_recorded_at_q = _report_filter_from_request(request)
     tab = (request.GET.get('tab') or 'visits').strip().lower()
-    if tab not in ('visits', 'inside_now', 'early_outs', 'trends'):
+    if tab not in ('visits', 'inside_now', 'trends'):
         tab = 'visits'
     entries_qs = GateEntry.objects.filter(
-        timestamp__gte=day_start, timestamp__lt=day_end,
         event__isnull=True, visitor_visit__isnull=True, student_id__isnull=False,
     ).select_related('student', 'recorded_by')
+    entries_qs = _apply_report_timestamp_filter(entries_qs, report_timestamp_q, day_start, day_end)
     if search_q:
         entries_qs = entries_qs.filter(
             Q(student__student_id__icontains=search_q) |
@@ -5816,9 +5230,10 @@ def reports_daily_gate(request):
     inside_now_list = _currently_inside_list(filter_date)
     # Early outs: group by out_reason_code
     early_out_entries = GateEntry.objects.filter(
-        timestamp__gte=day_start, timestamp__lt=day_end,
         scan_type='OUT', granted=True, event__isnull=True, visitor_visit__isnull=True,
-    ).select_related('student').order_by('-timestamp')
+    ).select_related('student')
+    early_out_entries = _apply_report_timestamp_filter(early_out_entries, report_timestamp_q, day_start, day_end)
+    early_out_entries = early_out_entries.order_by('-timestamp')
     if search_q:
         early_out_entries = early_out_entries.filter(
             Q(student__student_id__icontains=search_q) |
@@ -5865,7 +5280,7 @@ def reports_daily_gate(request):
 @role_required('admin', 'staff')
 def reports_event_attendance(request):
     """Event Attendance: Summary, Attendees, Timeline. Requires event_id in filter."""
-    filter_date, day_start, day_end, from_time, to_time, search_q, event_id, date_range_label, from_date_str, to_date_str, time_error = _report_filter_from_request(request)
+    filter_date, day_start, day_end, from_time, to_time, search_q, event_id, date_range_label, from_date_str, to_date_str, time_error, report_timestamp_q, report_checked_in_at_q, report_checked_out_at_q, report_recorded_at_q = _report_filter_from_request(request)
     tab = (request.GET.get('tab') or 'summary').strip().lower()
     if tab not in ('summary', 'attendees', 'timeline'):
         tab = 'summary'
@@ -5890,7 +5305,8 @@ def reports_event_attendance(request):
             checkins = EventAttendance.objects.filter(event=event, checked_in_at__isnull=False)
         else:
             # Date filter applied - respect it
-            checkins = EventAttendance.objects.filter(event=event, checked_in_at__gte=day_start, checked_in_at__lt=day_end)
+            checkins = EventAttendance.objects.filter(event=event, checked_in_at__isnull=False)
+            checkins = _apply_report_checked_in_at_filter(checkins, report_checked_in_at_q, day_start, day_end)
         
         if search_q:
             checkins = checkins.filter(
@@ -5940,9 +5356,9 @@ def reports_event_attendance(request):
             ).values_list('checked_in_at', flat=True).order_by('checked_in_at')
         else:
             # Date filter applied - respect it
-            timeline_data = EventAttendance.objects.filter(
-                event=event, checked_in_at__gte=day_start, checked_in_at__lt=day_end,
-            ).values_list('checked_in_at', flat=True).order_by('checked_in_at')
+            tl = EventAttendance.objects.filter(event=event, checked_in_at__isnull=False)
+            tl = _apply_report_checked_in_at_filter(tl, report_checked_in_at_q, day_start, day_end)
+            timeline_data = tl.values_list('checked_in_at', flat=True).order_by('checked_in_at')
         
         # Group by 10-minute buckets in Python
         from collections import defaultdict
@@ -5981,119 +5397,76 @@ def reports_event_attendance(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'guard')
+@role_required('admin', 'staff', 'faculty', 'supervisor')
 def reports_incidents_overrides(request):
-    """Incidents & Overrides: Denied Scans, Proxy Reports, Overrides, By Guard (admin only)."""
-    filter_date, day_start, day_end, from_time, to_time, search_q, event_id, date_range_label, from_date_str, to_date_str, time_error = _report_filter_from_request(request)
-    tab = (request.GET.get('tab') or 'denied').strip().lower()
-    if tab not in ('denied', 'proxy', 'overrides', 'by_guard'):
-        tab = 'denied'
-    from gate_analytics.roles import get_user_role
-    user_role = get_user_role(request.user)
-    show_by_guard = user_role in ('admin', 'staff')
-
-    incidents_qs = GateIncident.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end).select_related('student', 'gate_entry')
-    if search_q:
-        incidents_qs = incidents_qs.filter(
-            Q(scanned_id__icontains=search_q) |
-            Q(student__student_id__icontains=search_q) |
-            Q(student__first_name__icontains=search_q) |
-            Q(student__last_name__icontains=search_q) |
-            Q(details__icontains=search_q)
-        )
-    denied_list = list(incidents_qs.order_by('-timestamp')[:200])
-    proxy_list = [i for i in denied_list if i.reason == 'proxy_attendance']
-    overrides_qs = GateEntry.objects.filter(
-        timestamp__gte=day_start, timestamp__lt=day_end,
-        granted=True, event__isnull=True, visitor_visit__isnull=True,
-        out_reason_code='OVERRIDE_BY_GUARD',
-    ).select_related('student', 'recorded_by').order_by('-timestamp')
-    if search_q:
-        overrides_qs = overrides_qs.filter(
-            Q(student__student_id__icontains=search_q) |
-            Q(student__first_name__icontains=search_q) |
-            Q(student__last_name__icontains=search_q)
-        )
-    overrides_list = list(overrides_qs[:200])
-    forced_out_entries = GateEntry.objects.filter(
-        timestamp__gte=day_start, timestamp__lt=day_end,
-        scan_type='OUT', granted=True, event__isnull=True, visitor_visit__isnull=True,
-        student_id__isnull=False,
-    ).select_related('student', 'recorded_by')
-    forced_out_no_in = []
-    for e in forced_out_entries:
-        in_today = GateEntry.objects.filter(
-            student_id=e.student_id, timestamp__gte=day_start, timestamp__lt=day_end,
-            scan_type='IN', granted=True, event__isnull=True,
-        ).exists()
-        if not in_today:
-            forced_out_no_in.append(e)
-    forced_out_no_in = forced_out_no_in[:100]
-    by_guard_list = []
-    if show_by_guard:
-        from django.db.models import Count
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        by_guard_qs = GateEntry.objects.filter(
-            timestamp__gte=day_start, timestamp__lt=day_end,
-            event__isnull=True, visitor_visit__isnull=True,
-            recorded_by_id__isnull=False,
-        ).values('recorded_by_id').annotate(
-            scans=Count('id'),
-            denied=Count('id', filter=Q(granted=False)),
-        ).order_by('-scans')[:50]
-        by_guard_raw = list(by_guard_qs)
-        user_ids = [r['recorded_by_id'] for r in by_guard_raw]
-        users_map = {u.pk: (u.get_full_name() or u.username) for u in User.objects.filter(pk__in=user_ids)}
-        for r in by_guard_raw:
-            r['guard_username'] = users_map.get(r['recorded_by_id'], '—')
-        by_guard_list = by_guard_raw
-    return render(request, 'gate/reports/incidents_overrides.html', {
-        'site_name': 'City College of Bayawan',
-        'filter_date': filter_date,
-        'date_range_label': date_range_label,
-        'from_time': from_time,
-        'to_time': to_time,
-        'search_q': search_q,
-        'event_id': event_id,
-        'tab': tab,
-        'denied_list': denied_list,
-        'proxy_list': proxy_list,
-        'overrides_list': overrides_list,
-        'forced_out_no_in': forced_out_no_in,
-        'by_guard_list': by_guard_list,
-        'show_by_guard': show_by_guard,
-        'show_event_filter': False,
-        'from_date_str': from_date_str,
-        'to_date_str': to_date_str,
-        'time_error': time_error,
-        'timezone_str': getattr(settings, 'TIME_ZONE', 'Asia/Manila'),
-        'applied_filter_chips': _report_applied_filter_chips(request, date_range_label, from_time, to_time, search_q, event_id, active_events=None),
-    })
+    """Redirect to reports hub (incidents feature removed)."""
+    return redirect('reports-hub')
 
 
 @login_required(login_url='/login/')
 @role_required('admin', 'staff', 'supervisor')
 def reports_exports(request):
     """Exports: all report types in one menu; choose one specific export or Export all (ZIP)."""
-    filter_date, day_start, day_end, from_time, to_time, search_q, event_id, date_range_label, from_date_str, to_date_str, time_error = _report_filter_from_request(request)
+    filter_date, day_start, day_end, from_time, to_time, search_q, event_id, date_range_label, from_date_str, to_date_str, time_error, report_timestamp_q, report_checked_in_at_q, report_checked_out_at_q, report_recorded_at_q = _report_filter_from_request(request)
     VALID = (
         'export_all', 'overview_summary', 'recent_activity',
-        'daily_gate_visits', 'inside_now', 'early_outs', 'raw_entries',
-        'event_attendance', 'incidents_log', 'incidents_proxy', 'incidents_overrides', 'by_guard',
+        'daily_gate_visits', 'inside_now', 'raw_entries',
+        'event_attendance', 'by_personnel',
     )
     template_type = (request.GET.get('template') or 'daily_gate_visits').strip()
     if template_type not in VALID:
-        template_type = 'daily_gate_visits'
+        template_type = 'raw_entries'
+    audience_filter = (request.GET.get('audience') or 'all').strip().lower()
+    if audience_filter not in ('all', 'students', 'visitors'):
+        audience_filter = 'all'
+    if template_type != 'daily_gate_visits':
+        audience_filter = 'all'
+
+    program_course = (request.GET.get('program') or '').strip().upper()
+    year_level = (request.GET.get('year_level') or '').strip()
+    section = (request.GET.get('section') or '').strip()
+    event_io = (request.GET.get('event_io') or '').strip().upper()
+    if event_io not in ('IN', 'OUT'):
+        event_io = None
+    valid_year_codes = {code for code, _label in Student.YEAR_LEVEL_CHOICES}
+    if year_level not in valid_year_codes:
+        year_level = None
+    if not section:
+        section = None
     preview_rows = []
     visitor_preview_rows = []
     if template_type == 'export_all':
         preview_rows = []
     else:
-        preview_rows = _reports_export_preview(filter_date, day_start, day_end, template_type, search_q, event_id)
+        preview_rows = _reports_export_preview(
+            filter_date, day_start, day_end,
+            template_type, search_q, event_id,
+            program_course=program_course or None,
+            event_io=event_io,
+            year_level=year_level,
+            section=section,
+            audience_filter=audience_filter,
+            report_timestamp_q=report_timestamp_q,
+            report_checked_in_at_q=report_checked_in_at_q,
+            report_checked_out_at_q=report_checked_out_at_q,
+            report_recorded_at_q=report_recorded_at_q,
+        )
     if template_type == 'daily_gate_visits':
-        visitor_preview_rows = _reports_export_visitor_preview(day_start, day_end)
-    active_events = Event.objects.filter(status__in=('active', 'scheduled', 'completed')).order_by('-start_date')[:30]
+        visitor_preview_rows = _reports_export_visitor_preview(
+            day_start, day_end, report_timestamp_q, report_checked_in_at_q,
+        )
+        if audience_filter == 'students':
+            visitor_preview_rows = []
+        elif audience_filter == 'visitors':
+            preview_rows = []
+    # Always provide events for the "specific event" dropdown.
+    # Some campuses keep events in statuses other than (active/scheduled/completed),
+    # so filtering here caused the dropdown to not render at all.
+    active_events = Event.objects.order_by('-start_date', 'name')[:30]
+    year_level_choices = Student.YEAR_LEVEL_CHOICES
+    section_choices = list(
+        Student.objects.exclude(section='').values_list('section', flat=True).distinct().order_by('section')
+    )
     return render(request, 'gate/reports/exports.html', {
         'site_name': 'City College of Bayawan',
         'filter_date': filter_date,
@@ -6103,9 +5476,11 @@ def reports_exports(request):
         'search_q': search_q,
         'event_id': event_id,
         'template_type': template_type,
+        'audience_filter': audience_filter,
         'preview_rows': preview_rows,
         'visitor_preview_rows': visitor_preview_rows,
         'active_events': active_events,
+        'program_choices': Student.COURSE_CHOICES,
         'show_event_filter': True,
         'show_report_type_filter': True,
         'from_date_str': from_date_str,
@@ -6113,18 +5488,20 @@ def reports_exports(request):
         'time_error': time_error,
         'timezone_str': getattr(settings, 'TIME_ZONE', 'Asia/Manila'),
         'applied_filter_chips': _report_applied_filter_chips(request, date_range_label, from_time, to_time, search_q, event_id, active_events=active_events),
+        'year_level_choices': year_level_choices,
+        'section_choices': section_choices,
     })
 
 
-def _reports_export_visitor_preview(day_start, day_end):
+def _reports_export_visitor_preview(day_start, day_end, report_timestamp_q=None, report_checked_in_at_q=None):
     """Visitor preview rows for the daily_gate_visits report type."""
     visitor_rows = []
-    visitor_entries = VisitorEntry.objects.filter(
-        timestamp__gte=day_start, timestamp__lt=day_end
-    ).order_by('-timestamp')[:10]
-    visitor_visits_qs = VisitorVisit.objects.filter(
-        checked_in_at__gte=day_start, checked_in_at__lt=day_end
-    ).order_by('-checked_in_at')[:10]
+    ve = VisitorEntry.objects.all()
+    ve = _apply_report_timestamp_filter(ve, report_timestamp_q, day_start, day_end)
+    visitor_entries = ve.order_by('-timestamp')[:10]
+    vv = VisitorVisit.objects.all()
+    vv = _apply_report_checked_in_at_filter(vv, report_checked_in_at_q, day_start, day_end)
+    visitor_visits_qs = vv.order_by('-checked_in_at')[:10]
     for v in visitor_entries:
         visitor_rows.append({
             'Name': v.visitor_name,
@@ -6142,14 +5519,26 @@ def _reports_export_visitor_preview(day_start, day_end):
     return visitor_rows
 
 
-def _reports_export_preview(filter_date, day_start, day_end, template_type, search_q, event_id):
-    """First 10 rows for preview. Returns list of dicts (for table) or list of lists with headers in first row."""
+def _reports_export_preview(
+    filter_date, day_start, day_end, template_type, search_q, event_id,
+    program_course=None, event_io=None, year_level=None, section=None,
+    audience_filter='all',
+    report_timestamp_q=None, report_checked_in_at_q=None, report_checked_out_at_q=None, report_recorded_at_q=None,
+):
+    """First 10 rows for preview."""
     preview = []
-    if template_type == 'daily_gate_visits':
-        entries = list(GateEntry.objects.filter(
-            timestamp__gte=day_start, timestamp__lt=day_end,
+    if template_type == 'daily_gate_visits' and audience_filter != 'visitors':
+        entries_qs = GateEntry.objects.filter(
             event__isnull=True, visitor_visit__isnull=True, student_id__isnull=False,
-        ).select_related('student').order_by('-timestamp')[:300])
+        ).select_related('student')
+        entries_qs = _apply_report_timestamp_filter(entries_qs, report_timestamp_q, day_start, day_end)
+        if program_course:
+            entries_qs = entries_qs.filter(student__course=program_course)
+        if year_level:
+            entries_qs = entries_qs.filter(student__year_level=year_level)
+        if section:
+            entries_qs = entries_qs.filter(student__section__iexact=section)
+        entries = list(entries_qs.order_by('-timestamp')[:300])
         visits = _gate_entries_to_visits(entries)
         for in_e, out_e in visits[:10]:
             e = in_e or out_e
@@ -6168,13 +5557,23 @@ def _reports_export_preview(filter_date, day_start, day_end, template_type, sear
                 'Out time': out_e.timestamp if out_e else None,
             })
     elif template_type == 'raw_entries':
-        preview = list(GateEntry.objects.filter(
-            timestamp__gte=day_start, timestamp__lt=day_end,
-        ).select_related('student').order_by('-timestamp')[:10].values('timestamp', 'student__student_id', 'scan_type', 'result', 'granted'))
+        qs = GateEntry.objects.filter().select_related('student')
+        qs = _apply_report_timestamp_filter(qs, report_timestamp_q, day_start, day_end)
+        if program_course:
+            qs = qs.filter(student__course=program_course)
+        if year_level:
+            qs = qs.filter(student__year_level=year_level)
+        if section:
+            qs = qs.filter(student__section__iexact=section)
+        if event_io == 'IN':
+            qs = qs.filter(scan_type='IN')
+        elif event_io == 'OUT':
+            qs = qs.filter(scan_type='OUT')
+        preview = list(qs.order_by('-timestamp')[:10].values('timestamp', 'student__student_id', 'scan_type', 'result', 'granted'))
     elif template_type == 'incidents_log':
-        preview = list(GateIncident.objects.filter(
-            timestamp__gte=day_start, timestamp__lt=day_end,
-        ).select_related('student').order_by('-timestamp')[:10].values('timestamp', 'scanned_id', 'reason', 'details'))
+        iq = GateIncident.objects.filter().select_related('student')
+        iq = _apply_report_timestamp_filter(iq, report_timestamp_q, day_start, day_end)
+        preview = list(iq.order_by('-timestamp')[:10].values('timestamp', 'scanned_id', 'reason', 'details'))
     elif template_type == 'inside_now':
         inside = _currently_inside_list(filter_date)
         for e in inside[:10]:
@@ -6185,13 +5584,26 @@ def _reports_export_preview(filter_date, day_start, day_end, template_type, sear
             })
     elif template_type == 'event_attendance':
         # when event_id is provided, filter by that event; otherwise show all events
-        # include attendances whose check‑in, check‑out, or record creation falls in the window
-        from django.db.models import Q
-        qs = EventAttendance.objects.filter(
-            Q(checked_in_at__gte=day_start, checked_in_at__lt=day_end) |
-            Q(checked_out_at__gte=day_start, checked_out_at__lt=day_end) |
-            Q(recorded_at__gte=day_start, recorded_at__lt=day_end)
-        ).select_related('student', 'event').order_by('checked_in_at')
+        if event_io == 'IN':
+            qs = EventAttendance.objects.all()
+            qs = _apply_report_checked_in_at_filter(qs, report_checked_in_at_q, day_start, day_end)
+        elif event_io == 'OUT':
+            qs = EventAttendance.objects.all()
+            qs = _apply_report_checked_out_at_filter(qs, report_checked_out_at_q, day_start, day_end)
+        else:
+            from django.db.models import Q
+            if report_checked_in_at_q is not None:
+                qs = EventAttendance.objects.filter(
+                    report_checked_in_at_q | report_checked_out_at_q | report_recorded_at_q
+                )
+            else:
+                qs = EventAttendance.objects.filter(
+                    Q(checked_in_at__gte=day_start, checked_in_at__lt=day_end) |
+                    Q(checked_out_at__gte=day_start, checked_out_at__lt=day_end) |
+                    Q(recorded_at__gte=day_start, recorded_at__lt=day_end)
+                )
+
+        qs = qs.select_related('student', 'event').order_by('checked_in_at')
         if event_id:
             qs = qs.filter(event_id=event_id)
         # preview is limited to avoid huge tables, but 50 rows should cover most needs
@@ -6232,11 +5644,17 @@ def _reports_export_preview(filter_date, day_start, day_end, template_type, sear
         # total visits needs to respect the full day_start/day_end range (not just
         # the start date). Likewise, "inside now" should be the current count independent
         # of the selected filter range.
-        total_visits = _granted_visits_count_for_bounds(day_start, day_end, daily_gate_only=True)
+        total_visits = _granted_visits_count_for_bounds(day_start, day_end, daily_gate_only=True, report_timestamp_q=report_timestamp_q)
         inside_now = _currently_inside_count()  # always show current inside count
-        denied = GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end, granted=False, event__isnull=True, visitor_visit__isnull=True).count()
-        incidents = GateIncident.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end).count()
-        entries = list(GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end, event__isnull=True, visitor_visit__isnull=True, student_id__isnull=False).order_by('-timestamp')[:500])
+        dq = GateEntry.objects.filter(granted=False, event__isnull=True, visitor_visit__isnull=True)
+        dq = _apply_report_timestamp_filter(dq, report_timestamp_q, day_start, day_end)
+        denied = dq.count()
+        iq = GateIncident.objects.filter()
+        iq = _apply_report_timestamp_filter(iq, report_timestamp_q, day_start, day_end)
+        incidents = iq.count()
+        eq = GateEntry.objects.filter(event__isnull=True, visitor_visit__isnull=True, student_id__isnull=False)
+        eq = _apply_report_timestamp_filter(eq, report_timestamp_q, day_start, day_end)
+        entries = list(eq.order_by('-timestamp')[:500])
         visits = _gate_entries_to_visits(entries)
         forced_out = sum(1 for in_e, out_e in visits if in_e is None and out_e is not None)
         preview = [
@@ -6247,7 +5665,9 @@ def _reports_export_preview(filter_date, day_start, day_end, template_type, sear
             {'Metric': 'Forced OUT (no IN)', 'Value': forced_out},
         ]
     elif template_type == 'recent_activity':
-        entries = GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end, event__isnull=True, visitor_visit__isnull=True).select_related('student').order_by('-timestamp')[:10]
+        ra = GateEntry.objects.filter(event__isnull=True, visitor_visit__isnull=True).select_related('student')
+        ra = _apply_report_timestamp_filter(ra, report_timestamp_q, day_start, day_end)
+        entries = ra.order_by('-timestamp')[:10]
         for e in entries:
             preview.append({
                 'timestamp': e.timestamp,
@@ -6256,22 +5676,16 @@ def _reports_export_preview(filter_date, day_start, day_end, template_type, sear
                 'scan_type': e.scan_type or '',
                 'result': 'Granted' if e.granted else 'Denied',
             })
-    elif template_type == 'early_outs':
-        qs = GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end, scan_type='OUT', granted=True, event__isnull=True, visitor_visit__isnull=True).select_related('student', 'recorded_by').order_by('-timestamp')[:10]
-        for e in qs:
-            preview.append({
-                'student_id': e.student.student_id if e.student else '',
-                'name': (e.student.get_full_name() or '') if e.student else '',
-                'out_time': e.timestamp,
-                'reason_code': e.out_reason_code or '',
-                'recorded_by': e.recorded_by.username if e.recorded_by else '',
-            })
     elif template_type == 'incidents_proxy':
-        qs = GateIncident.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end, reason='proxy_attendance').select_related('student').order_by('-timestamp')[:10]
+        ip = GateIncident.objects.filter(reason='proxy_attendance').select_related('student')
+        ip = _apply_report_timestamp_filter(ip, report_timestamp_q, day_start, day_end)
+        qs = ip.order_by('-timestamp')[:10]
         for i in qs:
             preview.append({'timestamp': i.timestamp, 'scanned_id': i.scanned_id or '', 'details': (i.details or '')[:100]})
     elif template_type == 'incidents_overrides':
-        qs = GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end, granted=True, event__isnull=True, visitor_visit__isnull=True, out_reason_code='OVERRIDE_BY_GUARD').select_related('student', 'recorded_by').order_by('-timestamp')[:10]
+        io = GateEntry.objects.filter(granted=True, event__isnull=True, visitor_visit__isnull=True, out_reason_code='OVERRIDE_BY_PERSONNEL').select_related('student', 'recorded_by')
+        io = _apply_report_timestamp_filter(io, report_timestamp_q, day_start, day_end)
+        qs = io.order_by('-timestamp')[:10]
         for e in qs:
             preview.append({
                 'timestamp': e.timestamp, 'student_id': e.student.student_id if e.student else '',
@@ -6279,65 +5693,83 @@ def _reports_export_preview(filter_date, day_start, day_end, template_type, sear
                 'recorded_by': e.recorded_by.username if e.recorded_by else '',
                 'out_reason': (e.out_reason or '')[:80],
             })
-    elif template_type == 'by_guard':
+    elif template_type == 'by_personnel':
         from django.db.models import Count
         from django.contrib.auth import get_user_model
         User = get_user_model()
-        qs = GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end, event__isnull=True, visitor_visit__isnull=True, recorded_by_id__isnull=False).values('recorded_by_id').annotate(scans=Count('id'), denied=Count('id', filter=Q(granted=False))).order_by('-scans')[:10]
+        bp = GateEntry.objects.filter(event__isnull=True, visitor_visit__isnull=True, recorded_by_id__isnull=False)
+        bp = _apply_report_timestamp_filter(bp, report_timestamp_q, day_start, day_end)
+        qs = bp.values('recorded_by_id').annotate(scans=Count('id'), denied=Count('id', filter=Q(granted=False))).order_by('-scans')[:10]
         users_map = {u.pk: (u.get_full_name() or u.username) for u in User.objects.filter(pk__in=[r['recorded_by_id'] for r in qs])}
         for r in qs:
-            preview.append({'Guard': users_map.get(r['recorded_by_id'], '—'), 'Scans': r['scans'], 'Denied': r['denied']})
+            preview.append({'Recorder': users_map.get(r['recorded_by_id'], '—'), 'Scans': r['scans'], 'Denied': r['denied']})
     return preview
 
 
-def _reports_export_build_data(filter_date, day_start, day_end, template_type, search_q, event_id):
-    """Build full export rows for the given template and filter. Returns (headers, rows) for CSV/Excel/PDF."""
+def _reports_export_build_data(
+    filter_date, day_start, day_end, template_type, search_q, event_id,
+    program_course=None, event_io=None, year_level=None, section=None,
+    audience_filter='all',
+    report_timestamp_q=None, report_checked_in_at_q=None, report_checked_out_at_q=None, report_recorded_at_q=None,
+):
+    """Build full export rows for the given template and filter."""
     headers = []
     rows = []
     if template_type == 'daily_gate_visits':
-        entries = list(GateEntry.objects.filter(
-            timestamp__gte=day_start, timestamp__lt=day_end,
+        entries_qs = GateEntry.objects.filter(
             event__isnull=True, visitor_visit__isnull=True, student_id__isnull=False,
-        ).select_related('student').order_by('-timestamp')[:5000])
+        ).select_related('student')
+        entries_qs = _apply_report_timestamp_filter(entries_qs, report_timestamp_q, day_start, day_end)
+        if program_course:
+            entries_qs = entries_qs.filter(student__course=program_course)
+        if year_level:
+            entries_qs = entries_qs.filter(student__year_level=year_level)
+        if section:
+            entries_qs = entries_qs.filter(student__section__iexact=section)
+        entries = list(entries_qs.order_by('-timestamp')[:5000])
         if search_q:
             entries = [e for e in entries if e.student and (
                 search_q.lower() in (e.student.student_id or '').lower() or
                 search_q.lower() in (e.student.get_full_name() or '').lower()
             )]
-        visits = _gate_entries_to_visits(entries)
-        headers = ['Student ID', 'Name', 'Course/Section', 'IN time', 'OUT time', 'Duration (min)', 'Status']
-        for in_e, out_e in visits:
-            e = in_e or out_e
-            sid = e.student.student_id if e.student else ''
-            name = _fmt_student_name(e.student) if e.student else ''
-            # compute course/section string
-            cs = ''
-            if e.student:
-                course = (e.student.course or '').strip()
-                section = (e.student.section or '').strip()
-                cs = (course + ' ' + section).strip()
-                if not cs and getattr(e.student, 'course_or_section', ''):
-                    cs = e.student.course_or_section
-            in_ts = in_e.timestamp if in_e else None
-            out_ts = out_e.timestamp if out_e else None
-            in_str = timezone.localtime(in_ts).strftime('%Y-%m-%d %I:%M %p') if in_ts else ''
-            out_str = timezone.localtime(out_ts).strftime('%Y-%m-%d %I:%M %p') if out_ts else ''
-            duration = ''
-            if in_ts and out_ts:
-                duration = str(int((out_ts - in_ts).total_seconds() / 60))
-            status = 'Completed' if (in_e and out_e) else ('Inside' if in_e else 'Forced OUT')
-            rows.append([sid, name, cs, in_str, out_str, duration, status])
+        if audience_filter != 'visitors':
+            visits = _gate_entries_to_visits(entries)
+            headers = ['Student ID', 'Name', 'Course/Section', 'IN time', 'OUT time', 'Duration (min)', 'Status']
+            for in_e, out_e in visits:
+                e = in_e or out_e
+                sid = e.student.student_id if e.student else ''
+                name = _fmt_student_name(e.student) if e.student else ''
+                # compute course/section string
+                cs = ''
+                if e.student:
+                    course = (e.student.course or '').strip()
+                    section = (e.student.section or '').strip()
+                    cs = (course + ' ' + section).strip()
+                    if not cs and getattr(e.student, 'course_or_section', ''):
+                        cs = e.student.course_or_section
+                in_ts = in_e.timestamp if in_e else None
+                out_ts = out_e.timestamp if out_e else None
+                in_str = timezone.localtime(in_ts).strftime('%Y-%m-%d %I:%M %p') if in_ts else ''
+                out_str = timezone.localtime(out_ts).strftime('%Y-%m-%d %I:%M %p') if out_ts else ''
+                duration = ''
+                if in_ts and out_ts:
+                    duration = str(int((out_ts - in_ts).total_seconds() / 60))
+                status = 'Completed' if (in_e and out_e) else ('Inside' if in_e else 'Forced OUT')
+                rows.append([sid, name, cs, in_str, out_str, duration, status])
         # append visitors section
-        visitor_entries = list(VisitorEntry.objects.filter(
-            timestamp__gte=day_start, timestamp__lt=day_end
-        ).select_related('recorded_by').order_by('-timestamp'))
-        visitor_visits_qs = list(VisitorVisit.objects.filter(
-            checked_in_at__gte=day_start, checked_in_at__lt=day_end
-        ).select_related('checked_in_by').order_by('-checked_in_at'))
-        if visitor_entries or visitor_visits_qs:
+        ve = VisitorEntry.objects.select_related('recorded_by')
+        ve = _apply_report_timestamp_filter(ve, report_timestamp_q, day_start, day_end)
+        visitor_entries = list(ve.order_by('-timestamp'))
+        vv = VisitorVisit.objects.select_related('checked_in_by')
+        vv = _apply_report_checked_in_at_filter(vv, report_checked_in_at_q, day_start, day_end)
+        visitor_visits_qs = list(vv.order_by('-checked_in_at'))
+        if audience_filter != 'students' and (visitor_entries or visitor_visits_qs):
+            if not headers:
+                headers = ['Visitor Name', 'IN time', 'OUT time', 'Purpose', 'Who to visit', 'Recorded by']
             # blank line then header for visitor block
-            rows.append([])
-            rows.append(['Visitor Name', 'IN time', 'OUT time', 'Purpose', 'Who to visit', 'Recorded by'])
+            if rows:
+                rows.append([])
+                rows.append(['Visitor Name', 'IN time', 'OUT time', 'Purpose', 'Who to visit', 'Recorded by'])
             for v in visitor_entries:
                 rec = (getattr(v.recorded_by, 'get_full_name', lambda: '')() or getattr(v.recorded_by, 'username', '—')) if getattr(v, 'recorded_by', None) else '—'
                 rows.append([
@@ -6361,11 +5793,17 @@ def _reports_export_build_data(filter_date, day_start, day_end, template_type, s
                     rec,
                 ])
     elif template_type == 'overview_summary':
-        total_visits = _granted_visits_count_for_bounds(day_start, day_end, daily_gate_only=True)
+        total_visits = _granted_visits_count_for_bounds(day_start, day_end, daily_gate_only=True, report_timestamp_q=report_timestamp_q)
         inside_now = _currently_inside_count()
-        denied = GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end, granted=False, event__isnull=True, visitor_visit__isnull=True).count()
-        incidents = GateIncident.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end).count()
-        entries = list(GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end, event__isnull=True, visitor_visit__isnull=True, student_id__isnull=False).order_by('-timestamp')[:500])
+        dq = GateEntry.objects.filter(granted=False, event__isnull=True, visitor_visit__isnull=True)
+        dq = _apply_report_timestamp_filter(dq, report_timestamp_q, day_start, day_end)
+        denied = dq.count()
+        iq = GateIncident.objects.filter()
+        iq = _apply_report_timestamp_filter(iq, report_timestamp_q, day_start, day_end)
+        incidents = iq.count()
+        eq = GateEntry.objects.filter(event__isnull=True, visitor_visit__isnull=True, student_id__isnull=False)
+        eq = _apply_report_timestamp_filter(eq, report_timestamp_q, day_start, day_end)
+        entries = list(eq.order_by('-timestamp')[:500])
         visits = _gate_entries_to_visits(entries)
         forced_out = sum(1 for in_e, out_e in visits if in_e is None and out_e is not None)
         headers = ['Metric', 'Value']
@@ -6377,7 +5815,9 @@ def _reports_export_build_data(filter_date, day_start, day_end, template_type, s
             ['Forced OUT (no IN)', forced_out],
         ]
     elif template_type == 'recent_activity':
-        qs = GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end, event__isnull=True, visitor_visit__isnull=True).select_related('student').order_by('-timestamp')[:500]
+        qs = GateEntry.objects.filter(event__isnull=True, visitor_visit__isnull=True).select_related('student')
+        qs = _apply_report_timestamp_filter(qs, report_timestamp_q, day_start, day_end)
+        qs = qs.order_by('-timestamp')[:500]
         if search_q:
             qs = qs.filter(
                 Q(student__student_id__icontains=search_q) |
@@ -6390,35 +5830,35 @@ def _reports_export_build_data(filter_date, day_start, day_end, template_type, s
             sid = e.student.student_id if e.student else ''
             name = (e.student.get_full_name() or '') if e.student else ''
             rows.append([ts, sid, name, e.scan_type or '', 'Granted' if e.granted else 'Denied'])
-    elif template_type == 'early_outs':
-        qs = GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end, scan_type='OUT', granted=True, event__isnull=True, visitor_visit__isnull=True).select_related('student', 'recorded_by').order_by('-timestamp')
-        if search_q:
-            qs = qs.filter(
-                Q(student__student_id__icontains=search_q) |
-                Q(student__first_name__icontains=search_q) |
-                Q(student__last_name__icontains=search_q)
-            )
-        headers = ['Student ID', 'Name', 'OUT time', 'Reason code', 'Recorded by']
-        for e in qs[:2000]:
-            ts = timezone.localtime(e.timestamp).strftime('%Y-%m-%d %I:%M %p') if e.timestamp else ''
-            sid = e.student.student_id if e.student else ''
-            name = (e.student.get_full_name() or '') if e.student else ''
-            rows.append([sid, name, ts, e.out_reason_code or '', e.recorded_by.username if e.recorded_by else ''])
     elif template_type == 'raw_entries':
-        qs = GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end).select_related('student').order_by('-timestamp')[:5000]
+        qs = GateEntry.objects.filter().select_related('student')
+        qs = _apply_report_timestamp_filter(qs, report_timestamp_q, day_start, day_end)
+        if program_course:
+            qs = qs.filter(student__course=program_course)
+        if year_level:
+            qs = qs.filter(student__year_level=year_level)
+        if section:
+            qs = qs.filter(student__section__iexact=section)
+        if event_io == 'IN':
+            qs = qs.filter(scan_type='IN')
+        elif event_io == 'OUT':
+            qs = qs.filter(scan_type='OUT')
         if search_q:
             qs = qs.filter(
                 Q(student__student_id__icontains=search_q) |
                 Q(student__first_name__icontains=search_q) |
                 Q(student__last_name__icontains=search_q)
             )
+        qs = qs.order_by('-timestamp')[:5000]
         headers = ['Timestamp', 'Student ID', 'Scan type', 'Result', 'Granted']
         for e in qs:
             ts = timezone.localtime(e.timestamp).strftime('%Y-%m-%d %H:%M:%S') if e.timestamp else ''
             sid = e.student.student_id if e.student else ''
             rows.append([ts, sid, e.scan_type or '', e.result or '', 'Yes' if e.granted else 'No'])
     elif template_type == 'incidents_log':
-        qs = GateIncident.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end).select_related('student').order_by('-timestamp')[:5000]
+        qs = GateIncident.objects.filter().select_related('student')
+        qs = _apply_report_timestamp_filter(qs, report_timestamp_q, day_start, day_end)
+        qs = qs.order_by('-timestamp')[:5000]
         if search_q:
             qs = qs.filter(
                 Q(scanned_id__icontains=search_q) |
@@ -6430,7 +5870,9 @@ def _reports_export_build_data(filter_date, day_start, day_end, template_type, s
             ts = timezone.localtime(i.timestamp).strftime('%Y-%m-%d %H:%M:%S') if i.timestamp else ''
             rows.append([ts, i.scanned_id or '', i.get_reason_display() if i.reason else '', (i.details or '')[:200]])
     elif template_type == 'incidents_proxy':
-        qs = GateIncident.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end, reason='proxy_attendance').select_related('student').order_by('-timestamp')[:5000]
+        qs = GateIncident.objects.filter(reason='proxy_attendance').select_related('student')
+        qs = _apply_report_timestamp_filter(qs, report_timestamp_q, day_start, day_end)
+        qs = qs.order_by('-timestamp')[:5000]
         if search_q:
             qs = qs.filter(Q(scanned_id__icontains=search_q) | Q(details__icontains=search_q))
         headers = ['Timestamp', 'Scanned ID', 'Details']
@@ -6438,29 +5880,33 @@ def _reports_export_build_data(filter_date, day_start, day_end, template_type, s
             ts = timezone.localtime(i.timestamp).strftime('%Y-%m-%d %H:%M:%S') if i.timestamp else ''
             rows.append([ts, i.scanned_id or '', (i.details or '')[:200]])
     elif template_type == 'incidents_overrides':
-        qs = GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end, granted=True, event__isnull=True, visitor_visit__isnull=True, out_reason_code='OVERRIDE_BY_GUARD').select_related('student', 'recorded_by').order_by('-timestamp')
+        qs = GateEntry.objects.filter(granted=True, event__isnull=True, visitor_visit__isnull=True, out_reason_code='OVERRIDE_BY_PERSONNEL').select_related('student', 'recorded_by')
+        qs = _apply_report_timestamp_filter(qs, report_timestamp_q, day_start, day_end)
+        qs = qs.order_by('-timestamp')
         if search_q:
             qs = qs.filter(
                 Q(student__student_id__icontains=search_q) |
                 Q(student__first_name__icontains=search_q) |
                 Q(student__last_name__icontains=search_q)
             )
-        headers = ['Timestamp', 'Student ID', 'Name', 'Recorded by', 'Out reason']
+        headers = ['Timestamp', 'Student ID', 'Name', 'Recorded by', 'OUT note']
         for e in qs[:2000]:
             ts = timezone.localtime(e.timestamp).strftime('%Y-%m-%d %H:%M:%S') if e.timestamp else ''
             sid = e.student.student_id if e.student else ''
             name = (e.student.get_full_name() or '') if e.student else ''
             rows.append([ts, sid, name, e.recorded_by.username if e.recorded_by else '', (e.out_reason or '')[:200]])
-    elif template_type == 'by_guard':
+    elif template_type == 'by_personnel':
         from django.db.models import Count
         from django.contrib.auth import get_user_model
         User = get_user_model()
-        qs = GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end, event__isnull=True, visitor_visit__isnull=True, recorded_by_id__isnull=False).values('recorded_by_id').annotate(scans=Count('id'), denied=Count('id', filter=Q(granted=False))).order_by('-scans')
-        by_guard_raw = list(qs[:100])
-        user_ids = [r['recorded_by_id'] for r in by_guard_raw]
+        bp = GateEntry.objects.filter(event__isnull=True, visitor_visit__isnull=True, recorded_by_id__isnull=False)
+        bp = _apply_report_timestamp_filter(bp, report_timestamp_q, day_start, day_end)
+        qs = bp.values('recorded_by_id').annotate(scans=Count('id'), denied=Count('id', filter=Q(granted=False))).order_by('-scans')
+        by_personnel_raw = list(qs[:100])
+        user_ids = [r['recorded_by_id'] for r in by_personnel_raw]
         users_map = {u.pk: (u.get_full_name() or u.username) for u in User.objects.filter(pk__in=user_ids)}
-        headers = ['Guard', 'Scans recorded', 'Denied']
-        for r in by_guard_raw:
+        headers = ['Recorder', 'Scans recorded', 'Denied']
+        for r in by_personnel_raw:
             rows.append([users_map.get(r['recorded_by_id'], '—'), r['scans'], r.get('denied') or 0])
     elif template_type == 'inside_now':
         inside = _currently_inside_list(filter_date)
@@ -6473,12 +5919,26 @@ def _reports_export_build_data(filter_date, day_start, day_end, template_type, s
     elif template_type == 'event_attendance':
         # support both specific event and all events, and include records where
         # check-in, check-out or creation timestamp falls within the selected interval
-        from django.db.models import Q
-        qs = EventAttendance.objects.filter(
-            Q(checked_in_at__gte=day_start, checked_in_at__lt=day_end) |
-            Q(checked_out_at__gte=day_start, checked_out_at__lt=day_end) |
-            Q(recorded_at__gte=day_start, recorded_at__lt=day_end)
-        ).select_related('student', 'event').order_by('checked_in_at')
+        if event_io == 'IN':
+            qs = EventAttendance.objects.all()
+            qs = _apply_report_checked_in_at_filter(qs, report_checked_in_at_q, day_start, day_end)
+        elif event_io == 'OUT':
+            qs = EventAttendance.objects.all()
+            qs = _apply_report_checked_out_at_filter(qs, report_checked_out_at_q, day_start, day_end)
+        else:
+            from django.db.models import Q
+            if report_checked_in_at_q is not None:
+                qs = EventAttendance.objects.filter(
+                    report_checked_in_at_q | report_checked_out_at_q | report_recorded_at_q
+                )
+            else:
+                qs = EventAttendance.objects.filter(
+                    Q(checked_in_at__gte=day_start, checked_in_at__lt=day_end) |
+                    Q(checked_out_at__gte=day_start, checked_out_at__lt=day_end) |
+                    Q(recorded_at__gte=day_start, recorded_at__lt=day_end)
+                )
+
+        qs = qs.select_related('student', 'event').order_by('checked_in_at')
         if event_id:
             qs = qs.filter(event_id=event_id)
         if search_q:
@@ -6522,15 +5982,32 @@ def reports_export_download(request):
     fmt = (request.GET.get('format') or 'csv').strip().lower()
     if fmt not in ('csv', 'xlsx', 'pdf', 'zip'):
         fmt = 'csv'
-    filter_date, day_start, day_end, from_time, to_time, search_q, event_id, date_range_label, from_date_str, to_date_str, time_error = _report_filter_from_request(request)
+    filter_date, day_start, day_end, from_time, to_time, search_q, event_id, date_range_label, from_date_str, to_date_str, time_error, report_timestamp_q, report_checked_in_at_q, report_checked_out_at_q, report_recorded_at_q = _report_filter_from_request(request)
     VALID = (
         'export_all', 'overview_summary', 'recent_activity',
-        'daily_gate_visits', 'inside_now', 'early_outs', 'raw_entries',
-        'event_attendance', 'incidents_log', 'incidents_proxy', 'incidents_overrides', 'by_guard',
+        'daily_gate_visits', 'inside_now', 'raw_entries',
+        'event_attendance', 'by_personnel',
     )
     template_type = (request.GET.get('template') or 'daily_gate_visits').strip()
     if template_type not in VALID:
-        template_type = 'daily_gate_visits'
+        template_type = 'raw_entries'
+    audience_filter = (request.GET.get('audience') or 'all').strip().lower()
+    if audience_filter not in ('all', 'students', 'visitors'):
+        audience_filter = 'all'
+    if template_type != 'daily_gate_visits':
+        audience_filter = 'all'
+
+    program_course = (request.GET.get('program') or '').strip().upper()
+    year_level = (request.GET.get('year_level') or '').strip()
+    section = (request.GET.get('section') or '').strip()
+    event_io = (request.GET.get('event_io') or '').strip().upper()
+    if event_io not in ('IN', 'OUT'):
+        event_io = None
+    valid_year_codes = {code for code, _label in Student.YEAR_LEVEL_CHOICES}
+    if year_level not in valid_year_codes:
+        year_level = None
+    if not section:
+        section = None
 
     if template_type == 'export_all':
         safe_date = filter_date.strftime('%Y-%m-%d')
@@ -6538,13 +6015,21 @@ def reports_export_download(request):
         with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
             templates_to_export = [
                 'overview_summary', 'recent_activity', 'daily_gate_visits', 'inside_now',
-                'early_outs', 'raw_entries', 'incidents_log', 'incidents_proxy',
-                'incidents_overrides', 'by_guard',
+                'raw_entries', 'by_personnel',
             ]
             if event_id:
                 templates_to_export.append('event_attendance')
             for t in templates_to_export:
-                headers, rows = _reports_export_build_data(filter_date, day_start, day_end, t, search_q, event_id)
+                headers, rows = _reports_export_build_data(
+                    filter_date, day_start, day_end, t, search_q, event_id,
+                    program_course=program_course or None, event_io=event_io,
+                    year_level=year_level, section=section,
+                    audience_filter=audience_filter,
+                    report_timestamp_q=report_timestamp_q,
+                    report_checked_in_at_q=report_checked_in_at_q,
+                    report_checked_out_at_q=report_checked_out_at_q,
+                    report_recorded_at_q=report_recorded_at_q,
+                )
                 buf = io.StringIO()
                 w = csv.writer(buf)
                 w.writerow(headers)
@@ -6554,7 +6039,16 @@ def reports_export_download(request):
         response['Content-Disposition'] = f'attachment; filename="reports_export_all_{safe_date}.zip"'
         return response
 
-    headers, rows = _reports_export_build_data(filter_date, day_start, day_end, template_type, search_q, event_id)
+    headers, rows = _reports_export_build_data(
+        filter_date, day_start, day_end, template_type, search_q, event_id,
+        program_course=program_course or None, event_io=event_io,
+        year_level=year_level, section=section,
+        audience_filter=audience_filter,
+        report_timestamp_q=report_timestamp_q,
+        report_checked_in_at_q=report_checked_in_at_q,
+        report_checked_out_at_q=report_checked_out_at_q,
+        report_recorded_at_q=report_recorded_at_q,
+    )
     safe_date = filter_date.strftime('%Y-%m-%d')
     base_name = f'report_{template_type}_{safe_date}'
 
@@ -6623,8 +6117,7 @@ def reports_hub(request):
     entries_today = GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end)
     granted_today = _granted_visits_count_for_date(today, daily_gate_only=True)
     denied_entries_count = entries_today.filter(granted=False).count()
-    incidents_today = GateIncident.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end).count()
-    denied_today = max(denied_entries_count, incidents_today)
+    denied_today = denied_entries_count  # Incidents feature removed
     # Today's event scans (AttendanceLog, non-voided)
     scans_today = AttendanceLog.objects.filter(scan_time__gte=day_start, scan_time__lt=day_end, voided=False)
     success_today = scans_today.filter(result='SUCCESS').count()
@@ -6648,8 +6141,6 @@ def reports_hub(request):
         })
     # Latest generated reports (so hub and Generated Reports page show the same data)
     reports = GeneratedReport.objects.select_related('generated_by').order_by('-generated_at')[:50]
-    # Guards currently on duty (clocked in via My shift on guard dashboard)
-    guards_on_duty_list = list(GuardShift.objects.filter(shift_end__isnull=True).select_related('guard').order_by('-shift_start'))
     return render(request, 'gate/reports_hub.html', {
         'site_name': 'City College of Bayawan',
         'today': today,
@@ -6659,7 +6150,6 @@ def reports_hub(request):
         'live_occupancy': live_occupancy,
         'devices': device_list,
         'reports': reports,
-        'guards_on_duty_list': guards_on_duty_list,
     })
 
 
@@ -6694,13 +6184,12 @@ def notifications_mark_all_read(request):
         from django.contrib.auth import get_user_model
         from django.db.models import Q
         User = get_user_model()
-        keys.append('notif_pending_staff_guard')
+        keys.append('notif_pending_staff_personnel')
         for pk in User.objects.filter(is_active=False).filter(
             Q(groups__name__iexact='staff') |
-            Q(groups__name__iexact='faculty') |
-            Q(groups__name__iexact='guard')
+            Q(groups__name__iexact='faculty')
         ).distinct().values_list('pk', flat=True)[:50]:
-            keys.append(f'notif_staff_guard_{pk}')
+            keys.append(f'notif_staff_personnel_{pk}')
 
     if role in ('admin', 'staff', 'faculty'):
         today = timezone.localdate()
@@ -6785,10 +6274,20 @@ def check_new_admin_notifications_api_view(request):
 @role_required('admin', 'staff', 'supervisor')
 def report_list(request):
     """List generated reports (daily/weekly/monthly) with download."""
-    reports = GeneratedReport.objects.select_related('generated_by').order_by('-generated_at')[:50]
+    reports_qs = GeneratedReport.objects.select_related('generated_by').order_by('-generated_at')
+    per_page, query_extra, query_extra_base = _get_per_page_and_query(request)
+    from django.core.paginator import Paginator
+    paginator = Paginator(reports_qs, per_page)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+    reports = list(page_obj.object_list)
     return render(request, 'gate/report_list.html', {
         'site_name': 'City College of Bayawan',
         'reports': reports,
+        'page_obj': page_obj,
+        'query_extra': query_extra,
+        'query_extra_base': query_extra_base,
+        'per_page': per_page,
+        'per_page_options': PER_PAGE_OPTIONS,
     })
 
 
@@ -7134,7 +6633,7 @@ def field_trip_event_scan(request, event_id):
     """
     Event attendance scanner: scan student permanent QR (eEID) for any event.
     Records EventAttendance only (no GateEntry). Use for field trips or on-campus event attendance.
-    Instructor/Staff only (guards do not manage event attendance).
+    Instructor/Staff only (personnel at the gate do not manage event attendance).
     """
     event = get_object_or_404(Event, id=event_id)
     today = timezone.localdate()
@@ -7370,13 +6869,22 @@ def audit_log_viewer(request):
     if date_parsed:
         day_start, day_end = _local_day_bounds(date_parsed)
         logs_qs = logs_qs.filter(created_at__gte=day_start, created_at__lt=day_end)
-    logs = list(logs_qs[:500])
+    per_page, query_extra, query_extra_base = _get_per_page_and_query(request)
+    from django.core.paginator import Paginator
+    paginator = Paginator(logs_qs, per_page)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+    logs = list(page_obj.object_list)
     all_qs = AuditLog.objects.select_related('user')
     today_start, today_end = _local_day_bounds(timezone.localdate())
     today_qs = all_qs.filter(created_at__gte=today_start, created_at__lt=today_end)
     return render(request, 'gate/audit_log_viewer.html', {
         'site_name': 'City College of Bayawan',
         'logs': logs,
+        'page_obj': page_obj,
+        'query_extra': query_extra,
+        'query_extra_base': query_extra_base,
+        'per_page': per_page,
+        'per_page_options': PER_PAGE_OPTIONS,
         'action_filter': action_filter,
         'filter_date': date_param,
         'total_logs': all_qs.count(),
@@ -7472,72 +6980,6 @@ def _get_client_ip(request):
     return xff or request.META.get('REMOTE_ADDR', '')
 
 
-@login_required(login_url='/login/')
-@role_required('admin', 'staff', 'supervisor')
-@require_GET
-def guard_activity(request):
-    """Guard activity log: scans, overrides, proxy reports, clock in/out, logins. For Supervisor, Staff & Admin."""
-    from django.contrib.auth.models import Group, User
-    guard_group = Group.objects.filter(name='Guard').first()
-    guard_user_ids = set(guard_group.user_set.values_list('id', flat=True)) if guard_group else set()
-
-    # Recent gate entries recorded by guards
-    entry_rows = []
-    if guard_user_ids:
-        for e in GateEntry.objects.filter(recorded_by_id__in=guard_user_ids).select_related('recorded_by', 'student').order_by('-timestamp')[:250]:
-            guard_name = (e.recorded_by.get_full_name() or e.recorded_by.username) if e.recorded_by else '—'
-            if e.student:
-                name = (e.student.get_full_name() or e.student.student_id or '—')[:40]
-            else:
-                name = (e.notes or '—')[:40]
-            if e.scan_type == 'IN':
-                action = 'Student IN' if e.granted else 'Denied IN'
-            else:
-                action = 'Student OUT' if e.granted else 'Denied OUT'
-                if e.out_reason_code == 'OVERRIDE_BY_GUARD':
-                    action = 'Early OUT (override)'
-            entry_rows.append({'time': e.timestamp, 'guard': guard_name, 'action': f'{action} – {name}'})
-    # Guard shifts (clock in / clock out)
-    shift_rows = []
-    for s in GuardShift.objects.select_related('guard').order_by('-shift_start')[:80]:
-        guard_name = (s.guard.get_full_name() or s.guard.username) if s.guard else '—'
-        post = f' @ {s.gate_post}' if s.gate_post else ''
-        shift_rows.append({'time': s.shift_start, 'guard': guard_name, 'action': f'Clock in{post}'})
-        if s.shift_end:
-            shift_rows.append({'time': s.shift_end, 'guard': guard_name, 'action': 'Clock out'})
-    # Logins by guards
-    login_rows = []
-    if guard_user_ids:
-        for log in AuditLog.objects.filter(action='login', user_id__in=guard_user_ids).select_related('user').order_by('-created_at')[:50]:
-            guard_name = (log.user.get_full_name() or log.user.username) if log.user else '—'
-            login_rows.append({'time': log.created_at, 'guard': guard_name, 'action': 'Login'})
-    # Merge and sort by time descending
-    all_rows = entry_rows + shift_rows + login_rows
-    all_rows.sort(key=lambda x: x['time'], reverse=True)
-    activity_list = all_rows[:200]
-
-    # Data for notification form
-    all_guards = User.objects.filter(groups__name='Guard').order_by('username')
-    on_duty_count = GuardShift.objects.filter(shift_end__isnull=True).count()
-
-    # Quick stats
-    total_guards = all_guards.count()
-    scans_today = len(entry_rows)
-    shifts_today = len(shift_rows)
-    logins_today = len(login_rows)
-
-    return render(request, 'gate/guard_activity.html', {
-        'site_name': 'City College of Bayawan',
-        'activity_list': activity_list,
-        'all_guards': all_guards,
-        'on_duty_count': on_duty_count,
-        'total_guards': total_guards,
-        'scans_today': scans_today,
-        'shifts_today': shifts_today,
-        'logins_today': logins_today,
-    })
-
-
 def _department_label(value):
     """Return display label for a department value, or the value itself."""
     if not value:
@@ -7623,8 +7065,13 @@ def visitor_pass_create(request):
         )
         messages.success(request, f'Visitor pass created: {code}')
         return redirect('visitor-pass-create')
-    # List: if start/end in URL (after generate), show only that range; else show last 50 by created_at
-    passes = _visitor_pass_list_for_user(request)
+    # List: paginate passes (when start/end in URL show that range, else all recent)
+    passes_qs = _visitor_pass_list_for_user(request, no_limit=True)
+    per_page, query_extra, query_extra_base = _get_per_page_and_query(request)
+    from django.core.paginator import Paginator
+    paginator = Paginator(passes_qs, per_page)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+    passes = list(page_obj.object_list)
     display_start = None
     display_end = None
     start_param = request.GET.get('start')
@@ -7640,6 +7087,11 @@ def visitor_pass_create(request):
     return render(request, 'gate/visitor_pass_create.html', {
         'site_name': 'City College of Bayawan',
         'passes': passes,
+        'page_obj': page_obj,
+        'query_extra': query_extra,
+        'query_extra_base': query_extra_base,
+        'per_page': per_page,
+        'per_page_options': PER_PAGE_OPTIONS,
         'campus_departments': CAMPUS_DEPARTMENT_CHOICES,
         'display_start': display_start,
         'display_end': display_end,
