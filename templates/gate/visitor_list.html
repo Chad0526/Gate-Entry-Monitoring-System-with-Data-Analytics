@@ -63,14 +63,14 @@
 
   <div class="row mb-2">
     <div class="col-12">
-      <a href="{% if user_role == 'guard' %}{% url 'guard-dashboard' %}{% else %}{% url 'gate-analytics' %}{% endif %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left mr-1"></i> Back</a>
+      <a href="{% url 'gate-analytics' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left mr-1"></i> Back</a>
     </div>
   </div>
   <div class="row">
     <div class="col-12">
       <div class="section-card">
         <div class="section-head" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-          <span><i class="fas fa-user-tag" style="color:var(--ok);"></i> Visitors who entered campus</span>
+          <span><i class="fas fa-user-tag" style="color:var(--ok);"></i> Campus visitor log</span>
           <form method="get" class="form-inline" style="gap:8px; display:flex; flex-wrap:wrap; align-items:center;">
             <input type="search" name="q" value="{{ q|default:'' }}" placeholder="Search by name..." class="form-control form-control-sm" style="max-width:180px;" title="Search visitor name">
             <input type="date" name="from_date" value="{{ from_date|default:'' }}" class="form-control form-control-sm" title="From date">
@@ -81,6 +81,9 @@
           </form>
         </div>
         <div class="section-body p-0">
+          {% if page_obj %}
+          {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options position='top' %}
+          {% endif %}
           <div class="table-responsive">
             <table class="table table-striped table-hover mb-0">
               <thead>
@@ -107,6 +110,10 @@
               </tbody>
             </table>
           </div>
+          {% if page_obj %}
+          <div class="px-3 py-2 text-muted small" style="border-top:1px solid #e2e8f0;">{{ page_obj.paginator.count }} total</div>
+          {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options %}
+          {% endif %}
         </div>
       </div>
     </div>

@@ -1,0 +1,27 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block pagination %}
+  {% if admin_per_page_options %}
+  <div class="admin-per-page-wrap" style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 8px;">
+    <label for="admin-per-page-select" style="font-size: 13px; color: #666; margin-right: 6px;">{% trans 'Show' %}</label>
+    <select id="admin-per-page-select" style="padding: 4px 24px 4px 8px; border-radius: 4px; font-size: 13px; border: 1px solid #ccc; margin-right: 4px;" data-query-base="{{ admin_query_base|default:''|escapejs }}">
+      {% for opt in admin_per_page_options %}
+      <option value="{{ opt }}" {% if opt == admin_per_page %}selected{% endif %}>{{ opt }}</option>
+      {% endfor %}
+    </select>
+    <span style="font-size: 13px; color: #666;">{% trans 'per page' %}</span>
+  </div>
+  <script>
+  (function() {
+    var sel = document.getElementById('admin-per-page-select');
+    if (sel) sel.addEventListener('change', function() {
+      var q = this.getAttribute('data-query-base') || '';
+      var query = (q ? q + '&' : '') + 'per_page=' + encodeURIComponent(this.value) + '&p=1';
+      window.location = window.location.pathname + '?' + query;
+    });
+  })();
+  </script>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}

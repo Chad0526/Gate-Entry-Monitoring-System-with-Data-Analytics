@@ -16,7 +16,7 @@
     background-position: center;
     background-repeat: no-repeat;
     color: #fff;
-    border-radius: 16px 16px 0 0;
+    border-radius: 16px;
     padding: 28px 24px 18px;
     min-height: 90px;
     display: flex;
@@ -34,51 +34,6 @@
     margin: 4px 0 0;
     font-size: 0.88rem;
     color: #d1fae5; font-weight: 600; text-shadow: 0 1px 6px rgba(0,0,0,0.3);
-  }
-  .reports-tab-bar {
-    display: flex;
-    gap: 0;
-    background: #fff;
-    border: 1px solid var(--monitor-border, #e2e8f0);
-    border-top: none;
-    border-radius: 0 0 16px 16px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    margin-bottom: 20px;
-    -webkit-overflow-scrolling: touch;
-  }
-  .reports-tab-bar::-webkit-scrollbar { height: 0; }
-  .reports-tab {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 13px 20px;
-    font-size: 0.84rem;
-    font-weight: 600;
-    color: #4d7c5e;
-    text-decoration: none;
-    white-space: nowrap;
-    border-bottom: 3px solid transparent;
-    transition: all 0.15s ease;
-    flex-shrink: 0;
-  }
-  .reports-tab:hover {
-    color: #16a34a;
-    background: #f0fdf4;
-    text-decoration: none;
-  }
-  .reports-tab.active {
-    color: #16a34a;
-    border-bottom-color: #16a34a;
-    background: #f0fdf4;
-  }
-  .reports-tab i {
-    font-size: 0.82rem;
-    opacity: 0.7;
-  }
-  .reports-tab.active i {
-    opacity: 1;
   }
   /* ---- Report content polish ---- */
   .monitor-wrap .card.card-outline.card-secondary {
@@ -215,38 +170,14 @@
   }
 
   @media (max-width: 767px) {
-    .reports-tab { padding: 10px 14px; font-size: 0.78rem; }
     .reports-hero { padding: 22px 18px 14px; }
     .reports-hero h2 { font-size: 1.3rem; }
   }
 </style>
 
-{% with current=request.resolver_match.url_name %}
-<div style="margin-bottom:0;">
-  <div class="reports-hero">
+<div style="margin-bottom:20px;">
+  <div class="reports-hero" style="border-radius:16px;">
     <h2>Reports</h2>
     <p>{{ site_name|default:"City College of Bayawan" }} – Gate Entry</p>
   </div>
-  <div class="reports-tab-bar">
-    <a href="{% url 'reports-overview' %}" class="reports-tab {% if current == 'reports-overview' or current == 'reports-hub' %}active{% endif %}">
-      <i class="fas fa-chart-pie"></i> Overview
-    </a>
-    <a href="{% url 'reports-daily-gate' %}" class="reports-tab {% if current == 'reports-daily-gate' %}active{% endif %}">
-      <i class="fas fa-door-open"></i> Daily Gate
-    </a>
-    {% if user_role == 'admin' or user_role == 'staff' %}
-    <a href="{% url 'reports-event-attendance' %}" class="reports-tab {% if current == 'reports-event-attendance' %}active{% endif %}">
-      <i class="fas fa-calendar-check"></i> Event Attendance
-    </a>
-    {% endif %}
-    <a href="{% url 'reports-incidents-overrides' %}" class="reports-tab {% if current == 'reports-incidents-overrides' %}active{% endif %}">
-      <i class="fas fa-exclamation-triangle"></i> Incidents & Overrides
-    </a>
-    {% if user_role == 'admin' or user_role == 'staff' or user_role == 'supervisor' %}
-    <a href="{% url 'reports-exports' %}" class="reports-tab {% if current == 'reports-exports' %}active{% endif %}">
-      <i class="fas fa-file-export"></i> Exports
-    </a>
-    {% endif %}
-  </div>
 </div>
-{% endwith %}

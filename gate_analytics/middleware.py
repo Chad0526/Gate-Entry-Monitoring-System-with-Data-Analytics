@@ -19,6 +19,23 @@ def _origin_from_request(request):
     return None
 
 
+def _ngrok_origin_from_forwarded_host(request):
+    """Build https://<host> when ngrok forwards Host but Origin is missing (common on GET)."""
+    host = (request.META.get('HTTP_X_FORWARDED_HOST') or '').split(',')[0].strip()
+    if not host:
+        host = (request.META.get('HTTP_HOST') or '').split(':')[0]
+    else:
+        host = host.split(':')[0]
+    if not host or 'ngrok' not in host.lower():
+        return None
+    proto = (request.META.get('HTTP_X_FORWARDED_PROTO') or '').split(',')[0].strip().lower()
+    if proto not in ('http', 'https'):
+        proto = 'https' if request.is_secure() else (
+            'https' if ('ngrok-free' in host or 'ngrok.app' in host) else 'http'
+        )
+    return f'{proto}://{host}'
+
+
 # Headers to prevent caching of authenticated pages (stops back button showing dashboard after logout)
 NO_CACHE_HEADERS = {
     'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
@@ -27,8 +44,8 @@ NO_CACHE_HEADERS = {
 }
 
 
-class StaffGuardCompleteProfileMiddleware(MiddlewareMixin):
-    """Redirect staff/faculty/guard users to complete-profile until they have filled required profile (after first login)."""
+class StaffPersonnelCompleteProfileMiddleware(MiddlewareMixin):
+    """Redirect staff/faculty users to complete-profile until they have filled required profile (after first login)."""
     def process_request(self, request):
         if not getattr(request, 'user', None) or not request.user.is_authenticated:
             return None
@@ -40,32 +57,32 @@ class StaffGuardCompleteProfileMiddleware(MiddlewareMixin):
             return None
         try:
             from gate_analytics.roles import get_user_role
-            from gate.models import StaffGuardProfile
+            from gate.models import StaffPersonnelProfile
             role = get_user_role(request.user)
-            if role not in ('staff', 'faculty', 'guard'):
+            if role not in ('staff', 'faculty'):
                 return None
-            profile, _ = StaffGuardProfile.objects.get_or_create(
+            profile, _ = StaffPersonnelProfile.objects.get_or_create(
                 user=request.user, defaults={'profile_complete': False}
             )
             if getattr(profile, 'profile_complete', False):
                 return None
-            return HttpResponseRedirect(reverse('staff-guard-complete-profile'))
+            return HttpResponseRedirect(reverse('staff-personnel-complete-profile'))
         except Exception:
             return None
 
 
 class LanguageFromProfileMiddleware(MiddlewareMixin):
-    """For staff/guard/faculty, set session language and activate language from StaffGuardProfile.preferred_language."""
+    """For staff/faculty, set session language from StaffPersonnelProfile.preferred_language."""
     def process_request(self, request):
         if not getattr(request, 'user', None) or not request.user.is_authenticated:
             return None
         try:
             from gate_analytics.roles import get_user_role
-            from gate.models import StaffGuardProfile
+            from gate.models import StaffPersonnelProfile
             role = get_user_role(request.user)
-            if role not in ('staff', 'faculty', 'guard'):
+            if role not in ('staff', 'faculty'):
                 return None
-            profile = StaffGuardProfile.objects.filter(user=request.user).first()
+            profile = StaffPersonnelProfile.objects.filter(user=request.user).first()
             if not profile or not getattr(profile, 'preferred_language', None):
                 return None
             lang = (profile.preferred_language or '').strip() or 'en'
@@ -99,10 +116,12 @@ class NoCacheAuthMiddleware(MiddlewareMixin):
 
 
 class NgrokCsrfTrustMiddleware(MiddlewareMixin):
-    """When request comes via ngrok, add its Origin to CSRF_TRUSTED_ORIGINS so login and forms work."""
+    """When request comes via ngrok, add its Origin (or Host-derived URL) to CSRF_TRUSTED_ORIGINS so login and forms work."""
     def process_request(self, request):
         origin = _origin_from_request(request)
-        if not origin or 'ngrok' not in origin:
+        if not origin or 'ngrok' not in origin.lower():
+            origin = _ngrok_origin_from_forwarded_host(request)
+        if not origin or 'ngrok' not in origin.lower():
             return None
         trusted = getattr(django_settings, 'CSRF_TRUSTED_ORIGINS', None) or []
         if isinstance(trusted, list) and origin not in trusted:

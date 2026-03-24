@@ -57,10 +57,10 @@
   <div class="card-body">
     <p class="complete-profile-notice">
       <i class="fas fa-info-circle mr-2"></i>
-      {% trans 'Your account has been approved. Please fill in the following details to finish setting up your profile. You will then have full access to your dashboard. This applies to staff, faculty, and guards.' %}
+      {% trans 'Your account has been approved. Please fill in the following details to finish setting up your profile. You will then have full access to your dashboard. This applies to staff and faculty.' %}
     </p>
 
-    <form method="post" action="{% url 'staff-guard-complete-profile' %}" enctype="multipart/form-data">
+    <form method="post" action="{% url 'staff-personnel-complete-profile' %}" enctype="multipart/form-data">
       {% csrf_token %}
       {% if form.non_field_errors %}
       <div class="alert alert-danger">{{ form.non_field_errors.0 }}</div>

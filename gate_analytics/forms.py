@@ -5,11 +5,10 @@ from django.core.exceptions import ValidationError
 
 User = get_user_model()
 
-# Roles allowed for self-registration (Staff, Faculty, Guard). Admin/Supervisor stay admin-created.
-STAFF_GUARD_ROLE_CHOICES = [
+# Roles allowed for self-registration (Staff, Faculty). Guard removed: only staff log in at the gate.
+STAFF_PERSONNEL_ROLE_CHOICES = [
     ('staff', 'Staff'),
     ('faculty', 'Faculty'),
-    ('guard', 'Guard'),
 ]
 
 
@@ -26,11 +25,11 @@ class LoginForm(forms.Form):
     }))
 
 
-class StaffGuardRegistrationForm(forms.Form):
-    """Self-registration for Staff, Faculty, and Guard. Account details only; account inactive until admin approves.
+class StaffPersonnelRegistrationForm(forms.Form):
+    """Self-registration for Staff and Faculty. Account details only; account inactive until admin approves.
     After approval, user must complete profile (sex, birthdate, address, etc.) before full dashboard access."""
     role = forms.ChoiceField(
-        choices=STAFF_GUARD_ROLE_CHOICES,
+        choices=STAFF_PERSONNEL_ROLE_CHOICES,
         widget=forms.Select(attrs={'class': 'form-control reg-role-select', 'aria-label': 'Role'}),
     )
     username = forms.CharField(
@@ -101,8 +100,8 @@ class StaffGuardRegistrationForm(forms.Form):
 REQUIRED_MSG = 'This field is required.'
 
 
-class StaffGuardCompleteProfileForm(forms.Form):
-    """Required profile completion after first login (staff/faculty/guard). Must be filled before full dashboard access."""
+class StaffPersonnelCompleteProfileForm(forms.Form):
+    """Required profile completion after first login (staff/faculty). Must be filled before full dashboard access."""
     SEX_CHOICES = [
         ('', 'Select sex/gender'),
         ('MALE', 'Male'),
@@ -181,7 +180,7 @@ class StaffGuardCompleteProfileForm(forms.Form):
 
 
 class AccountDetailsForm(forms.Form):
-    """Change username and email (for staff/guard account settings)."""
+    """Change username and email (for staff account settings)."""
     username = forms.CharField(
         max_length=150,
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Username', 'autocomplete': 'username'})
@@ -212,7 +211,7 @@ class AccountDetailsForm(forms.Form):
 
 
 class PasswordChangeForm(forms.Form):
-    """Change password (old, new, confirm) for staff/guard account settings."""
+    """Change password (old, new, confirm) for staff account settings."""
     old_password = forms.CharField(
         widget=forms.PasswordInput(attrs={
             'class': 'form-control',
@@ -258,7 +257,7 @@ class PasswordChangeForm(forms.Form):
         return cleaned
 
 
-# Common choices for staff/guard preferences (language + email only)
+# Common choices for staff preferences (language + email only)
 PREF_LANGUAGE_CHOICES = [
     ('en', 'English'),
     ('fil', 'Filipino'),
@@ -266,7 +265,7 @@ PREF_LANGUAGE_CHOICES = [
 
 
 class UserPreferencesForm(forms.Form):
-    """Preferences for staff/guard/faculty: language and email notifications for announcements only."""
+    """Preferences for staff/faculty: language and email notifications for announcements only."""
     preferred_language = forms.ChoiceField(
         choices=PREF_LANGUAGE_CHOICES,
         widget=forms.Select(attrs={'class': 'form-control'}),
@@ -281,7 +280,7 @@ class UserPreferencesForm(forms.Form):
 
 
 class UserProfileEditForm(forms.Form):
-    """Edit current user's name, email, profile photo, and (for staff/faculty/guard) profile fields."""
+    """Edit current user's name, email, profile photo, and (for staff/faculty) profile fields."""
     avatar = forms.ImageField(
         required=False,
         widget=forms.ClearableFileInput(attrs={
@@ -301,7 +300,7 @@ class UserProfileEditForm(forms.Form):
     email = forms.EmailField(
         widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email', 'autocomplete': 'email'})
     )
-    # Optional profile fields (for staff/faculty/guard)
+    # Optional profile fields (for staff/faculty)
     middle_name = forms.CharField(
         max_length=100,
         required=False,
@@ -348,3 +347,167 @@ class UserProfileEditForm(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Position / Title'})
     )
+
+
+class PasswordResetFormEmailOrUsername(forms.Form):
+    """
+    Password reset request that accepts either an email address or a username
+    in the single 'email' field (kept for compatibility with Django's template).
+    """
+    email = forms.CharField(
+        label='Email or username',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Your email or username',
+            'autocomplete': 'email',
+        }),
+        max_length=254,
+    )
+
+    def get_users(self, identifier: str):
+        """
+        Yield active users matching either email (case-insensitive) or username (case-insensitive).
+        """
+        if not identifier:
+            return []
+        # First try by email
+        users_qs = User._default_manager.filter(email__iexact=identifier, is_active=True)
+        if not users_qs.exists():
+            # Fallback: treat identifier as username
+            users_qs = User._default_manager.filter(username__iexact=identifier, is_active=True)
+        return list(users_qs)
+
+    def get_user_emails(self, users):
+        emails = []
+        for u in users:
+            email = (u.email or '').strip()
+            if email:
+                emails.append(email)
+        return emails
+
+    def save(self, domain_override=None,
+             subject_template_name='registration/password_reset_subject.txt',
+             email_template_name='registration/password_reset_email.html',
+             use_https=False, token_generator=None,
+             from_email=None, request=None, html_email_template_name=None,
+             extra_email_context=None):
+        """
+        Mirror django.contrib.auth.forms.PasswordResetForm.save behavior but resolve users
+        by either email or username, and send to their registered email addresses.
+        """
+        from django.contrib.auth.tokens import default_token_generator
+        from django.template.loader import render_to_string
+        from django.utils.encoding import force_bytes
+        from django.utils.http import urlsafe_base64_encode
+        from django.core.mail import EmailMultiAlternatives
+
+        identifier = (self.cleaned_data.get('email') or '').strip()
+        users = self.get_users(identifier)
+        if not users:
+            # For security, behave as if we processed it; mimic Django's default (do nothing)
+            return
+
+        token_generator = token_generator or default_token_generator
+        for user in users:
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            context = {
+                'email': user.email,
+                'domain': domain_override or (request.get_host() if request else ''),
+                'site_name': (extra_email_context or {}).get('site_name'),
+                'uid': uid,
+                'user': user,
+                'token': token_generator.make_token(user),
+                'protocol': 'https' if use_https else 'http',
+            }
+            subject = render_to_string(subject_template_name, context)
+            subject = ''.join(subject.splitlines())
+            body = render_to_string(email_template_name, context)
+            email_message = EmailMultiAlternatives(subject, body, from_email, [user.email])
+            if html_email_template_name is not None:
+                html_email = render_to_string(html_email_template_name, context)
+                email_message.attach_alternative(html_email, 'text/html')
+            email_message.send()
+
+
+def _normalize_phone(value):
+    """Return digits only from phone string."""
+    import re
+    return re.sub(r'\D', '', str(value or ''))
+
+
+class PhoneResetRequestForm(forms.Form):
+    """Request a verification code sent to the user's registered phone (StaffPersonnelProfile.contact_number)."""
+    phone = forms.CharField(
+        label='Phone number',
+        max_length=20,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'e.g. 09XXXXXXXXX',
+            'autocomplete': 'tel',
+            'inputmode': 'numeric',
+        }),
+    )
+
+    def clean_phone(self):
+        raw = (self.cleaned_data.get('phone') or '').strip()
+        normalized = _normalize_phone(raw)
+        if len(normalized) < 10:
+            raise forms.ValidationError('Enter a valid phone number (at least 10 digits).')
+        return normalized
+
+
+class VerifyCodeForm(forms.Form):
+    """Enter the 6-digit verification code sent via SMS."""
+    code = forms.CharField(
+        label='Verification code',
+        max_length=6,
+        min_length=6,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': '000000',
+            'autocomplete': 'one-time-code',
+            'inputmode': 'numeric',
+            'maxlength': '6',
+            'pattern': '[0-9]*',
+        }),
+    )
+
+    def clean_code(self):
+        raw = (self.cleaned_data.get('code') or '').strip()
+        if not raw.isdigit() or len(raw) != 6:
+            raise forms.ValidationError('Enter the 6-digit code from your phone.')
+        return raw
+
+
+class NewPasswordForm(forms.Form):
+    """Set new password after phone verification."""
+    new_password = forms.CharField(
+        label='New password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'New password',
+            'autocomplete': 'new-password',
+        }),
+    )
+    new_password_confirm = forms.CharField(
+        label='Confirm new password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Confirm new password',
+            'autocomplete': 'new-password',
+        }),
+    )
+
+    def clean_new_password(self):
+        p = self.cleaned_data.get('new_password')
+        if p and len(p) < 8:
+            raise forms.ValidationError('Password must be at least 8 characters.')
+        return p
+
+    def clean(self):
+        cleaned = super().clean()
+        p1 = cleaned.get('new_password')
+        p2 = cleaned.get('new_password_confirm')
+        if p1 and p2 and p1 != p2:
+            self.add_error('new_password_confirm', 'Passwords do not match.')
+        return cleaned

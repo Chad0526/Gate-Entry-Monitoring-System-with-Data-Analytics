@@ -1,1 +1,1 @@
-# Event management services (e.g. load slip import)
+# Gate app services package (optional helpers).

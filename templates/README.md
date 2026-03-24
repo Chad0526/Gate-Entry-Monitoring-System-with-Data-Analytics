@@ -11,7 +11,7 @@ Templates are grouped by feature so you can find and trace them easily.
 | **dashboard/** | Main app dashboard | `dashboard.html` |
 | **errors/** | Error pages | `404.html`, `500.html` |
 | **events/** | Event management | `event_list.html`, `event_detail.html`, `create_event.html`, `edit_event.html`, `event_category.html`, etc. |
-| **gate/** | Gate, scanning, guards, reports | `gate_scan.html`, `entry_list.html`, `visitor_list.html`, `guard_dashboard.html`, `reports/` subfolder, etc. |
+| **gate/** | Gate, scanning, personnel UI, reports | `gate_scan.html`, `entry_list.html`, `dashboard.html`, `gate_today_report.html`, `admin_send_gate_notification.html`, `pending_staff_guard.html`, `reports/` subfolder, etc. |
 | **gate/reports/** | Report views | `overview.html`, `daily_gate.html`, `event_attendance.html`, `exports.html`, `_filter_bar.html`, `_reports_tabs.html` |
 | **legal/** | Legal / policy pages | `privacy_policy.html`, `terms_and_conditions.html` |
 | **registration/** | Student registration | `student_register.html`, `student_register_animated.html`, `registration_animated.html` |
@@ -23,6 +23,6 @@ Templates are grouped by feature so you can find and trace them easily.
 - **gate_analytics/views.py** → `auth/login.html`, `dashboard/dashboard.html`, `users/user_list.html`, `errors/404.html`, `errors/500.html`, `legal/privacy_policy.html`, `legal/terms_and_conditions.html`
 - **gate/views.py** → `events/*`
 - **gate/gate_views.py** → `gate/*` and `gate/reports/*`
-- **gate/guard_views.py** → `gate/guard_*.html`, `gate/admin_send_guard_notification.html`, `gate/shift_summary.html`
+- **gate/gate_personnel_views.py** → JSON APIs under `/gate/api/...`, admin broadcast at `/gate/admin/broadcast-notification/`; template `gate/admin_send_gate_notification.html`
 
 Use this file as a quick reference when tracing which HTML backs a URL or view.

@@ -18,7 +18,7 @@ How **gate entries** are created, listed, grouped into visits, and how they tie 
 | `scan_type` | CharField | 'IN' or 'OUT' (preferred over notes for logic). |
 | `result` | CharField | SUCCESS, DENIED, DUPLICATE, BLOCKED, NOT_APPROVED, NOT_FOUND. |
 | `out_reason` | TextField | Free-text reason for early/forced out (e.g. guard override). |
-| `out_reason_code` | CharField | Code for analytics: LUNCH, NO_CLASS_WINDOW, OVERRIDE_BY_GUARD, etc. |
+| `out_reason_code` | CharField | Code for analytics: LUNCH, NO_CLASS_WINDOW, OVERRIDE_BY_PERSONNEL, etc. |
 | `timestamp` | DateTimeField, auto_now_add=True | When the entry was recorded (timezone-aware). |
 | `recorded_by` | FK(User), null=True | Guard/user who recorded (audit). |
 
@@ -48,7 +48,7 @@ All creation is in `gate/gate_views.py`. There are **six** code paths that creat
 - **URL:** `POST /gate/record/`
 - **When:** Guard chooses **Deny** (with reason).
 - **Creates:**  
-  1. `GateIncident(student, scanned_id, reason, details, guard_alerted=True)`  
+  1. `GateIncident(student, scanned_id, reason, details, personnel_alerted=True)`  
   2. `GateEntry(student=student, granted=False, incident=incident, notes=notes, recorded_by=request.user)`  
 - **Side effect:** `notify_denied_entry(incident, …)` (email if configured).
 
@@ -204,7 +204,7 @@ flowchart TD
 
   - **OUT:**  
     - If state is OUTSIDE and no guard reason → DUPLICATE (scan IN first).  
-    - If state is OUTSIDE but guard provides reason → SUCCESS with `out_reason_code='OVERRIDE_BY_GUARD'` and `forced_out_no_in=True` (audit).  
+    - If state is OUTSIDE but guard provides reason → SUCCESS with `out_reason_code='OVERRIDE_BY_PERSONNEL'` and `forced_out_no_in=True` (audit).  
     - Lunch window → SUCCESS (LUNCH).  
     - In class now → guard reason → SUCCESS (early exit); else REQUIRE_REASON.  
     - Class starts within buffer → guard reason → SUCCESS; else REQUIRE_REASON.  

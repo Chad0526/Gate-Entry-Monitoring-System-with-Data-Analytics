@@ -44,24 +44,32 @@ CSRF_TRUSTED_ORIGINS = [
 
 ]
 
-ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    '192.168.180.160',
-    '192.168.1.81',
-    '192.168.181.146',
-    '192.168.254.105',
-    '192.168.181.120',
-    '172.20.10.2',
-    '192.168.254.125',
-    '10.0.1.186',
-    '192.168.180.135',
-    # Any ngrok URL (subdomains allowed)
-    'unsurrendering-implacably-alfreda.ngrok-free.dev',
-    '.ngrok-free.app',
-    '.ngrok-free.dev',
-    '.ngrok.io',
-]
+# Host header validation. For local dev + LAN + ngrok/tunnels, use '*' (only safe with DEBUG=True).
+# Production: set DJANGO_ALLOWED_HOSTS=example.com,www.example.com (comma-separated, no spaces needed)
+# or rely on the non-DEBUG list below. Never use '*' when DEBUG=False.
+_hosts_env = os.environ.get('DJANGO_ALLOWED_HOSTS', '').strip()
+if _hosts_env:
+    ALLOWED_HOSTS = [h.strip() for h in _hosts_env.split(',') if h.strip()]
+elif DEBUG:
+    ALLOWED_HOSTS = ['*']
+else:
+    ALLOWED_HOSTS = [
+        'localhost',
+        '127.0.0.1',
+        '192.168.180.160',
+        '192.168.1.81',
+        '192.168.181.146',
+        '192.168.254.105',
+        '192.168.181.120',
+        '172.20.10.2',
+        '192.168.254.125',
+        '10.0.1.186',
+        '192.168.180.135',
+        'unsurrendering-implacably-alfreda.ngrok-free.dev',
+        '.ngrok-free.app',
+        '.ngrok-free.dev',
+        '.ngrok.io',
+    ]
 
 # Ngrok / tunnel: allow forms (CSRF) and redirects from the public URL
 _ngrok_host = os.environ.get('NGROK_HOST', '').strip()
@@ -103,7 +111,7 @@ MIDDLEWARE = [
     'gate_analytics.middleware.NgrokCsrfTrustMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'gate_analytics.middleware.StaffGuardCompleteProfileMiddleware',
+    'gate_analytics.middleware.StaffPersonnelCompleteProfileMiddleware',
     'gate_analytics.middleware.LanguageFromProfileMiddleware',
     'gate_analytics.middleware.SessionTimeoutMiddleware',
     'gate_analytics.middleware.NoCacheAuthMiddleware',
@@ -131,7 +139,7 @@ TEMPLATES = [
                 'django.template.context_processors.media',
                 'gate_analytics.roles.user_role_context',
                 'gate_analytics.context_processors.notifications_context',
-                'gate_analytics.context_processors.guard_notifications_context',
+                'gate_analytics.context_processors.gate_notifications_context',
                 'gate_analytics.context_processors.theme_context',
             ],
         },
@@ -149,6 +157,12 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_COOKIE_NAME = 'sessionid'
 SESSION_COOKIE_HTTPONLY = True
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
+# When using ngrok HTTPS (or any HTTPS reverse proxy), set NGROK_HTTPS_COOKIES=1 in .env so
+# session/csrf cookies are marked Secure (some browsers require this on https://*.ngrok URLs).
+if os.environ.get('NGROK_HTTPS_COOKIES', '').lower() in ('1', 'true', 'yes'):
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 LOGIN_URL = '/login/'
 
@@ -278,7 +292,9 @@ CKEDITOR_JQUERY_URL = 'https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery
 CKEDITOR_UPLOAD_PATH = "event-details/"
 CKEDITOR_CONFIGS = {
     'default': {
-        'toolbar': None,
+        'toolbar': [
+            ['Bold', 'Italic', 'Underline', 'TextColor', 'BGColor'],
+        ],
     },
 }
 
@@ -292,8 +308,63 @@ CACHES = {
 }
 CACHE_DASHBOARD_SECONDS = 120  # 2 minutes
 
+# After login, if the user did not open /login/?next=...
+# — Staff / Faculty / Supervisor: default landing page (dashboard vs gate scanner).
+# — Set LOGIN_REDIRECT_DEFAULT_GATE_STAFF = 'gate-scan' if gate staff should open the scanner first.
+# Physical guards do not log in; only assigned staff use the gate PC.
+LOGIN_REDIRECT_GATE_FIRST_ROLES = ('staff', 'faculty', 'supervisor')
+LOGIN_REDIRECT_DEFAULT_GATE_STAFF = 'dashboard'
+LOGIN_REDIRECT_DEFAULT_ADMIN = 'dashboard'
+
 # Optional: API token for read-only attendance integration (set API_ATTENDANCE_TOKEN in env)
 API_ATTENDANCE_TOKEN = os.environ.get('API_ATTENDANCE_TOKEN', '')
+
+# Guard wall display: shared secret for /gate/guard-display/ and /gate/api/guard-dashboard/ (no login).
+# Staff gate scanner POSTs heartbeats; display shows "scanner active" while heartbeats arrive within TTL.
+GATE_GUARD_DISPLAY_TOKEN = os.environ.get('GATE_GUARD_DISPLAY_TOKEN', '')
+GATE_SCANNER_HEARTBEAT_TTL = int(os.environ.get('GATE_SCANNER_HEARTBEAT_TTL', '90'))
+# Daily gate: minimum time between duplicate scans (same direction) while still inside / outside (minutes).
+try:
+    _gate_cool = int(os.environ.get('GATE_SCAN_REPEAT_COOLDOWN_MINUTES', '5'))
+except (TypeError, ValueError):
+    _gate_cool = 5
+GATE_SCAN_REPEAT_COOLDOWN_MINUTES = max(1, min(_gate_cool, 24 * 60))
+# Daily gate: global = wait GATE_SCAN_REPEAT_COOLDOWN_MINUTES after any scan before the next (recommended).
+# same_direction = only block duplicate IN or duplicate OUT (allows immediate IN↔OUT alternation when UI auto-suggests).
+_raw_gate_cool_scope = (os.environ.get('GATE_SCAN_REPEAT_COOLDOWN_SCOPE', 'global') or '').strip().lower()
+GATE_SCAN_REPEAT_COOLDOWN_SCOPE = _raw_gate_cool_scope if _raw_gate_cool_scope in ('global', 'same_direction') else 'global'
+# Guard scan-success popup layout: split (photo | text), poster (photo banner on top), idcard (photo + bordered info panel)
+_raw_guard_popup = (os.environ.get('GATE_GUARD_STUDENT_POPUP_STYLE', 'split') or '').strip().lower()
+GATE_GUARD_STUDENT_POPUP_STYLE = _raw_guard_popup if _raw_guard_popup in ('split', 'poster', 'idcard') else 'split'
+# Staff /gate/: minimal page with only Start/Stop gate session (no camera UI). Scanner dashboard uses the camera.
+# Set to 0/false/off to restore the full QR scanner page (camera, manual entry, live entries). Or add ?full=1 to the URL.
+_val_gate_console = (os.environ.get('GATE_STAFF_GATE_CONSOLE_ONLY', '1') or '').strip().lower()
+GATE_STAFF_GATE_CONSOLE_ONLY = _val_gate_console not in ('0', 'false', 'no', 'off')
+# Optional: user id for GateEntry.recorded_by when using token-only /gate/embed-scanner/ (guard monitor).
+GATE_GUARD_EMBED_RECORDED_BY_USER_ID = os.environ.get('GATE_GUARD_EMBED_RECORDED_BY_USER_ID', '') or None
+if GATE_GUARD_EMBED_RECORDED_BY_USER_ID:
+    try:
+        GATE_GUARD_EMBED_RECORDED_BY_USER_ID = int(GATE_GUARD_EMBED_RECORDED_BY_USER_ID)
+    except ValueError:
+        GATE_GUARD_EMBED_RECORDED_BY_USER_ID = None
+else:
+    GATE_GUARD_EMBED_RECORDED_BY_USER_ID = None
+
+# Guard embed: "Report incident" → GateIncident + notify office groups (Django Group names, comma-separated)
+# id_issue → SAS; not_registered → Registrar; other → both. Optional direct emails always get mail.
+GATE_GUARD_INCIDENT_GROUPS_SAS = os.environ.get(
+    'GATE_GUARD_INCIDENT_GROUPS_SAS',
+    'Student Affairs,SAS',
+)
+GATE_GUARD_INCIDENT_GROUPS_REGISTRAR = os.environ.get(
+    'GATE_GUARD_INCIDENT_GROUPS_REGISTRAR',
+    'Registrar',
+)
+GATE_GUARD_INCIDENT_EMAILS_SAS = os.environ.get('GATE_GUARD_INCIDENT_EMAILS_SAS', '')
+GATE_GUARD_INCIDENT_EMAILS_REGISTRAR = os.environ.get('GATE_GUARD_INCIDENT_EMAILS_REGISTRAR', '')
+GATE_GUARD_INCIDENT_FALLBACK_BROADCAST = os.environ.get(
+    'GATE_GUARD_INCIDENT_FALLBACK_BROADCAST', 'true'
+).lower() in ('1', 'true', 'yes')
 
 # Notifications (email)
 NOTIFICATION_EMAILS = os.environ.get('NOTIFICATION_EMAILS', '').split(',') if os.environ.get('NOTIFICATION_EMAILS') else []

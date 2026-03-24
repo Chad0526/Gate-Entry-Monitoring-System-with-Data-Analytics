@@ -1,7 +1,7 @@
 {% extends 'base/base.html' %}
 {% load static %}
-{% block title %}Staff / Faculty / Guard – Pending approval – {{ site_name }}{% endblock title %}
-{% block breadcrumb %}Staff / Faculty / Guard approval{% endblock breadcrumb %}
+{% block title %}Staff / Faculty – Pending approval – {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Staff / Faculty approval{% endblock breadcrumb %}
 
 {% block extrahead %}
 <link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
@@ -138,19 +138,19 @@
 
 {% block content %}
 <div class="psg-hero">
-  <h2><i class="fas fa-user-shield mr-2"></i>Staff / Faculty / Guard approvals</h2>
+  <h2><i class="fas fa-user-shield mr-2"></i>Staff / Faculty approvals</h2>
   <p>Approve or deactivate accounts. Status: <strong>Pending</strong> = cannot log in; <strong>Approved</strong> = can log in.</p>
 </div>
 
 <div class="psg-toolbar">
   <div class="d-flex flex-wrap align-items-center gap-2">
     {% if show_only_pending %}
-    <a href="{% url 'pending-staff-guard-list' %}" class="btn btn-sm btn-outline-secondary">Show all</a>
+    <a href="{% url 'pending-staff-personnel-list' %}" class="btn btn-sm btn-outline-secondary">Show all</a>
     {% else %}
-    <a href="{% url 'pending-staff-guard-list' %}?pending=1" class="btn btn-sm btn-outline-secondary">Show pending only</a>
+    <a href="{% url 'pending-staff-personnel-list' %}?pending=1" class="btn btn-sm btn-outline-secondary">Show pending only</a>
     {% endif %}
     {% if pending_count > 0 %}
-    <a href="{% url 'pending-staff-guard-list' %}?pending=1" class="btn btn-sm btn-warning ml-2">
+    <a href="{% url 'pending-staff-personnel-list' %}?pending=1" class="btn btn-sm btn-warning ml-2">
       <i class="fas fa-user-clock"></i> {{ pending_count }} pending
     </a>
     {% endif %}
@@ -162,6 +162,9 @@
   <div class="card-header">Accounts</div>
   <div class="psg-table-wrap">
     {% if users_with_role %}
+    {% if page_obj %}
+    {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options position='top' %}
+    {% endif %}
     <table class="table table-hover">
       <thead>
         <tr>
@@ -200,7 +203,7 @@
               <div class="dropdown-menu dropdown-menu-right">
                 <div class="dropdown-header">Account</div>
                 {% if not user.is_active %}
-                <form method="post" action="{% url 'pending-staff-guard-list' %}" class="dropdown-item-form" onsubmit="return true;">
+                <form method="post" action="{% url 'pending-staff-personnel-list' %}" class="dropdown-item-form" onsubmit="return true;">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="approve">
                   <input type="hidden" name="user_id" value="{{ user.pk }}">
@@ -211,7 +214,7 @@
                 </form>
                 {% endif %}
                 {% if user.is_active %}
-                <form method="post" action="{% url 'pending-staff-guard-list' %}" class="dropdown-item-form" data-confirm-message="Set this account to inactive? They will not be able to log in.">
+                <form method="post" action="{% url 'pending-staff-personnel-list' %}" class="dropdown-item-form" data-confirm-message="Set this account to inactive? They will not be able to log in.">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="deactivate">
                   <input type="hidden" name="user_id" value="{{ user.pk }}">
@@ -223,7 +226,7 @@
                 {% endif %}
                 <div class="dropdown-divider"></div>
                 <div class="dropdown-header">Access &amp; remove</div>
-                <form method="post" action="{% url 'pending-staff-guard-list' %}" class="dropdown-item-form" data-confirm-message="Deny access for this account? They will not be able to log in." data-confirm-deny="1">
+                <form method="post" action="{% url 'pending-staff-personnel-list' %}" class="dropdown-item-form" data-confirm-message="Deny access for this account? They will not be able to log in." data-confirm-deny="1">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="deny">
                   <input type="hidden" name="user_id" value="{{ user.pk }}">
@@ -232,7 +235,7 @@
                     <span class="psg-action-label">Deny</span>
                   </button>
                 </form>
-                <form method="post" action="{% url 'pending-staff-guard-list' %}" class="dropdown-item-form" data-confirm-message="Permanently delete this account? This cannot be undone." data-confirm-danger="1">
+                <form method="post" action="{% url 'pending-staff-personnel-list' %}" class="dropdown-item-form" data-confirm-message="Permanently delete this account? This cannot be undone." data-confirm-danger="1">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="delete">
                   <input type="hidden" name="user_id" value="{{ user.pk }}">
@@ -248,12 +251,16 @@
         {% endfor %}
       </tbody>
     </table>
+    {% if page_obj %}
+    <div class="px-3 py-2 text-muted small" style="border-top:1px solid #e2e8f0;">{{ page_obj.paginator.count }} total</div>
+    {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options %}
+    {% endif %}
     {% else %}
     <div class="psg-empty">
       <i class="fas fa-users fa-2x mb-3" style="opacity:0.4;"></i>
-      <p class="mb-0">No staff/faculty/guard accounts found.</p>
+      <p class="mb-0">No staff/faculty accounts found.</p>
       {% if show_only_pending %}
-      <a href="{% url 'pending-staff-guard-list' %}">Show all</a>
+      <a href="{% url 'pending-staff-personnel-list' %}">Show all</a>
       {% endif %}
     </div>
     {% endif %}
@@ -270,7 +277,7 @@
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
-      <form method="post" action="{% url 'pending-staff-guard-list' %}{% if show_only_pending %}?pending=1{% endif %}" id="psgEditForm">
+      <form method="post" action="{% url 'pending-staff-personnel-list' %}{% if show_only_pending %}?pending=1{% endif %}" id="psgEditForm">
         {% csrf_token %}
         <input type="hidden" name="action" value="edit_user">
         <input type="hidden" name="user_id" id="psgEditUserId" value="">
@@ -300,7 +307,6 @@
             <select class="form-control" id="psgEditRole" name="role" required>
               <option value="staff">Staff</option>
               <option value="faculty">Faculty</option>
-              <option value="guard">Guard</option>
             </select>
           </div>
           <hr class="my-3">
@@ -361,7 +367,7 @@
         var role = (this.getAttribute('data-role') || '').toLowerCase();
         var roleEl = document.getElementById('psgEditRole');
         if (roleEl) {
-          roleEl.value = (role === 'staff' || role === 'faculty' || role === 'guard') ? role : 'staff';
+          roleEl.value = (role === 'staff' || role === 'faculty') ? role : 'staff';
         }
         document.getElementById('psgEditContactNumber').value = this.getAttribute('data-contact-number') || '';
         document.getElementById('psgEditEmployeeId').value = this.getAttribute('data-employee-id') || '';

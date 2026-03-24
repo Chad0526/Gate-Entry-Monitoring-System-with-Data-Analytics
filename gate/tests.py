@@ -1,9 +1,9 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 import datetime
 
-from .models import Student, StudentLoadSlip, LoadSlipSubject, GateEntry, VisitorEntry, VisitorPass, VisitorVisit
-from .policy import evaluate_scan
+from .models import Student, GateEntry, VisitorEntry, VisitorPass, VisitorVisit
+from .policy import evaluate_scan, daily_gate_repeat_cooldown
 
 
 class GatePolicyTests(TestCase):
@@ -24,60 +24,97 @@ class GatePolicyTests(TestCase):
         from gate_analytics.roles import get_user_role
         from django.contrib.auth.models import User, Group
         u = User.objects.create(username='foo')
-        # lower-case group
-        g1, _ = Group.objects.get_or_create(name='guard')
+        g1, _ = Group.objects.get_or_create(name='staff')
         u.groups.add(g1)
-        self.assertEqual(get_user_role(u), 'guard')
-        # uppercase group should also work
+        self.assertEqual(get_user_role(u), 'staff')
         u2 = User.objects.create(username='bar')
-        g2, _ = Group.objects.get_or_create(name='Guard')
+        g2, _ = Group.objects.get_or_create(name='Staff')
         u2.groups.add(g2)
-        self.assertEqual(get_user_role(u2), 'guard')
+        self.assertEqual(get_user_role(u2), 'staff')
 
-    def _make_slip(self, sessions):
-        """Helper: sessions is list of (day, start_time, end_time, code)."""
-        slip = StudentLoadSlip.objects.create(
-            student=self.student,
-            school_year="2025-2026",
-            semester="1st",
-        )
-        for day, start, end, code in sessions:
-            LoadSlipSubject.objects.create(
-                load_slip=slip,
-                subject_code=code,
-                subject_title="",
-                section="",
-                units=3,
-                day=day,
-                start_time=start,
-                end_time=end,
-            )
-        return slip
-
-    def test_in_denied_if_no_class_today(self):
+    def test_evaluate_scan_in_allowed_when_outside(self):
         now = timezone.make_aware(datetime.datetime(2025, 9, 1, 8, 0))
-        # no sessions added to slip
-        self._make_slip([])
-        result = evaluate_scan(self.student, 'IN', now)
-        self.assertFalse(result['allowed'])
-        self.assertEqual(result['result'], 'DENIED')
-        self.assertIn('no classes today', result['message'].lower())
-
-    def test_in_requires_reason_if_not_in_class_but_has_later(self):
-        now = timezone.make_aware(datetime.datetime(2025, 9, 1, 9, 0))
-        # add a class later at 15:00
-        self._make_slip([('Mon', datetime.time(15, 0), datetime.time(16, 0), 'TEST101')])
-        result = evaluate_scan(self.student, 'IN', now)
-        self.assertFalse(result['allowed'])
-        self.assertEqual(result['result'], 'REQUIRE_REASON')
-        self.assertIn('not currently in class', result['message'].lower())
-
-    def test_in_allowed_during_class(self):
-        now = timezone.make_aware(datetime.datetime(2025, 9, 1, 15, 30))
-        self._make_slip([('Mon', datetime.time(15, 0), datetime.time(16, 0), 'TEST101')])
         result = evaluate_scan(self.student, 'IN', now)
         self.assertTrue(result['allowed'])
         self.assertEqual(result['result'], 'SUCCESS')
+
+    @override_settings(GATE_SCAN_REPEAT_COOLDOWN_MINUTES=5)
+    def test_daily_gate_duplicate_in_within_cooldown(self):
+        # Fixed local day so "soon" and entry timestamp stay on the same calendar date.
+        tz = timezone.get_current_timezone()
+        base = timezone.make_aware(datetime.datetime(2025, 9, 1, 10, 0, 0), tz)
+        e = GateEntry.objects.create(
+            student=self.student,
+            event=None,
+            granted=True,
+            result='SUCCESS',
+            scan_type='IN',
+            notes='IN',
+        )
+        GateEntry.objects.filter(pk=e.pk).update(timestamp=base)
+        soon = base + datetime.timedelta(minutes=2)
+        result = evaluate_scan(self.student, 'IN', soon, daily_gate_only=True)
+        self.assertFalse(result['allowed'])
+        self.assertEqual(result['result'], 'DUPLICATE')
+
+    @override_settings(GATE_SCAN_REPEAT_COOLDOWN_MINUTES=5)
+    def test_daily_gate_second_in_after_cooldown_allowed(self):
+        tz = timezone.get_current_timezone()
+        base = timezone.make_aware(datetime.datetime(2025, 9, 1, 10, 0, 0), tz)
+        e = GateEntry.objects.create(
+            student=self.student,
+            event=None,
+            granted=True,
+            result='SUCCESS',
+            scan_type='IN',
+            notes='IN',
+        )
+        GateEntry.objects.filter(pk=e.pk).update(timestamp=base)
+        later = base + daily_gate_repeat_cooldown() + datetime.timedelta(seconds=1)
+        result = evaluate_scan(self.student, 'IN', later, daily_gate_only=True)
+        self.assertTrue(result['allowed'])
+        self.assertEqual(result['result'], 'SUCCESS')
+
+    @override_settings(
+        GATE_SCAN_REPEAT_COOLDOWN_MINUTES=5,
+        GATE_SCAN_REPEAT_COOLDOWN_SCOPE='global',
+        GATE_GUARD_DISPLAY_TOKEN='test-guard-tok',
+        GATE_GUARD_EMBED_RECORDED_BY_USER_ID=None,
+    )
+    def test_save_scan_global_blocks_second_scan_within_cooldown(self):
+        """Default scope blocks any second daily gate scan until cooldown (not only same-direction duplicates)."""
+        from django.urls import reverse
+        url = reverse('save_scan')
+        sid = self.student.student_id
+        base = {'student_id': sid, 'device_id': 'T1', 'guard_token': 'test-guard-tok'}
+        r1 = self.client.post(url, base)
+        self.assertEqual(r1.status_code, 200, r1.content)
+        data1 = r1.json()
+        self.assertTrue(data1.get('success'), data1)
+        r2 = self.client.post(url, base)
+        self.assertEqual(r2.status_code, 200)
+        data2 = r2.json()
+        self.assertFalse(data2.get('success'))
+        self.assertTrue(data2.get('repeat_cooldown') or data2.get('already_scanned'))
+
+    @override_settings(
+        GATE_SCAN_REPEAT_COOLDOWN_MINUTES=5,
+        GATE_SCAN_REPEAT_COOLDOWN_SCOPE='same_direction',
+        GATE_GUARD_DISPLAY_TOKEN='test-guard-tok2',
+        GATE_GUARD_EMBED_RECORDED_BY_USER_ID=None,
+    )
+    def test_save_scan_same_direction_allows_quick_alternate_in_out(self):
+        """Legacy scope: auto IN then OUT can succeed back-to-back (no global wait)."""
+        from django.urls import reverse
+        url = reverse('save_scan')
+        sid = self.student.student_id
+        base = {'student_id': sid, 'device_id': 'T2', 'guard_token': 'test-guard-tok2'}
+        r1 = self.client.post(url, base)
+        self.assertEqual(r1.status_code, 200, r1.content)
+        self.assertTrue(r1.json().get('success'))
+        r2 = self.client.post(url, base)
+        self.assertEqual(r2.status_code, 200)
+        self.assertTrue(r2.json().get('success'))
 
     def test_export_daily_visits_includes_visitors(self):
         # create a student entry for today and a visitor entry/visit
@@ -277,17 +314,17 @@ class GatePolicyTests(TestCase):
         cat_user = User.objects.create(username='scanuser')
         cat_user.set_password('secret')
         cat_user.save()
-        # create lowercase guard group so case-insensitive lookup is exercised
         from django.contrib.auth.models import Group
-        guard_group, _ = Group.objects.get_or_create(name='guard')
-        cat_user.groups.add(guard_group)
+        from gate.models import StaffPersonnelProfile
+        staff_group, _ = Group.objects.get_or_create(name='Staff')
+        cat_user.groups.add(staff_group)
         cat_user.save()
+        StaffPersonnelProfile.objects.get_or_create(user=cat_user, defaults={'profile_complete': True})
         cat = EventCategory.objects.create(name='ScanCat', code='SC', priority=1, created_user=cat_user, updated_user=cat_user, status='active')
         today = timezone.localdate()
         ev = Event.objects.create(name='ScanEvent', category=cat, start_date=today, end_date=today, status='active')
-        # login as guard
         from gate_analytics.roles import get_user_role
-        self.assertEqual(get_user_role(cat_user), 'guard')
+        self.assertEqual(get_user_role(cat_user), 'staff')
         self.assertTrue(self.client.login(username='scanuser', password='secret'))
         url = reverse('scan_event_qr')
         resp = self.client.post(url, {
@@ -324,16 +361,17 @@ class GatePolicyTests(TestCase):
         cat_user.set_password('secret2')
         cat_user.save()
         from django.contrib.auth.models import Group
-        # lowercase guard should succeed now
-        guard_group, _ = Group.objects.get_or_create(name='guard')
-        cat_user.groups.add(guard_group)
+        from gate.models import StaffPersonnelProfile
+        staff_group, _ = Group.objects.get_or_create(name='Staff')
+        cat_user.groups.add(staff_group)
         cat_user.save()
+        StaffPersonnelProfile.objects.get_or_create(user=cat_user, defaults={'profile_complete': True})
         cat = EventCategory.objects.create(name='ScanCat2', code='SC2', priority=1, created_user=cat_user, updated_user=cat_user, status='active')
         today = timezone.localdate()
         ev = Event.objects.create(name='Secure', category=cat, start_date=today, end_date=today, status='active')
         reg = EventRegistration.objects.create(event=ev, student=self.student, token='TOKEN123', status='active')
         from gate_analytics.roles import get_user_role
-        self.assertEqual(get_user_role(cat_user), 'guard')
+        self.assertEqual(get_user_role(cat_user), 'staff')
         self.assertTrue(self.client.login(username='scanuser2', password='secret2'))
         url = reverse('scan_event_qr')
         resp = self.client.post(url, {
@@ -377,3 +415,62 @@ class GatePolicyTests(TestCase):
         # build_data should also include the correct row
         headers, rows = _reports_export_build_data(filter_date, day_start, day_end, 'overview_summary', '', None)
         self.assertIn(['Total visits', expected_count], rows)
+
+
+class GuardScannerDashboardTests(TestCase):
+    """Wall display at /gate/guard-display/ + JSON at /gate/api/guard-dashboard/ (GATE_GUARD_DISPLAY_TOKEN)."""
+
+    def test_guard_display_and_api_need_valid_token(self):
+        from django.test import Client, override_settings
+        c = Client()
+        tok = 'test-guard-token-xyz'
+        with override_settings(GATE_GUARD_DISPLAY_TOKEN=tok):
+            r = c.get('/gate/guard-display/')
+            self.assertEqual(r.status_code, 403)
+            r2 = c.get('/gate/guard-display/', {'token': 'wrong'})
+            self.assertEqual(r2.status_code, 403)
+            r3 = c.get('/gate/guard-display/', {'token': tok})
+            self.assertEqual(r3.status_code, 200)
+            self.assertContains(r3, 'embed-scanner')
+            self.assertContains(r3, 'token=' + tok)
+
+            ra = c.get('/gate/api/guard-dashboard/')
+            self.assertEqual(ra.status_code, 403)
+            rb = c.get('/gate/api/guard-dashboard/', {'token': tok})
+            self.assertEqual(rb.status_code, 200)
+            import json
+            data = json.loads(rb.content.decode())
+            self.assertTrue(data.get('success'))
+            self.assertIn('stats', data)
+            self.assertIn('scanner_active', data)
+            self.assertIn('recent_activity', data)
+
+    def test_scanner_heartbeat_requires_explicit_camera_running(self):
+        """Empty JSON {} must not refresh staff-active cache (guard wall stays off until camera true)."""
+        import json
+        from django.contrib.auth.models import User, Group
+        from django.core.cache import cache
+        from django.test import Client
+        from gate.gate_personnel_views import GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY
+
+        cache.clear()
+        c = Client()
+        u = User.objects.create_user(username='hbstaff', password='testpass123')
+        staff_group, _ = Group.objects.get_or_create(name='Staff')
+        u.groups.add(staff_group)
+        c.login(username='hbstaff', password='testpass123')
+        url = '/gate/api/scanner-heartbeat/'
+
+        r = c.post(url, '{}', content_type='application/json')
+        self.assertEqual(r.status_code, 200)
+        data = json.loads(r.content.decode())
+        self.assertTrue(data.get('ignored'))
+        self.assertIsNone(cache.get(GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY))
+
+        r2 = c.post(url, json.dumps({'camera_running': True}), content_type='application/json')
+        self.assertEqual(r2.status_code, 200)
+        self.assertIsNotNone(cache.get(GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY))
+
+        r3 = c.post(url, json.dumps({'camera_running': False}), content_type='application/json')
+        self.assertEqual(r3.status_code, 200)
+        self.assertIsNone(cache.get(GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY))

@@ -72,7 +72,7 @@ Print report: `/gate/analytics/report/` – same data as Campus Analytics in a p
 | `/gate/incidents/report-proxy/` | gate-incident-report-proxy | `gate_views.report_proxy_attendance` | admin, staff, guard |
 | `/gate/visitors/` | gate-visitor-list | `gate_views.visitor_entry_list` | admin, staff, guard |
 | `/gate/students/` | gate-student-list | `gate_views.student_list` | admin, staff |
-| `/gate/guard-dashboard/` | guard_dashboard | `gate_views.guard_dashboard` | guard |
+| `/gate/reports/today/` | gate_today_report | `gate_views.gate_today_report` | staff |
 | `/gate/reports/` | reports-hub | `gate_views.reports_hub` | admin, staff |
 
 Root URL config: `gate_analytics/urls.py` → `path('gate/', include('gate.gate_urls'))` and `path('gate/', include('gate.urls'))` (events).

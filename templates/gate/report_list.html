@@ -16,6 +16,9 @@
   </div>
   <div class="card-body p-0">
     {% if reports %}
+    {% if page_obj %}
+    {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options position='top' %}
+    {% endif %}
     <table class="table table-sm table-striped table-hover mb-0">
       <thead>
         <tr>
@@ -48,6 +51,10 @@
         {% endfor %}
       </tbody>
     </table>
+    {% if page_obj %}
+    <div class="px-3 py-2 text-muted small" style="border-top:1px solid #e2e8f0;">{{ page_obj.paginator.count }} total</div>
+    {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options %}
+    {% endif %}
     {% else %}
     <p class="text-muted p-4 mb-0">No generated reports yet. Run daily/weekly/monthly management commands or generate on-demand reports.</p>
     {% endif %}

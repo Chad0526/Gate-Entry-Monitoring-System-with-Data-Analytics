@@ -11,11 +11,11 @@
 A **campus gate entry and event attendance system** that:
 
 - Identifies students via **QR codes** on ID cards (or manual ID entry).
-- Records **IN/OUT** at the gate with policy-based allow/deny (schedule, lunch window, early out).
+- Records **IN/OUT** at the daily gate (college-style: duplicate IN/OUT checks, lunch-window shortcuts, staff override when needed).
 - Tracks **visitors** (reusable passes VIS-001 style or one-time) with check-in/check-out.
 - Manages **events** (on-campus gate scan or field-trip scan) with **permanent student QR** or **token-based event QR**.
 - Logs **incidents** (denied entry, proxy attendance).
-- Provides **analytics**, **reports**, **audit log**, and **student/load-slip** management.
+- Provides **analytics**, **reports**, **audit log**, and **student** management (CSV import/export, QR).
 
 **Core flow:** Login → Role check → Dashboard / Gate scan → Scan or record entry → Database (GateEntry, EventAttendance, VisitorVisit, etc.) → Reports & analytics.
 
@@ -43,7 +43,7 @@ django-event-management-master/
 │   ├── urls.py
 │   ├── views.py                 # Login, dashboard, register, health, error pages
 │   ├── middleware.py            # Session timeout, CSRF, gate scan short timeout
-│   ├── roles.py                 # Admin/Faculty/Staff/Guard/Supervisor role checks
+│   ├── roles.py                 # Admin/Faculty/Staff/Personnel/Supervisor role checks
 │   ├── context_processors.py    # Notifications, theme
 │   └── notification_middleware.py
 ├── gate/                        # Main app: gate & attendance
@@ -52,16 +52,16 @@ django-event-management-master/
 │   ├── gate_urls.py             # /gate/* URLs (scan, save-scan, entries, students, etc.)
 │   ├── urls.py                  # /gate/event-* (event list, categories, members, etc.)
 │   ├── views.py                 # Event CRUD, categories, members, wishlist
-│   ├── guard_views.py           # Guard dashboard, activity, notifications, performance, shift summary
-│   ├── guard_services.py        # Guard notifications, activity logger, history, performance, realtime dashboard
+│   ├── gate_personnel_views.py  # Personnel gate JSON APIs + admin broadcast (paths under /gate/api/, /gate/admin/broadcast-notification/)
+│   ├── gate_personnel_services.py # Gate notifications, activity logger, history, performance, realtime dashboard
 │   ├── forms.py
 │   ├── admin.py
 │   ├── admin_notification_service.py
-│   ├── policy.py                # Gate policy: IN/OUT allow/deny, lunch window, schedule, evaluate_scan
+│   ├── policy.py                # Daily gate: get_student_current_state, evaluate_scan (college-style IN/OUT)
 │   ├── audit.py                 # Audit logging helpers
 │   ├── notifications.py
 │   ├── utils.py
-│   ├── services/                # import_loadslip, etc.
+│   ├── services/                # optional package (may be empty)
 │   └── management/commands/     # backup_db, generate_daily_report, generate_weekly_report, generate_monthly_report, etc.
 ├── templates/
 │   ├── base/                    # base.html, header, navbar, sidebar, footer, confirm_modal, login_base, js
@@ -69,7 +69,7 @@ django-event-management-master/
 │   ├── dashboard/               # dashboard.html
 │   ├── errors/                  # 404.html, 500.html
 │   ├── events/                  # event_list, create_event, edit_event, event_detail, event_category, etc.
-│   ├── gate/                    # gate_scan, entry_list, student_list, visitor_*, event_*, guard_*, reports/, etc.
+│   ├── gate/                    # gate_scan, entry_list, student_list, visitor_*, event_*, reports/, etc.
 │   ├── legal/                   # privacy_policy.html, terms_and_conditions.html
 │   ├── registration/            # student_register.html, student_register_animated.html, registration_animated.html
 │   ├── users/                   # user_list.html
@@ -105,15 +105,14 @@ django-event-management-master/
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  Views: gate_views (scan, save_scan, record_entry, entries, students,    │
 │         visitors, incidents, analytics, reports, visitor pass, etc.)     │
-│  Views: guard_views (guard dashboard, activity, notifications, shift)   │
+│  Views: gate_personnel_views (student lookup, stats, notification APIs, broadcast form)   │
 │  Views: event views (event CRUD, categories, members)                    │
 └─────────────────────────────────────────────────────────────────────────┘
                     │
                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  Policy (policy.py): get_student_current_state, evaluate_scan          │
-│  Services: guard_services (notifications, activity, performance),      │
-│            load slip import, backup                                     │
+│  Services: gate_personnel_services (gate notifications, activity, performance), backup │
 └─────────────────────────────────────────────────────────────────────────┘
                     │
                     ▼
@@ -136,9 +135,9 @@ django-event-management-master/
 
 | Model        | Purpose |
 |-------------|---------|
-| **Student** | Student profile: student_id (QR payload), name, photo, course/year/section, account_status (PENDING/APPROVED/REJECTED/INACTIVE), approved_by, load slips. |
+| **Student** | Student profile: student_id (QR payload), name, photo, course/year/section, account_status (PENDING/APPROVED/REJECTED/INACTIVE), approved_by. |
 | **StudentBlock** | Date-range block (or allowlist) for gate/event access. |
-| **GatePolicy** | Single row: gate_open_time, lunch_out_start, lunch_in_start, general_out_until, strict_lunch_return, out_buffer_minutes. |
+| **GatePolicy** | Single row: gate/lunch time fields (legacy display); daily gate policy is college-style IN/OUT in `policy.py`. |
 
 ### 5.2 Gate & incidents
 
@@ -165,14 +164,7 @@ django-event-management-master/
 | **VisitorVisit** | One check-in/out: pass_obj, full_name, purpose, department, checked_in_at, checked_out_at, status (INSIDE/OUTSIDE). |
 | **VisitorEntry** | Manual log: visitor_name, purpose, who_to_visit, recorded_by, timestamp, photo. |
 
-### 5.5 Academic & schedule
-
-| Model              | Purpose |
-|-------------------|---------|
-| **StudentLoadSlip** | Per student per semester: school_year, semester. |
-| **LoadSlipSubject** | Subject rows: subject_code, schedule (e.g. TTH/ 10:00-11:30), day, start_time, end_time, room. Used by policy for IN/OUT windows. |
-
-### 5.6 Other
+### 5.5 Other
 
 | Model             | Purpose |
 |------------------|---------|
@@ -183,14 +175,14 @@ django-event-management-master/
 | **SiteTheme**    | site_name, logo, primary_color. |
 | **EventMember**, **EventUserWishList**, **UserCoin**, **EventWaitlist**, **RecurringEventTemplate** | Legacy event-module models. |
 
-### 5.7 Guard module
+### 5.6 Gate personnel (personnel role)
 
 | Model             | Purpose |
 |------------------|---------|
-| **GuardShift**   | Guard clock-in/out: guard, gate_post, shift_start, shift_end. |
-| **GuardNotification** | Notifications for guards: type (incident, capacity, shift_reminder, suspicious), priority, target_guard, related_incident/event, is_read. |
-| **GuardActivityLog** | Audit of guard actions: scan, override, incident, shift_start/end, note, lookup; related_entry, related_shift, metadata (JSON). |
-| **GuardNote**, **GuardNoteRead** | Shift handover notes and read state. |
+| **GateShift**   | Clock-in/out: user on duty, gate_post, shift_start, shift_end. |
+| **GateNotification** | Notifications for personnel: type (incident, capacity, shift_reminder, suspicious), priority, target user, related_incident/event, is_read. |
+| **GateActivityLog** | Audit of gate actions: scan, override, incident, shift_start/end, note, lookup; related_entry, related_shift, metadata (JSON). |
+| **GateHandoverNote**, **GateHandoverNoteRead** | Shift handover notes and read state. |
 
 ---
 
@@ -227,15 +219,13 @@ django-event-management-master/
 | `/gate/students/` | Student list (approve, filter, search) |
 | `/gate/students/create/`, `.../edit/`, `.../qr/` | Student CRUD, QR image |
 | `/gate/students/import-csv/`, `.../export-csv/` | Import/export |
-| `/gate/students/<pk>/load-slips/` | Load slip list/add/edit/export, upload CSV |
 | `/gate/visitors/` | Visitor entry list |
 | `/gate/incidents/` | Incident list; `/gate/incidents/report-proxy/` |
 | `/gate/analytics/`, `/gate/analytics/report/` | Analytics dashboard & report |
-| `/gate/guard-dashboard/` | Guard dashboard (redirect or guard/dashboard/) |
-| `/gate/guard/dashboard/`, `guard/dashboard/stats/` | Guard dashboard view & stats API |
-| `/gate/guard-activity/` | Guard activity (legacy) |
-| `/gate/guard/activity-log/` | Guard activity log |
-| `/gate/guard/notifications/`, `guard/performance/`, `guard/today-report/`, `guard/shift-summary/` | Guard notifications, performance, today report, shift summary |
+| `/gate/reports/today/` | Today's gate report (HTML / CSV) |
+| `/gate/api/student-lookup/`, `/gate/api/dashboard-stats/`, `/gate/api/poll-personnel-notifications/` | Staff JSON APIs |
+| `/gate/api/personnel-notifications/mark-read/`, `.../mark-all-read/` | Mark personnel notifications read |
+| `/gate/admin/broadcast-notification/` | Admin: broadcast to staff/faculty at gate |
 | `/gate/visitor-pass/create/` | Create visitor passes (bulk slots or one-time) |
 | `/gate/visitor-qr/print-all/` | Print all e-ID (HTML) or download ZIP of PNGs (?download=1) |
 | `/gate/visitor-qr/<code>/` | QR image for pass |
@@ -263,26 +253,26 @@ django-event-management-master/
 
 ## 7. Roles & Access
 
-| Role      | Dashboard | Events (create/list) | Gate scan, entries, incidents, analytics | Students (list/create/edit/import) | Guard dashboard, activity | Admin site |
+| Role      | Dashboard | Events (create/list) | Gate scan, entries, incidents, analytics | Students (list/create/edit/import) | Personnel gate dashboard, activity | Admin site |
 |-----------|-----------|----------------------|------------------------------------------|-------------------------------------|----------------------------|------------|
 | Admin     | ✓         | ✓                    | ✓                                        | ✓                                    | ✓                          | ✓          |
 | Supervisor| ✓         | ✓                    | ✓ (reports, export, audit)               | —                                    | ✓                          | —          |
 | Faculty   | ✓         | ✓                    | —                                        | —                                    | —                          | —          |
 | Staff     | ✓         | ✓                    | ✓                                        | ✓                                    | —                          | —          |
-| Guard     | → Gate    | —                    | ✓                                        | —                                    | ✓ (own)                    | —          |
+| Personnel | → Gate    | —                    | ✓                                        | —                                    | ✓ (own)                    | —          |
 
-Enforced via `gate_analytics/roles.py` and `@role_required` decorator; groups: Admin, Supervisor, Faculty, Staff, Guard.
+Enforced via `gate_analytics/roles.py` and `@role_required` decorator; Django groups: **Admin**, **Supervisor**, **Faculty**, **Staff**, **Student** (legacy). There is no separate gate-only group.
 
 ---
 
 ## 8. Key Features (Capstone-Relevant)
 
-- **Gate scan:** QR or manual ID → lookup → policy (IN/OUT, lunch, schedule) → GateEntry; optional event selection; visitor pass (VIS-xxx) check-in/out. **Reason modal** is direction-aware: “Enter reason for entry” for IN scans (e.g. not in class yet), “Enter reason for early exit” for OUT scans.
-- **Policy engine:** `policy.py` — get_student_current_state, evaluate_scan (IN/OUT, gate open, lunch window, class window, guard override).
+- **Gate scan:** QR or manual ID → lookup → policy (daily gate: college-style IN/OUT) → GateEntry; optional event selection; visitor pass (VIS-xxx) check-in/out. Staff may enter a reason when recording a forced OUT without a prior IN.
+- **Policy engine:** `policy.py` — get_student_current_state, evaluate_scan (duplicate IN/OUT, lunch-window shortcuts in `save_scan`, staff override for forced OUT).
 - **Visit grouping:** `_gate_entries_to_visits` — group daily GateEntry by (student, local date), pair IN/OUT for display.
 - **Event attendance:** OPEN (student QR) or SECURE (token QR); EventRegistration + AttendanceLog; field-trip scan (no GateEntry).
 - **Visitor passes:** Reusable (VIS-001) or one-time; e-ID card (HTML + PNG); print all (4 per page, 3×4 in); download all as ZIP of PNGs (3×4 in at 96 DPI).
-- **Students:** Approve/reject, load slip (CSV import), QR image, face photo for 2FA.
+- **Students:** Approve/reject, CSV import/export, QR image, face photo for 2FA.
 - **Reports & analytics:** Dashboard (cached counts), entry list by date, event attendance reports, export CSV/XLSX/PDF, on-demand and stored reports.
 - **Audit:** AuditLog; role changes, incident creation, bulk import, void log, etc.
 - **Infrastructure:** Session timeout (shorter for gate scan), health check, backups (DB + media), custom 404/500, indexes on high-volume tables.
@@ -329,7 +319,7 @@ Enforced via `gate_analytics/roles.py` and `@role_required` decorator; groups: A
 - **Use cases** – Gate scan (student/visitor/event), record entry, early out, visitor check-in/out, event registration, reports, student approval.
 - **Role matrix** – Section 7.
 - **URL map** – Section 6.
-- **Deployment** – docs/PRODUCTION_DEPLOYMENT_GUIDE.md, BACKUPS.md, health check.
+- **Deployment** – docs/PRODUCTION_DEPLOYMENT_GUIDE.md, docs/BACKUPS.md, health check.
 - **Testing** – docs/QUICK_TEST_GUIDE.md, VERIFICATION_CHECKLIST.md.
 
 ---

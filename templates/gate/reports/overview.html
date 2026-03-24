@@ -21,7 +21,7 @@
   }
   .ro-stats {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 14px;
     margin-bottom: 24px;
   }
@@ -163,159 +163,6 @@
 
 {% include 'gate/reports/_filter_bar.html' %}
 
-<div class="ro-snap-heading">
-  <div>
-    <h6><i class="fas fa-chart-bar mr-1" style="color:#16a34a;"></i> Today's Snapshot</h6>
-    <p>Click a card to open the full list with the same date filter.</p>
-  </div>
-</div>
-<div class="ro-stats">
-  <a href="{{ entries_list_url }}" class="ro-stat">
-    <div class="ro-stat-icon green"><i class="fas fa-door-open"></i></div>
-    <div>
-      <div class="ro-stat-label">Total visits</div>
-      <div class="ro-stat-val">{{ total_visits }}</div>
-    </div>
-  </a>
-  <a href="{% url 'reports-daily-gate' %}?from_date={{ filter_date|date:'Y-m-d' }}&tab=inside_now" class="ro-stat">
-    <div class="ro-stat-icon blue"><i class="fas fa-user-friends"></i></div>
-    <div>
-      <div class="ro-stat-label">Inside now</div>
-      <div class="ro-stat-val">{{ inside_now }}</div>
-    </div>
-  </a>
-  <a href="{{ incidents_list_url }}" class="ro-stat">
-    <div class="ro-stat-icon red"><i class="fas fa-times-circle"></i></div>
-    <div>
-      <div class="ro-stat-label">Denied attempts</div>
-      <div class="ro-stat-val">{{ denied_attempts }}</div>
-    </div>
-  </a>
-  <a href="{{ incidents_list_url }}" class="ro-stat">
-    <div class="ro-stat-icon amber"><i class="fas fa-exclamation-triangle"></i></div>
-    <div>
-      <div class="ro-stat-label">Incidents created</div>
-      <div class="ro-stat-val">{{ incidents_created }}</div>
-    </div>
-  </a>
-  <a href="{% url 'reports-daily-gate' %}?from_date={{ filter_date|date:'Y-m-d' }}&tab=early_outs" class="ro-stat">
-    <div class="ro-stat-icon slate"><i class="fas fa-sign-out-alt"></i></div>
-    <div>
-      <div class="ro-stat-label">Forced OUT (no IN)</div>
-      <div class="ro-stat-val">{{ forced_out_no_in }}</div>
-    </div>
-  </a>
-</div>
-
-{% if top_early_out %}
-<div class="row">
-  <div class="col-md-6">
-    <div class="ro-card">
-      <div class="ro-card-head">
-        <div class="ro-card-head-left">
-          <div class="ro-card-head-icon amber"><i class="fas fa-sign-out-alt"></i></div>
-          <h6 class="ro-card-title">Top Reasons for Early OUT</h6>
-        </div>
-      </div>
-      <div class="ro-card-body p0">
-        <table class="ro-table">
-          <thead><tr><th>Reason code</th><th>Count</th></tr></thead>
-          <tbody>
-            {% for row in top_early_out %}
-            <tr><td><code style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:0.8rem;">{{ row.out_reason_code }}</code></td><td><strong>{{ row.c }}</strong></td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
-
-<div class="row">
-  <div class="col-lg-8">
-    <div class="ro-card">
-      <div class="ro-card-head">
-        <div class="ro-card-head-left">
-          <div class="ro-card-head-icon blue"><i class="fas fa-chart-bar"></i></div>
-          <h6 class="ro-card-title">Hourly Traffic (IN / OUT)</h6>
-        </div>
-      </div>
-      <div class="ro-card-body">
-        <canvas id="hourlyChart" height="80"></canvas>
-      </div>
-    </div>
-  </div>
-  <div class="col-lg-4">
-    <div class="ro-card" style="height:100%;">
-      <div class="ro-card-head">
-        <div class="ro-card-head-left">
-          <div class="ro-card-head-icon green"><i class="fas fa-info-circle"></i></div>
-          <h6 class="ro-card-title">Quick Summary</h6>
-        </div>
-      </div>
-      <div class="ro-card-body" style="display:flex;flex-direction:column;gap:12px;font-size:0.84rem;">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f0fdf4;border-radius:10px;">
-          <span style="color:#4d7c5e;font-weight:600;">Total visits</span>
-          <strong style="color:#14532d;font-size:1.1rem;">{{ total_visits }}</strong>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#eff6ff;border-radius:10px;">
-          <span style="color:#4d7c5e;font-weight:600;">Inside now</span>
-          <strong style="color:#14532d;font-size:1.1rem;">{{ inside_now }}</strong>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#fef2f2;border-radius:10px;">
-          <span style="color:#4d7c5e;font-weight:600;">Denied</span>
-          <strong style="color:#14532d;font-size:1.1rem;">{{ denied_attempts }}</strong>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#fffbeb;border-radius:10px;">
-          <span style="color:#4d7c5e;font-weight:600;">Incidents</span>
-          <strong style="color:#14532d;font-size:1.1rem;">{{ incidents_created }}</strong>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f8fafc;border-radius:10px;">
-          <span style="color:#4d7c5e;font-weight:600;">Forced OUT</span>
-          <strong style="color:#14532d;font-size:1.1rem;">{{ forced_out_no_in }}</strong>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-{% if heatmap_rows %}
-<div class="ro-card" style="margin-top:4px;">
-  <div class="ro-card-head">
-    <div class="ro-card-head-left">
-      <div class="ro-card-head-icon teal"><i class="fas fa-th"></i></div>
-      <div>
-        <h6 class="ro-card-title">Scan Heatmap</h6>
-        <span style="font-size:0.74rem;color:#4d7c5e;font-weight:500;">Day × Hour (last 7 days) — darker = more traffic</span>
-      </div>
-    </div>
-  </div>
-  <div class="ro-card-body" style="overflow-x:auto;">
-    <table class="ro-heatmap">
-      <thead>
-        <tr>
-          <th>Date</th>
-          {% for h in "0123456789" %}<th>{{ h }}</th>{% endfor %}
-          <th>10</th><th>11</th><th>12</th><th>13</th><th>14</th><th>15</th><th>16</th><th>17</th><th>18</th><th>19</th>
-          <th>20</th><th>21</th><th>22</th><th>23</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for date_row in heatmap_rows %}
-        <tr>
-          <td class="ro-hm-date">{{ date_row.0|date:"M d" }}</td>
-          {% for cell in date_row.1 %}
-          <td style="background: rgba(22, 163, 74, {{ cell.opacity }}); color: {% if cell.opacity >= 0.5 %}#fff{% else %}#14532d{% endif %};" title="{{ cell.count }} scans">{% if cell.count %}{{ cell.count }}{% endif %}</td>
-          {% endfor %}
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% endif %}
-
 <div class="ro-card" style="margin-top:4px;">
   <div class="ro-card-head">
     <div class="ro-card-head-left">
@@ -348,30 +195,5 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-<script>
-(function(){
-  var data = {{ hourly_chart_json|safe }};
-  if (typeof data === 'string') try { data = JSON.parse(data); } catch(e) { data = []; }
-  var ctx = document.getElementById('hourlyChart');
-  if (!ctx || !data.length) return;
-  var labels = data.map(function(d){ return d.hour + ':00'; });
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        { label: 'IN', data: data.map(function(d){ return d.in; }), backgroundColor: 'rgba(22, 163, 74, 0.75)', borderRadius: 4, borderSkipped: false },
-        { label: 'OUT', data: data.map(function(d){ return d.out; }), backgroundColor: 'rgba(37, 99, 235, 0.65)', borderRadius: 4, borderSkipped: false }
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { labels: { font: { weight: '600', size: 12 }, usePointStyle: true, pointStyle: 'rectRounded' } } },
-      scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' } }, x: { grid: { display: false } } }
-    }
-  });
-})();
-</script>
 </div>
 {% endblock content %}

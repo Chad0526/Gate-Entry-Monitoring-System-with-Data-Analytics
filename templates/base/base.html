@@ -182,7 +182,6 @@ function showClockInRequiredModal() {
   });
 }
 
-{% if user_role != 'guard' %}
 (function() {
   var POLL_INTERVAL_MS = 25000;
   var FIRST_POLL_DELAY_MS = 5000;
@@ -275,7 +274,6 @@ function showClockInRequiredModal() {
     setInterval(poll, POLL_INTERVAL_MS);
   }, FIRST_POLL_DELAY_MS);
 })();
-{% endif %}
 </script>
 {% endif %}
 

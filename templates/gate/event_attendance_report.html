@@ -386,9 +386,12 @@
   <!-- Scan logs -->
   <div class="ear-log-card">
     <div class="ear-log-head">
-      <h6>Recent Scan Logs</h6>
-      <span class="ear-note">Last 100 scans — rows marked <span class="ear-badge ear-badge-override" style="font-size:0.68rem;">Override</span> were checked in outside the audience rule</span>
+      <h6>Scan Logs</h6>
+      <span class="ear-note">Rows marked <span class="ear-badge ear-badge-override" style="font-size:0.68rem;">Override</span> were checked in outside the audience rule</span>
     </div>
+    {% if page_obj %}
+    {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options position='top' %}
+    {% endif %}
     <div class="table-responsive">
       <table class="table table-sm mb-0 ear-table">
         <thead>
@@ -433,6 +436,10 @@
         </tbody>
       </table>
     </div>
+    {% if page_obj %}
+    <div class="px-3 py-2 text-muted small" style="border-top:1px solid #e2e8f0;">{{ page_obj.paginator.count }} total</div>
+    {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options %}
+    {% endif %}
     <div class="ear-log-footer">
       Showing {{ logs|length }} scan{{ logs|length|pluralize }} from <strong>{{ event.name }}</strong>
     </div>

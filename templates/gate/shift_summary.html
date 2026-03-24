@@ -382,11 +382,6 @@
           <div class="m-label">Scans / Hour</div>
         </div>
         <div class="metric-card">
-          <div class="m-icon red"><i class="fas fa-exclamation-triangle"></i></div>
-          <div class="m-value">{{ metrics.incidents_reported }}</div>
-          <div class="m-label">Incidents</div>
-        </div>
-        <div class="metric-card">
           <div class="m-icon neutral"><i class="fas fa-edit"></i></div>
           <div class="m-value">{{ metrics.overrides_made }}</div>
           <div class="m-label">Overrides</div>
@@ -403,10 +398,10 @@
   {% endif %}
 
   <div class="ss-actions">
-    <a href="{% url 'guard-dashboard' %}" class="ss-btn ss-btn-primary">
+    <a href="{% url 'dashboard' %}" class="ss-btn ss-btn-primary">
       <i class="fas fa-home"></i> Back to Dashboard
     </a>
-    <a href="{% url 'guard-performance' %}" class="ss-btn">
+    <a href="{% url 'gate-analytics' %}" class="ss-btn">
       <i class="fas fa-chart-line"></i> View Performance
     </a>
   </div>

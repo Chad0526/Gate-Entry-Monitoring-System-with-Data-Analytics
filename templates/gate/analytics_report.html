@@ -1,6 +1,6 @@
 {% extends 'base/login_base.html' %}
 {% load static %}
-{% block title %}Campus Analytics Report - {{ site_name }}{% endblock title %}
+{% block title %}Analytics Report - {{ site_name }}{% endblock title %}
 
 {% block extrahead %}
 <style>
@@ -204,7 +204,7 @@
       {% endif %}
       <div class="report-headings">
         <h1>{{ site_name }}</h1>
-        <p><strong>Campus Analytics Report</strong></p>
+        <p><strong>Analytics Report</strong></p>
         <p>Gate and attendance monitoring</p>
       </div>
     </div>
@@ -228,14 +228,6 @@
       <div class="report-stat">
         <span class="value text-success">{{ inside_now|default:0 }}</span>
         <span class="label">Currently inside (as of end date)</span>
-      </div>
-      <div class="report-stat">
-        <span class="value text-danger">{{ denied_today|default:0 }}</span>
-        <span class="label">Entries denied</span>
-      </div>
-      <div class="report-stat">
-        <span class="value text-warning">{{ incidents_today|default:0 }}</span>
-        <span class="label">Incidents</span>
       </div>
       <div class="report-stat">
         <span class="value text-success">{{ total_students|default:0 }}</span>
@@ -333,7 +325,7 @@
       Program: {{ selected_student_program|default:"All" }},
       Section: {{ selected_student_section|default:"All" }},
       IN/OUT: {{ selected_student_scan_type|default:"All" }},
-      Reason: {{ selected_student_reason|default:"All" }},
+      Category: {{ selected_student_reason|default:"All" }},
       Time: {{ selected_student_from_time|default:"--:--" }} to {{ selected_student_to_time|default:"--:--" }}
     </p>
     <table class="report-table">
@@ -344,7 +336,7 @@
           <th>Program</th>
           <th>Section</th>
           <th>Result</th>
-          <th>Out reason</th>
+          <th>OUT note</th>
           <th>Recorded by</th>
           <th>Time</th>
         </tr>
@@ -363,32 +355,6 @@
           </tr>
         {% empty %}
           <tr><td colspan="8" class="text-muted">No entries found for selected period.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
-
-  {% if include_incidents %}
-  <div class="report-section">
-    <h2>Recent incidents</h2>
-    <table class="report-table">
-      <thead>
-        <tr>
-          <th>Scanned ID / Student</th>
-          <th>Reason</th>
-          <th>Time</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for i in recent_incidents %}
-          <tr>
-            <td>{% if i.scanned_id %}{{ i.scanned_id }}{% elif i.student %}{{ i.student.student_id }}{% else %}-{% endif %} {% if i.student %}({{ i.student.get_full_name }}){% endif %}</td>
-            <td>{{ i.get_reason_display|default:i.reason }}</td>
-            <td>{{ i.timestamp|date:"M d, Y H:i" }}</td>
-          </tr>
-        {% empty %}
-          <tr><td colspan="3" class="text-muted">No incidents found for selected period.</td></tr>
         {% endfor %}
       </tbody>
     </table>

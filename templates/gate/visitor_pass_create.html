@@ -378,6 +378,11 @@
     </div>
     <div class="vqr-section-body p-0">
       {% if passes %}
+      {% if page_obj %}
+      <div class="vqr-pagination-top" style="padding: 12px 20px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
+        {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options position='top' %}
+      </div>
+      {% endif %}
       <div style="overflow-x:auto;">
         <table class="vqr-table">
           <thead><tr><th>QR code</th><th>Code</th><th>e-ID card</th><th>Status</th><th>Guest / Current visit</th><th>Department</th><th>Valid / Last used</th></tr></thead>
@@ -403,6 +408,12 @@
           </tbody>
         </table>
       </div>
+      {% if page_obj %}
+      <div style="border-top: 1px solid #e2e8f0; padding: 12px 20px; background: #f8fafc;">
+        <div class="px-0 py-0 text-muted small mb-2">{{ page_obj.paginator.count }} total</div>
+        {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options %}
+      </div>
+      {% endif %}
       {% else %}
       <p class="vqr-empty-state">No visitor QR codes yet. Generate slots above to create blank QRs for printing.</p>
       {% endif %}

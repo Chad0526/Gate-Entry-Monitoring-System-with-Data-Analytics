@@ -1,4 +1,4 @@
-<!-- Student Lookup Modal (can be included in guard dashboard or as standalone) -->
+<!-- Student Lookup Modal (can be included in gate dashboard or as standalone) -->
 <div id="studentLookupModal" class="modal fade" tabindex="-1" role="dialog">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
@@ -150,7 +150,7 @@ function searchStudent() {
   document.getElementById('lookupError').style.display = 'none';
 
   // Make AJAX request
-  fetch(`/gate/guard/student-lookup/?q=${encodeURIComponent(query)}`)
+  fetch(`{% url 'gate-api-student-lookup' %}?q=${encodeURIComponent(query)}`)
     .then(response => response.json())
     .then(data => {
       document.getElementById('lookupLoading').style.display = 'none';

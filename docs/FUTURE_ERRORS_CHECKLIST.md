@@ -33,9 +33,8 @@ Several views use `Model.objects.get(...)` without `get_object_or_404` or try/ex
 | File | Approx. line / pattern | Mitigation |
 |------|-------------------------|------------|
 | `gate/gate_views.py` | Various `Student.objects.get(...)`, `Event.objects.get(...)` | Many already wrapped in `try/except Model.DoesNotExist`; any new `.get()` on user/URL input should use `get_object_or_404` or try/except and return 404/400. |
-| `gate/guard_views.py` | `GuardShift.objects.get(...)`, `User.objects.get(...)` | Ensure caller only hits these when the object is expected to exist (e.g. after checking `.exists()`), or wrap in try/except and return a proper response. |
-| `gate/guard_services.py` | `GuardNotification.objects.get`, `GuardNote.objects.get`, `Student.objects.get` | These are used in controlled paths; `get_currently_inside_count` was updated to catch `GateEntry.DoesNotExist`. For others, add try/except if they can be called with invalid IDs. |
-| `gate/services/import_loadslip.py` | `Student.objects.get(student_id=...)` | Already in a loop with validation; if a student_id in the file is missing, `.get()` raises. Consider `get_object_or_404` or collect errors and report at end. |
+| `gate/gate_personnel_views.py` | `GateShift.objects.get(...)`, `User.objects.get(...)` | Ensure caller only hits these when the object is expected to exist (e.g. after checking `.exists()`), or wrap in try/except and return a proper response. |
+| `gate/gate_personnel_services.py` | `GateNotification.objects.get`, `GateHandoverNote.objects.get`, `Student.objects.get` | These are used in controlled paths; `get_currently_inside_count` was updated to catch `GateEntry.DoesNotExist`. For others, add try/except if they can be called with invalid IDs. |
 
 **Recommendation:** For any new view that fetches a single object by ID/slug from the URL or request, use `get_object_or_404(Model, pk=...)` so users get a 404 page instead of 500.
 
@@ -45,7 +44,7 @@ Several views use `Model.objects.get(...)` without `get_object_or_404` or try/ex
 
 | Risk | Location | Mitigation |
 |------|----------|------------|
-| **DB/query failure in every request** | `gate_analytics/context_processors.py` | `notifications_context` and `guard_notifications_context` are wrapped in try/except; on DB or query failure they return safe defaults (empty lists, zero counts) so the site does not 500 on every request. |
+| **DB/query failure in every request** | `gate_analytics/context_processors.py` | `notifications_context` and `gate_notifications_context` are wrapped in try/except; on DB or query failure they return safe defaults (empty lists, zero counts) so the site does not 500 on every request. |
 | **theme_context** | Same file | Already wrapped in try/except; returns default theme if anything fails. |
 
 ---
@@ -73,8 +72,7 @@ Several views use `Model.objects.get(...)` without `get_object_or_404` or try/ex
 
 | Risk | Location | Mitigation |
 |------|----------|------------|
-| **Empty or malformed upload** | `gate/services/import_loadslip.py` | `_read_rows` and `import_loadslip` raise `ValidationError` for empty file or missing columns; that’s correct. Ensure the upload view catches `ValidationError` and shows it to the user. |
-| **first = rows[0]** | Same file | Only reached when `rows` is non-empty (ValidationError raised when empty). Safe. |
+| **Empty or malformed student CSV** | `gate_views.import_students_csv` | Validate file and columns; show errors in-template. |
 
 ---
 
@@ -120,6 +118,6 @@ python manage.py collectstatic --noinput
 
 ## Summary
 
-- **Already mitigated:** PostgreSQL UTC (TIME_ZONE + options), guard_services `get_currently_inside_count` DoesNotExist, context processor theme_context, **notifications and guard_notifications context processors** (try/except with safe defaults), many gate_views using get_object_or_404 or DoesNotExist.
+- **Already mitigated:** PostgreSQL UTC (TIME_ZONE + options), gate_personnel_services `get_currently_inside_count` DoesNotExist, context processor theme_context, **notifications and gate_notifications context processors** (try/except with safe defaults), many gate_views using get_object_or_404 or DoesNotExist.
 - **Watch out for:** DEBUG and SECRET_KEY in production, missing DB_PASSWORD for PostgreSQL/MySQL, any new `.get()` on user input without 404 handling, context processors and BlockedIPMiddleware when DB is down.
 - **Optional improvements:** Wrap BlockedIPMiddleware in try/except for resilience when the DB is unavailable; use get_object_or_404 (or explicit 404/400) for every "get by ID from request" in new views.

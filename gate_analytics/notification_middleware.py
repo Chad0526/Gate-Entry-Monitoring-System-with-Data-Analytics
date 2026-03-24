@@ -34,12 +34,12 @@ def _get_notification_keys(request):
         return ["notif_incidents"]
     if name == "gate-analytics":
         return ["notif_analytics"]
-    # Staff/Faculty/Guard pending approval (in-app page, not Django admin)
-    if name == "pending-staff-guard-list":
-        keys = ["notif_pending_staff_guard"]
+    # Staff/Faculty/Personnel pending approval (in-app page, not Django admin)
+    if name == "pending-staff-personnel-list":
+        keys = ["notif_pending_staff_personnel"]
         user_id = request.GET.get("user_id")
         if user_id and user_id.isdigit():
-            keys.append(f"notif_staff_guard_{user_id}")
+            keys.append(f"notif_staff_personnel_{user_id}")
         return keys
     return []
 

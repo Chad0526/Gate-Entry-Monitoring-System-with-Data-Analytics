@@ -9,10 +9,9 @@
   <p class="mb-2">Reports Hub is your <strong>control center</strong> for gate and attendance data. Everything here comes from other parts of the system:</p>
   <ul class="mb-0 small">
     <li><strong>Gate entries</strong> — who was granted or denied at the gate (see sidebar: <a href="{% url 'gate-entry-list' %}">Gate entries</a>)</li>
-    <li><strong>Incidents</strong> — denied scans and issues (see sidebar: <a href="{% url 'gate-incident-list' %}">Incidents</a>)</li>
+    <li><strong>Denied entries</strong> — entries denied at the gate (see sidebar: <a href="{% url 'gate-entry-list' %}">Gate entries</a>, filter by Denied)</li>
     <li><strong>Events</strong> — event-based scans and live counts (see sidebar: <strong>Events</strong> and <a href="{% url 'report-compare-events' %}">Compare events</a>)</li>
     <li><strong>Scanner devices</strong> — tablets/phones used at the gate; if they’re offline, new scans won’t show in Gate entries</li>
-    <li><strong>Guards on duty</strong> — who has clocked in via <strong>My shift</strong> on the guard dashboard</li>
     <li><strong>Audit log</strong> — who did what in the system (same as sidebar: <a href="{% url 'audit-log-viewer' %}">View logs</a>)</li>
   </ul>
 </div>
@@ -31,8 +30,8 @@
       <a href="{% url 'audit-log-viewer' %}" class="btn btn-outline-secondary"><i class="fas fa-history mr-1"></i> Audit log</a>
     </div>
     <ul class="small text-muted mt-2 mb-0 pl-3">
-      <li><strong>Generated reports</strong> — Pre-made daily/weekly/monthly summaries (from Gate entries &amp; Incidents).</li>
-      <li><strong>On-demand report</strong> — Build a custom report by date range and type (uses Gate entries, Incidents, Events).</li>
+      <li><strong>Generated reports</strong> — Pre-made daily/weekly/monthly summaries (from Gate entries).</li>
+      <li><strong>On-demand report</strong> — Build a custom report by date range and type (uses Gate entries, Events).</li>
       <li><strong>Compare events</strong> — Compare attendance or issues across two events (uses Events + Gate entries).</li>
       <li><strong>Audit log</strong> — Full history of system actions (same as <strong>View logs</strong> in the sidebar).</li>
     </ul>
@@ -64,7 +63,7 @@
         <p>Gate entries denied today</p>
       </div>
       <div class="icon"><i class="fas fa-times-circle"></i></div>
-      <a href="{% url 'gate-incident-list' %}" class="small-box-footer">View in Incidents <i class="fas fa-arrow-circle-right"></i></a>
+      <a href="{% url 'gate-entry-list' %}?filter=denied" class="small-box-footer">View denied entries <i class="fas fa-arrow-circle-right"></i></a>
     </div>
   </div>
   <div class="col-lg-3 col-6">
@@ -142,33 +141,6 @@
       <div class="card-footer py-1 small text-muted">If a device is <strong>Offline</strong>, its scans won’t appear in <strong>Gate entries</strong> until it syncs.</div>
     </div>
   </div>
-  <div class="col-md-6">
-    <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="m-0">Guards on duty</h5>
-        {% if guards_on_duty_list %}<span class="badge badge-success">{{ guards_on_duty_list|length }} clocked in</span>{% endif %}
-      </div>
-      <div class="card-body p-0">
-        {% if guards_on_duty_list %}
-        <table class="table table-sm table-striped mb-0">
-          <thead><tr><th>Guard</th><th>Post</th><th>Clock-in</th></tr></thead>
-          <tbody>
-            {% for shift in guards_on_duty_list %}
-            <tr>
-              <td>{{ shift.guard.get_full_name|default:shift.guard.username }}</td>
-              <td>{{ shift.gate_post|default:"—" }}</td>
-              <td>{{ shift.shift_start|date:"M d, H:i" }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        {% else %}
-        <p class="text-muted mb-0 p-3">No guards clocked in. Guards use <strong>My shift</strong> → <strong>Clock in</strong> on their dashboard.</p>
-        {% endif %}
-      </div>
-      <div class="card-footer py-1 small text-muted">From guard dashboard &quot;My shift&quot; / Clock in.</div>
-    </div>
-  </div>
 </div>
 
 {# ----- Latest generated reports ----- #}
@@ -217,7 +189,7 @@
         <p class="text-muted mb-0 p-4">No generated reports yet. Use <strong>On-demand report</strong> above to create one, or run the scheduled commands below to generate daily/weekly/monthly reports.</p>
         {% endif %}
       </div>
-      <div class="card-footer py-1 small text-muted">Reports use data from <strong>Gate entries</strong>, <strong>Incidents</strong>, and <strong>Events</strong>.</div>
+      <div class="card-footer py-1 small text-muted">Reports use data from <strong>Gate entries</strong> and <strong>Events</strong>.</div>
     </div>
   </div>
 </div>
@@ -230,7 +202,7 @@
         <h5 class="m-0">Scheduled reports</h5>
       </div>
       <div class="card-body">
-        <p class="mb-2">These reports are created by running commands (e.g. via Task Scheduler or cron). They use the same Gate entries and Incidents data you see in the menus above.</p>
+        <p class="mb-2">These reports are created by running commands (e.g. via Task Scheduler or cron). They use the same Gate entries data you see in the menus above.</p>
         <ul class="mb-0">
           <li><strong>Daily</strong> — Entry summary, peak times, denied scans. Command: <code>python manage.py generate_daily_report</code></li>
           <li><strong>Weekly</strong> — Week trends, top hours. Command: <code>python manage.py generate_weekly_report</code></li>

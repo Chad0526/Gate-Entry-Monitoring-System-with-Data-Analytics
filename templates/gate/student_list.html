@@ -200,7 +200,7 @@
   <div class="col-12">
     <div class="card" id="students-list-card">
       <div class="card-header">
-        <h5 class="m-0">{% if show_pending %}Pending approvals{% else %}Registered students (QR generated automatically){% endif %}</h5>
+        <h5 class="m-0">{% if show_pending %}Accounts to review{% else %}Student list (QR e-ID generated automatically){% endif %}</h5>
         {% if not embed %}
         <div class="card-tools">
           {% if show_pending %}
@@ -212,19 +212,24 @@
           {% endif %}
           <a href="{% url 'gate-student-list' %}" class="btn btn-sm btn-outline-secondary mr-1"><i class="fas fa-list mr-1"></i> Show all students</a>
           {% else %}
-          <a href="{% url 'gate-student-list' %}?pending=1" class="btn btn-sm btn-outline-warning mr-1"><i class="fas fa-clock mr-1"></i> Pending approvals</a>
-          {% if can_edit_students %}
-          <a href="{% url 'gate-student-import' %}" class="btn btn-sm btn-success mr-1"><i class="fas fa-file-csv mr-1"></i> Import students (CSV)</a>
-          <a href="{% url 'gate-load-slip-upload' %}" class="btn btn-sm btn-success mr-1"><i class="fas fa-file-upload mr-1"></i> Import load slips (CSV/Excel)</a>
-          <a href="{% url 'gate-student-export-csv' %}" class="btn btn-sm btn-outline-primary mr-1" title="Download all student data (CSV)"><i class="fas fa-download mr-1"></i> Export all (CSV)</a>
-          {% if students %}
-          <a href="{% url 'gate-student-eid-print-all' %}{% if filter_course or filter_year_level or filter_section or filter_sex or search_q %}?{% if filter_course %}course={{ filter_course }}&{% endif %}{% if filter_year_level %}year_level={{ filter_year_level }}&{% endif %}{% if filter_section %}section={{ filter_section }}&{% endif %}{% if filter_sex %}sex={{ filter_sex }}&{% endif %}{% if search_q %}q={{ search_q|urlencode }}{% endif %}{% endif %}" target="_blank" class="btn btn-sm btn-outline-primary mr-1"><i class="fas fa-print mr-1"></i> Print all e-ID</a>
-          <a href="{% url 'gate-student-eid-print-all' %}{% if filter_course or filter_year_level or filter_section or filter_sex or search_q %}?{% if filter_course %}course={{ filter_course }}&{% endif %}{% if filter_year_level %}year_level={{ filter_year_level }}&{% endif %}{% if filter_section %}section={{ filter_section }}&{% endif %}{% if filter_sex %}sex={{ filter_sex }}&{% endif %}{% if search_q %}q={{ search_q|urlencode }}&{% endif %}download=1{% else %}?download=1{% endif %}" target="_blank" class="btn btn-sm btn-outline-success mr-1"><i class="fas fa-download mr-1"></i> Download all e-ID</a>
-          {% endif %}
-          {% endif %}
-          {% if can_edit_students %}
-          <a href="{% url 'gate-student-create' %}" class="btn btn-sm btn-primary"><i class="fas fa-plus mr-1"></i> Add student</a>
-          {% endif %}
+          <div class="students-toolbar" style="display:flex; flex-wrap:wrap; gap:8px;">
+            <a href="{% url 'gate-student-list' %}?pending=1" class="btn btn-sm btn-outline-warning"><i class="fas fa-clock mr-1"></i> Pending approvals</a>
+            {% if can_edit_students %}
+            <div class="btn-group" role="group" aria-label="Import">
+              <a href="{% url 'gate-student-import' %}" class="btn btn-sm btn-success"><i class="fas fa-file-csv mr-1"></i> Import students</a>
+            </div>
+            <div class="btn-group" role="group" aria-label="Outputs">
+              <a href="{% url 'gate-student-export-csv' %}" class="btn btn-sm btn-outline-primary" title="Download all student data (CSV)"><i class="fas fa-download mr-1"></i> Export CSV</a>
+              {% if students %}
+              <a href="{% url 'gate-student-eid-print-all' %}{% if filter_course or filter_year_level or filter_section or filter_sex or search_q %}?{% if filter_course %}course={{ filter_course }}&{% endif %}{% if filter_year_level %}year_level={{ filter_year_level }}&{% endif %}{% if filter_section %}section={{ filter_section }}&{% endif %}{% if filter_sex %}sex={{ filter_sex }}&{% endif %}{% if search_q %}q={{ search_q|urlencode }}{% endif %}{% endif %}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fas fa-print mr-1"></i> Print all e‑ID</a>
+              <a href="{% url 'gate-student-eid-print-all' %}{% if filter_course or filter_year_level or filter_section or filter_sex or search_q %}?{% if filter_course %}course={{ filter_course }}&{% endif %}{% if filter_year_level %}year_level={{ filter_year_level }}&{% endif %}{% if filter_section %}section={{ filter_section }}&{% endif %}{% if filter_sex %}sex={{ filter_sex }}&{% endif %}{% if search_q %}q={{ search_q|urlencode }}&{% endif %}download=1{% else %}?download=1{% endif %}" target="_blank" class="btn btn-sm btn-outline-success"><i class="fas fa-download mr-1"></i> Download all e‑ID</a>
+              {% endif %}
+            </div>
+            {% endif %}
+            {% if can_edit_students %}
+            <a href="{% url 'gate-student-create' %}" class="btn btn-sm btn-primary"><i class="fas fa-plus mr-1"></i> Add student</a>
+            {% endif %}
+          </div>
           {% endif %}
         </div>
         {% endif %}
@@ -295,6 +300,9 @@
       </div>
       <div class="card-body p-0">
         <div class="table-wrap">
+        {% if page_obj %}
+        {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options position='top' %}
+        {% endif %}
         <table class="table table-striped table-hover students-table-aligned">
           <thead>
             <tr>
@@ -326,7 +334,6 @@
                   {% if can_edit_students %}
                   <a href="{% url 'gate-student-edit' s.pk %}{% if show_pending %}?from=pending{% endif %}" class="btn btn-sm btn-info" title="Edit"><i class="fas fa-edit"></i></a>
                   {% endif %}
-                  <a href="{% url 'gate-load-slip-list' s.pk %}" class="btn btn-sm btn-outline-info" title="Load slips (class schedule)"><i class="fas fa-calendar-alt"></i></a>
                   <button type="button" class="btn btn-sm btn-outline-primary student-eid-btn" title="View / print student e-ID card" data-card-url="{% url 'gate-student-eid' s.pk %}"><i class="fas fa-id-card mr-1"></i> e-ID</button>
                 </td>
               </tr>
@@ -335,6 +342,10 @@
             {% endfor %}
           </tbody>
         </table>
+        {% if page_obj %}
+        <div class="px-3 py-2 text-muted small" style="border-top:1px solid #e2e8f0;">{{ page_obj.paginator.count }} total</div>
+        {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options %}
+        {% endif %}
         </div>
         </div>
       </div>

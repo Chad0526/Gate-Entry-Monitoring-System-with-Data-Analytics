@@ -63,11 +63,11 @@ Behavior highlights:
 - `ScannerDevice`: Registered scanner terminals and last-seen status.
 
 ### D. Guard Operations Models
-- `GuardShift`: Clock-in/clock-out records per guard.
-- `GuardNotification`: Notifications sent to guards.
-- `GuardNote`: Shift handover notes.
-- `GuardNoteRead`: Read acknowledgment for notes.
-- `GuardActivityLog`: Immutable audit trail of guard actions.
+- `GateShift`: Clock-in/clock-out records per guard.
+- `GateNotification`: Notifications sent to guards.
+- `GateHandoverNote`: Shift handover notes.
+- `GateHandoverNoteRead`: Read acknowledgment for notes.
+- `GateActivityLog`: Immutable audit trail of guard actions.
 
 ### E. Visitor Management Models
 - `VisitorPass`: Reusable/legacy visitor QR pass records.
@@ -107,9 +107,9 @@ This system is mostly server-rendered, but has targeted API endpoints:
   - Records manual/override early OUT actions.
 - `POST /gate/visitor-checkin/`, `POST /gate/visitor-checkout/`, `POST /gate/visitor-force-checkout/`
   - Visitor lifecycle APIs.
-- `GET /gate/guard/dashboard/stats/`
+- `GET /gate/api/dashboard-stats/`
   - Guard dashboard live stats JSON.
-- `GET /gate/guard/notifications/check-new/`
+- `GET /gate/api/poll-personnel-notifications/`
   - Poll new guard notifications JSON.
 - `GET /gate/api/notification-count/`
   - Navbar unread notification count JSON.

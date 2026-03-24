@@ -15,7 +15,7 @@
         <p class="small text-muted mb-3">After import, each student gets a unique Student ID. QR codes are generated automatically — view them in the student list or on each student’s edit page.</p>
         <p class="mb-3">
           <a href="{% url 'gate-student-sample-csv' %}" class="btn btn-outline-success btn-sm"><i class="fas fa-download mr-1"></i> Download sample (50 students)</a>
-          <span class="small text-muted">Same 50 IDs as the load slip sample (20240001–20240050). Import this first, then import load slips.</span>
+          <span class="small text-muted">Sample 50 student IDs (20240001–20240050).</span>
         </p>
         <form method="post" enctype="multipart/form-data">
           {% csrf_token %}

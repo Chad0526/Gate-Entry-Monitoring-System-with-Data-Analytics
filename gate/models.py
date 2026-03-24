@@ -501,12 +501,12 @@ def _student_handle_status_change(sender, instance, created, **kwargs):
             pass
 
 
-class StaffGuardProfile(models.Model):
-    """Extended profile for staff/faculty/guard self-registrations (User + Group hold role)."""
+class StaffPersonnelProfile(models.Model):
+    """Extended profile for staff/faculty/personnel self-registrations (User + Group hold role)."""
     user = models.OneToOneField(
         'auth.User',
         on_delete=models.CASCADE,
-        related_name='staff_guard_profile',
+        related_name='staff_personnel_profile',
     )
     middle_name = models.CharField(max_length=100, blank=True)
     SEX_CHOICES = (
@@ -524,9 +524,9 @@ class StaffGuardProfile(models.Model):
     position = models.CharField(max_length=150, blank=True)
     profile_complete = models.BooleanField(
         default=False,
-        help_text='True after staff/guard completes the required profile form after first login.',
+        help_text='True after staff completes the required profile form after first login.',
     )
-    # Preferences (staff/guard)
+    # Preferences (staff/faculty/personnel)
     preferred_language = models.CharField(max_length=10, default='en', blank=True)
     preferred_timezone = models.CharField(max_length=63, default='Asia/Manila', blank=True)
     email_notifications_announcements = models.BooleanField(
@@ -534,8 +534,12 @@ class StaffGuardProfile(models.Model):
         help_text='Receive email notifications for announcements.',
     )
 
+    class Meta:
+        verbose_name = 'Staff/Faculty/Personnel profile'
+        verbose_name_plural = 'Staff/Faculty/Personnel profiles'
+
     def __str__(self):
-        return f"{self.user.get_full_name()} (Staff/Guard)"
+        return f"{self.user.get_full_name()} (Staff/Personnel)"
 
 
 def user_profile_photo_upload_to(instance, filename):
@@ -564,80 +568,8 @@ class UserProfile(models.Model):
         return f"Profile of {self.user.get_full_name() or self.user.username}"
 
 
-class StudentLoadSlip(models.Model):
-    """One load slip per student per semester (header). Registrar-managed."""
-    SEM_CHOICES = (('1st', '1st Sem'), ('2nd', '2nd Sem'), ('summer', 'Summer'))
-
-    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='load_slips')
-    school_year = models.CharField(max_length=9, help_text='e.g. 2025-2026')
-    semester = models.CharField(max_length=10, choices=SEM_CHOICES)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        unique_together = ('student', 'school_year', 'semester')
-        ordering = ['-school_year', 'semester']
-
-    def __str__(self):
-        return f"{self.student.student_id} {self.school_year} {self.semester}"
-
-    def course_count(self):
-        """Number of unique courses (matches CSV rows / export). Same course on multiple days = 1 course."""
-        seen = set()
-        for s in self.subjects.all():
-            key = (
-                s.subject_code,
-                s.subject_title,
-                s.section or '',
-                s.units,
-                s.room or '',
-                s.start_time,
-                s.end_time,
-            )
-            seen.add(key)
-        return len(seen)
-
-
-class LoadSlipSubject(models.Model):
-    """
-    One row per course. When schedule is set (e.g. 'TTH/ 10:00-11:30 AM'), this is one course
-    meeting multiple days; gate logic expands it. When schedule is blank, day/start_time/end_time
-    define a single session (legacy or standard import).
-    """
-    DAYS = (
-        ('Mon', 'Mon'), ('Tue', 'Tue'), ('Wed', 'Wed'),
-        ('Thu', 'Thu'), ('Fri', 'Fri'), ('Sat', 'Sat'),
-        ('Sun', 'Sun'),
-    )
-
-    load_slip = models.ForeignKey(StudentLoadSlip, on_delete=models.CASCADE, related_name='subjects')
-
-    subject_code = models.CharField(max_length=30)
-    subject_title = models.CharField(max_length=150)
-    section = models.CharField(max_length=30)
-    units = models.DecimalField(max_digits=4, decimal_places=1, default=3.0)
-
-    # When set (slip-style import): one row = one course, e.g. "TTH/ 10:00-11:30 AM". Gate logic parses this.
-    schedule = models.CharField(max_length=120, blank=True, help_text='e.g. TTH/ 10:00-11:30 AM (optional)')
-
-    day = models.CharField(max_length=3, choices=DAYS)
-    start_time = models.TimeField()
-    end_time = models.TimeField()
-    room = models.CharField(max_length=50, blank=True)
-    instructor = models.CharField(max_length=100, blank=True)
-
-    class Meta:
-        ordering = ['day', 'start_time']
-
-    def __str__(self):
-        if self.schedule:
-            return f"{self.subject_code} {self.section} {self.schedule}"
-        return f"{self.subject_code} {self.section} {self.day} {self.start_time}-{self.end_time}"
-
-
 class GateIncident(models.Model):
-    """Record when entry is denied (e.g. identity mismatch); alert guard."""
+    """Record when entry is denied (e.g. identity mismatch); alert gate staff."""
     REASON_CHOICES = (
         ('identity_mismatch', 'Identity Mismatch'),
         ('invalid_id', 'Invalid or Expired ID'),
@@ -649,8 +581,12 @@ class GateIncident(models.Model):
     scanned_id = models.CharField(max_length=100, blank=True)  # What was scanned if no match
     reason = models.CharField(max_length=30, choices=REASON_CHOICES, default='identity_mismatch')
     details = models.TextField(blank=True)
-    photo = models.ImageField(upload_to='incidents/', blank=True, null=True, help_text='Optional photo attached by guard')
-    guard_alerted = models.BooleanField(default=True)
+    photo = models.ImageField(upload_to='incidents/', blank=True, null=True, help_text='Optional photo attached by gate staff')
+    staff_alerted = models.BooleanField(
+        default=True,
+        verbose_name='Gate staff alerted',
+        help_text='Whether gate personnel were notified about this incident.',
+    )
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -664,7 +600,7 @@ class GateIncident(models.Model):
 
 
 class GateEntry(models.Model):
-    """Each gate scan: IN/OUT, result, and optional out_reason_code for analytics. Audit: recorded_by = guard/user."""
+    """Each gate scan: IN/OUT, result, and optional out_reason_code for analytics. Audit: recorded_by = staff user."""
     SCAN_TYPE_CHOICES = (
         ('IN', 'IN'),
         ('OUT', 'OUT'),
@@ -685,7 +621,7 @@ class GateEntry(models.Model):
         ('EMERGENCY', 'Emergency'),
         ('CLINIC', 'Clinic / Health'),
         ('OFFICIAL_BUSINESS', 'Official business'),
-        ('OVERRIDE_BY_GUARD', 'Override by guard'),
+        ('OVERRIDE_BY_PERSONNEL', 'Override by staff'),
         ('OTHER', 'Other'),
     )
 
@@ -702,18 +638,19 @@ class GateEntry(models.Model):
     result = models.CharField(max_length=20, choices=RESULT_CHOICES, default='SUCCESS', db_index=True)
     out_reason = models.TextField(
         blank=True,
-        help_text='Reason for early/forced out when guard records OUT (used in reports).'
+        verbose_name='OUT note',
+        help_text='Optional note when staff records OUT (e.g. override, lunch). Used in reports.',
     )
     out_reason_code = models.CharField(
         max_length=32,
         blank=True,
         db_index=True,
-        help_text='Short code for analytics: LUNCH, NO_CLASS_WINDOW, OVERRIDE_BY_GUARD, etc.',
+        help_text='Short code for analytics: LUNCH, NO_CLASS_WINDOW, OVERRIDE_BY_PERSONNEL, etc.',
     )
     timestamp = models.DateTimeField(auto_now_add=True)
     recorded_by = models.ForeignKey(
         'auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='gate_entries_recorded',
-        help_text='Guard/user who recorded this entry (audit trail).'
+        help_text='Staff user who recorded this entry (audit trail).'
     )
     device_id = models.CharField(
         max_length=128, blank=True, default='',
@@ -745,11 +682,14 @@ class GateEntry(models.Model):
         return f"{sid} - {self.result} ({self.scan_type}) @ {self.timestamp}"
 
 
-class GuardShift(models.Model):
-    """Lightweight shift record for guard accountability: who was on duty when."""
-    guard = models.ForeignKey(
-        'auth.User', on_delete=models.CASCADE, related_name='guard_shifts',
-        help_text='Guard user (should be in Guard group).'
+class GateShift(models.Model):
+    """Lightweight shift record for gate accountability: who was on duty when."""
+    personnel = models.ForeignKey(
+        'auth.User',
+        on_delete=models.CASCADE,
+        related_name='gate_shifts',
+        verbose_name='Personnel on duty',
+        help_text='Personnel user on duty for this shift.',
     )
     shift_start = models.DateTimeField(help_text='Clock-in time.')
     shift_end = models.DateTimeField(null=True, blank=True, help_text='Clock-out time; null = still on duty.')
@@ -761,17 +701,17 @@ class GuardShift(models.Model):
 
     class Meta:
         ordering = ['-shift_start']
-        verbose_name = 'Guard shift'
-        verbose_name_plural = 'Guard shifts'
+        verbose_name = 'Gate shift'
+        verbose_name_plural = 'Gate shifts'
         indexes = [
-            models.Index(fields=['guard', '-shift_start']),
+            models.Index(fields=['personnel', '-shift_start']),
             models.Index(fields=['shift_start', 'shift_end']),
         ]
 
     def __str__(self):
         end = self.shift_end.strftime('%H:%M') if self.shift_end else 'ongoing'
         post = f' @ {self.gate_post}' if self.gate_post else ''
-        return f"{self.guard.get_full_name() or self.guard.username}{post} {self.shift_start.strftime('%Y-%m-%d %H:%M')} – {end}"
+        return f"{self.personnel.get_full_name() or self.personnel.username}{post} {self.shift_start.strftime('%Y-%m-%d %H:%M')} – {end}"
 
 
 class EventAttendance(models.Model):
@@ -781,7 +721,7 @@ class EventAttendance(models.Model):
     participated = models.BooleanField(default=False)  # True = participated, False = non-participant
     checked_in_at = models.DateTimeField(null=True, blank=True, help_text='When student checked in at event')
     checked_out_at = models.DateTimeField(null=True, blank=True, help_text='When student checked out from event')
-    early_out_reason = models.TextField(max_length=500, blank=True, default='', help_text='Reason for leaving event early')
+    early_out_reason = models.TextField(max_length=500, blank=True, default='', help_text='Optional note when leaving the event before it ends')
     recorded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -865,7 +805,7 @@ class AttendanceLog(models.Model):
     remarks = models.CharField(max_length=255, blank=True, default='')
     recorded_by = models.ForeignKey(
         'auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='attendance_logs_recorded',
-        help_text='Staff/guard who recorded this scan (audit trail).'
+        help_text='Staff user who recorded this scan (audit trail).'
     )
     voided = models.BooleanField(default=False, help_text='If True, this log entry was voided/corrected by admin.')
     voided_at = models.DateTimeField(null=True, blank=True)
@@ -950,6 +890,8 @@ class NotificationRead(models.Model):
     class Meta:
         unique_together = [['user', 'notification_key']]
         ordering = ['-created_at']
+        verbose_name = 'Notification read'
+        verbose_name_plural = 'Notification reads'
 
     def __str__(self):
         return f"{self.user.username}: {self.notification_key}"
@@ -1073,7 +1015,7 @@ class VisitorPass(models.Model):
 class VisitorVisit(models.Model):
     """
     One visitor check-in/check-out session. Created when a reusable pass (AVAILABLE) is used for check-in;
-    closed when the same pass is scanned for check-out (or force checkout by guard).
+    closed when the same pass is scanned for check-out (or force checkout by staff).
     """
     STATUS_INSIDE = 'INSIDE'
     STATUS_OUTSIDE = 'OUTSIDE'
@@ -1114,14 +1056,14 @@ class VisitorVisit(models.Model):
 
 
 class VisitorEntry(models.Model):
-    """Manual log when a guard allows a visitor to enter campus (name, purpose, who to visit)."""
+    """Manual log when staff allows a visitor to enter campus (name, purpose, who to visit)."""
     visitor_name = models.CharField(max_length=200, help_text='Full name of the visitor')
     purpose = models.CharField(max_length=255, help_text='Purpose of visit (e.g. meeting, delivery)')
     who_to_visit = models.CharField(max_length=255, help_text='Person, office, or department they are visiting')
     recorded_by = models.ForeignKey(
         'auth.User', on_delete=models.SET_NULL, null=True,
         related_name='visitor_entries_recorded',
-        help_text='Guard who recorded this entry',
+        help_text='Staff user who recorded this entry',
     )
     timestamp = models.DateTimeField(auto_now_add=True)
     photo = models.ImageField(
@@ -1228,10 +1170,12 @@ class GatePolicy(models.Model):
     general_out_until = models.TimeField(default=datetime.time(17, 0), help_text='General OUT allowed until (17:00); after this use last class end')
     # Strict lunch return: deny IN between 11:59–12:59 (student must wait until 12:59 to return)
     strict_lunch_return = models.BooleanField(default=True, help_text='If True, deny IN during 11:59–12:59')
-    # Buffer: deny OUT if a class starts within this many minutes (or require reason)
-    out_buffer_minutes = models.PositiveSmallIntegerField(default=30, help_text='Deny OUT if class starts within this many minutes')
-    # When True, deny IN if student has no load slip on file (ensures gate is strictly based on load slip)
-    require_load_slip_for_entry = models.BooleanField(default=False, help_text='If True, deny entry when student has no load slip; contact registrar.')
+    # Buffer / lunch / gate times: legacy fields kept for admin display; daily gate policy no longer uses class schedules.
+    out_buffer_minutes = models.PositiveSmallIntegerField(default=30, help_text='Legacy: was used with class-based OUT rules.')
+    permissive_college_mode = models.BooleanField(
+        default=True,
+        help_text='Legacy toggle. Daily gate now always uses college-style IN/OUT (no class schedule).',
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1243,12 +1187,12 @@ class GatePolicy(models.Model):
         return self.name
 
 
-# --------------- Guard Account Enhancements ---------------
+# --------------- Gate personnel notifications & activity ---------------
 
-class GuardNotification(models.Model):
+class GateNotification(models.Model):
     """
-    Notifications for guards: incidents, capacity alerts, shift reminders, suspicious activity.
-    Supports broadcast (all on-duty guards) or targeted (specific guard).
+    Notifications for gate personnel: incidents, capacity alerts, shift reminders, suspicious activity.
+    Supports broadcast (all on-duty personnel) or targeted (specific user).
     """
     NOTIFICATION_TYPE_CHOICES = (
         ('incident', 'Incident Alert'),
@@ -1269,15 +1213,16 @@ class GuardNotification(models.Model):
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
     title = models.CharField(max_length=200)
     message = models.TextField(max_length=1000)
-    target_guard = models.ForeignKey(
-        'auth.User', 
-        on_delete=models.CASCADE, 
-        related_name='guard_notifications', 
-        null=True, 
+    notify_user = models.ForeignKey(
+        'auth.User',
+        on_delete=models.CASCADE,
+        related_name='gate_notifications',
+        null=True,
         blank=True,
-        help_text='Specific guard to notify (null if broadcast)'
+        verbose_name='Notify user',
+        help_text='Specific user to notify (null if broadcast).',
     )
-    broadcast = models.BooleanField(default=False, help_text='Send to all on-duty guards')
+    broadcast = models.BooleanField(default=False, help_text='Send to all on-duty personnel')
     related_incident = models.ForeignKey(GateIncident, on_delete=models.SET_NULL, null=True, blank=True)
     related_event = models.ForeignKey(Event, on_delete=models.SET_NULL, null=True, blank=True)
     related_entry = models.ForeignKey('GateEntry', on_delete=models.SET_NULL, null=True, blank=True)
@@ -1288,32 +1233,30 @@ class GuardNotification(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        verbose_name_plural = 'Guard notifications'
+        verbose_name = 'Gate notification'
+        verbose_name_plural = 'Gate notifications'
         indexes = [
-            models.Index(fields=['target_guard', 'is_read', '-created_at']),
+            models.Index(fields=['notify_user', 'is_read', '-created_at']),
             models.Index(fields=['notification_type', '-created_at']),
         ]
 
     def __str__(self):
-        target = self.target_guard.username if self.target_guard else 'ALL GUARDS'
+        target = self.notify_user.username if self.notify_user else 'ALL ON DUTY'
         return f"{self.get_priority_display()}: {self.title} → {target}"
 
     def clean(self):
         from django.core.exceptions import ValidationError
-        # Either target_guard or broadcast must be set
-        if not self.target_guard and not self.broadcast:
-            raise ValidationError('Either target_guard must be set or broadcast must be True')
-        # Priority 'urgent' requires incident or suspicious type
+        if not self.notify_user and not self.broadcast:
+            raise ValidationError('Either notify_user must be set or broadcast must be True')
         if self.priority == 'urgent' and self.notification_type not in ('incident', 'suspicious'):
             raise ValidationError('Urgent priority requires notification_type to be incident or suspicious')
-        # expires_at must be after created_at
         if self.expires_at and self.created_at and self.expires_at <= self.created_at:
             raise ValidationError('Expiration time must be after creation time')
 
 
-class GuardNote(models.Model):
+class GateHandoverNote(models.Model):
     """
-    Shift handover notes created by guards for communication across shifts.
+    Shift handover notes created by gate personnel for communication across shifts.
     Associated with a shift if created during active duty.
     """
     PRIORITY_CHOICES = (
@@ -1322,19 +1265,20 @@ class GuardNote(models.Model):
         ('urgent', 'Urgent'),
     )
     
-    guard = models.ForeignKey(
-        'auth.User', 
-        on_delete=models.CASCADE, 
-        related_name='guard_notes_created',
-        help_text='Guard who created this note'
+    personnel = models.ForeignKey(
+        'auth.User',
+        on_delete=models.CASCADE,
+        related_name='handover_notes_authored',
+        verbose_name='Author',
+        help_text='User who created this note.',
     )
     shift = models.ForeignKey(
-        GuardShift, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
-        related_name='guard_notes',
-        help_text='Shift during which this note was created (null if created outside shift)'
+        GateShift,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='handover_notes',
+        help_text='Shift during which this note was created (null if created outside shift)',
     )
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='normal')
     content = models.TextField(max_length=2000)
@@ -1343,10 +1287,11 @@ class GuardNote(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        verbose_name_plural = 'Guard notes'
+        verbose_name = 'Gate handover note'
+        verbose_name_plural = 'Gate handover notes'
 
     def __str__(self):
-        return f"{self.guard.username} - {self.get_priority_display()} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
+        return f"{self.personnel.username} - {self.get_priority_display()} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
 
     def clean(self):
         from django.core.exceptions import ValidationError
@@ -1354,26 +1299,32 @@ class GuardNote(models.Model):
             raise ValidationError('Note content cannot exceed 2000 characters')
 
 
-class GuardNoteRead(models.Model):
+class GateHandoverNoteRead(models.Model):
     """
-    Tracks which guards have read which notes (for handover acknowledgment).
+    Tracks which users have read which notes (for handover acknowledgment).
     """
-    note = models.ForeignKey(GuardNote, on_delete=models.CASCADE, related_name='reads')
-    guard = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='notes_read')
+    note = models.ForeignKey(GateHandoverNote, on_delete=models.CASCADE, related_name='reads')
+    personnel = models.ForeignKey(
+        'auth.User',
+        on_delete=models.CASCADE,
+        related_name='handover_note_reads',
+        verbose_name='Reader',
+    )
     read_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
-        unique_together = [['note', 'guard']]
+        unique_together = [['note', 'personnel']]
         ordering = ['-read_at']
-        verbose_name_plural = 'Guard note reads'
+        verbose_name = 'Gate note read'
+        verbose_name_plural = 'Gate note reads'
 
     def __str__(self):
-        return f"{self.guard.username} read note {self.note.id} at {self.read_at.strftime('%Y-%m-%d %H:%M')}"
+        return f"{self.personnel.username} read note {self.note.id} at {self.read_at.strftime('%Y-%m-%d %H:%M')}"
 
 
-class GuardActivityLog(models.Model):
+class GateActivityLog(models.Model):
     """
-    Comprehensive audit trail for all guard actions.
+    Comprehensive audit trail for gate personnel actions.
     Immutable once created - no updates or deletes allowed.
     """
     ACTION_TYPE_CHOICES = (
@@ -1389,18 +1340,19 @@ class GuardActivityLog(models.Model):
         ('lookup', 'Student Lookup'),
     )
     
-    guard = models.ForeignKey(
-        'auth.User', 
-        on_delete=models.CASCADE, 
-        related_name='activity_logs', 
+    personnel = models.ForeignKey(
+        'auth.User',
+        on_delete=models.CASCADE,
+        related_name='gate_activity_logs',
         db_index=True,
-        help_text='Guard who performed this action'
+        verbose_name='Performed by',
+        help_text='User who performed this action.',
     )
     action_type = models.CharField(max_length=20, choices=ACTION_TYPE_CHOICES, db_index=True)
     description = models.TextField(max_length=500)
     related_entry = models.ForeignKey('GateEntry', on_delete=models.SET_NULL, null=True, blank=True)
     related_incident = models.ForeignKey(GateIncident, on_delete=models.SET_NULL, null=True, blank=True)
-    related_shift = models.ForeignKey(GuardShift, on_delete=models.SET_NULL, null=True, blank=True)
+    related_shift = models.ForeignKey(GateShift, on_delete=models.SET_NULL, null=True, blank=True)
     related_student = models.ForeignKey(Student, on_delete=models.SET_NULL, null=True, blank=True)
     device_id = models.CharField(max_length=128, blank=True, help_text='Scanner device ID')
     ip_address = models.GenericIPAddressField(null=True, blank=True, help_text='Client IP address')
@@ -1409,14 +1361,15 @@ class GuardActivityLog(models.Model):
 
     class Meta:
         ordering = ['-timestamp']
-        verbose_name_plural = 'Guard activity logs'
+        verbose_name = 'Gate activity log'
+        verbose_name_plural = 'Gate activity logs'
         indexes = [
-            models.Index(fields=['guard', '-timestamp']),
+            models.Index(fields=['personnel', '-timestamp']),
             models.Index(fields=['action_type', '-timestamp']),
         ]
 
     def __str__(self):
-        return f"{self.guard.username} - {self.get_action_type_display()} @ {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
+        return f"{self.personnel.username} - {self.get_action_type_display()} @ {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
 
     def clean(self):
         from django.core.exceptions import ValidationError
@@ -1424,14 +1377,12 @@ class GuardActivityLog(models.Model):
             raise ValidationError('Description cannot exceed 500 characters')
 
     def save(self, *args, **kwargs):
-        # Only allow creation, not updates
         if self.pk is not None:
-            raise ValueError('GuardActivityLog records are immutable and cannot be updated')
+            raise ValueError('Gate activity log records are immutable and cannot be updated')
         super().save(*args, **kwargs)
 
-    def delete(self, *args, **kwargs):
-        # Prevent deletion
-        raise ValueError('GuardActivityLog records are immutable and cannot be deleted')
+    # Deletion: allow CASCADE when User (or related rows) are deleted in admin.
+    # Immutability is enforced via save(); do not delete from app UI unless intended.
 
 
 class AdminNotification(models.Model):
@@ -1441,11 +1392,11 @@ class AdminNotification(models.Model):
     """
     NOTIFICATION_TYPE_CHOICES = (
         ('student_registration', 'Student Registration'),
-        ('staff_guard_registration', 'Staff/Faculty/Guard Registration'),
+        ('staff_personnel_registration', 'Staff/Faculty/Personnel Registration'),
         ('incident', 'Incident Alert'),
         ('capacity', 'Capacity Alert'),
         ('system', 'System Message'),
-        ('guard_alert', 'Guard Alert'),
+        ('personnel_alert', 'Personnel alert'),
     )
     
     PRIORITY_CHOICES = (
@@ -1479,6 +1430,7 @@ class AdminNotification(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        verbose_name = 'Admin notification'
         verbose_name_plural = 'Admin notifications'
         indexes = [
             models.Index(fields=['target_user', 'is_read', '-created_at']),

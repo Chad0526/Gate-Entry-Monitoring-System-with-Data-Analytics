@@ -162,20 +162,19 @@ class EventCreateView(RoleRequiredMixin, LoginRequiredMixin, CreateView):
         event_agenda.event = evt
         event_agenda.save()
 
-        # Notify only staff/faculty/guard by email (not students; students have separate approval/rejection emails).
+        # Notify only staff/faculty by email (not students; students have separate approval/rejection emails).
         try:
             from django.contrib.auth import get_user_model
             from django.db.models import Q
-            from gate.models import StaffGuardProfile
+            from gate.models import StaffPersonnelProfile
 
             User = get_user_model()
             profiles = (
-                StaffGuardProfile.objects.select_related('user')
+                StaffPersonnelProfile.objects.select_related('user')
                 .filter(email_notifications_announcements=True, user__is_active=True)
                 .filter(
                     Q(user__groups__name__iexact='staff')
                     | Q(user__groups__name__iexact='faculty')
-                    | Q(user__groups__name__iexact='guard')
                 )
                 .distinct()
             )
@@ -445,6 +444,7 @@ def search_event_category(request):
 @login_required(login_url='login')
 @role_required('admin', 'faculty', 'staff')
 def search_event(request):
+    from django.core.paginator import Paginator
     today = timezone.localdate()
     all_events = Event.objects.all()
     stat_ctx = {
@@ -457,9 +457,37 @@ def search_event(request):
             + all_events.filter(end_date__lt=today).exclude(status__in=['cancelled', 'completed']).count()
         ),
     }
-    if request.method == 'POST':
-       data = request.POST['search']
-       events = Event.objects.filter(name__icontains=data)
-       return render(request, 'events/event_list.html', {**stat_ctx, 'events': events})
-    return render(request, 'events/event_list.html', {**stat_ctx, 'events': all_events})
+    search_q = (request.GET.get('search') or request.POST.get('search') or '').strip()
+    if search_q:
+        events_qs = Event.objects.filter(name__icontains=search_q)
+    else:
+        events_qs = all_events
+    PER_PAGE_OPTIONS = [10, 20, 30, 50, 100]
+    raw_pp = request.GET.get('per_page', '10')
+    try:
+        per_page = int(raw_pp)
+        if per_page not in PER_PAGE_OPTIONS:
+            per_page = 10
+    except (ValueError, TypeError):
+        per_page = 10
+    q_extra = request.GET.copy()
+    q_extra.pop('page', None)
+    query_extra = q_extra.urlencode()
+    q_base = request.GET.copy()
+    q_base.pop('page', None)
+    q_base.pop('per_page', None)
+    query_extra_base = q_base.urlencode()
+    paginator = Paginator(events_qs, per_page)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+    events = list(page_obj.object_list)
+    return render(request, 'events/event_list.html', {
+        **stat_ctx,
+        'events': events,
+        'page_obj': page_obj,
+        'query_extra': query_extra,
+        'query_extra_base': query_extra_base,
+        'per_page': per_page,
+        'per_page_options': PER_PAGE_OPTIONS,
+        'search_q': search_q,
+    })
     

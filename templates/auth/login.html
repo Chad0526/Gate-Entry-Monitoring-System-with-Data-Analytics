@@ -130,6 +130,17 @@
     box-shadow: 0 2px 10px rgba(22,163,74,0.3);
   }
 
+  .auth-forgot-wrap {
+    margin-top: 12px;
+    text-align: center;
+  }
+  .auth-forgot-wrap a {
+    margin: 0;
+    display: inline-block;
+    text-align: center;
+    font-size: 13px;
+  }
+
   /* REGISTER / LOGIN on welcome panel – clear hover & active */
   .auth-container button.toggle-btn {
     background-color: rgba(255,255,255,0.15);
@@ -430,22 +441,35 @@
     transform: translateX(200%);
   }
 
-  .toggle-panel h1 {
-    font-size: 1.5rem;
-    margin-bottom: 12px;
-    color: #fff;
-    font-weight: 800;
-    text-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    letter-spacing: -0.025em;
+  .toggle-panel .auth-tagline {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.45rem;
+    max-width: 28rem;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 28px;
+    text-align: center;
+    text-wrap: balance;
   }
 
-  .toggle-panel p {
-    font-size: 0.8125rem;
-    margin-bottom: 28px;
-    color: #d1fae5;
-    line-height: 1.5;
-    font-weight: 600;
-    text-shadow: 0 1px 6px rgba(0,0,0,0.25);
+  .toggle-panel .auth-tagline-primary {
+    font-size: clamp(1.05rem, 1.15vw + 0.8rem, 1.35rem);
+    font-weight: 700;
+    letter-spacing: 0.012em;
+    line-height: 1.28;
+    color: #fff;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.32);
+  }
+
+  .toggle-panel .auth-tagline-secondary {
+    font-size: clamp(0.88rem, 0.65vw + 0.62rem, 1.05rem);
+    font-weight: 500;
+    letter-spacing: 0.055em;
+    line-height: 1.42;
+    color: rgba(255, 255, 255, 0.88);
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.26);
   }
 
   .password-wrapper {
@@ -474,7 +498,7 @@
     color: #16a34a;
   }
 
-  /* Password strength indicator (Staff/Faculty/Guard registration) */
+  /* Password strength indicator (staff/faculty registration) */
   .password-strength-wrap {
     margin-top: 6px;
     width: 100%;
@@ -1087,7 +1111,7 @@
   .reg-role-select:hover { border-color: #16a34a; }
   .reg-role-select:focus { border-color: #16a34a; box-shadow: 0 0 0 2px rgba(22,163,74,0.15); }
 
-  /* Staff/Faculty/Guard form: tighter fields and layout */
+  /* Staff/Faculty form: tighter fields and layout */
   #reg-staff-guard-wrap .reg-row {
     align-items: start;
     gap: 16px 20px;
@@ -1223,20 +1247,35 @@
     margin-bottom: 24px;
     object-fit: contain;
   }
-  .toggle-mobile-wrap h1 {
-    font-size: 1.4rem;
-    margin-bottom: 12px;
-    color: #fff;
-    font-weight: 800;
-    text-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  }
-  .toggle-mobile-wrap p {
-    font-size: 0.875rem;
+  .toggle-mobile-wrap .auth-tagline {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    max-width: 26rem;
+    margin-left: auto;
+    margin-right: auto;
     margin-bottom: 24px;
-    color: #d1fae5;
-    line-height: 1.5;
-    font-weight: 600;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    text-align: center;
+    text-wrap: balance;
+  }
+
+  .toggle-mobile-wrap .auth-tagline-primary {
+    font-size: clamp(1rem, 2.5vw + 0.45rem, 1.15rem);
+    font-weight: 700;
+    letter-spacing: 0.012em;
+    line-height: 1.28;
+    color: rgba(255, 255, 255, 0.98);
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.24);
+  }
+
+  .toggle-mobile-wrap .auth-tagline-secondary {
+    font-size: clamp(0.88rem, 2vw + 0.35rem, 0.98rem);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.88);
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
   }
   .toggle-mobile-buttons {
     display: flex;
@@ -1260,7 +1299,7 @@
     }
   }
 
-  /* Responsive: mobile/tablet – Welcome at TOP, then Login OR Register form below */
+  /* Responsive: mobile/tablet – hero at TOP, then Login OR Register form below */
   @media (max-width: 991px) {
     html, body {
       height: auto;
@@ -1411,7 +1450,7 @@
     .form-container.sign-up form {
       max-height: none;
     }
-    /* Welcome block first (top) */
+    /* Hero block first (top) */
     .toggle-container {
       position: relative !important;
       top: auto !important;
@@ -1448,14 +1487,16 @@
       max-height: 80px;
       margin-bottom: 12px;
     }
-    .toggle-mobile-wrap h1 {
-      font-size: 1.35rem;
-      margin-bottom: 8px;
-    }
-    .toggle-mobile-wrap p {
-      font-size: 0.875rem;
+    .toggle-mobile-wrap .auth-tagline {
       margin-bottom: 16px;
-      line-height: 1.3;
+      gap: 0.35rem;
+    }
+    .toggle-mobile-wrap .auth-tagline-primary {
+      font-size: clamp(0.95rem, 2.8vw + 0.35rem, 1.08rem);
+      line-height: 1.28;
+    }
+    .toggle-mobile-wrap .auth-tagline-secondary {
+      font-size: clamp(0.85rem, 2.2vw + 0.3rem, 0.95rem);
     }
     .toggle-mobile-buttons {
       flex-direction: column;
@@ -1488,8 +1529,8 @@
       max-width: 72px;
       max-height: 64px;
     }
-    .toggle-mobile-wrap h1 { font-size: 1.25rem; }
-    .toggle-mobile-wrap p { font-size: 0.8125rem; }
+    .toggle-mobile-wrap .auth-tagline-primary { font-size: clamp(0.92rem, 3vw + 0.3rem, 1rem); }
+    .toggle-mobile-wrap .auth-tagline-secondary { font-size: clamp(0.8rem, 2.5vw + 0.28rem, 0.92rem); }
   }
 </style>
 
@@ -1536,6 +1577,9 @@
       <button type="submit" class="btn-submit" id="login-btn">
         <i class="fas fa-sign-in-alt"></i> {% trans 'Login' %}
       </button>
+      <p class="auth-forgot-wrap">
+        <a href="{% url 'password_reset' %}">{% trans 'Forgot password?' %}</a>
+      </p>
     </form>
   </div>
 
@@ -1749,60 +1793,60 @@
     </form>
       </div>
 
-      <!-- Staff / Faculty / Guard registration: account details only. Other details required after approval on first login. -->
-      <div id="reg-staff-guard-wrap" class="reg-form-wrap" data-reg-type="staff_guard" style="display: none;">
-        <h2 class="reg-subtitle">{% trans 'Staff / Faculty / Guard Registration' %}</h2>
+      <!-- Staff / Faculty registration: account details only. Other details required after approval on first login. -->
+      <div id="reg-staff-guard-wrap" class="reg-form-wrap" data-reg-type="staff_personnel" style="display: none;">
+        <h2 class="reg-subtitle">{% trans 'Staff / Faculty / Personnel registration' %}</h2>
         <p class="reg-subtitle-desc">{% trans 'Account details only. After approval you will sign in and complete your profile to access the dashboard.' %}</p>
         <form method="post" action="{% url 'register' %}" id="register-staff-guard-form">
           {% csrf_token %}
-          <input type="hidden" name="registration_type" value="staff_guard">
+          <input type="hidden" name="registration_type" value="staff_personnel">
 
           <div class="reg-role-switch" role="group" aria-label="{% trans 'Account type' %}">
-            <label for="{{ staff_guard_form.role.id_for_label }}" class="reg-role-switch-label">{% trans 'I am registering as:' %}</label>
-            {{ staff_guard_form.role }}
+            <label for="{{ staff_personnel_form.role.id_for_label }}" class="reg-role-switch-label">{% trans 'I am registering as:' %}</label>
+            {{ staff_personnel_form.role }}
           </div>
 
-          {% if staff_guard_form.non_field_errors %}
-          <div class="alert-danger mb-2">{{ staff_guard_form.non_field_errors.0 }}</div>
+          {% if staff_personnel_form.non_field_errors %}
+          <div class="alert-danger mb-2">{{ staff_personnel_form.non_field_errors.0 }}</div>
           {% endif %}
 
           <div class="reg-section-title"><i class="fas fa-id-card mr-1"></i> {% trans 'Account details' %}</div>
           <div class="reg-row">
             <div class="form-group">
-              <label for="{{ staff_guard_form.username.id_for_label }}">{% trans 'Username' %} *</label>
-              {{ staff_guard_form.username }}
-              {% if staff_guard_form.username.errors %}<div class="error-message">{{ staff_guard_form.username.errors.0 }}</div>{% endif %}
+              <label for="{{ staff_personnel_form.username.id_for_label }}">{% trans 'Username' %} *</label>
+              {{ staff_personnel_form.username }}
+              {% if staff_personnel_form.username.errors %}<div class="error-message">{{ staff_personnel_form.username.errors.0 }}</div>{% endif %}
             </div>
             <div class="form-group">
-              <label for="{{ staff_guard_form.email.id_for_label }}">{% trans 'Email address' %} *</label>
-              {{ staff_guard_form.email }}
-              {% if staff_guard_form.email.errors %}<div class="error-message">{{ staff_guard_form.email.errors.0 }}</div>{% endif %}
+              <label for="{{ staff_personnel_form.email.id_for_label }}">{% trans 'Email address' %} *</label>
+              {{ staff_personnel_form.email }}
+              {% if staff_personnel_form.email.errors %}<div class="error-message">{{ staff_personnel_form.email.errors.0 }}</div>{% endif %}
             </div>
           </div>
           <div class="reg-row">
             <div class="form-group">
-              <label for="{{ staff_guard_form.first_name.id_for_label }}">{% trans 'First name' %} *</label>
-              {{ staff_guard_form.first_name }}
-              {% if staff_guard_form.first_name.errors %}<div class="error-message">{{ staff_guard_form.first_name.errors.0 }}</div>{% endif %}
+              <label for="{{ staff_personnel_form.first_name.id_for_label }}">{% trans 'First name' %} *</label>
+              {{ staff_personnel_form.first_name }}
+              {% if staff_personnel_form.first_name.errors %}<div class="error-message">{{ staff_personnel_form.first_name.errors.0 }}</div>{% endif %}
             </div>
             <div class="form-group">
-              <label for="{{ staff_guard_form.middle_name.id_for_label }}">{% trans 'Middle name' %}</label>
-              {{ staff_guard_form.middle_name }}
-              {% if staff_guard_form.middle_name.errors %}<div class="error-message">{{ staff_guard_form.middle_name.errors.0 }}</div>{% endif %}
-            </div>
-          </div>
-          <div class="reg-row">
-            <div class="form-group full-width">
-              <label for="{{ staff_guard_form.last_name.id_for_label }}">{% trans 'Last name' %} *</label>
-              {{ staff_guard_form.last_name }}
-              {% if staff_guard_form.last_name.errors %}<div class="error-message">{{ staff_guard_form.last_name.errors.0 }}</div>{% endif %}
+              <label for="{{ staff_personnel_form.middle_name.id_for_label }}">{% trans 'Middle name' %}</label>
+              {{ staff_personnel_form.middle_name }}
+              {% if staff_personnel_form.middle_name.errors %}<div class="error-message">{{ staff_personnel_form.middle_name.errors.0 }}</div>{% endif %}
             </div>
           </div>
           <div class="reg-row">
             <div class="form-group full-width">
-              <label for="{{ staff_guard_form.password.id_for_label }}">{% trans 'Password' %} *</label>
+              <label for="{{ staff_personnel_form.last_name.id_for_label }}">{% trans 'Last name' %} *</label>
+              {{ staff_personnel_form.last_name }}
+              {% if staff_personnel_form.last_name.errors %}<div class="error-message">{{ staff_personnel_form.last_name.errors.0 }}</div>{% endif %}
+            </div>
+          </div>
+          <div class="reg-row">
+            <div class="form-group full-width">
+              <label for="{{ staff_personnel_form.password.id_for_label }}">{% trans 'Password' %} *</label>
               <div class="password-wrapper" id="sg-password-wrapper">
-                {{ staff_guard_form.password }}
+                {{ staff_personnel_form.password }}
                 <i class="fas fa-eye password-toggle sg-password-toggle" role="button" tabindex="0" title="{% trans 'Show password' %}" aria-label="{% trans 'Show or hide password' %}"></i>
               </div>
               <div class="password-strength-wrap" id="sg-password-strength-wrap" aria-live="polite">
@@ -1814,15 +1858,15 @@
                 </div>
                 <span class="password-strength-text" id="sg-password-strength-text"></span>
               </div>
-              {% if staff_guard_form.password.errors %}<div class="error-message">{{ staff_guard_form.password.errors.0 }}</div>{% endif %}
+              {% if staff_personnel_form.password.errors %}<div class="error-message">{{ staff_personnel_form.password.errors.0 }}</div>{% endif %}
             </div>
             <div class="form-group full-width">
-              <label for="{{ staff_guard_form.password_confirm.id_for_label }}">{% trans 'Confirm password' %} *</label>
+              <label for="{{ staff_personnel_form.password_confirm.id_for_label }}">{% trans 'Confirm password' %} *</label>
               <div class="password-wrapper" id="sg-password-confirm-wrapper">
-                {{ staff_guard_form.password_confirm }}
+                {{ staff_personnel_form.password_confirm }}
                 <i class="fas fa-eye password-toggle sg-password-confirm-toggle" role="button" tabindex="0" title="{% trans 'Show password' %}" aria-label="{% trans 'Show or hide password' %}"></i>
               </div>
-              {% if staff_guard_form.password_confirm.errors %}<div class="error-message">{{ staff_guard_form.password_confirm.errors.0 }}</div>{% endif %}
+              {% if staff_personnel_form.password_confirm.errors %}<div class="error-message">{{ staff_personnel_form.password_confirm.errors.0 }}</div>{% endif %}
             </div>
           </div>
           <div class="reg-wizard-nav" style="margin-top:16px;">
@@ -1835,11 +1879,13 @@
 
   <div class="toggle-container">
     <div class="toggle">
-      <!-- Mobile only: Welcome at top with both Login & Register buttons -->
+      <!-- Mobile only: hero at top with both Login & Register buttons -->
       <div class="toggle-mobile-wrap">
         <img src="{% static 'img/logo.png' %}" alt="CCB Logo" class="auth-logo" width="120" height="100" decoding="async" loading="eager">
-        <h1>{% trans 'Welcome!' %}</h1>
-        <p>{% trans 'City College of Bayawan - CCB Gate Entry' %}</p>
+        <p class="auth-tagline">
+          <span class="auth-tagline-primary">{% trans 'Gate Entry Monitoring System with Data Analytics' %}</span>
+          <span class="auth-tagline-secondary">{% trans 'for City College of Bayawan' %}</span>
+        </p>
         <div class="toggle-mobile-buttons">
           <button type="button" class="toggle-btn" id="mobileLoginBtn" onclick="var c=document.getElementById('container'); if(c){ c.classList.remove('active'); var f=document.querySelector('.form-container.sign-in'); if(f) f.scrollIntoView({behavior:'smooth',block:'start'}); } return false;">{% trans 'Login' %}</button>
           <button type="button" class="toggle-btn" id="mobileRegisterBtn" onclick="var c=document.getElementById('container'); if(c){ c.classList.add('active'); var f=document.querySelector('.form-container.sign-up'); if(f) f.scrollIntoView({behavior:'smooth',block:'start'}); } return false;">{% trans 'Register' %}</button>
@@ -1847,14 +1893,18 @@
       </div>
       <div class="toggle-panel toggle-left">
         <img src="{% static 'img/logo.png' %}" alt="CCB Logo" class="auth-logo" width="120" height="100" decoding="async" loading="eager">
-        <h1>{% trans 'Welcome!' %}</h1>
-        <p>{% trans 'City College of Bayawan - CCB Gate Entry' %}</p>
+        <p class="auth-tagline">
+          <span class="auth-tagline-primary">{% trans 'Gate Entry Monitoring System with Data Analytics' %}</span>
+          <span class="auth-tagline-secondary">{% trans 'for City College of Bayawan' %}</span>
+        </p>
         <button type="button" class="toggle-btn" id="loginToggle" onclick="var c=document.getElementById('container'); if(c) c.classList.remove('active'); return false;">{% trans 'Login' %}</button>
       </div>
       <div class="toggle-panel toggle-right">
         <img src="{% static 'img/logo.png' %}" alt="CCB Logo" class="auth-logo" width="120" height="100" decoding="async" loading="eager">
-        <h1>{% trans 'Welcome!' %}</h1>
-        <p>{% trans 'City College of Bayawan - CCB Gate Entry' %}</p>
+        <p class="auth-tagline">
+          <span class="auth-tagline-primary">{% trans 'Gate Entry Monitoring System with Data Analytics' %}</span>
+          <span class="auth-tagline-secondary">{% trans 'for City College of Bayawan' %}</span>
+        </p>
         <button type="button" class="toggle-btn" id="registerToggle" onclick="var c=document.getElementById('container'); if(c) c.classList.add('active'); return false;">{% trans 'Register' %}</button>
       </div>
     </div>
@@ -1867,7 +1917,7 @@
 
 {% block extrascript %}
 <script>
-  // Registration type: compact toggle (Are you a student? ON = Student, OFF = Staff/Faculty/Guard)
+  // Registration type: compact toggle (Are you a student? ON = Student, OFF = Staff/Faculty/Personnel)
   (function() {
     var defaultType = '{{ default_reg_type|default:"student" }}';
     var studentWrap = document.getElementById('reg-student-wrap');
@@ -1876,7 +1926,7 @@
     var toggleLabel = document.getElementById('reg-type-toggle-label');
     var registrationTypeInput = document.getElementById('registration_type');
     var labelStudent = '{% trans "Student" %}';
-    var labelStaffGuard = '{% trans "Staff / Faculty / Guard" %}';
+    var labelStaffGuard = '{% trans "Staff / Faculty / Personnel" %}';
 
     function showStudent() {
       if (studentWrap) studentWrap.style.display = '';
@@ -1894,10 +1944,10 @@
       }
       if (toggleBtn) { toggleBtn.setAttribute('aria-checked', 'false'); }
       if (toggleLabel) toggleLabel.textContent = labelStaffGuard;
-      if (registrationTypeInput) registrationTypeInput.value = 'staff_guard';
+      if (registrationTypeInput) registrationTypeInput.value = 'staff_personnel';
     }
 
-    if (defaultType === 'staff_guard') showStaffGuard();
+    if (defaultType === 'staff_personnel') showStaffGuard();
     else showStudent();
 
     if (toggleBtn) {
@@ -1919,7 +1969,7 @@
   })();
 </script>
 <script>
-  // Staff/Guard: role dropdown + 3-step wizard with validation (cannot next if required fields empty)
+  // Staff/Faculty panel: role dropdown + 3-step wizard with validation (cannot next if required fields empty)
   (function() {
     var wrap = document.getElementById('reg-staff-guard-wrap');
     if (!wrap) return;
@@ -1968,7 +2018,7 @@
     function goToSgStep(n) {
       if (n < 1 || n > totalSteps) return;
       currentStep = n;
-      // Keep the Staff/Guard panel visible when navigating (so Back never hides the form)
+      // Keep the staff/faculty panel visible when navigating (so Back never hides the form)
       wrap.style.display = 'block';
       wrap.classList.add('reg-panel-active');
       // Hide the student panel so we don't show the wrong form
@@ -2053,12 +2103,12 @@
         el.addEventListener('change', clearErr);
       });
     });
-    // Expose so toggle can reset to step 1 when switching to Staff/Guard panel
+    // Expose so toggle can reset to step 1 when switching to staff/faculty panel
     wrap.sgGoToStep = goToSgStep;
   })();
 </script>
 <script>
-  // Staff/Faculty/Guard: password strength indicator + view password eye
+  // Staff/Faculty: password strength indicator + view password eye
   (function() {
     var pwWrap = document.getElementById('sg-password-wrapper');
     var confirmWrap = document.getElementById('sg-password-confirm-wrapper');

@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as AuthUserAdmin
+from django.db import transaction
 from django.utils import timezone
 
 User = get_user_model()
@@ -14,12 +15,10 @@ from .models import (
     EventUserWishList,
     UserCoin,
     Student,
-    StudentLoadSlip,
-    LoadSlipSubject,
-    StaffGuardProfile,
+    StaffPersonnelProfile,
     GateEntry,
     GateIncident,
-    GuardShift,
+    GateShift,
     EventAttendance,
     EventRegistration,
     AttendanceLog,
@@ -36,12 +35,14 @@ from .models import (
     GatePolicy,
     BlockedIP,
 )
+from .admin_mixins import PerPageListMixin
 from .audit import log_action
 from .notifications import notify_student_status_change
 
 
 @admin.register(Event)
-class EventAdmin(admin.ModelAdmin):
+class EventAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('name', 'venue', 'start_date', 'end_date', 'attendance_mode', 'event_location', 'status')
     list_filter = ('attendance_mode', 'event_location', 'status')
     list_editable = ('attendance_mode', 'event_location')
@@ -55,15 +56,17 @@ admin.site.register(EventUserWishList)
 admin.site.register(UserCoin)
 
 
-@admin.register(StaffGuardProfile)
-class StaffGuardProfileAdmin(admin.ModelAdmin):
+@admin.register(StaffPersonnelProfile)
+class StaffPersonnelProfileAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('user', 'department', 'position', 'contact_number')
     search_fields = ('user__username', 'user__first_name', 'user__last_name', 'department', 'position')
     raw_id_fields = ('user',)
 
 
 @admin.register(Student)
-class StudentAdmin(admin.ModelAdmin):
+class StudentAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('student_id', 'get_full_name', 'sex', 'email', 'has_signature', 'is_active', 'created_at')
     search_fields = ('student_id', 'first_name', 'middle_name', 'last_name', 'email')
     list_filter = ('sex', 'is_active')
@@ -142,22 +145,9 @@ class StudentAdmin(admin.ModelAdmin):
                 pass
 
 
-class LoadSlipSubjectInline(admin.TabularInline):
-    model = LoadSlipSubject
-    extra = 2
-    ordering = ['day', 'start_time']
-
-
-@admin.register(StudentLoadSlip)
-class StudentLoadSlipAdmin(admin.ModelAdmin):
-    list_display = ('student', 'school_year', 'semester', 'updated_at')
-    list_filter = ('semester', 'school_year')
-    search_fields = ('student__student_id', 'student__first_name', 'student__last_name')
-    inlines = [LoadSlipSubjectInline]
-
-
 @admin.register(GateEntry)
-class GateEntryAdmin(admin.ModelAdmin):
+class GateEntryAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('student', 'scan_type', 'result', 'granted', 'out_reason_code', 'out_reason', 'recorded_by', 'device_id', 'timestamp', 'incident')
     list_filter = ('granted', 'result', 'scan_type')
     search_fields = ('student__student_id', 'notes', 'out_reason', 'out_reason_code', 'device_id')
@@ -165,27 +155,35 @@ class GateEntryAdmin(admin.ModelAdmin):
 
 
 @admin.register(GatePolicy)
-class GatePolicyAdmin(admin.ModelAdmin):
-    list_display = ('name', 'gate_open_time', 'lunch_out_start', 'lunch_in_start', 'general_out_until', 'strict_lunch_return', 'out_buffer_minutes', 'require_load_slip_for_entry', 'is_active')
+class GatePolicyAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
+    list_display = (
+        'name', 'gate_open_time', 'lunch_out_start', 'lunch_in_start', 'general_out_until',
+        'strict_lunch_return', 'out_buffer_minutes',
+        'permissive_college_mode', 'is_active',
+    )
 
 
 @admin.register(GateIncident)
-class GateIncidentAdmin(admin.ModelAdmin):
-    list_display = ('id', 'student', 'scanned_id', 'reason', 'guard_alerted', 'timestamp', 'photo')
+class GateIncidentAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
+    list_display = ('id', 'student', 'scanned_id', 'reason', 'staff_alerted', 'timestamp', 'photo')
     list_filter = ('reason',)
     date_hierarchy = 'timestamp'
 
 
-@admin.register(GuardShift)
-class GuardShiftAdmin(admin.ModelAdmin):
-    list_display = ('guard', 'shift_start', 'shift_end', 'gate_post', 'notes')
-    list_filter = ('guard',)
+@admin.register(GateShift)
+class GateShiftAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
+    list_display = ('personnel', 'shift_start', 'shift_end', 'gate_post', 'notes')
+    list_filter = ('personnel',)
     date_hierarchy = 'shift_start'
-    search_fields = ('guard__username', 'gate_post', 'notes')
+    search_fields = ('personnel__username', 'gate_post', 'notes')
 
 
 @admin.register(EventAttendance)
-class EventAttendanceAdmin(admin.ModelAdmin):
+class EventAttendanceAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('student', 'event', 'participated', 'checked_in_at', 'checked_out_at', 'recorded_at')
     list_filter = ('participated', 'event')
     date_hierarchy = 'recorded_at'
@@ -206,7 +204,8 @@ class EventAttendanceAdmin(admin.ModelAdmin):
 
 
 @admin.register(EventRegistration)
-class EventRegistrationAdmin(admin.ModelAdmin):
+class EventRegistrationAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('student', 'event', 'status', 'checked_in_at', 'checked_out_at', 'issued_at')
     list_filter = ('status', 'event')
     search_fields = ('student__student_id', 'student__first_name', 'student__last_name', 'token')
@@ -215,7 +214,8 @@ class EventRegistrationAdmin(admin.ModelAdmin):
 
 
 @admin.register(AttendanceLog)
-class AttendanceLogAdmin(admin.ModelAdmin):
+class AttendanceLogAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('event', 'student', 'scan_type', 'result', 'scan_time', 'device_id', 'recorded_by', 'voided')
     list_filter = ('result', 'scan_type', 'event', 'voided')
     search_fields = ('student__student_id', 'token', 'remarks')
@@ -242,7 +242,8 @@ class AttendanceLogAdmin(admin.ModelAdmin):
 
 
 @admin.register(ScannerDevice)
-class ScannerDeviceAdmin(admin.ModelAdmin):
+class ScannerDeviceAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('device_id', 'name', 'location', 'is_active', 'last_seen_at', 'created_at')
     list_filter = ('is_active',)
     search_fields = ('device_id', 'name', 'location')
@@ -251,7 +252,8 @@ class ScannerDeviceAdmin(admin.ModelAdmin):
 
 
 @admin.register(GeneratedReport)
-class GeneratedReportAdmin(admin.ModelAdmin):
+class GeneratedReportAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('title', 'report_type', 'period_start', 'period_end', 'generated_at', 'generated_by', 'has_file')
     list_filter = ('report_type',)
     date_hierarchy = 'generated_at'
@@ -265,7 +267,8 @@ class GeneratedReportAdmin(admin.ModelAdmin):
 
 
 @admin.register(AuditLog)
-class AuditLogAdmin(admin.ModelAdmin):
+class AuditLogAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('user', 'action', 'model_name', 'object_id', 'ip_address', 'created_at')
     list_filter = ('action',)
     date_hierarchy = 'created_at'
@@ -274,7 +277,8 @@ class AuditLogAdmin(admin.ModelAdmin):
 
 
 @admin.register(BlockedIP)
-class BlockedIPAdmin(admin.ModelAdmin):
+class BlockedIPAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('ip_address', 'reason', 'blocked_by', 'blocked_at', 'is_active', 'failed_attempts')
     list_filter = ('is_active',)
     search_fields = ('ip_address', 'reason')
@@ -282,14 +286,16 @@ class BlockedIPAdmin(admin.ModelAdmin):
 
 
 @admin.register(VisitorPass)
-class VisitorPassAdmin(admin.ModelAdmin):
+class VisitorPassAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('code', 'status', 'guest_name', 'department', 'last_used_at', 'used_at', 'created_by')
     list_filter = ('status', 'used_at')
     search_fields = ('code', 'guest_name', 'purpose', 'department')
 
 
 @admin.register(VisitorVisit)
-class VisitorVisitAdmin(admin.ModelAdmin):
+class VisitorVisitAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('full_name', 'pass_obj', 'department', 'status', 'checked_in_at', 'checked_out_at', 'checked_in_by')
     list_filter = ('status', 'department')
     date_hierarchy = 'checked_in_at'
@@ -298,7 +304,8 @@ class VisitorVisitAdmin(admin.ModelAdmin):
 
 
 @admin.register(VisitorEntry)
-class VisitorEntryAdmin(admin.ModelAdmin):
+class VisitorEntryAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('visitor_name', 'purpose', 'who_to_visit', 'recorded_by', 'timestamp', 'has_photo')
     list_filter = ('timestamp',)
     date_hierarchy = 'timestamp'
@@ -312,7 +319,8 @@ class VisitorEntryAdmin(admin.ModelAdmin):
 
 
 @admin.register(StudentBlock)
-class StudentBlockAdmin(admin.ModelAdmin):
+class StudentBlockAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('student', 'reason', 'block_from', 'block_until', 'is_allowlist', 'created_by')
     list_filter = ('is_allowlist',)
     date_hierarchy = 'block_from'
@@ -320,20 +328,23 @@ class StudentBlockAdmin(admin.ModelAdmin):
 
 
 @admin.register(EventWaitlist)
-class EventWaitlistAdmin(admin.ModelAdmin):
+class EventWaitlistAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('event', 'student', 'position', 'created_at', 'promoted_at')
     list_filter = ('event',)
     date_hierarchy = 'created_at'
 
 
 @admin.register(RecurringEventTemplate)
-class RecurringEventTemplateAdmin(admin.ModelAdmin):
+class RecurringEventTemplateAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('name', 'recurrence', 'day_of_week', 'day_of_month', 'is_active', 'last_generated')
     list_filter = ('recurrence', 'is_active')
 
 
 @admin.register(SiteTheme)
-class SiteThemeAdmin(admin.ModelAdmin):
+class SiteThemeAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('site_name', 'primary_color', 'default_first_signatory_name', 'default_second_signatory_name', 'updated_at')
 
 
@@ -344,7 +355,29 @@ if User is not None:
     except admin.sites.NotRegistered:
         pass
 
-    class UserAdminWithAudit(AuthUserAdmin):
+    class UserAdminWithAudit(PerPageListMixin, AuthUserAdmin):
+        list_per_page = 10
+
+        def formfield_for_manytomany(self, db_field, request, **kwargs):
+            """
+            Show model verbose names in the user permissions picker instead of internal
+            names like ``gateshift`` (ContentType.model).
+            """
+            formfield = super().formfield_for_manytomany(db_field, request, **kwargs)
+            if db_field.name == 'user_permissions' and formfield is not None:
+
+                def label_from_instance(obj):
+                    ct = obj.content_type
+                    model = ct.model_class()
+                    if model is not None:
+                        label = str(model._meta.verbose_name)
+                    else:
+                        label = ct.model.replace('_', ' ')
+                    return '%s | %s | %s' % (ct.app_label, label, obj.name)
+
+                formfield.label_from_instance = label_from_instance
+            return formfield
+
         def save_related(self, request, form, formsets, change):
             obj = form.instance
             old_groups = set(obj.groups.values_list('name', flat=True)) if obj.pk else set()
@@ -352,14 +385,20 @@ if User is not None:
             if obj.pk:
                 new_groups = set(obj.groups.values_list('name', flat=True))
                 if old_groups != new_groups:
-                    log_action(
-                        request, 'role_change', 'User',
-                        object_id=obj.pk,
-                        description='%s: %s → %s' % (
-                            obj.username,
-                            ', '.join(sorted(old_groups)) or '—',
-                            ', '.join(sorted(new_groups)) or '—',
-                        )
+                    # Log after commit so a failed AuditLog row cannot poison the same atomic block as auth M2M.
+                    desc = '%s: %s → %s' % (
+                        obj.username,
+                        ', '.join(sorted(old_groups)) or '—',
+                        ', '.join(sorted(new_groups)) or '—',
                     )
+
+                    def _log_role_change():
+                        log_action(
+                            request, 'role_change', 'User',
+                            object_id=obj.pk,
+                            description=desc,
+                        )
+
+                    transaction.on_commit(_log_role_change)
 
     admin.site.register(User, UserAdminWithAudit)

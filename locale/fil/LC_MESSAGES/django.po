@@ -114,6 +114,12 @@ msgstr "Magrehistro"
 msgid "Welcome!"
 msgstr "Maligayang pagdating!"
 
+msgid "Gate Entry Monitoring System with Data Analytics"
+msgstr "Sistema ng Pagsubaybay sa Gate Entry na may Data Analytics"
+
+msgid "for City College of Bayawan"
+msgstr "para sa City College of Bayawan"
+
 msgid "City College of Bayawan - CCB Gate Entry"
 msgstr "City College of Bayawan - CCB Gate Entry"
 
@@ -139,8 +145,8 @@ msgstr "Mag-log out"
 msgid "Help"
 msgstr "Tulong"
 
-msgid "Guard Notifications"
-msgstr "Mga abiso ng Guard"
+msgid "Gate notifications"
+msgstr "Mga abiso sa gate"
 
 msgid "Mark all as read"
 msgstr "Markahang lahat bilang nabasa"
@@ -166,8 +172,8 @@ msgstr "Mga bagong event"
 msgid "Upcoming events"
 msgstr "Mga paparating na event"
 
-msgid "Staff/Faculty/Guard pending approval"
-msgstr "Staff/Faculty/Guard naghihintay ng aprubado"
+msgid "Staff/Faculty/Personnel pending approval"
+msgstr "Staff/Faculty/Personnel naghihintay ng aprubado"
 
 # Gate & Sidebar
 msgid "GATE & ATTENDANCE"
@@ -188,8 +194,8 @@ msgstr "Aking performance"
 msgid "My Activity Log"
 msgstr "Aking activity log"
 
-msgid "Campus analytics"
-msgstr "Campus analytics"
+msgid "Analytics"
+msgstr "Analytics"
 
 msgid "Students"
 msgstr "Mga mag-aaral"
@@ -200,8 +206,8 @@ msgstr "Mga gate entry"
 msgid "Reports"
 msgstr "Mga ulat"
 
-msgid "Guard activity"
-msgstr "Aktibidad ng guard"
+msgid "Gate activity"
+msgstr "Aktibidad sa gate"
 
 msgid "Visitor QR codes"
 msgstr "Visitor QR codes"
@@ -248,9 +254,9 @@ msgstr "Profile"
 msgid "User"
 msgstr "User"
 
-# Guard Dashboard
-msgid "Guard Dashboard"
-msgstr "Guard Dashboard"
+# Gate dashboard
+msgid "Gate dashboard"
+msgstr "Dashboard ng gate"
 
 msgid "Good Morning"
 msgstr "Magandang umaga"
@@ -327,8 +333,8 @@ msgstr "Nai-report"
 msgid "On Duty"
 msgstr "Naka-duty"
 
-msgid "Guards active"
-msgstr "Mga aktibong guard"
+msgid "Staff on duty"
+msgstr "Staff na naka-duty"
 
 msgid "Hourly Activity (24h)"
 msgstr "Oras-oras na aktibidad (24h)"
@@ -346,18 +352,15 @@ msgid "No recent activity"
 msgstr "Walang kamakailang aktibidad"
 
 # Analytics
-msgid "Campus Analytics"
-msgstr "Campus Analytics"
-
-msgid "Gate Analytics"
-msgstr "Gate Analytics"
+msgid "Analytics"
+msgstr "Analytics"
 
 # Complete profile
 msgid "Complete your profile"
 msgstr "Kumpletuhin ang iyong profile"
 
-msgid "Your account has been approved. Please fill in the following details to finish setting up your profile. You will then have full access to your dashboard. This applies to staff, faculty, and guards."
-msgstr "Na-aprubahan na ang iyong account. Pakikompletuhin ang sumusunod na detalye para matapos ang pag-setup ng iyong profile. Makakakuha ka ng full access sa iyong dashboard. Naaangkop ito sa staff, faculty, at guards."
+msgid "Your account has been approved. Please fill in the following details to finish setting up your profile. You will then have full access to your dashboard. This applies to staff and faculty."
+msgstr "Na-aprubahan na ang iyong account. Pakikompletuhin ang sumusunod na detalye para matapos ang pag-setup ng iyong profile. Makakakuha ka ng full access sa iyong dashboard. Naaangkop ito sa staff at faculty."
 
 msgid "Please complete all required fields. Fields marked with * are required."
 msgstr "Pakikompletuhin ang lahat ng kinakailangang field. Ang mga field na may * ay kinakailangan."
@@ -399,8 +402,8 @@ msgstr "I-save at magpatuloy sa dashboard"
 msgid "Student"
 msgstr "Mag-aaral"
 
-msgid "Staff / Faculty / Guard"
-msgstr "Staff / Faculty / Guard"
+msgid "Staff / Faculty / Personnel"
+msgstr "Staff / Faculty / Personnel"
 
 msgid "Student Registration"
 msgstr "Pagrehistro ng mag-aaral"
@@ -522,8 +525,8 @@ msgstr "Burahin"
 msgid "Submit Registration"
 msgstr "Isumite ang pagrehistro"
 
-msgid "Staff / Faculty / Guard Registration"
-msgstr "Pagrehistro ng Staff / Faculty / Guard"
+msgid "Staff / Faculty / Personnel registration"
+msgstr "Pagrehistro ng Staff / Faculty / Personnel"
 
 msgid "Account details only. After approval you will sign in and complete your profile to access the dashboard."
 msgstr "Mga detalye ng account lamang. Pagkatapos ng aprubado ay mag-sign in ka at kumpletuhin ang iyong profile para ma-access ang dashboard."
@@ -558,3 +561,9 @@ msgstr "Nagre-redirect sa pagrehistro..."
 # Misc
 msgid "This field is required."
 msgstr "Kinakailangan ang field na ito."
+
+msgid "Gate kiosk"
+msgstr "Gate kiosk"
+
+msgid "Staff session (physical security assists; no separate login)"
+msgstr "Session ng staff (tumutulong ang physical security; walang hiwalay na login)"

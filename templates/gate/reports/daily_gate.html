@@ -20,13 +20,8 @@
     <a class="nav-link {% if tab == 'inside_now' %}active{% endif %}" href="?date_range={{ request.GET.date_range|default:'today' }}&from_date={{ filter_date|date:'Y-m-d' }}&tab=inside_now">Inside Now</a>
   </li>
   <li class="nav-item">
-    <a class="nav-link {% if tab == 'early_outs' %}active{% endif %}" href="?date_range={{ request.GET.date_range|default:'today' }}&from_date={{ filter_date|date:'Y-m-d' }}&tab=early_outs">Early Outs</a>
-  </li>
-  {% if user_role != 'guard' %}
-  <li class="nav-item">
     <a class="nav-link {% if tab == 'trends' %}active{% endif %}" href="?date_range={{ request.GET.date_range|default:'today' }}&from_date={{ filter_date|date:'Y-m-d' }}&tab=trends">Trends</a>
   </li>
-  {% endif %}
 </ul>
 
 {% if tab == 'visits' %}
@@ -44,7 +39,7 @@
             <th>OUT time</th>
             <th>Duration</th>
             <th>Status</th>
-            <th>Out reason</th>
+            <th>OUT note</th>
           </tr>
         </thead>
         <tbody>
@@ -58,7 +53,7 @@
             <td>
               {% if r.status == 'Inside' %}<span class="badge badge-info">Inside</span>
               {% elif r.status == 'Completed' %}<span class="badge badge-success">Completed</span>
-              {% else %}<span class="badge badge-warning">Forced OUT</span>{% endif %}
+              {% else %}<span class="badge badge-warning">OUT only</span>{% endif %}
             </td>
             <td>{{ r.out_reason_code|default:"—" }}</td>
           </tr>
@@ -91,39 +86,6 @@
     </table>
     {% else %}
     <p class="text-muted p-3 mb-0">No one currently inside.</p>
-    {% endif %}
-  </div>
-</div>
-{% elif tab == 'early_outs' %}
-<div class="card">
-  <div class="card-header"><h6 class="m-0">Early outs (OUT with reason)</h6></div>
-  <div class="card-body">
-    <p class="small text-muted">Forced OUT (no IN today):</p>
-    {% if forced_out_no_in_list %}
-    <ul class="list-unstyled mb-3">
-      {% for r in forced_out_no_in_list %}
-      <li>{{ r.student_id }} – {{ r.name }} (OUT at {% if r.out_time %}{{ r.out_time|date:"H:i" }}{% endif %})</li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="text-muted small">None.</p>
-    {% endif %}
-    <p class="small text-muted mt-2">All OUT scans with reason:</p>
-    {% if early_out_entries %}
-    <table class="table table-sm table-striped">
-      <thead><tr><th>Time</th><th>Student</th><th>Reason code</th></tr></thead>
-      <tbody>
-        {% for e in early_out_entries %}
-        <tr>
-          <td>{{ e.timestamp|date:"H:i" }}</td>
-          <td>{{ e.student.student_id|default:"" }} {{ e.student.get_full_name|default:"" }}</td>
-          <td>{{ e.out_reason_code|default:"—" }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <p class="text-muted">No early outs in the selected period.</p>
     {% endif %}
   </div>
 </div>

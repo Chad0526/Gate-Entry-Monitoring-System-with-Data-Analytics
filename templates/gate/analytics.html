@@ -1,7 +1,7 @@
 {% extends 'base/base.html' %}
 {% load static %}
-{% block title %}Campus Analytics - {{ site_name }}{% endblock title %}
-{% block breadcrumb %}Gate Analytics{% endblock breadcrumb %}
+{% block title %}Analytics - {{ site_name }}{% endblock title %}
+{% block breadcrumb %}Analytics{% endblock breadcrumb %}
 {% block extrahead %}
 <link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
 {% endblock extrahead %}
@@ -264,20 +264,8 @@
 
 <div class="monitor-wrap">
 <div class="analytics-hero">
-  <h2>Campus Analytics</h2>
-  <p>Gate monitoring summary, visitor trends, incidents, and event participation.</p>
-</div>
-
-<div class="section-card">
-  <div class="section-head">Quick Actions</div>
-  <div class="section-body">
-    <div class="analytics-toolbar">
-      <button type="button" class="btn btn-success btn-sm" data-toggle="modal" data-target="#printReportFilterModal">
-        <i class="fas fa-print mr-1"></i> Print report
-      </button>
-      <span class="text-muted small">Choose report range, sections, and signatories before printing.</span>
-    </div>
-  </div>
+  <h2>Analytics</h2>
+  <p>Gate monitoring summary, visitor trends, and event participation.</p>
 </div>
 
 <div class="section-card dashboard-section" style="margin-top:0;">
@@ -301,26 +289,6 @@
           <div class="metric-label">Currently Inside</div>
           <div class="metric-value">{{ inside_now|default:0 }}</div>
           <div class="metric-link"><a href="{% url 'gate-entry-list' %}?from_date={{ today_iso|default:'' }}&filter=in" class="open-overview-modal" data-overview-title="Students currently inside" data-overview-url="{% url 'gate-entry-list' %}?embed=1&from_date={{ today_iso|default:'' }}&filter=in">View entries <i class="fas fa-arrow-circle-right"></i></a></div>
-        </div>
-      </div>
-    </div>
-    <div class="col-lg-3 col-md-6">
-      <div class="metric-card metric-warn">
-        <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
-        <div>
-          <div class="metric-label">Entries Denied Today</div>
-          <div class="metric-value">{{ denied_today|default:0 }}</div>
-          <div class="metric-link"><a href="{% url 'gate-incident-list' %}?from_date={{ today_iso|default:'' }}" class="open-overview-modal" data-overview-title="Entries denied today" data-overview-url="{% url 'gate-incident-list' %}?embed=1&from_date={{ today_iso|default:'' }}">View incidents <i class="fas fa-arrow-circle-right"></i></a></div>
-        </div>
-      </div>
-    </div>
-    <div class="col-lg-3 col-md-6">
-      <div class="metric-card metric-danger">
-        <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
-        <div>
-          <div class="metric-label">Incidents Today</div>
-          <div class="metric-value">{{ incidents_today|default:0 }}</div>
-          <div class="metric-link"><a href="{% url 'gate-incident-list' %}?from_date={{ today_iso|default:'' }}" class="open-overview-modal" data-overview-title="Incidents today" data-overview-url="{% url 'gate-incident-list' %}?embed=1&from_date={{ today_iso|default:'' }}">View incidents <i class="fas fa-arrow-circle-right"></i></a></div>
         </div>
       </div>
     </div>
@@ -354,6 +322,26 @@
         </div>
       </div>
     </div>
+    <div class="col-lg-3 col-md-6">
+      <div class="metric-card metric-warn">
+        <div class="stat-icon"><i class="fas fa-exchange-alt"></i></div>
+        <div>
+          <div class="metric-label">Student Entries This Month</div>
+          <div class="metric-value">{{ student_entries_this_month|default:0 }}</div>
+          <div class="metric-link"><a href="{% url 'gate-entry-list' %}?from_date={{ student_entries_month_from }}&amp;to_date={{ student_entries_month_to }}&amp;filter=granted&amp;student_gate_only=1" class="open-overview-modal" data-overview-title="Student gate entries (this month)" data-overview-url="{% url 'gate-entry-list' %}?embed=1&amp;from_date={{ student_entries_month_from }}&amp;to_date={{ student_entries_month_to }}&amp;filter=granted&amp;student_gate_only=1">View student entries <i class="fas fa-arrow-circle-right"></i></a></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+      <div class="metric-card metric-neutral">
+        <div class="stat-icon"><i class="fas fa-calendar-alt"></i></div>
+        <div>
+          <div class="metric-label">Student Entries This Year</div>
+          <div class="metric-value">{{ student_entries_this_year|default:0 }}</div>
+          <div class="metric-link"><a href="{% url 'gate-student-entries-yearly' %}?year={{ selected_year }}" class="open-overview-modal" data-overview-title="Student yearly summary" data-overview-url="{% url 'gate-student-entries-yearly' %}?embed=1&amp;year={{ selected_year }}">View yearly summary <i class="fas fa-arrow-circle-right"></i></a></div>
+        </div>
+      </div>
+    </div>
   </div>
   </div>
 </div>
@@ -364,7 +352,7 @@
     <div class="section-card">
       <div class="section-head">
         <div class="d-flex flex-wrap align-items-center justify-content-between" style="gap:10px;">
-          <h5 class="m-0">School Performance</h5>
+          <h5 class="m-0">Important analytics</h5>
           <form method="get" class="form-inline" style="gap:8px; display:flex; flex-wrap:wrap; align-items:center;">
             <label class="mb-0 text-muted" for="analyticsYear" style="font-weight:500;">Year</label>
             <select id="analyticsYear" name="year" class="form-control form-control-sm" onchange="this.form.submit()" style="min-width:120px;">
@@ -384,20 +372,10 @@
             <div class="row">
               <div class="col-12">
                 <div class="card subcard">
-                  <div class="card-header"><strong>Monthly Gate Entries</strong> <span class="text-muted small">(Granted vs Denied)</span></div>
+                  <div class="card-header"><strong>Monthly gate entries</strong> <span class="text-muted small">(entries granted)</span></div>
                   <div class="card-body">
                     <div style="position:relative; height:280px;">
                       <canvas id="chartMonthlyEntries"></canvas>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="col-12">
-                <div class="card subcard">
-                  <div class="card-header"><strong>Monthly Incidents</strong> <span class="text-muted small">(Total)</span></div>
-                  <div class="card-body">
-                    <div style="position:relative; height:240px;">
-                      <canvas id="chartMonthlyIncidents"></canvas>
                     </div>
                   </div>
                 </div>
@@ -406,15 +384,7 @@
           </div>
           <div class="col-lg-4">
             <div class="card subcard">
-              <div class="card-header"><strong>Incidents by Reason</strong></div>
-              <div class="card-body">
-                <div style="position:relative; height:260px;">
-                  <canvas id="chartIncidentReasons"></canvas>
-                </div>
-              </div>
-            </div>
-            <div class="card subcard">
-              <div class="card-header"><strong>Annual Trend</strong> <span class="text-muted small">(last years)</span></div>
+              <div class="card-header"><strong>Annual trend</strong> <span class="text-muted small">(entries by year)</span></div>
               <div class="card-body">
                 <div style="position:relative; height:240px;">
                   <canvas id="chartAnnualTrend"></canvas>
@@ -428,7 +398,7 @@
   </div>
 </div>
 
-<!-- Recent entries & incidents -->
+<!-- Recent gate entries -->
 <div class="row" style="margin-top:16px;">
   <div class="col-md-6 mb-3">
     <div class="ca-card">
@@ -452,33 +422,6 @@
             </tr>
             {% empty %}
             <tr><td colspan="3" class="text-muted text-center py-4">No entries yet today.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-6 mb-3">
-    <div class="ca-card">
-      <div class="ca-card-head">
-        <div class="ca-card-icon red"><i class="fas fa-exclamation-triangle"></i></div>
-        <div>
-          <h6 class="ca-card-title">Recent Incidents</h6>
-          <span class="ca-card-sub">Latest 5 incidents</span>
-        </div>
-        <a href="{% url 'gate-incident-list' %}" class="ca-card-action">View all <i class="fas fa-arrow-right"></i></a>
-      </div>
-      <div class="ca-card-body p-0">
-        <table class="table table-sm mb-0 ca-table">
-          <thead><tr><th>Scanned / Student</th><th>Time</th></tr></thead>
-          <tbody>
-            {% for i in recent_incidents|slice:":5" %}
-            <tr>
-              <td><code style="font-size:0.82rem;color:#14532d;background:#f1f5f9;padding:2px 8px;border-radius:4px;">{% if i.scanned_id %}{{ i.scanned_id }}{% elif i.student %}{{ i.student.student_id }}{% else %}—{% endif %}</code></td>
-              <td class="ca-time">{{ i.timestamp|date:"h:i A" }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="2" class="text-muted text-center py-4">No incidents.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -545,7 +488,7 @@
     <div class="ca-card-icon teal"><i class="fas fa-users"></i></div>
     <div>
       <h6 class="ca-card-title">Event Participation</h6>
-      <span class="ca-card-sub">Campus event analytics</span>
+      <span class="ca-card-sub">Event participation</span>
     </div>
   </div>
   <div class="ca-card-body p-0">
@@ -643,381 +586,6 @@
   </div>
 </div>
 
-<!-- Print Report filter modal -->
-<style>
-  .prf-modal .modal-content {
-    border-radius: 16px;
-    border: none;
-    overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.18);
-  }
-  .prf-modal .modal-header {
-    background: linear-gradient(135deg, #16a34a, #15803d);
-    color: #fff;
-    padding: 18px 24px;
-    border: none;
-  }
-  .prf-modal .modal-header .modal-title {
-    font-weight: 800;
-    font-size: 1.05rem;
-    letter-spacing: -0.01em;
-  }
-  .prf-modal .modal-header .close {
-    color: #fff;
-    opacity: 0.7;
-    text-shadow: none;
-    font-size: 1.3rem;
-  }
-  .prf-modal .modal-header .close:hover { opacity: 1; }
-  .prf-modal .modal-body {
-    padding: 24px;
-    max-height: 72vh;
-    overflow-y: auto;
-  }
-  .prf-section-title {
-    font-size: 0.76rem;
-    font-weight: 800;
-    color: #16a34a;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin: 0 0 12px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid #dcfce7;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .prf-section-title i { font-size: 0.82rem; }
-  .prf-modal label {
-    font-weight: 700;
-    font-size: 0.78rem;
-    color: #1a5c35;
-    margin-bottom: 5px;
-  }
-  .prf-modal .form-control {
-    border-radius: 8px;
-    border: 1px solid #d1d5db;
-    font-size: 0.84rem;
-    padding: 8px 12px;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  }
-  .prf-modal .form-control:focus {
-    border-color: #16a34a;
-    box-shadow: 0 0 0 3px rgba(22,163,74,0.12);
-  }
-  .prf-modal select.form-control {
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 8px center;
-    background-size: 14px;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    padding-right: 30px;
-  }
-  .prf-grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-  .prf-grid-4 {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-  }
-  .prf-grid-3 {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-  }
-  .prf-section {
-    margin-bottom: 20px;
-    padding-bottom: 4px;
-  }
-  .prf-section:last-child { margin-bottom: 0; }
-
-  .prf-check-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 6px 16px;
-  }
-  .prf-check-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    background: #f8fafc;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: #1a5c35;
-  }
-  .prf-check-item:hover { border-color: #16a34a; background: #f0fdf4; }
-  .prf-check-item input[type="checkbox"] {
-    accent-color: #16a34a;
-    width: 16px;
-    height: 16px;
-  }
-
-  .prf-modal .modal-footer {
-    background: #f8fafc;
-    border-top: 1px solid #e2e8f0;
-    padding: 14px 24px;
-    gap: 8px;
-  }
-  .prf-btn-print {
-    background: linear-gradient(135deg, #16a34a, #15803d);
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    font-weight: 700;
-    font-size: 0.84rem;
-    padding: 10px 22px;
-    box-shadow: 0 2px 8px rgba(22,163,74,0.2);
-    transition: all 0.2s ease;
-  }
-  .prf-btn-print:hover {
-    background: linear-gradient(135deg, #15803d, #166534);
-    box-shadow: 0 4px 16px rgba(22,163,74,0.3);
-    transform: translateY(-1px);
-    color: #fff;
-  }
-  .prf-btn-pdf {
-    background: #fff;
-    color: #dc2626;
-    border: 1px solid #fecaca;
-    border-radius: 10px;
-    font-weight: 700;
-    font-size: 0.84rem;
-    padding: 10px 18px;
-    transition: all 0.2s ease;
-  }
-  .prf-btn-pdf:hover {
-    background: #fef2f2;
-    border-color: #dc2626;
-    color: #dc2626;
-  }
-  .prf-btn-cancel {
-    background: #f1f5f9;
-    color: #4d7c5e;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    font-weight: 600;
-    font-size: 0.84rem;
-    padding: 10px 18px;
-  }
-  .prf-btn-cancel:hover { background: #e2e8f0; color: #1a5c35; }
-
-  @media (max-width: 767px) {
-    .prf-grid-2, .prf-grid-4 { grid-template-columns: 1fr; }
-    .prf-grid-3 { grid-template-columns: 1fr; }
-    .prf-check-grid { grid-template-columns: 1fr; }
-    .prf-modal .modal-body { padding: 16px; }
-  }
-  @media (min-width: 768px) and (max-width: 991px) {
-    .prf-grid-4 { grid-template-columns: repeat(2, 1fr); }
-  }
-</style>
-<div class="modal fade prf-modal" id="printReportFilterModal" tabindex="-1" role="dialog" aria-labelledby="printReportFilterModalTitle" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 780px;">
-    <div class="modal-content">
-      <form method="get" action="{% url 'gate-analytics-report' %}" target="_blank">
-        <input type="hidden" name="report_filter" value="1">
-        <div class="modal-header">
-          <h5 class="modal-title" id="printReportFilterModalTitle"><i class="fas fa-print mr-2"></i>Print Report Settings</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-
-          <!-- Date & Context -->
-          <div class="prf-section">
-            <div class="prf-section-title"><i class="fas fa-calendar-alt"></i> Date Range & Context</div>
-            <div class="prf-grid-2">
-              <div>
-                <label for="reportFromDate">From date</label>
-                <input id="reportFromDate" name="from_date" type="date" class="form-control" value="{{ today_iso }}">
-              </div>
-              <div>
-                <label for="reportToDate">To date</label>
-                <input id="reportToDate" name="to_date" type="date" class="form-control" value="{{ today_iso }}">
-              </div>
-              <div>
-                <label for="reportYear">Year context (annual summaries)</label>
-                <select id="reportYear" name="report_year" class="form-control">
-                  {% for y in available_years %}
-                    <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
-                  {% endfor %}
-                  {% if not available_years %}
-                    <option value="{{ selected_year }}" selected>{{ selected_year }}</option>
-                  {% endif %}
-                </select>
-              </div>
-              <div>
-                <label for="reportEventId">Event (for event sections)</label>
-                <select id="reportEventId" name="report_event_id" class="form-control">
-                  <option value="">All events</option>
-                  {% for ev in report_event_choices %}
-                    <option value="{{ ev.id }}">{{ ev.name }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <!-- Entry Scope -->
-          <div class="prf-section">
-            <div class="prf-section-title"><i class="fas fa-filter"></i> Entry Filter Scope</div>
-            <div style="max-width:220px;">
-              <select id="entryFilterScope" name="entry_scope" class="form-control">
-                <option value="all" selected>All</option>
-                <option value="students">Students only</option>
-                <option value="visitors">Visitors only</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Student Filters -->
-          <div id="studentFilterGroup" class="prf-section">
-            <div class="prf-section-title"><i class="fas fa-user-graduate"></i> Student Entries Filters</div>
-            <div class="prf-grid-4">
-              <div>
-                <label for="studentProgram">Program</label>
-                <select id="studentProgram" name="student_program" class="form-control">
-                  <option value="">All programs</option>
-                  {% for value, label in student_program_choices %}
-                    <option value="{{ value }}">{{ label }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-              <div>
-                <label for="studentSection">Section</label>
-                <select id="studentSection" name="student_section" class="form-control">
-                  <option value="">All sections</option>
-                  {% for sec in student_section_choices %}
-                    <option value="{{ sec }}">{{ sec }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-              <div>
-                <label for="studentScanType">IN / OUT</label>
-                <select id="studentScanType" name="student_scan_type" class="form-control">
-                  <option value="">All</option>
-                  <option value="IN">IN</option>
-                  <option value="OUT">OUT</option>
-                </select>
-              </div>
-              <div>
-                <label for="studentReason">Reason / early out</label>
-                <select id="studentReason" name="student_reason" class="form-control">
-                  <option value="">All reasons</option>
-                  {% for value, label in student_reason_choices %}
-                    <option value="{{ value }}">{{ label }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-            </div>
-            <div class="prf-grid-2 mt-2" style="max-width:440px;">
-              <div>
-                <label for="studentFromTime">From time</label>
-                <input id="studentFromTime" name="student_from_time" type="time" class="form-control">
-              </div>
-              <div>
-                <label for="studentToTime">To time</label>
-                <input id="studentToTime" name="student_to_time" type="time" class="form-control">
-              </div>
-            </div>
-          </div>
-
-          <!-- Visitor Filters -->
-          <div id="visitorFilterGroup" class="prf-section">
-            <div class="prf-section-title"><i class="fas fa-id-badge"></i> Visitor Entries Filters</div>
-            <div class="prf-grid-2">
-              <div>
-                <label for="visitorDepartment">Department / office</label>
-                <select id="visitorDepartment" name="visitor_department" class="form-control">
-                  <option value="">All departments</option>
-                  {% for value, label in visitor_department_choices %}
-                    <option value="{{ label }}">{{ label }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-              <div>
-                <label for="visitorStatus">Status</label>
-                <select id="visitorStatus" name="visitor_status" class="form-control">
-                  <option value="">All statuses</option>
-                  <option value="INSIDE">Inside</option>
-                  <option value="OUTSIDE">Outside</option>
-                </select>
-              </div>
-            </div>
-            <div class="prf-grid-2 mt-2" style="max-width:440px;">
-              <div>
-                <label for="visitorFromTime">From time</label>
-                <input id="visitorFromTime" name="visitor_from_time" type="time" class="form-control">
-              </div>
-              <div>
-                <label for="visitorToTime">To time</label>
-                <input id="visitorToTime" name="visitor_to_time" type="time" class="form-control">
-              </div>
-            </div>
-          </div>
-
-          <!-- Include Sections -->
-          <div class="prf-section">
-            <div class="prf-section-title"><i class="fas fa-th-list"></i> Include Sections</div>
-            <div class="prf-check-grid">
-              <label class="prf-check-item"><input type="checkbox" name="include_summary" value="1" checked> Summary</label>
-              <label class="prf-check-item"><input type="checkbox" name="include_visitors" value="1" checked> Visitors</label>
-              <label class="prf-check-item"><input type="checkbox" name="include_entries" value="1" checked> Recent gate entries</label>
-              <label class="prf-check-item"><input type="checkbox" name="include_incidents" value="1" checked> Recent incidents</label>
-              <label class="prf-check-item"><input type="checkbox" name="include_events" value="1" checked> Event participation</label>
-              <label class="prf-check-item"><input type="checkbox" name="include_active_events" value="1" checked> Active events</label>
-            </div>
-          </div>
-
-          <!-- Signatories -->
-          <div class="prf-section">
-            <div class="prf-section-title"><i class="fas fa-signature"></i> Signatories</div>
-            <div class="prf-grid-2">
-              <div>
-                <label for="firstSignatoryName">First signatory name</label>
-                <input id="firstSignatoryName" name="first_signatory_name" type="text" class="form-control" placeholder="e.g. Juan Dela Cruz" value="{{ default_first_signatory_name|default:'' }}">
-              </div>
-              <div>
-                <label for="firstSignatoryTitle">First signatory title</label>
-                <input id="firstSignatoryTitle" name="first_signatory_title" type="text" class="form-control" placeholder="e.g. Security Officer" value="{{ default_first_signatory_title|default:'' }}">
-              </div>
-              <div>
-                <label for="secondSignatoryName">Second signatory name</label>
-                <input id="secondSignatoryName" name="second_signatory_name" type="text" class="form-control" placeholder="e.g. Maria Santos" value="{{ default_second_signatory_name|default:'' }}">
-              </div>
-              <div>
-                <label for="secondSignatoryTitle">Second signatory title</label>
-                <input id="secondSignatoryTitle" name="second_signatory_title" type="text" class="form-control" placeholder="e.g. Campus Administrator" value="{{ default_second_signatory_title|default:'' }}">
-              </div>
-            </div>
-          </div>
-
-        </div>
-        <div class="modal-footer d-flex justify-content-between">
-          <button type="button" class="prf-btn-cancel" data-dismiss="modal">Cancel</button>
-          <div class="d-flex" style="gap:8px;">
-            <button type="submit" class="prf-btn-pdf" name="export_format" value="pdf">
-              <i class="fas fa-file-pdf mr-1"></i> Export PDF
-            </button>
-            <button type="submit" class="prf-btn-print"><i class="fas fa-print mr-1"></i> Print Report</button>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
 <!-- Overview modal (opened from Today Overview cards) -->
 <div class="modal fade" id="overviewEmbedModal" tabindex="-1" role="dialog" aria-labelledby="overviewEmbedModalTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 1200px;">
@@ -1048,38 +616,6 @@
   var overviewModal = document.getElementById('overviewEmbedModal');
   var overviewIframe = document.getElementById('overviewEmbedIframe');
   var overviewTitle = document.getElementById('overviewEmbedModalTitle');
-  var entryFilterScope = document.getElementById('entryFilterScope');
-  var studentFilterGroup = document.getElementById('studentFilterGroup');
-  var visitorFilterGroup = document.getElementById('visitorFilterGroup');
-
-  function setInputsDisabled(container, disabled) {
-    if (!container) return;
-    container.querySelectorAll('input, select, textarea').forEach(function(el) {
-      el.disabled = !!disabled;
-    });
-  }
-
-  function syncEntryFilterScope() {
-    if (!entryFilterScope) return;
-    var scope = entryFilterScope.value || 'all';
-    var showStudents = (scope === 'all' || scope === 'students');
-    var showVisitors = (scope === 'all' || scope === 'visitors');
-
-    if (studentFilterGroup) {
-      studentFilterGroup.style.display = showStudents ? '' : 'none';
-      setInputsDisabled(studentFilterGroup, !showStudents);
-    }
-    if (visitorFilterGroup) {
-      visitorFilterGroup.style.display = showVisitors ? '' : 'none';
-      setInputsDisabled(visitorFilterGroup, !showVisitors);
-    }
-  }
-
-  if (entryFilterScope) {
-    entryFilterScope.addEventListener('change', syncEntryFilterScope);
-  }
-  $('#printReportFilterModal').on('shown.bs.modal', syncEntryFilterScope);
-  syncEntryFilterScope();
 
   function normalizeIframeView(frame) {
     if (!frame || !frame.contentDocument) return;
@@ -1126,15 +662,8 @@
 
   var monthLabels = JSON.parse('{{ chart_month_labels_json|escapejs }}');
   var monthlyGranted = JSON.parse('{{ chart_monthly_granted_json|escapejs }}');
-  var monthlyDenied = JSON.parse('{{ chart_monthly_denied_json|escapejs }}');
-  var monthlyIncidents = JSON.parse('{{ chart_monthly_incidents_json|escapejs }}');
-  var reasonLabels = JSON.parse('{{ chart_reason_labels_json|escapejs }}');
-  var reasonCounts = JSON.parse('{{ chart_reason_counts_json|escapejs }}');
-  var reasonColors = JSON.parse('{{ chart_reason_colors_json|escapejs }}');
   var annualYears = JSON.parse('{{ chart_annual_years_json|escapejs }}');
   var annualGranted = JSON.parse('{{ chart_annual_granted_json|escapejs }}');
-  var annualDenied = JSON.parse('{{ chart_annual_denied_json|escapejs }}');
-  var annualIncidents = JSON.parse('{{ chart_annual_incidents_json|escapejs }}');
 
   Chart.defaults.global.defaultFontFamily = "'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial";
   Chart.defaults.global.defaultFontColor = '#1a5c35';
@@ -1147,17 +676,10 @@
         labels: monthLabels,
         datasets: [
           {
-            label: 'Granted',
+            label: 'Entries granted',
             data: monthlyGranted,
             backgroundColor: 'rgba(34, 197, 94, 0.75)',
             borderColor: 'rgba(34, 197, 94, 1)',
-            borderWidth: 1
-          },
-          {
-            label: 'Denied',
-            data: monthlyDenied,
-            backgroundColor: 'rgba(239, 68, 68, 0.75)',
-            borderColor: 'rgba(239, 68, 68, 1)',
             borderWidth: 1
           }
         ]
@@ -1175,66 +697,6 @@
     });
   }
 
-  var ctxInc = document.getElementById('chartMonthlyIncidents');
-  if (ctxInc) {
-    new Chart(ctxInc.getContext('2d'), {
-      type: 'line',
-      data: {
-        labels: monthLabels,
-        datasets: [{
-          label: 'Incidents',
-          data: monthlyIncidents,
-          borderColor: 'rgba(59, 130, 246, 1)',
-          backgroundColor: 'rgba(59, 130, 246, 0.12)',
-          pointBackgroundColor: 'rgba(59, 130, 246, 1)',
-          pointRadius: 3,
-          fill: true,
-          lineTension: 0.25
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        legend: { display: false },
-        tooltips: { mode: 'index', intersect: false },
-        scales: {
-          xAxes: [{ gridLines: { display: false } }],
-          yAxes: [{ ticks: { beginAtZero: true, precision: 0 } }]
-        }
-      }
-    });
-  }
-
-  var ctxReasons = document.getElementById('chartIncidentReasons');
-  if (ctxReasons) {
-    new Chart(ctxReasons.getContext('2d'), {
-      type: 'doughnut',
-      data: {
-        labels: reasonLabels,
-        datasets: [{
-          data: reasonCounts,
-          backgroundColor: reasonColors,
-          borderWidth: 0
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        legend: { position: 'bottom' },
-        cutoutPercentage: 62,
-        tooltips: {
-          callbacks: {
-            label: function(tooltipItem, data) {
-              var label = data.labels[tooltipItem.index] || '';
-              var val = data.datasets[0].data[tooltipItem.index] || 0;
-              return label + ': ' + val;
-            }
-          }
-        }
-      }
-    });
-  }
-
   var ctxAnnual = document.getElementById('chartAnnualTrend');
   if (ctxAnnual) {
     new Chart(ctxAnnual.getContext('2d'), {
@@ -1243,31 +705,13 @@
         labels: annualYears,
         datasets: [
           {
-            label: 'Granted',
+            label: 'Entries granted',
             data: annualGranted,
             borderColor: 'rgba(34, 197, 94, 1)',
-            backgroundColor: 'rgba(34, 197, 94, 0.08)',
-            fill: false,
+            backgroundColor: 'rgba(34, 197, 94, 0.12)',
+            fill: true,
             lineTension: 0.25,
-            pointRadius: 3
-          },
-          {
-            label: 'Denied',
-            data: annualDenied,
-            borderColor: 'rgba(239, 68, 68, 1)',
-            backgroundColor: 'rgba(239, 68, 68, 0.08)',
-            fill: false,
-            lineTension: 0.25,
-            pointRadius: 3
-          },
-          {
-            label: 'Incidents',
-            data: annualIncidents,
-            borderColor: 'rgba(59, 130, 246, 1)',
-            backgroundColor: 'rgba(59, 130, 246, 0.08)',
-            fill: false,
-            lineTension: 0.25,
-            pointRadius: 3
+            pointRadius: 4
           }
         ]
       },

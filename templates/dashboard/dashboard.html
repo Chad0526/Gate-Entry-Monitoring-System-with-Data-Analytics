@@ -45,7 +45,7 @@
     text-shadow: 0 1px 6px rgba(0,0,0,0.3);
   }
 
-  /* Metric cards – grid layout matching guard activity */
+  /* Metric cards – grid layout matching gate activity */
   .dash-stats {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -81,8 +81,15 @@
   .dash-stat-icon.blue { background: linear-gradient(135deg,#dbeafe,#bfdbfe); color: #2563eb; }
   .dash-stat-icon.amber { background: linear-gradient(135deg,#fef3c7,#fde68a); color: #d97706; }
   .dash-stat-icon.red { background: linear-gradient(135deg,#fee2e2,#fecaca); color: #dc2626; }
+  .dash-stat-icon.teal { background: linear-gradient(135deg,#ccfbf1,#99f6e4); color: #0f766e; }
+  .dash-stat-icon.indigo { background: linear-gradient(135deg,#e0e7ff,#c7d2fe); color: #4338ca; }
   .dash-stat-val { font-size: 1.5rem; font-weight: 800; color: #14532d; line-height: 1; }
   .dash-stat-label { font-size: 0.75rem; color: #4d7c5e; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+  .dash-stat-link {
+    font-size: 0.72rem; font-weight: 700; color: #16a34a; margin-top: 6px; display: inline-block;
+    text-decoration: none; letter-spacing: 0.02em;
+  }
+  .dash-stat-link:hover { color: #14532d; text-decoration: underline; }
 
   @media (max-width: 991px) { .dash-stats { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 575px) { .dash-stats { grid-template-columns: 1fr; } }
@@ -211,23 +218,6 @@
   .action-in { background: var(--ok); }
   .action-out { background: var(--warn); }
 
-  /* Guards on duty */
-  .guards-on-duty {
-    display: flex; align-items: center; gap: 8px;
-    padding: 12px 20px;
-    background: var(--ok-bg);
-    border-bottom: 1px solid rgba(22,163,74,0.1);
-    font-size: 0.82rem; font-weight: 600; color: var(--ok);
-  }
-  .guards-on-duty .guard-count {
-    background: var(--ok);
-    color: #fff;
-    padding: 2px 10px;
-    border-radius: 99px;
-    font-size: 0.75rem;
-    font-weight: 800;
-  }
-
   /* ── Consistent Card Shell (matches entry list) ── */
   .db-card {
     background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
@@ -284,10 +274,19 @@
       </div>
     </div>
     <div class="dash-stat-card">
-      <div class="dash-stat-icon red"><i class="fas fa-exclamation-triangle"></i></div>
+      <div class="dash-stat-icon teal"><i class="fas fa-exchange-alt"></i></div>
       <div>
-        <div class="dash-stat-label">Incidents</div>
-        <div class="dash-stat-val" id="incidents_today">{{ incidents_today|default:0 }}</div>
+        <div class="dash-stat-label">Student entries (month)</div>
+        <div class="dash-stat-val" id="student_entries_month">{{ student_entries_this_month|default:0 }}</div>
+        <a href="{% url 'gate-entry-list' %}?from_date={{ student_entries_month_from }}&amp;to_date={{ student_entries_month_to }}&amp;filter=granted&amp;student_gate_only=1" class="dash-stat-link">View log <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i></a>
+      </div>
+    </div>
+    <div class="dash-stat-card">
+      <div class="dash-stat-icon indigo"><i class="fas fa-calendar-alt"></i></div>
+      <div>
+        <div class="dash-stat-label">Student entries (year)</div>
+        <div class="dash-stat-val" id="student_entries_year">{{ student_entries_this_year|default:0 }}</div>
+        <a href="{% url 'gate-student-entries-yearly' %}?year={{ dashboard_student_year }}" class="dash-stat-link">Yearly summary <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i></a>
       </div>
     </div>
   </div>
@@ -331,9 +330,16 @@
       <div class="db-card h-100">
         <div class="db-card-head"><i class="fas fa-bolt"></i> <span>Quick Actions</span></div>
         <div class="db-card-body" style="display:flex;flex-direction:column;gap:8px;">
+          {% if gate_scanner_session_active %}
+          <a href="{% url 'gate-scan' %}" class="btn action-btn w-100" style="background:#c82333;border-color:#bd2130;color:#fff;">
+            <i class="fas fa-stop"></i> Stop Gate Scanner
+          </a>
+          <p class="small text-muted mb-0" style="margin-top:-4px;">Your gate session is active — open to stop the camera.</p>
+          {% else %}
           <a href="{% url 'gate-scan' %}" class="btn action-btn action-primary w-100">
             <i class="fas fa-qrcode"></i> Start Gate Scanner
           </a>
+          {% endif %}
           <a href="{% url 'event-attendance-scanner' %}" class="btn action-btn w-100"><i class="fas fa-user-check"></i> Event Attendance</a>
           <a href="{% url 'visitor-pass-create' %}" class="btn action-btn w-100"><i class="fas fa-user-tag"></i> Visitor Pass</a>
           <a href="{% url 'gate-entry-list' %}" class="btn action-btn w-100"><i class="fas fa-list"></i> Gate Entries</a>
@@ -345,16 +351,6 @@
   </div>
 
   <div class="db-card dashboard-section">
-    {% if guards_on_duty_count %}
-    <div class="guards-on-duty">
-      <i class="fas fa-shield-alt"></i>
-      Guards on duty
-      <span class="guard-count">{{ guards_on_duty_count }}</span>
-      {% for g in guards_on_duty_list %}
-        <span style="color:var(--monitor-text);font-weight:500;font-size:0.82rem;">{{ g.guard.first_name }} {{ g.guard.last_name }}{% if not forloop.last %},{% endif %}</span>
-      {% endfor %}
-    </div>
-    {% endif %}
     <div class="db-card-head"><i class="fas fa-stream"></i> <span>Live Activity</span></div>
     <div style="padding:0;">
       <div class="table-responsive">
@@ -451,7 +447,8 @@
         setText('total_students', data.total_students);
         setText('granted_today', data.granted_today);
         setText('denied_today', data.denied_today);
-        setText('incidents_today', data.incidents_today);
+        if (data.student_entries_this_month !== undefined) setText('student_entries_month', data.student_entries_this_month);
+        if (data.student_entries_this_year !== undefined) setText('student_entries_year', data.student_entries_this_year);
         setText('inside_now', data.inside_now);
         setText('last_scan_label', data.last_scan_label);
         setText('scanner_status', data.scanner_status);

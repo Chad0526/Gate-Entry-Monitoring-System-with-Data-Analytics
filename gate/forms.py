@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from betterforms.multiform import MultiModelForm
 
-from .models import Event, EventImage, EventAgenda, Student, EventCategory, JobCategory, StudentLoadSlip, LoadSlipSubject
+from .models import Event, EventImage, EventAgenda, Student, EventCategory, JobCategory
 
 
 class EventStatusForm(forms.ModelForm):
@@ -446,95 +446,3 @@ class StudentRegistrationForm(forms.Form):
         )
 
 
-# --- Load slip (registrar-managed class load) ---
-
-class StudentLoadSlipForm(forms.ModelForm):
-    class Meta:
-        model = StudentLoadSlip
-        fields = ['school_year', 'semester']
-        widgets = {
-            'school_year': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 2025-2026'}),
-            'semester': forms.Select(attrs={'class': 'form-control'}),
-        }
-
-
-LoadSlipSubjectFormSet = inlineformset_factory(
-    StudentLoadSlip,
-    LoadSlipSubject,
-    fields=[
-        'subject_code', 'subject_title', 'section', 'units',
-        'schedule', 'day', 'start_time', 'end_time', 'room', 'instructor',
-    ],
-    extra=5,
-    can_delete=True,
-    widgets={
-        'subject_code': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'e.g. IT101'}),
-        'subject_title': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Subject title'}),
-        'section': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'e.g. BSIT-1A'}),
-        'units': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': '0.5', 'min': '0'}),
-        'schedule': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'e.g. TTH/ 10:00-11:30 AM (optional)'}),
-        'day': forms.Select(attrs={'class': 'form-control form-control-sm'}),
-        'start_time': forms.TimeInput(attrs={'class': 'form-control form-control-sm', 'type': 'time'}),
-        'end_time': forms.TimeInput(attrs={'class': 'form-control form-control-sm', 'type': 'time'}),
-        'room': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Room'}),
-        'instructor': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Instructor'}),
-    },
-)
-
-
-class LoadSlipUploadForm(forms.Form):
-    """Upload CSV or Excel to import load slips. Optional: apply by filter (course/year/section) with no student IDs in file."""
-    file = forms.FileField(
-        label='CSV or Excel file',
-        widget=forms.ClearableFileInput(attrs={
-            'class': 'form-control',
-            'accept': '.csv,.xlsx',
-        })
-    )
-    replace_existing = forms.BooleanField(
-        required=False,
-        initial=True,
-        label='Replace existing subjects for each student/SY/semester',
-        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-    )
-    import_by_filter = forms.BooleanField(
-        required=False,
-        initial=False,
-        label='Apply by course/year/section (file has no student IDs)',
-        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        help_text='Same load slip will be applied to all students matching the course, year, and sections below. File must be slip-style only (CODE, COURSE TITLE, SECTION, UNITS, SCHEDULE, ROOM).',
-    )
-    filter_school_year = forms.CharField(
-        label='School year',
-        required=False,
-        max_length=20,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 2025-2026'}),
-    )
-    filter_semester = forms.ChoiceField(
-        label='Semester',
-        required=False,
-        choices=[('', '—')] + [(s, s.title()) for s in ['1st', '2nd', 'summer']],
-        widget=forms.Select(attrs={'class': 'form-control'}),
-    )
-    batch_course = forms.ChoiceField(
-        label='Batch: Course',
-        required=False,
-        choices=[('', '— All —')] + list(Student.COURSE_CHOICES),
-        widget=forms.Select(attrs={'class': 'form-control'}),
-    )
-    batch_year_level = forms.ChoiceField(
-        label='Batch: Year level',
-        required=False,
-        choices=[('', '— All —')] + list(Student.YEAR_LEVEL_CHOICES),
-        widget=forms.Select(attrs={'class': 'form-control'}),
-    )
-    batch_section = forms.CharField(
-        label='Batch: Section(s)',
-        required=False,
-        max_length=80,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'e.g. A, B, C or leave empty for all sections',
-        }),
-        help_text='Leave empty to apply to whole year (all sections). Or enter sections separated by comma: A, B, C',
-    )

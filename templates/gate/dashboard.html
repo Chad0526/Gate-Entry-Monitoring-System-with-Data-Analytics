@@ -1,17 +1,17 @@
 {% extends 'base/base.html' %}
 {% load static %}
-{% block title %}Guard Dashboard{% endblock %}
+{% block title %}Gate dashboard{% endblock %}
 
 {% block content %}
 
 <div class="content-header">
   <div class="container-fluid">
-    <h4 class="mb-0">Guard Dashboard</h4>
+    <h4 class="mb-0">Gate dashboard</h4>
     <small class="text-muted">City College of Bayawan — Gate &amp; attendance</small>
     <div class="mt-2">
       <a href="{% url 'gate-scan' %}" class="btn btn-success btn-sm"><i class="fas fa-qrcode mr-1"></i> Go to scanner</a>
       <a href="{% url 'gate-entry-list' %}" class="btn btn-outline-primary btn-sm ml-1"><i class="fas fa-door-open mr-1"></i> Gate entries</a>
-      <a href="{% url 'gate-incident-list' %}" class="btn btn-outline-danger btn-sm ml-1"><i class="fas fa-exclamation-triangle mr-1"></i> Incidents</a>
+      <a href="{% url 'gate-entry-list' %}?filter=denied" class="btn btn-outline-danger btn-sm ml-1"><i class="fas fa-times-circle mr-1"></i> Denied entries</a>
     </div>
   </div>
 </div>
@@ -62,8 +62,8 @@
     <div class="col-md-3 col-6">
       <div class="small-box bg-warning">
         <div class="inner">
-          <h3>{{ guards_on_duty|default:1 }}</h3>
-          <p>Guards On Duty</p>
+          <h3>{{ personnel_on_duty|default:1 }}</h3>
+          <p>Staff on duty</p>
         </div>
         <div class="icon">
           <i class="fas fa-user-shield"></i>
@@ -72,33 +72,11 @@
     </div>
   </div>
 
-  <!-- Shift & Today's report -->
+  <!-- Today's report -->
   <div class="row mb-3">
-    <div class="col-md-6">
-      <div class="card">
-        <div class="card-header py-2">
-          <h6 class="mb-0"><i class="fas fa-user-clock mr-1"></i> My shift</h6>
-        </div>
-        <div class="card-body py-2">
-          {% if current_shift %}
-            <p class="mb-2 small text-muted">Clocked in at {{ current_shift.shift_start|date:"M d, Y H:i" }}{% if current_shift.gate_post %} — {{ current_shift.gate_post }}{% endif %}</p>
-            <form method="post" action="{% url 'guard-clock-out' %}">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-warning btn-sm"><i class="fas fa-sign-out-alt mr-1"></i> Clock out</button>
-            </form>
-          {% else %}
-            <form method="post" action="{% url 'guard-clock-in' %}" class="form-inline">
-              {% csrf_token %}
-              <input type="text" name="gate_post" class="form-control form-control-sm mr-2" placeholder="Post (e.g. Main Gate)" maxlength="64" style="width:140px;">
-              <button type="submit" class="btn btn-success btn-sm"><i class="fas fa-sign-in-alt mr-1"></i> Clock in</button>
-            </form>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-    <div class="col-md-6 d-flex align-items-center">
-      <a href="{% url 'guard-today-report' %}" class="btn btn-info btn-sm mr-1"><i class="fas fa-calendar-day mr-1"></i> Today's report</a>
-      <a href="{% url 'guard-today-report' %}?format=csv" class="btn btn-outline-success btn-sm"><i class="fas fa-download mr-1"></i> Download CSV</a>
+    <div class="col-12 d-flex flex-wrap align-items-center gap-2">
+      <a href="{% url 'gate-today-report' %}" class="btn btn-info btn-sm"><i class="fas fa-calendar-day mr-1"></i> Today's report</a>
+      <a href="{% url 'gate-today-report' %}?format=csv" class="btn btn-outline-success btn-sm"><i class="fas fa-download mr-1"></i> Download CSV</a>
     </div>
   </div>
 
@@ -115,8 +93,8 @@
       </a>
     </div>
     <div class="col-md-4">
-      <a href="{% url 'gate-incident-list' %}" class="btn btn-danger btn-block btn-lg">
-        <i class="fas fa-exclamation-triangle me-2"></i> Report Incident
+      <a href="{% url 'gate-entry-list' %}?filter=denied" class="btn btn-danger btn-block btn-lg">
+        <i class="fas fa-times-circle me-2"></i> View denied entries
       </a>
     </div>
   </div>

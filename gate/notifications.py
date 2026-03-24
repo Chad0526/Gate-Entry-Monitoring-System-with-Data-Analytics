@@ -22,7 +22,7 @@ def send_announcement_emails(users, title, message, subject_prefix=None):
     try:
         from django.contrib.auth import get_user_model
         from django.db.models import Q
-        from gate.models import StaffGuardProfile
+        from gate.models import StaffPersonnelProfile
 
         User = get_user_model()
         site_name = getattr(settings, 'SITE_NAME', 'City College of Bayawan')
@@ -41,7 +41,7 @@ def send_announcement_emails(users, title, message, subject_prefix=None):
         )
         if not non_student_ids:
             return
-        profiles = StaffGuardProfile.objects.filter(
+        profiles = StaffPersonnelProfile.objects.filter(
             user_id__in=non_student_ids,
             email_notifications_announcements=True,
             user__is_active=True,

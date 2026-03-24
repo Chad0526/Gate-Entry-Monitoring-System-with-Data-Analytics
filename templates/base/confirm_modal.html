@@ -242,31 +242,6 @@
       });
     }
   }
-  function initReportProxyLinks() {
-    document.querySelectorAll('.report-proxy-link').forEach(function(link) {
-      link.addEventListener('click', function(e) {
-        e.preventDefault();
-        if (link.classList.contains('report-proxy-reported')) return;
-        var href = link.getAttribute('href');
-        var msg = link.getAttribute('data-message') || 'Are you sure you want to report proxy attendance for this student? An incident will be recorded and the guard will be alerted.';
-        var studentId = link.getAttribute('data-student-id');
-        if (!studentId && href) {
-          var m = /[?&]student_id=([^&]+)/.exec(href);
-          if (m) studentId = decodeURIComponent(m[1].replace(/\+/g, ' '));
-        }
-        if (document.getElementById('reportProxyModal') && typeof window.openReportProxyModal === 'function') {
-          themeConfirm(msg, function() {
-            window.openReportProxyModal(studentId || '', link);
-          });
-          return;
-        }
-        themeConfirm(msg, function() {
-          var target = link.getAttribute('target');
-          if (target === '_blank') window.open(href, '_blank'); else window.location.href = href;
-        });
-      });
-    });
-  }
   function initThemeConfirmForms() {
     document.querySelectorAll('form[data-confirm-message]').forEach(function(form) {
       form.addEventListener('submit', function(e) {
@@ -286,7 +261,6 @@
   }
   function init() {
     initNavbarLogout();
-    initReportProxyLinks();
     initThemeConfirmForms();
   }
   if (document.readyState === 'loading') {

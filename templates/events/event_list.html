@@ -249,9 +249,8 @@
   <!-- Toolbar -->
   <div class="el-toolbar">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <form class="el-search" action="{% url 'search-event' %}" method="POST" style="margin:0;">
-        {% csrf_token %}
-        <input type="search" name="search" placeholder="Search events..." aria-label="Search">
+      <form class="el-search" action="{% url 'search-event' %}" method="get" style="margin:0;">
+        <input type="search" name="search" value="{{ search_q|default:'' }}" placeholder="Search events..." aria-label="Search">
         <button type="submit"><i class="fas fa-search"></i></button>
       </form>
       <div class="el-filter-pills" id="statusFilter">
@@ -308,6 +307,9 @@
   <!-- List View (table) -->
   <div class="el-table-card" id="listView">
     {% if events %}
+    {% if page_obj %}
+    {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options position='top' %}
+    {% endif %}
     <div class="table-responsive">
       <table class="el-table" id="eventTable">
         <thead>
@@ -391,6 +393,10 @@
         </tbody>
       </table>
     </div>
+    {% if page_obj %}
+    <div class="px-3 py-2 text-muted small" style="border-top:1px solid #e2e8f0;">{{ page_obj.paginator.count }} total</div>
+    {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options %}
+    {% endif %}
     {% else %}
     <div class="el-empty">
       <i class="fas fa-calendar-plus"></i>

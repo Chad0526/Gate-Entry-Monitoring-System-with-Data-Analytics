@@ -282,7 +282,7 @@
           <input type="text" name="ip_address" class="form-control" id="blockIpInput" placeholder="e.g. 192.168.1.100" required pattern="[0-9a-fA-F.:]+">
         </div>
         <div class="col-md-5">
-          <label style="font-size:0.8rem;font-weight:600;color:#991b1b;">Reason</label>
+          <label style="font-size:0.8rem;font-weight:600;color:#991b1b;">Note</label>
           <input type="text" name="reason" class="form-control" placeholder="e.g. Brute-force login attempts" maxlength="500">
         </div>
         <div class="col-md-3 d-flex align-items-center" style="gap:8px;padding-top:8px;">
@@ -318,9 +318,12 @@
         <button class="al-block-btn" type="button" data-toggle="collapse" data-target="#blockIPForm" style="border-color:#dc2626;padding:5px 12px;font-size:0.78rem;">
           <i class="fas fa-shield-alt"></i> Block IP
         </button>
-        <span class="badge">{{ logs|length }} record{{ logs|length|pluralize }}</span>
+        <span class="badge">{% if page_obj %}{{ page_obj.paginator.count }}{% else %}{{ logs|length }}{% endif %} record{% if page_obj %}{{ page_obj.paginator.count|pluralize }}{% else %}{{ logs|length|pluralize }}{% endif %}</span>
       </div>
     </div>
+    {% if page_obj %}
+    {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options position='top' %}
+    {% endif %}
     {% if logs %}
     <div class="table-responsive">
       <table class="al-table">
@@ -388,8 +391,11 @@
       <p>No audit entries{% if filter_date %} for <strong>{{ filter_date }}</strong>{% endif %}.</p>
     </div>
     {% endif %}
+    {% if page_obj %}
+    <div class="px-3 py-2 text-muted small" style="border-top:1px solid #e2e8f0;">{{ page_obj.paginator.count }} total</div>
+    {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options %}
+    {% endif %}
     <div class="al-footer">
-      Showing {{ logs|length }} log{{ logs|length|pluralize }} (max 500).
       For gate scan in/out records, see <a href="{% url 'gate-entry-list' %}" style="color:#16a34a;font-weight:600;">Gate entries</a>.
     </div>
   </div>
@@ -406,7 +412,7 @@
         <thead>
           <tr>
             <th>IP Address</th>
-            <th>Reason</th>
+            <th>Note</th>
             <th>Blocked By</th>
             <th>Blocked At</th>
             <th>Blocked Requests</th>

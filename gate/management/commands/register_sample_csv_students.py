@@ -1,4 +1,4 @@
-"""Register the 50 sample students (20240001–20240050) so the sample load slip CSV can be imported.
+"""Register 50 sample students (20240001–20240050) for demos and CSV import tests.
 Usage: python manage.py register_sample_csv_students
 Creates students with unique student_id, BST, 1st year, sections A/B/C. Skips any ID that already exists.
 """
@@ -9,7 +9,7 @@ from gate.models import Student
 
 
 class Command(BaseCommand):
-    help = 'Register 50 sample students (20240001–20240050) for load slip CSV import. Unique student_id each.'
+    help = 'Register 50 sample students (20240001–20240050). Unique student_id each.'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -54,7 +54,7 @@ class Command(BaseCommand):
                 'All 50 sample student IDs (20240001–20240050) already exist. Nothing to create.'
             ))
             if skipped:
-                self.stdout.write('  You can import the load slip CSV (sample students / sample_batch_50_students) now.')
+                self.stdout.write('  All sample IDs already exist — use Gate → Students to manage records.')
             return
 
         if dry_run:
@@ -85,7 +85,7 @@ class Command(BaseCommand):
                 % (len(new_list), skipped if skipped else 'None')
             ))
             self.stdout.write('  Course: BST, Year: 1st, Sections: A (1–17), B (18–34), C (35–50).')
-            self.stdout.write('  You can now import the load slip CSV: Load slips > Import > use sample batch file.')
+            self.stdout.write('  Use Gate → Students to review or import additional data via CSV if needed.')
         except Exception as e:
             self.stderr.write(self.style.ERROR('Failed: %s' % e))
             raise

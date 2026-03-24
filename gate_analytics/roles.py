@@ -1,23 +1,23 @@
 """
 Role-based access for City College of Bayawan.
-Roles: Admin, Supervisor, Guard (gate); Faculty, Staff, Student (legacy).
-Gate: Guard = scan/view today/incidents only | Supervisor = + reports/export/audit | Admin = full.
+Roles: Admin, Supervisor, Faculty, Staff, Student (legacy).
+Gate kiosk: assigned staff/faculty/supervisor log in; no separate gate-only role.
 """
 from functools import wraps
 from django.shortcuts import redirect
 from django.http import HttpResponseForbidden
 from django.contrib import messages
 
-ROLE_NAMES = ('Admin', 'Supervisor', 'Faculty', 'Staff', 'Guard', 'Student')
+ROLE_NAMES = ('Admin', 'Supervisor', 'Faculty', 'Staff', 'Student')
 ROLE_GROUPS = {name.lower(): name for name in ROLE_NAMES}
 
 
 def get_user_role(user):
-    """Return user's role as lowercase string ('admin','supervisor','guard', etc.) or None.
+    """Return user's role as lowercase string ('admin','supervisor','staff', etc.) or None.
     Staff/superuser without a group are treated as 'admin'.
 
     Role lookup is case-insensitive to avoid mismatches when group names
-    may be stored with different capitalization (e.g. 'guard' vs 'Guard').
+    may be stored with different capitalization.
     """
     if not user or not user.is_authenticated:
         return None
@@ -34,7 +34,7 @@ def get_user_role(user):
 
 
 def has_supervisor_access(user):
-    """True if user can do supervisor-level gate: all reports, export, audit log, guard activity."""
+    """True if user can do supervisor-level gate: all reports, export, audit log."""
     role = get_user_role(user)
     return role in ('admin', 'staff', 'supervisor')
 
@@ -42,7 +42,7 @@ def has_supervisor_access(user):
 def role_required(*allowed_roles):
     """
     Decorator: allow access only if user is logged in and has one of allowed_roles.
-    allowed_roles: e.g. 'admin', 'staff', 'guard'
+    allowed_roles: e.g. 'admin', 'staff'
     """
     def decorator(view_func):
         @wraps(view_func)
