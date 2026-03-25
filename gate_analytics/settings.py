@@ -37,11 +37,11 @@ DEBUG = True
 
 # CSRF Trusted Origins (for AJAX requests)
 CSRF_TRUSTED_ORIGINS = [
-    'https://unsurrendering-implacably-alfreda.ngrok-free.dev',
-    '.ngrok-free.app',
-    '.ngrok-free.dev',
-    '.ngrok.io',
-
+    # ngrok tunnel URLs change often (trial/subdomain). Trust any ngrok host via wildcard.
+    # Django expects full origins with scheme for CSRF trusted origins.
+    'https://*.ngrok-free.dev',
+    'https://*.ngrok-free.app',
+    'https://*.ngrok.io',
 ]
 
 # Host header validation. For local dev + LAN + ngrok/tunnels, use '*' (only safe with DEBUG=True).

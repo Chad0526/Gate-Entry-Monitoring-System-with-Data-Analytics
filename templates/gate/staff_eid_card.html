@@ -1,0 +1,354 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff/Faculty e-ID — {{ id_display }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Arial', 'Helvetica', sans-serif; background: #f5f5f5; padding: 10px 10px 30px; }
+    .eid-sheet { display: flex; flex-direction: column; align-items: center; gap: 24px; }
+
+    /* ==================== ID CARD - LANDSCAPE ==================== */
+    .id-card {
+      width: 500px; height: 340px;
+      background: #fff; border-radius: 15px; overflow: hidden; display: flex;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+    }
+
+    /* ==================== FRONT CARD ==================== */
+    .id-card-front { flex-direction: row; position: relative; }
+    .id-card-front::before {
+      content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background-image: url('{% static "gate/images/CCB.jpg" %}');
+      background-size: cover; background-position: center; background-repeat: no-repeat;
+      opacity: 0.12; z-index: 0; pointer-events: none;
+    }
+    .card-body {
+      flex: 1; display: flex; flex-direction: column;
+      padding: 6px 18px 12px 18px; position: relative; z-index: 1;
+    }
+    .card-header-section {
+      display: flex; align-items: flex-start; gap: 12px;
+      margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #ddd;
+    }
+    .logo-circle {
+      width: 90px; height: 90px; border-radius: 50%; background: transparent;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-left: 150px;
+    }
+    .logo-image {
+      width: 100%; height: 100%; object-fit: contain; border-radius: 50%; padding: 2px;
+    }
+    .logo-fallback {
+      font-size: 18px; font-weight: 700; color: #333;
+    }
+    .header-text-block { flex: 1; text-align: left; margin-top: 8px; }
+    .school-address { font-size: 7px; color: #666; line-height: 1.2; margin-bottom: 1px; }
+    .institution-name { font-size: 17px; font-weight: bold; color: #333; margin: 2px 0; letter-spacing: 0.3px; }
+    .contact-info { font-size: 7px; color: #666; line-height: 1.2; margin: 1px 0; }
+    .card-title { font-size: 11px; font-weight: bold; color: #FF6B35; margin-top: 2px; letter-spacing: 0.5px; }
+    .card-content { display: flex; gap: 15px; flex: 1; margin-bottom: 8px; }
+
+    /* Left Column - Photo */
+    .left-column { flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; margin-top: -105px; }
+    .photo-box { border: 3px solid #4CAF50; border-radius: 4px; overflow: hidden; }
+    .photo-placeholder {
+      width: 130px; height: 155px;
+      background: linear-gradient(135deg, #e8e8e8 0%, #f5f5f5 100%);
+      display: flex; align-items: center; justify-content: center;
+      color: #999; font-size: 9px; font-weight: bold; text-align: center;
+      overflow: hidden; position: relative;
+    }
+    .photo-placeholder img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+    .signature-box { text-align: center; padding-top: 40px; }
+    .signature-line { width: 100%; height: 1px; background: #333; margin-bottom: 2px; }
+    .signature-text { font-size: 10px; color: #666; }
+    .signature-img { height: 28px; max-width: 100px; object-fit: contain; display: block; margin: 0 auto 2px; }
+
+    /* Right Column - Student Details */
+    .right-column { flex: 1; display: flex; flex-direction: column; }
+    .student-name-block { margin-bottom: 8px; }
+    .name-line1 {
+      font-size: 21px; font-weight: normal; color: #333;
+      line-height: 1.1; min-height: 23px; text-transform: uppercase;
+    }
+    .name-line2 {
+      font-size: 21px; font-weight: bold; color: #000;
+      letter-spacing: 0.5px; line-height: 1.1; margin-top: 1px; min-height: 23px; text-transform: uppercase;
+    }
+    .name-underline { width: 100%; height: 2px; background: #333; margin: 3px 0 2px 0; }
+    .name-label { font-size: 11px; color: #666; }
+    .info-list { display: flex; flex-direction: column; gap: 5px; }
+    .info-row { display: flex; align-items: baseline; }
+    .info-label { font-size: 9px; color: #666; min-width: 85px; flex-shrink: 0; }
+    .info-value { font-size: 10px; color: #000; font-weight: 600; line-height: 1.3; flex: 1; min-height: 13px; text-transform: uppercase; }
+    .card-footer-front {
+      margin-top: auto;
+    }
+    .reminders-box {
+      background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 100%);
+      padding: 7px 12px; border-radius: 4px;
+    }
+    .reminders-heading { font-size: 9px; font-weight: bold; color: white; margin-bottom: 3px; text-align: center; }
+    .reminders-content { font-size: 6.5px; color: white; line-height: 1.4; text-align: justify; }
+
+    /* ==================== BACK CARD ==================== */
+    .id-card-back { flex-direction: column; background: #f8f8f8; }
+    .back-top-bar {
+      height: 70px; background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 50%, #4CAF50 100%);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 8px 15px;
+    }
+    .emergency-section { text-align: center; display: flex; flex-direction: column; gap: 2px; }
+    .emergency-label { font-size: 8px; color: white; font-weight: bold; letter-spacing: 0.5px; }
+    .emergency-underline { width: 80%; height: 1px; background: white; margin: 3px auto; }
+    .emergency-name { font-size: 13px; font-weight: bold; color: white; letter-spacing: 0.3px; text-transform: uppercase; }
+    .emergency-mobile { font-size: 10px; color: white; font-weight: 500; }
+    .back-main-content {
+      flex: 1; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .signatory-block { flex: 1; text-align: center; }
+    .signatory-space { height: 20px; }
+    .signatory-line { width: 100%; height: 1px; background: #333; margin-bottom: 2px; }
+    .signatory-name { font-size: 10px; font-weight: 900; color: #333; text-transform: uppercase; line-height: 1.2; }
+    .signatory-title { font-size: 7px; color: #666; text-transform: uppercase; line-height: 1.3; }
+    .qr-block { flex-shrink: 0; text-align: center; }
+    .qr-wrap {
+      padding: 4px; border: 2px solid #4CAF50; border-radius: 8px;
+      display: inline-block; background: #fff; cursor: zoom-in;
+    }
+    .qr-wrap img { display: block; width: 100px; height: 100px; image-rendering: pixelated; image-rendering: crisp-edges; }
+    .qr-hint { font-size: 7px; color: #555; margin-top: 3px; font-weight: 600; }
+    .back-rules-bar {
+      flex-shrink: 0; background: #f0f0f0; border-top: 1px solid #ddd;
+      padding: 5px 16px; text-align: center;
+    }
+    .back-rules-text { font-size: 6.5px; color: #444; line-height: 1.3; }
+    .back-bottom-bar {
+      height: 32px; background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 50%, #4CAF50 100%);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    }
+    .validity-text { font-size: 8px; font-weight: bold; color: white; letter-spacing: 0.5px; text-align: center; }
+
+    /* ==================== QR ZOOM OVERLAY ==================== */
+    .qr-zoom-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.62);
+      display: none; align-items: center; justify-content: center; padding: 20px; z-index: 9999;
+    }
+    .qr-zoom-overlay.show { display: flex; }
+    .qr-zoom-dialog {
+      width: min(92vw, 460px); background: #fff; border-radius: 12px;
+      overflow: hidden; box-shadow: 0 16px 50px rgba(0,0,0,0.35);
+    }
+    .qr-zoom-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; border-bottom: 1px solid #ececec; background: #f8f9fa;
+    }
+    .qr-zoom-header h3 { margin: 0; font-size: 16px; font-weight: 600; color: #1f2937; }
+    .qr-zoom-close { border: 0; background: transparent; font-size: 24px; line-height: 1; color: #6b7280; cursor: pointer; }
+    .qr-zoom-body { text-align: center; padding: 16px; background: #f9fafb; }
+    .qr-zoom-body img {
+      width: min(78vw, 340px); height: auto; image-rendering: pixelated; image-rendering: crisp-edges;
+      border: 1px solid #d1d5db; border-radius: 8px; background: #fff; padding: 8px;
+    }
+    .qr-zoom-footer { display: flex; justify-content: flex-end; padding: 10px 14px 14px; background: #fff; }
+    .qr-zoom-footer a {
+      display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+      border: 1px solid #4CAF50; color: #4CAF50; border-radius: 6px; padding: 6px 10px; font-size: 13px; font-weight: 600;
+    }
+
+    /* ==================== PRINT ==================== */
+    @media print {
+      @page { size: letter; margin: 0.5in; }
+      html, body {
+        background: #fff !important; margin: 0 !important; padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+      body { padding: 0.3in !important; zoom: 1 !important; }
+      .eid-sheet { gap: 0.2in; align-items: center; }
+      .id-card {
+        zoom: 0.649;
+        box-shadow: none !important;
+        border: 1px solid #aaa;
+        border-radius: 6px;
+      }
+      .id-card-front::before { opacity: 0.10; }
+      .qr-zoom-overlay { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="eid-sheet">
+    <!-- ==================== FRONT ==================== -->
+    <div class="id-card id-card-front">
+      <div class="card-body">
+        <div class="card-header-section">
+          <div class="logo-circle">
+            {% if logo_url %}
+            <img src="{{ logo_url }}" alt="College Logo" class="logo-image"
+                 onerror="this.style.display='none'; this.parentElement.innerHTML='<span class=\'logo-fallback\'>CCB</span>';">
+            {% else %}
+            <img src="{% static 'gate/images/CBB.png' %}" alt="College Logo" class="logo-image"
+                 onerror="this.style.display='none'; this.parentElement.innerHTML='<span class=\'logo-fallback\'>CCB</span>';">
+            {% endif %}
+          </div>
+          <div class="header-text-block">
+            <p class="school-address">Upper Cabcabon, Banga, Bayawan City, Negros Oriental</p>
+            <h1 class="institution-name">CITY COLLEGE OF BAYAWAN</h1>
+            <p class="contact-info">citycollegebayawan@gmail.com</p>
+            <p class="contact-info">(035) 430 - 0045 local (120)</p>
+            <p class="card-title">STAFF / FACULTY IDENTIFICATION CARD</p>
+          </div>
+        </div>
+
+        <div class="card-content">
+          <div class="left-column">
+            <div class="photo-box">
+              <div class="photo-placeholder">
+                {% if photo_url %}
+                <img src="{{ photo_url }}" alt="Student Photo"
+                     onerror="this.style.display='none'; this.parentElement.innerHTML='<span>2x2<br>PHOTO</span>';">
+                {% else %}
+                <span>2x2<br>PHOTO</span>
+                {% endif %}
+              </div>
+            </div>
+            <div class="signature-box">
+              {% if signature_url %}
+              <img src="{{ signature_url }}" alt="Signature" class="signature-img">
+              {% endif %}
+              <div class="signature-line"></div>
+              <p class="signature-text">Signature</p>
+            </div>
+          </div>
+
+          <div class="right-column">
+            <div class="student-name-block">
+              <div class="name-line1">{{ user.first_name|upper }}{% if profile.middle_name %} {{ profile.middle_name|slice:":1"|upper }}.{% endif %}</div>
+              <div class="name-line2">{{ user.last_name|upper }}</div>
+              <div class="name-underline"></div>
+              <div class="name-label">Name</div>
+            </div>
+            <div class="info-list">
+              <div class="info-row">
+                <span class="info-label">Role</span>
+                <span class="info-value">: {{ role_label|upper }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Employee ID No.</span>
+                <span class="info-value">: {{ id_display }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Department</span>
+                <span class="info-value">: {{ profile.department|default:"—" }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Position</span>
+                <span class="info-value">: {{ profile.position|default:"—" }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Email</span>
+                <span class="info-value">: {{ user.email|default:"—" }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-footer-front">
+          <div class="reminders-box">
+            <p class="reminders-heading">IMPORTANT REMINDERS</p>
+            <p class="reminders-content">Always carry your ID while inside the premises and present it to any authorized personnel upon request. Report loss to the administration office.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== BACK ==================== -->
+    <div class="id-card id-card-back">
+      <div class="back-top-bar">
+        <div class="emergency-section">
+          <p class="emergency-label">IN CASE OF EMERGENCY, PLEASE NOTIFY</p>
+          <div class="emergency-underline"></div>
+          <div class="emergency-name">{{ user.get_full_name|default:user.username }}</div>
+          <div class="emergency-mobile">{{ profile.contact_number|default:"—" }}</div>
+        </div>
+      </div>
+
+      <div class="back-main-content">
+        <div class="signatory-block">
+          <div class="signatory-space"></div>
+          <div class="signatory-line"></div>
+          <p class="signatory-name">{{ first_signatory_name|default:"1ST SIGNATORY NAME" }}</p>
+          <p class="signatory-title">{{ first_signatory_title|default:"Designation" }}</p>
+        </div>
+
+        <div class="qr-block">
+          <div class="qr-wrap" id="eidQrOpenBtn" title="Click to enlarge QR">
+            <img src="{{ qr_url }}" alt="QR {{ id_display }}">
+          </div>
+          <p class="qr-hint">Scan at gate for IN / OUT</p>
+        </div>
+
+        <div class="signatory-block">
+          <div class="signatory-space"></div>
+          <div class="signatory-line"></div>
+          <p class="signatory-name">{{ second_signatory_name|default:"2ND SIGNATORY NAME" }}</p>
+          <p class="signatory-title">{{ second_signatory_title|default:"Designation" }}</p>
+        </div>
+      </div>
+
+      <div class="back-rules-bar">
+        <p class="back-rules-text">This e-ID is non-transferable. Present upon entry when requested. Report loss immediately to Security Office. Misuse may result in disciplinary action.</p>
+      </div>
+
+      <div class="back-bottom-bar">
+        <p class="validity-text">VALID UNTIL: A.Y. 2025 - 2026 (1ST SEMESTER)</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Zoom Overlay -->
+  <div class="qr-zoom-overlay" id="qrZoomOverlay" aria-hidden="true">
+    <div class="qr-zoom-dialog" role="dialog" aria-modal="true" aria-label="Large QR code">
+      <div class="qr-zoom-header">
+        <h3>Staff/Faculty QR — {{ id_display }}</h3>
+        <button type="button" class="qr-zoom-close" id="qrZoomCloseBtn" aria-label="Close">&times;</button>
+      </div>
+      <div class="qr-zoom-body">
+        <img src="{{ qr_url }}" alt="Large QR {{ id_display }}">
+      </div>
+      <div class="qr-zoom-footer">
+        <a href="{{ qr_url }}" download="qr-{{ id_display }}.png">Download QR</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      var openBtn = document.getElementById('eidQrOpenBtn');
+      var overlay = document.getElementById('qrZoomOverlay');
+      var closeBtn = document.getElementById('qrZoomCloseBtn');
+      if (!openBtn || !overlay) return;
+      function show() { overlay.classList.add('show'); overlay.setAttribute('aria-hidden', 'false'); }
+      function hide() { overlay.classList.remove('show'); overlay.setAttribute('aria-hidden', 'true'); }
+      openBtn.addEventListener('click', function(e) { e.preventDefault(); show(); });
+      if (closeBtn) closeBtn.addEventListener('click', hide);
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) hide(); });
+      document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hide(); });
+    })();
+
+    function fitCards() {
+      var needed = 520;
+      var avail = document.documentElement.clientWidth;
+      var z = Math.min(avail / needed, 1);
+      document.body.style.zoom = z;
+    }
+    fitCards();
+    window.addEventListener('resize', fitCards);
+  </script>
+</body>
+</html>

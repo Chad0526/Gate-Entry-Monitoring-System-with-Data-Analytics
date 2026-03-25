@@ -39,7 +39,7 @@
               <p>{% trans "Analytics" %}</p>
             </a>
           </li>
-          {% if user_role == 'admin' or user_role == 'staff' or user_role == 'faculty' %}
+          {% if user_role == 'admin' or user_role == 'staff' or user_role == 'faculty' or user_role == 'supervisor' %}
           <li class="nav-item">
             <a href="{% url 'gate-student-list' %}" class="nav-link {% if current == 'gate-student-list' or current == 'gate-student-edit' or current == 'gate-student-create' or current == 'gate-student-import' %}active{% endif %}">
               <i class="nav-icon fas fa-id-card"></i>
@@ -80,7 +80,7 @@
           {% if user_role == 'admin' %}
           <li class="nav-header">{% trans "Administration" %}</li>
           <li class="nav-item">
-            <a href="{% url 'pending-staff-personnel-list' %}" class="nav-link {% if current == 'pending-staff-personnel-list' %}active{% endif %}">
+            <a href="{% url 'pending-staff-personnel-list' %}" class="nav-link {% if current == 'pending-staff-personnel-list' or current == 'gate-staff-personnel-import-csv' or current == 'gate-staff-personnel-create' %}active{% endif %}">
               <i class="nav-icon fas fa-users"></i>
               <p>{% trans "Users" %}</p>
             </a>
@@ -91,6 +91,8 @@
               <p>{% trans "View logs" %}</p>
             </a>
           </li>
+          {% elif user_role == 'staff' or user_role == 'supervisor' or user_role == 'faculty' %}
+          {# Non-admin users must not see Staff/Faculty administration in the sidebar. #}
           {% endif %}
           {% if user_role == 'admin' or user_role == 'faculty' or user_role == 'staff' %}
           <li class="nav-header">{% trans "Events" %}</li>

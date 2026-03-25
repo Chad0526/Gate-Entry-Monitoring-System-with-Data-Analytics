@@ -354,15 +354,22 @@
         <div class="d-flex flex-wrap align-items-center justify-content-between" style="gap:10px;">
           <h5 class="m-0">Important analytics</h5>
           <form method="get" class="form-inline" style="gap:8px; display:flex; flex-wrap:wrap; align-items:center;">
-            <label class="mb-0 text-muted" for="analyticsYear" style="font-weight:500;">Year</label>
-            <select id="analyticsYear" name="year" class="form-control form-control-sm" onchange="this.form.submit()" style="min-width:120px;">
-              {% for y in available_years %}
-                <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
-              {% endfor %}
-              {% if not available_years %}
-                <option value="{{ selected_year }}" selected>{{ selected_year }}</option>
-              {% endif %}
+            <input type="hidden" name="year" value="{{ selected_year }}">
+            <label class="mb-0 text-muted" for="analyticsStudentPeriod" style="font-weight:500;">View</label>
+            <select id="analyticsStudentPeriod" name="student_period" class="form-control form-control-sm" onchange="this.form.submit()" style="min-width:130px;" title="How to group student gate entries on the main chart">
+              <option value="daily" {% if student_period == 'daily' %}selected{% endif %}>Daily</option>
+              <option value="weekly" {% if student_period == 'weekly' %}selected{% endif %}>Weekly</option>
+              <option value="monthly" {% if student_period == 'monthly' %}selected{% endif %}>Monthly</option>
+              <option value="yearly" {% if student_period == 'yearly' %}selected{% endif %}>Yearly</option>
             </select>
+            {% if student_period == 'weekly' %}
+            <label class="mb-0 text-muted" for="analyticsStudentMonth" style="font-weight:500;">Month</label>
+            <select id="analyticsStudentMonth" name="student_month" class="form-control form-control-sm" onchange="this.form.submit()" style="min-width:132px;" title="Calendar month for Monday–Sunday weeks">
+              {% for num, mname in analytics_month_choices %}
+                <option value="{{ num }}" {% if student_weekly_month == num %}selected{% endif %}>{{ mname }}</option>
+              {% endfor %}
+            </select>
+            {% endif %}
             <label class="mb-0 text-muted" for="analyticsStudentIO" style="font-weight:500;">Student</label>
             <select id="analyticsStudentIO" name="student_io" class="form-control form-control-sm" onchange="this.form.submit()" style="min-width:140px;">
               <option value="all" {% if student_io == 'all' %}selected{% endif %}>All (IN+OUT)</option>
@@ -374,35 +381,25 @@
       </div>
       <div class="section-body">
         <div class="row">
-          <div class="col-lg-8">
+          <div class="col-lg-12">
             <div class="row">
               <div class="col-12">
                 <div class="card subcard">
-                  <div class="card-header"><strong>Monthly student entries</strong> <span class="text-muted small">({{ student_io_label }})</span></div>
+                  <div class="card-header"><strong>{{ student_chart_title_line }}</strong> <span class="text-muted small">({{ student_io_label }})</span></div>
                   <div class="card-body">
                     <div style="position:relative; height:280px;">
                       <canvas id="chartMonthlyEntries"></canvas>
                     </div>
-                    {% if student_monthly_highest_month %}
+                    {% if student_stat_high_label %}
                       <div class="text-muted small mt-2">
-                        Highest: <strong>{{ student_monthly_highest_month }}</strong> ({{ student_monthly_highest_count }})
+                        Highest: <strong>{{ student_stat_high_label }}</strong> ({{ student_stat_high_count }})
                         &nbsp;·&nbsp;
-                        Lowest: <strong>{{ student_monthly_lowest_month }}</strong> ({{ student_monthly_lowest_count }})
+                        Lowest: <strong>{{ student_stat_low_label }}</strong> ({{ student_stat_low_count }})
                       </div>
                     {% else %}
                       <div class="text-muted small mt-2">No student data for this filter.</div>
                     {% endif %}
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-4">
-            <div class="card subcard">
-              <div class="card-header"><strong>Annual student trend</strong> <span class="text-muted small">(by year · {{ student_io_label }})</span></div>
-              <div class="card-body">
-                <div style="position:relative; height:240px;">
-                  <canvas id="chartAnnualTrend"></canvas>
                 </div>
               </div>
             </div>
@@ -626,6 +623,9 @@
 {% endblock content %}
 
 {% block extrascript %}
+{{ student_chart_labels|json_script:"analytics-student-labels" }}
+{{ student_chart_data|json_script:"analytics-student-data" }}
+{{ student_chart_tooltip_lines|json_script:"analytics-student-tooltips" }}
 <script>
 (function() {
   var overviewModal = document.getElementById('overviewEmbedModal');
@@ -675,68 +675,84 @@
 
   if (typeof Chart === 'undefined') return;
 
-  var monthLabels = JSON.parse('{{ chart_month_labels_json|escapejs }}');
-  var monthlyGranted = JSON.parse('{{ chart_monthly_granted_json|escapejs }}');
-  var annualYears = JSON.parse('{{ chart_annual_years_json|escapejs }}');
-  var annualGranted = JSON.parse('{{ chart_annual_granted_json|escapejs }}');
+  function _readJsonScript(id) {
+    var el = document.getElementById(id);
+    if (!el || !el.textContent) return [];
+    try {
+      return JSON.parse(el.textContent);
+    } catch (e) {
+      return [];
+    }
+  }
+  var studentChartLabels = _readJsonScript('analytics-student-labels');
+  var studentChartData = _readJsonScript('analytics-student-data');
+  var studentChartTooltipLines = _readJsonScript('analytics-student-tooltips');
+  var studentChartType = '{{ student_chart_type|default:"bar"|escapejs }}';
+  var studentChartWeeklyFlatX = {% if student_period == 'weekly' %}true{% else %}false{% endif %};
 
   Chart.defaults.global.defaultFontFamily = "'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial";
   Chart.defaults.global.defaultFontColor = '#1a5c35';
 
   var ctxEntries = document.getElementById('chartMonthlyEntries');
   if (ctxEntries) {
-    new Chart(ctxEntries.getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels: monthLabels,
-        datasets: [
-          {
-            label: '{{ student_chart_dataset_label|escapejs }}',
-            data: monthlyGranted,
-            backgroundColor: 'rgba(34, 197, 94, 0.75)',
-            borderColor: 'rgba(34, 197, 94, 1)',
-            borderWidth: 1
+    var dense = !studentChartWeeklyFlatX && studentChartLabels.length > 36;
+    var xTickOpts = {};
+    if (studentChartWeeklyFlatX) {
+      xTickOpts = { maxRotation: 0, minRotation: 0, autoSkip: false };
+    } else if (dense) {
+      xTickOpts = { maxRotation: 65, minRotation: 45, autoSkip: true, maxTicksLimit: 20 };
+    }
+    var barDataset = {
+      label: '{{ student_chart_dataset_label|escapejs }}',
+      data: studentChartData,
+      backgroundColor: 'rgba(34, 197, 94, 0.75)',
+      borderColor: 'rgba(34, 197, 94, 1)',
+      borderWidth: 1
+    };
+    var lineDataset = {
+      label: '{{ student_chart_dataset_label|escapejs }}',
+      data: studentChartData,
+      borderColor: 'rgba(34, 197, 94, 1)',
+      backgroundColor: 'rgba(34, 197, 94, 0.12)',
+      fill: true,
+      lineTension: 0.25,
+      pointRadius: 3
+    };
+    var tooltipOpts = {
+      mode: 'index',
+      intersect: false,
+      callbacks: {
+        title: function(tooltipItems, data) {
+          if (!tooltipItems || !tooltipItems.length) return '';
+          var idx = tooltipItems[0].index;
+          if (studentChartTooltipLines && studentChartTooltipLines.length > idx && studentChartTooltipLines[idx]) {
+            return studentChartTooltipLines[idx];
           }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        legend: { position: 'bottom' },
-        tooltips: { mode: 'index', intersect: false },
-        scales: {
-          xAxes: [{ gridLines: { display: false } }],
-          yAxes: [{ ticks: { beginAtZero: true, precision: 0 } }]
+          return tooltipItems[0].xLabel || '';
+        },
+        label: function(item, data) {
+          var ds = data.datasets[item.datasetIndex];
+          var v = ds.data[item.index];
+          return ds.label + ': ' + v;
         }
       }
-    });
-  }
-
-  var ctxAnnual = document.getElementById('chartAnnualTrend');
-  if (ctxAnnual) {
-    new Chart(ctxAnnual.getContext('2d'), {
-      type: 'line',
+    };
+    new Chart(ctxEntries.getContext('2d'), {
+      type: studentChartType,
       data: {
-        labels: annualYears,
-        datasets: [
-          {
-            label: '{{ student_chart_dataset_label|escapejs }}',
-            data: annualGranted,
-            borderColor: 'rgba(34, 197, 94, 1)',
-            backgroundColor: 'rgba(34, 197, 94, 0.12)',
-            fill: true,
-            lineTension: 0.25,
-            pointRadius: 4
-          }
-        ]
+        labels: studentChartLabels,
+        datasets: [studentChartType === 'line' ? lineDataset : barDataset]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         legend: { position: 'bottom' },
-        tooltips: { mode: 'index', intersect: false },
+        tooltips: tooltipOpts,
         scales: {
-          xAxes: [{ gridLines: { display: false } }],
+          xAxes: [{
+            gridLines: { display: false },
+            ticks: xTickOpts
+          }],
           yAxes: [{ ticks: { beginAtZero: true, precision: 0 } }]
         }
       }

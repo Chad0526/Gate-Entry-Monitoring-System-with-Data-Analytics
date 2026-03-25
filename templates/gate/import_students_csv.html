@@ -14,8 +14,7 @@
         <p class="text-muted mb-2">Or <strong>simple format</strong>: <code>student_id</code>, <code>first_name</code>, <code>last_name</code>, <code>email</code> (optional). Use the batch fields below to set course/year/section for all.</p>
         <p class="small text-muted mb-3">After import, each student gets a unique Student ID. QR codes are generated automatically — view them in the student list or on each student’s edit page.</p>
         <p class="mb-3">
-          <a href="{% url 'gate-student-sample-csv' %}" class="btn btn-outline-success btn-sm"><i class="fas fa-download mr-1"></i> Download sample (50 students)</a>
-          <span class="small text-muted">Sample 50 student IDs (20240001–20240050).</span>
+          <!-- Sample CSV download intentionally removed. -->
         </p>
         <form method="post" enctype="multipart/form-data">
           {% csrf_token %}

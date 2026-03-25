@@ -5,8 +5,8 @@
 
 {% block extrahead %}
 <link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
+{% if embed %}
 <style>
-  {% if embed %}
   .main-sidebar, .main-header, .content-header, .main-footer, .control-sidebar {
     display: none !important;
   }
@@ -18,7 +18,9 @@
   .content-wrapper > .content {
     padding: 8px 10px !important;
   }
-  {% endif %}
+</style>
+{% endif %}
+<style>
   .students-hero {
     position: relative;
     overflow: hidden;
@@ -166,6 +168,15 @@
   }
   #students-list-card table .col-qr { width: 68px; text-align: center; }
   #students-list-card table .col-id { width: 92px; }
+  /* Match registry screenshot: emphasized ID (pink/red + underline) */
+  #students-list-card table .col-id .registry-id-emphasis {
+    color: #db2777;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    font-weight: 600;
+    font-size: inherit;
+    font-family: inherit;
+  }
   #students-list-card table .col-name { min-width: 130px; text-align: center; white-space: nowrap; }
   #students-list-card table .col-sex { width: 64px; text-align: center; }
   #students-list-card table .col-course-year { width: 120px; text-align: center; }
@@ -280,7 +291,9 @@
             <select name="sex" id="filter-sex" class="form-control form-control-sm" style="width: auto; min-width: 120px;">
               <option value="">All</option>
               {% for value, label in sex_choices %}
-              <option value="{{ value }}" {% if filter_sex == value %}selected{% endif %}>{{ label }}</option>
+              {% if value == 'MALE' or value == 'FEMALE' %}
+                <option value="{{ value }}" {% if filter_sex == value %}selected{% endif %}>{{ label }}</option>
+              {% endif %}
               {% endfor %}
             </select>
           </div>
@@ -333,7 +346,7 @@
                     <img src="{% url 'gate-student-qr' s.pk %}?v=2" alt="QR {{ s.student_id }}" width="56" height="56" class="rounded border student-qr-img" style="image-rendering: pixelated; image-rendering: crisp-edges;" onerror="this.onerror=null; this.style.display='none'; var w=this.closest('.qr-cell-wrap'); if(w && !w.querySelector('.qr-fallback')) { var s=document.createElement('span'); s.className='qr-fallback d-inline-block rounded border bg-light text-center text-muted small'; s.style.width='56px'; s.style.height='56px'; s.style.lineHeight='56px'; s.style.fontSize='10px'; s.textContent='QR'; w.appendChild(s); }">
                   </a>
                 </td>
-                <td class="align-middle col-id"><code>{{ s.student_id }}</code></td>
+                <td class="align-middle col-id"><span class="registry-id-emphasis">{{ s.student_id }}</span></td>
                 <td class="align-middle col-name">{{ s.get_full_name }}</td>
                 <td class="align-middle col-sex">{{ s.get_sex_display|default:"—" }}</td>
                 <td class="align-middle col-course-year">{% if s.course or s.year_level or s.section %}<span class="d-block">{% if s.course or s.year_level %}{{ s.course }}{% if s.year_level %} / {{ s.get_year_level_display }}{% endif %}{% elif s.section %}{{ s.section }}{% endif %}</span>{% if s.section %}{% if s.course or s.year_level %}<span class="d-block text-muted small mt-0">{{ s.section }}</span>{% endif %}{% endif %}{% else %}—{% endif %}</td>
@@ -520,7 +533,9 @@
   }
   if (exportPdfBtn) {
     exportPdfBtn.addEventListener('click', function() {
-      window.open(buildEidUrl(false) + (buildEidUrl(false).includes('?') ? '&' : '?') + 'pdf=1', '_blank');
+      // Use browser print flow (auto download depends on browser settings),
+      // because server-side PDF generation can fail on some environments.
+      window.open(buildEidUrl(false) + (buildEidUrl(false).includes('?') ? '&' : '?') + 'print=1&auto_print=1', '_blank');
       $('#printEidModal').modal('hide');
     });
   }

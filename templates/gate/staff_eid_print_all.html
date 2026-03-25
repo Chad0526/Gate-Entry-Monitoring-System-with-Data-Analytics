@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Print all student e-ID cards — {{ site_name }}</title>
+  <title>Print all staff/faculty e-ID cards — {{ site_name }}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Arial', 'Helvetica', sans-serif; background: #e8e8e8; padding: 16px; }
@@ -168,13 +168,13 @@
 <body>
   <div class="no-print">
     <button type="button" onclick="window.print();">🖨️ Print all e-ID cards</button>
-    <span class="info">{{ total }} student(s). Cards print at 3.377 × 2.127 in on letter paper. Enable "Background graphics" in print settings.</span>
+    <span class="info">{{ total }} staff/faculty. Cards print at 3.377 × 2.127 in on letter paper. Enable "Background graphics" in print settings.</span>
   </div>
 
   <div class="print-grid">
-    {% for card in student_cards %}
+    {% for card in staff_cards %}
     <div class="student-card-block">
-      <div class="card-label">{{ card.student.student_id }} — {{ card.student.get_full_name }}</div>
+      <div class="card-label">{{ card.id_display }} — {{ card.user.get_full_name }}</div>
       <div class="card-pair">
         <!-- FRONT -->
         <div class="id-card id-card-front">
@@ -192,7 +192,7 @@
                 <h1 class="institution-name">CITY COLLEGE OF BAYAWAN</h1>
                 <p class="contact-info">citycollegebayawan@gmail.com</p>
                 <p class="contact-info">(035) 430 - 0045 local (120)</p>
-                <p class="card-title">STUDENT IDENTIFICATION CARD</p>
+                <p class="card-title">STAFF / FACULTY IDENTIFICATION CARD</p>
               </div>
             </div>
             <div class="card-content">
@@ -201,8 +201,6 @@
                   <div class="photo-placeholder">
                     {% if card.photo_url %}
                     <img src="{{ card.photo_url }}" alt="Photo">
-                    {% elif card.student.photo %}
-                    <img src="{{ card.student.photo.url }}" alt="Photo">
                     {% else %}
                     <span>2x2<br>PHOTO</span>
                     {% endif %}
@@ -215,31 +213,31 @@
               </div>
               <div class="right-column">
                 <div class="student-name-block">
-                  <div class="name-line1">{{ card.student.first_name|upper }}{% if card.student.middle_name %} {{ card.student.middle_name|slice:":1"|upper }}.{% endif %}</div>
-                  <div class="name-line2">{{ card.student.last_name|upper }}</div>
+                  <div class="name-line1">{{ card.user.first_name|upper }}{% if card.profile.middle_name %} {{ card.profile.middle_name|slice:":1"|upper }}.{% endif %}</div>
+                  <div class="name-line2">{{ card.user.last_name|upper }}</div>
                   <div class="name-underline"></div>
-                  <div class="name-label">Student Name</div>
+                  <div class="name-label">Name</div>
                 </div>
                 <div class="info-list">
                   <div class="info-row">
-                    <span class="info-label">Student ID No.</span>
-                    <span class="info-value">: {{ card.student.student_id }}</span>
+                    <span class="info-label">Role</span>
+                    <span class="info-value">: {{ card.role_label|upper }}</span>
                   </div>
                   <div class="info-row">
-                    <span class="info-label">Course</span>
-                    <span class="info-value">: {{ card.student.get_course_display|default:card.student.course_or_section|default:"—" }}</span>
+                    <span class="info-label">Employee ID No.</span>
+                    <span class="info-value">: {{ card.id_display }}</span>
                   </div>
                   <div class="info-row">
-                    <span class="info-label">Birthdate</span>
-                    <span class="info-value">: {{ card.student.birthdate|date:"F j, Y"|default:"—" }}</span>
+                    <span class="info-label">Department</span>
+                    <span class="info-value">: {{ card.profile.department|default:"—" }}</span>
                   </div>
                   <div class="info-row">
-                    <span class="info-label">Address</span>
-                    <span class="info-value">: {{ card.student.address|default:"—" }}</span>
+                    <span class="info-label">Position</span>
+                    <span class="info-value">: {{ card.profile.position|default:"—" }}</span>
                   </div>
                   <div class="info-row">
-                    <span class="info-label">Contact No.</span>
-                    <span class="info-value">: {{ card.student.contact_number|default:"—" }}</span>
+                    <span class="info-label">Email</span>
+                    <span class="info-value">: {{ card.user.email|default:"—" }}</span>
                   </div>
                 </div>
               </div>
@@ -247,7 +245,7 @@
             <div class="card-footer-front">
               <div class="reminders-box">
                 <p class="reminders-heading">IMPORTANT REMINDERS</p>
-                <p class="reminders-content">Always carry your ID while inside the premises and present it to any authorized personnel of the school upon request. If found, please surrender to the Office of Student Affairs - Bayawan City Campus.</p>
+                <p class="reminders-content">Always carry your ID while inside the premises and present it to any authorized personnel upon request. Report loss to the administration office.</p>
               </div>
             </div>
           </div>
@@ -259,8 +257,8 @@
             <div class="emergency-section">
               <p class="emergency-label">IN CASE OF EMERGENCY, PLEASE NOTIFY</p>
               <div class="emergency-underline"></div>
-              <div class="emergency-name">{{ card.student.guardians_parents|default:card.student.guardian_contact|default:"—" }}</div>
-              <div class="emergency-mobile">{{ card.student.guardian_contact|default:card.student.contact_number|default:"—" }}</div>
+              <div class="emergency-name">{{ card.user.get_full_name|default:card.user.username }}</div>
+              <div class="emergency-mobile">{{ card.profile.contact_number|default:"—" }}</div>
             </div>
           </div>
           <div class="back-main-content">
@@ -272,7 +270,7 @@
             </div>
             <div class="qr-block">
               <div class="qr-wrap">
-                <img src="{{ card.qr_url }}" alt="QR {{ card.student.student_id }}">
+                <img src="{{ card.qr_url }}" alt="QR {{ card.id_display }}">
               </div>
               <p class="qr-hint">Scan at gate for IN / OUT</p>
             </div>
@@ -293,18 +291,8 @@
       </div>
     </div>
     {% empty %}
-    <p style="color: #888; padding: 40px; text-align: center;">No students match the selected filters.</p>
+    <p style="color: #888; padding: 40px; text-align: center;">No staff/faculty match the selected filters.</p>
     {% endfor %}
   </div>
-  <script>
-    (function () {
-      // Auto-trigger print for "Export as PDF" button flows.
-      var params = new URLSearchParams(window.location.search);
-      var shouldPrint = params.get('auto_print') === '1' || params.get('print') === '1' || params.get('pdf') === '1';
-      if (!shouldPrint) return;
-      // Wait a bit so the browser finishes layout.
-      setTimeout(function () { window.print(); }, 800);
-    })();
-  </script>
 </body>
 </html>

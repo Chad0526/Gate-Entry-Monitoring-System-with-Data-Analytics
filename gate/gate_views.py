@@ -7,6 +7,7 @@ import platform
 import zipfile
 import datetime
 import json
+import logging
 import calendar
 import re
 from types import SimpleNamespace
@@ -33,8 +34,28 @@ from collections import defaultdict
 from .notifications import notify_student_status_change
 
 from gate_analytics.roles import role_required, has_role, get_user_role
-from .models import Student, GateEntry, GateIncident, Event, EventAttendance, EventRegistration, AttendanceLog, ScannerDevice, GeneratedReport, VisitorEntry, VisitorPass, VisitorVisit, CAMPUS_DEPARTMENT_CHOICES, SiteTheme, GateShift, AuditLog, AdminNotification, BlockedIP
-from .forms import StudentForm
+from .models import (
+    Student,
+    StaffPersonnelProfile,
+    GateEntry,
+    GateIncident,
+    Event,
+    EventAttendance,
+    EventRegistration,
+    AttendanceLog,
+    ScannerDevice,
+    GeneratedReport,
+    VisitorEntry,
+    VisitorPass,
+    VisitorVisit,
+    CAMPUS_DEPARTMENT_CHOICES,
+    SiteTheme,
+    GateShift,
+    AuditLog,
+    AdminNotification,
+    BlockedIP,
+)
+from .forms import StudentForm, StaffPersonnelCreateForm
 from .policy import (
     get_student_current_state,
     evaluate_scan,
@@ -409,6 +430,40 @@ def _local_year_bounds(year):
     year_start = timezone.make_aware(datetime.datetime(year, 1, 1, 0, 0, 0), tz)
     year_end = timezone.make_aware(datetime.datetime(year + 1, 1, 1, 0, 0, 0), tz)
     return year_start, year_end
+
+
+def _calendar_weeks_overlapping_month(year, month):
+    """
+    Monday–Sunday weeks that overlap the given calendar month.
+    Returns list of (week_index, monday, sunday, clip_start, clip_end) where:
+    - week_index is 1-based within this month (first overlapping week = 1),
+    - monday/sunday are the full calendar week (Mon–Sun),
+    - clip_start/clip_end are dates in [year, month] used for counting entries.
+    """
+    first = datetime.date(year, month, 1)
+    if month == 12:
+        last = datetime.date(year + 1, 1, 1) - datetime.timedelta(days=1)
+    else:
+        last = datetime.date(year, month + 1, 1) - datetime.timedelta(days=1)
+    cur = first
+    while cur.weekday() != 0:  # Monday = 0
+        cur -= datetime.timedelta(days=1)
+    weeks = []
+    week_index = 0
+    while cur <= last:
+        monday = cur
+        sunday = cur + datetime.timedelta(days=6)
+        clip_start = max(monday, first)
+        clip_end = min(sunday, last)
+        if clip_start <= clip_end:
+            week_index += 1
+            weeks.append((week_index, monday, sunday, clip_start, clip_end))
+        cur += datetime.timedelta(days=7)
+    return weeks
+
+
+# Old name removed from weekly analytics; keep alias so cached bytecode / stale edits don't 500.
+_calendar_weeks_fully_inside_month = _calendar_weeks_overlapping_month
 
 
 def _report_per_day_time_window_q(start_d, end_d, t_from, t_to, field_name, tz):
@@ -2625,6 +2680,24 @@ def analytics_dashboard(request):
     }.get(student_io, 'All (IN + OUT)')
     student_chart_dataset_label = f'Student entries ({student_io_label})'
 
+    student_period_raw = (request.GET.get('student_period') or '').strip().lower()
+    student_period = student_period_raw if student_period_raw in ('daily', 'weekly', 'monthly', 'yearly') else 'monthly'
+    student_period_label = {
+        'daily': 'Daily',
+        'weekly': 'Weekly',
+        'monthly': 'Monthly',
+        'yearly': 'Yearly',
+    }.get(student_period, 'Monthly')
+
+    student_weekly_month = None
+    _sm_raw = (request.GET.get('student_month') or '').strip()
+    if _sm_raw.isdigit():
+        _sm = int(_sm_raw)
+        if 1 <= _sm <= 12:
+            student_weekly_month = _sm
+    if student_period == 'weekly' and student_weekly_month is None:
+        student_weekly_month = today.month if selected_year == today.year else 1
+
     entries_today = GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end)
     # Student gate visits only (daily gate, no event/visitor) so count matches Gate entry list
     granted_today = _granted_visits_count_for_date(today, daily_gate_only=True)
@@ -2666,8 +2739,8 @@ def analytics_dashboard(request):
     )
     if scan_type_filter:
         entries_for_year_qs = entries_for_year_qs.filter(scan_type__iexact=scan_type_filter)
-    entries_for_year = entries_for_year_qs.values_list('timestamp', flat=True)
-    for ts in entries_for_year:
+    entry_timestamps = list(entries_for_year_qs.values_list('timestamp', flat=True))
+    for ts in entry_timestamps:
         local_ts = timezone.localtime(ts)
         m = local_ts.month
         if 1 <= m <= 12:
@@ -2758,6 +2831,110 @@ def analytics_dashboard(request):
         annual_granted.append(qs.count())
         annual_denied.append(0)
 
+    # Main "Important analytics" student chart: daily / weekly / monthly / yearly (same IN/OUT filter as above)
+    student_chart_labels = []
+    student_chart_data = []
+    student_chart_type = 'bar'
+    student_stat_high_label = None
+    student_stat_high_count = 0
+    student_stat_low_label = None
+    student_stat_low_count = 0
+    student_chart_tooltip_lines = []
+
+    if student_period == 'monthly':
+        student_chart_labels = month_labels
+        student_chart_data = monthly_granted
+        student_chart_type = 'bar'
+        if student_monthly_highest_month:
+            student_stat_high_label = student_monthly_highest_month
+            student_stat_high_count = student_monthly_highest_count
+            student_stat_low_label = student_monthly_lowest_month
+            student_stat_low_count = student_monthly_lowest_count
+    elif student_period == 'yearly':
+        student_chart_labels = [str(y) for y in annual_years]
+        student_chart_data = annual_granted
+        student_chart_type = 'line'
+        year_pairs = [(y, c) for y, c in zip(annual_years, annual_granted) if c > 0]
+        if year_pairs:
+            hi_y, hi_c = max(year_pairs, key=lambda x: x[1])
+            lo_y, lo_c = min(year_pairs, key=lambda x: x[1])
+            student_stat_high_label = str(hi_y)
+            student_stat_high_count = hi_c
+            student_stat_low_label = str(lo_y)
+            student_stat_low_count = lo_c
+    elif student_period == 'daily':
+        daily_counts = {}
+        for ts in entry_timestamps:
+            local_d = timezone.localtime(ts).date()
+            if local_d.year != selected_year:
+                continue
+            daily_counts[local_d] = daily_counts.get(local_d, 0) + 1
+        year_end_date = datetime.date(selected_year, 12, 31)
+        if selected_year <= today.year:
+            end_d = min(today, year_end_date) if selected_year == today.year else year_end_date
+            cur = datetime.date(selected_year, 1, 1)
+            while cur <= end_d:
+                student_chart_labels.append(cur.strftime('%b %d'))
+                student_chart_data.append(daily_counts.get(cur, 0))
+                cur += datetime.timedelta(days=1)
+        non_zero = [(d, c) for d, c in daily_counts.items() if c > 0]
+        if non_zero:
+            hi_d, hi_c = max(non_zero, key=lambda x: x[1])
+            lo_d, lo_c = min(non_zero, key=lambda x: x[1])
+            student_stat_high_label = hi_d.strftime('%b %d, %Y')
+            student_stat_high_count = hi_c
+            student_stat_low_label = lo_d.strftime('%b %d, %Y')
+            student_stat_low_count = lo_c
+    else:
+        # Weekly: Mon–Sun weeks overlapping the month; count only days in that month (sums match yearly summary).
+        # "Fully inside month" weeks omitted boundary days (e.g. Feb 1; Feb 23–28 in a Feb/Mar week) — do not use.
+        day_counts_month = defaultdict(int)
+        for ts in entry_timestamps:
+            local_d = timezone.localtime(ts).date()
+            if local_d.year != selected_year or local_d.month != student_weekly_month:
+                continue
+            day_counts_month[local_d] += 1
+        week_rows = _calendar_weeks_overlapping_month(selected_year, student_weekly_month)
+        week_label_for_stat = []
+        for week_index, monday, sunday, clip_start, clip_end in week_rows:
+            cnt = 0
+            d = clip_start
+            while d <= clip_end:
+                cnt += day_counts_month.get(d, 0)
+                d += datetime.timedelta(days=1)
+            student_chart_labels.append('Wk %d' % week_index)
+            student_chart_data.append(cnt)
+            student_chart_tooltip_lines.append(
+                '%s %d, %d – %s %d, %d'
+                % (
+                    calendar.month_name[monday.month],
+                    monday.day,
+                    monday.year,
+                    calendar.month_name[sunday.month],
+                    sunday.day,
+                    sunday.year,
+                )
+            )
+            week_label_for_stat.append((cnt, 'Week %d' % week_index))
+        non_zero = [(t[1], t[0]) for t in week_label_for_stat if t[0] > 0]
+        if non_zero:
+            hi_label, hi_c = max(non_zero, key=lambda x: x[1])
+            lo_label, lo_c = min(non_zero, key=lambda x: x[1])
+            student_stat_high_label = hi_label
+            student_stat_high_count = hi_c
+            student_stat_low_label = lo_label
+            student_stat_low_count = lo_c
+
+    if student_period == 'yearly':
+        student_chart_title_line = 'Yearly student entries (by year)'
+    elif student_period == 'weekly':
+        student_chart_title_line = 'Weekly student entries — %s %s' % (
+            calendar.month_name[student_weekly_month],
+            selected_year,
+        )
+    else:
+        student_chart_title_line = '%s student entries (%s)' % (student_period_label, selected_year)
+
     theme = SiteTheme.objects.first()
     default_first_signatory_name = (getattr(theme, 'default_first_signatory_name', '') or '').strip()
     default_first_signatory_title = (getattr(theme, 'default_first_signatory_title', '') or '').strip()
@@ -2792,6 +2969,24 @@ def analytics_dashboard(request):
         'student_entries_this_year': student_entries_this_year,
         'student_io': student_io,
         'student_io_label': student_io_label,
+        'student_period': student_period,
+        'student_period_label': student_period_label,
+        'student_weekly_month': student_weekly_month,
+        'analytics_month_choices': [(i, calendar.month_name[i]) for i in range(1, 13)],
+        'student_chart_title_line': student_chart_title_line,
+        'student_chart_labels_json': json.dumps(student_chart_labels),
+        'student_chart_data_json': json.dumps(student_chart_data),
+        # Raw lists for templates/gate/analytics.html json_script (escapejs breaks JSON.parse)
+        'student_chart_labels': student_chart_labels,
+        'student_chart_data': student_chart_data,
+        'student_chart_tooltip_lines': student_chart_tooltip_lines,
+        'analytics_annual_years': [str(y) for y in annual_years],
+        'analytics_annual_granted': annual_granted,
+        'student_chart_type': student_chart_type,
+        'student_stat_high_label': student_stat_high_label,
+        'student_stat_high_count': student_stat_high_count,
+        'student_stat_low_label': student_stat_low_label,
+        'student_stat_low_count': student_stat_low_count,
         'student_chart_dataset_label': student_chart_dataset_label,
         'student_monthly_highest_month': student_monthly_highest_month,
         'student_monthly_highest_count': student_monthly_highest_count,
@@ -2940,7 +3135,7 @@ def _student_qr_png_bytes(student):
 
 @require_GET
 @login_required(login_url='/login/')
-@role_required('admin')
+@role_required('admin', 'staff', 'faculty', 'supervisor')
 def student_eid_print_all(request):
     """Printable page with all (filtered) student e-ID cards. Uses same filters as student list. download=1 → ZIP of PDFs."""
     from django.db.models import Q
@@ -2972,8 +3167,12 @@ def student_eid_print_all(request):
     students = list(students)
     site_name = getattr(settings, 'SITE_NAME', 'City College of Bayawan')
 
-    if request.GET.get('pdf') and students:
+    # On Windows, weasyprint usually fails (GTK libs missing) and Playwright can be unstable,
+    # which causes the browser "Server Closed Connection Suddenly" error.
+    # Fallback: when pdf=1 on Windows, render the normal print HTML view instead.
+    if request.GET.get('pdf') and students and platform.system() != 'Windows':
         import base64
+        import time
 
         def _file_to_data_uri(filepath, mime='image/png'):
             try:
@@ -2989,6 +3188,30 @@ def student_eid_print_all(request):
             except Exception:
                 pass
             return None
+
+        def _model_file_to_resized_jpeg_data_uri(field, max_size=(220, 280), quality=70):
+            """
+            Reduce payload size for student photos by resizing and recompressing before embedding.
+            This keeps the generated HTML smaller and prevents PDF jobs from timing out.
+            """
+            if not (field and getattr(field, "path", None) and os.path.isfile(field.path)):
+                return None
+            try:
+                from PIL import Image
+                img = Image.open(field.path)
+                img = img.convert("RGB")
+                img.thumbnail(max_size, Image.Resampling.LANCZOS)
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=quality, optimize=True)
+                buf.seek(0)
+                b = buf.getvalue()
+                return f"data:image/jpeg;base64,{base64.b64encode(b).decode('ascii')}"
+            except Exception:
+                # Fallback to raw embedding if resizing fails (still better than empty).
+                try:
+                    return _model_file_to_data_uri(field, mime="image/jpeg")
+                except Exception:
+                    return None
 
         logo_url = None
         try:
@@ -3011,7 +3234,16 @@ def student_eid_print_all(request):
                 qr_url = f'data:image/png;base64,{base64.b64encode(qr_bytes).decode("ascii")}'
             else:
                 qr_url = ''
-            photo_url = _model_file_to_data_uri(getattr(student, 'photo', None), 'image/jpeg')
+
+            photo_url = _model_file_to_resized_jpeg_data_uri(getattr(student, 'photo', None))
+            if not photo_url:
+                # If resizing fails (or PIL isn't available), at least provide an absolute URL.
+                # The template prefers card.photo_url when present.
+                try:
+                    if getattr(student, 'photo', None) and student.photo:
+                        photo_url = request.build_absolute_uri(student.photo.url)
+                except Exception:
+                    photo_url = ''
             student_cards.append({'student': student, 'qr_url': qr_url, 'photo_url': photo_url})
 
         html = render_to_string('gate/student_eid_export_pdf.html', {
@@ -3021,29 +3253,80 @@ def student_eid_print_all(request):
             'bg_data_uri': bg_data_uri,
         }, request=request)
 
+        base_url = (request.build_absolute_uri('/') or '/').rstrip('/') + '/'
+        pdf_bytes = None
+        _log = logging.getLogger(__name__)
+        started_at = time.monotonic()
+        pdf_method = None
+        _log.info(
+            "student_eid_print_all: start PDF generation for %s students (platform=%s)",
+            len(students),
+            platform.system(),
+        )
+
+        # Prefer WeasyPrint (fast, stable). If WeasyPrint can't run on this machine,
+        # fallback to Playwright.
         try:
-            from playwright.sync_api import sync_playwright
-            with sync_playwright() as p:
-                browser = p.chromium.launch()
-                page = browser.new_page(viewport={'width': 500, 'height': 340})
-                try:
-                    page.set_content(html, wait_until='networkidle')
-                    page.wait_for_timeout(2000)
-                    pdf_bytes = page.pdf(
-                        width='3.377in',
-                        height='2.127in',
-                        print_background=True,
-                        margin={'top': '0', 'right': '0', 'bottom': '0', 'left': '0'},
-                    )
-                finally:
-                    browser.close()
-            if pdf_bytes:
-                response = HttpResponse(pdf_bytes, content_type='application/pdf')
-                response['Content-Disposition'] = 'attachment; filename="student-eids.pdf"'
-                return response
+            from weasyprint import HTML
+            pdf_bytes = HTML(string=html, base_url=base_url).write_pdf()
+            pdf_method = 'weasyprint'
+        except (ImportError, OSError) as e:
+            _log.debug('student_eid_print_all: WeasyPrint unavailable: %s', e)
         except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning('student_eid_print_all PDF export failed: %s', e)
+            _log.warning('student_eid_print_all: WeasyPrint PDF failed: %s', e)
+
+        # Playwright fallback: never use wait_until='networkidle' here — data-URI-only HTML
+        # often never reaches "idle", which hangs the worker and drops the connection (IDM "server closed").
+        if not pdf_bytes:
+            try:
+                from playwright.sync_api import sync_playwright
+                pdf_method = 'playwright'
+                with sync_playwright() as p:
+                    browser = p.chromium.launch()
+                    page = browser.new_page(viewport={'width': 500, 'height': 340})
+                    try:
+                        page.set_default_timeout(20000)
+                        # Ensure print-specific CSS applies.
+                        try:
+                            page.emulate_media(media='print')
+                        except Exception:
+                            pass
+                        page.set_content(html, wait_until='domcontentloaded', timeout=20000)
+                        # Give the browser a moment to lay out embedded images.
+                        page.wait_for_timeout(800)
+                        pdf_bytes = page.pdf(
+                            width='3.377in',
+                            height='2.127in',
+                            print_background=True,
+                            margin={'top': '0', 'right': '0', 'bottom': '0', 'left': '0'},
+                        )
+                    finally:
+                        browser.close()
+            except Exception as e:
+                _log.warning('student_eid_print_all: Playwright PDF failed: %s', e)
+
+        if pdf_bytes:
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            response['Content-Disposition'] = 'attachment; filename="student-eids.pdf"'
+            _log.info(
+                "student_eid_print_all: finished method=%s bytes=%s elapsed=%.2fs",
+                pdf_method,
+                len(pdf_bytes),
+                time.monotonic() - started_at,
+            )
+            return response
+
+        _log.warning(
+            "student_eid_print_all: PDF export failed (method tried=%s) elapsed=%.2fs",
+            pdf_method,
+            time.monotonic() - started_at,
+        )
+        return HttpResponse(
+            'PDF export failed. Install WeasyPrint dependencies on the server, or run '
+            '"playwright install chromium". You can still use Print from the HTML view.',
+            status=503,
+            content_type='text/plain; charset=utf-8',
+        )
 
     logo_url = None
     try:
@@ -3470,12 +3753,12 @@ def visitor_pass_print_all(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty')
+@role_required('admin', 'staff', 'faculty', 'supervisor')
 def student_list(request):
-    """List students (read-only for staff/faculty). Filter by course, year_level, section, sex, search (GET)."""
+    """List students. Staff/faculty/supervisor get same registry actions as admin (import, export, e-ID, edit)."""
     from gate_analytics.roles import get_user_role
     role = get_user_role(request.user)
-    can_edit_students = role == 'admin'
+    can_edit_students = role in ('admin', 'staff', 'faculty', 'supervisor')
 
     embed = (request.GET.get('embed') or '').strip().lower() in ('1', 'true', 'yes')
     filter_course = (request.GET.get('course') or '').strip()
@@ -3524,6 +3807,10 @@ def student_list(request):
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
 
+    # Student list sex filter: only show the two explicit options staff asked for.
+    # (Still keeps DB/exports supporting OTHER/PREFER_NOT internally.)
+    sex_choices = [c for c in Student.SEX_CHOICES if c[0] in (Student.SEX_MALE, Student.SEX_FEMALE)]
+
     return render(request, 'gate/student_list.html', {
         'site_name': 'City College of Bayawan',
         'can_edit_students': can_edit_students,
@@ -3542,56 +3829,145 @@ def student_list(request):
         'clear_search_url': clear_search_url,
         'course_choices': Student.COURSE_CHOICES,
         'year_level_choices': Student.YEAR_LEVEL_CHOICES,
-        'sex_choices': Student.SEX_CHOICES,
+        'sex_choices': sex_choices,
     })
 
 
-@login_required(login_url='/login/')
-@role_required('admin', 'staff', 'supervisor')
-def pending_staff_personnel_list(request):
-    """
-    In-app page to list Staff/Faculty users with Status column (Pending/Approved)
-    and actions to Approve or Deactivate. Replaces linking to Django admin.
-    """
+def _staff_personnel_registry_redirect_response(request):
+    """After POST on staff registry, return to same list URL + query (hidden `next` field)."""
+    next_path = (request.POST.get('next') or '').strip()
+    if next_path.startswith('/') and not next_path.startswith('//'):
+        return redirect(next_path)
+    return redirect('pending-staff-personnel-list')
+
+
+def _staff_personnel_qr_payload(user):
+    """QR encodes employee ID when set; otherwise username (for printed e-ID)."""
+    try:
+        p = user.staff_personnel_profile
+        eid = (p.employee_id or '').strip()
+    except Exception:
+        eid = ''
+    return eid or (user.username or '').strip() or str(user.pk)
+
+
+def _staff_personnel_qr_png_bytes(user):
+    payload = _staff_personnel_qr_payload(user)
+    if not payload:
+        return None
+    try:
+        import qrcode
+        qr = qrcode.QRCode(version=1, box_size=8, border=3)
+        qr.add_data(payload)
+        qr.make(fit=True)
+        img = qr.make_image()
+        buf = io.BytesIO()
+        img.save(buf, format='PNG')
+        buf.seek(0)
+        return buf.getvalue()
+    except Exception:
+        return None
+
+
+def _query_staff_registry_users(request):
+    """Filter staff/faculty Users from GET (status, role, q, pending=1) — shared by list, export, print-all."""
     from django.contrib.auth import get_user_model
+
     User = get_user_model()
+    if request.GET.get('pending') == '1':
+        filter_status = 'pending'
+    else:
+        filter_status = (request.GET.get('status') or 'all').strip().lower()
+    if filter_status not in ('all', 'active', 'pending'):
+        filter_status = 'all'
 
-    # Filter: show only pending, or all (default: all so admin can see status and deactivate)
-    show_only_pending = request.GET.get('pending') == '1'
+    filter_role = (request.GET.get('role') or '').strip().lower()
+    if filter_role not in ('', 'staff', 'faculty'):
+        filter_role = ''
 
-    # Subquery for IDs so distinct() + order_by() works on both MySQL and PostgreSQL
+    search_q = (request.GET.get('q') or '').strip()
+
     id_qs = User.objects.filter(
         Q(groups__name__iexact='staff') |
         Q(groups__name__iexact='faculty')
     ).distinct().values_list('id', flat=True)
-    qs = User.objects.filter(id__in=id_qs).order_by('-date_joined').select_related('staff_personnel_profile')
+    qs = User.objects.filter(id__in=id_qs).select_related('staff_personnel_profile')
 
-    if show_only_pending:
+    if filter_status == 'pending':
         qs = qs.filter(is_active=False)
+    elif filter_status == 'active':
+        qs = qs.filter(is_active=True)
+
+    if filter_role == 'staff':
+        qs = qs.filter(groups__name__iexact='staff')
+    elif filter_role == 'faculty':
+        qs = qs.filter(groups__name__iexact='faculty')
+
+    if search_q:
+        qs = qs.filter(
+            Q(username__icontains=search_q) |
+            Q(first_name__icontains=search_q) |
+            Q(last_name__icontains=search_q) |
+            Q(email__icontains=search_q) |
+            Q(staff_personnel_profile__employee_id__icontains=search_q)
+        ).distinct()
+
+    return qs
+
+
+@login_required(login_url='/login/')
+@role_required('admin')
+def pending_staff_personnel_list(request):
+    """
+    Staff/Faculty registry (same UX as Students): filters, search, QR, e-ID, import/export, add.
+    """
+    from django.contrib.auth import get_user_model
+    from django.contrib.auth.models import Group
+
+    User = get_user_model()
+
+    if request.GET.get('pending') == '1':
+        filter_status = 'pending'
+    else:
+        filter_status = (request.GET.get('status') or 'all').strip().lower()
+    if filter_status not in ('all', 'active', 'pending'):
+        filter_status = 'all'
+
+    filter_role = (request.GET.get('role') or '').strip().lower()
+    if filter_role not in ('', 'staff', 'faculty'):
+        filter_role = ''
+
+    search_q = (request.GET.get('q') or '').strip()
+
+    qs = _query_staff_registry_users(request).order_by('-date_joined')
+
+    show_only_pending = filter_status == 'pending'
+
+    clear_params = {}
+    if filter_role:
+        clear_params['role'] = filter_role
+    if filter_status != 'all':
+        if filter_status == 'pending':
+            clear_params['pending'] = '1'
+        else:
+            clear_params['status'] = filter_status
+    clear_search_url = reverse('pending-staff-personnel-list') + ('?' + urlencode(clear_params) if clear_params else '')
 
     # POST: approve, deactivate, or edit_user
     if request.method == 'POST':
-        from django.utils.http import urlencode
-        from django.contrib.auth.models import Group
-        from .models import StaffPersonnelProfile
-
         action = (request.POST.get('action') or '').strip()
         user_id = request.POST.get('user_id')
-        params = {}
-        if show_only_pending:
-            params['pending'] = '1'
-        redirect_url = reverse('pending-staff-personnel-list') + ('?' + urlencode(params) if params else '')
 
         if action == 'edit_user' and user_id:
             try:
                 u = User.objects.get(pk=user_id)
                 if not (u.groups.filter(name__iexact='staff').exists() or u.groups.filter(name__iexact='faculty').exists()):
                     messages.error(request, 'User is not a staff or faculty account.')
-                    return redirect(redirect_url)
+                    return _staff_personnel_registry_redirect_response(request)
                 new_username = (request.POST.get('username') or '').strip()
                 if new_username and User.objects.filter(username__iexact=new_username).exclude(pk=u.pk).exists():
                     messages.error(request, f'Username "{new_username}" is already taken.')
-                    return redirect(redirect_url)
+                    return _staff_personnel_registry_redirect_response(request)
                 u.first_name = (request.POST.get('first_name') or '').strip()
                 u.last_name = (request.POST.get('last_name') or '').strip()
                 u.email = (request.POST.get('email') or '').strip()
@@ -3619,7 +3995,7 @@ def pending_staff_personnel_list(request):
                 messages.success(request, f'Account for {u.get_full_name() or u.username} has been updated.')
             except User.DoesNotExist:
                 messages.error(request, 'User not found.')
-            return redirect(redirect_url)
+            return _staff_personnel_registry_redirect_response(request)
 
         if action and user_id:
             try:
@@ -3646,7 +4022,7 @@ def pending_staff_personnel_list(request):
                             messages.success(request, f'Account "{name}" has been permanently deleted.')
             except User.DoesNotExist:
                 messages.error(request, 'User not found.')
-        return redirect(redirect_url)
+        return _staff_personnel_registry_redirect_response(request)
 
     def get_role(u):
         for g in u.groups.all():
@@ -3684,6 +4060,8 @@ def pending_staff_personnel_list(request):
         ).distinct().values_list('id', flat=True)
     ).count()
 
+    can_edit_staff_registry = get_user_role(request.user) in ('admin', 'staff', 'faculty', 'supervisor')
+
     return render(request, 'gate/pending_staff_guard.html', {
         'site_name': 'City College of Bayawan',
         'users_with_role': users_with_role,
@@ -3694,6 +4072,388 @@ def pending_staff_personnel_list(request):
         'per_page_options': PER_PAGE_OPTIONS,
         'show_only_pending': show_only_pending,
         'pending_count': pending_count,
+        'filter_status': filter_status,
+        'filter_role': filter_role,
+        'search_q': search_q,
+        'clear_search_url': clear_search_url,
+        'can_edit_staff_registry': can_edit_staff_registry,
+        'registry_current_path': request.get_full_path(),
+    })
+
+
+@require_GET
+@login_required(login_url='/login/')
+@role_required('admin')
+def staff_personnel_qr_image(request, user_id):
+    """PNG QR for staff/faculty e-ID (employee ID or username)."""
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = get_object_or_404(User, pk=user_id)
+    if not (user.groups.filter(name__iexact='staff').exists() or user.groups.filter(name__iexact='faculty').exists()):
+        return HttpResponseForbidden('Not a staff/faculty account.')
+    payload = _staff_personnel_qr_payload(user)
+    try:
+        import qrcode
+        qr = qrcode.QRCode(version=1, box_size=8, border=3)
+        qr.add_data(payload)
+        qr.make(fit=True)
+        img = qr.make_image()
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG')
+        buffer.seek(0)
+        return HttpResponse(buffer.getvalue(), content_type='image/png')
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning('staff_personnel_qr_image failed for user_id=%s', user_id)
+        try:
+            from PIL import Image
+            buf = io.BytesIO()
+            placeholder = Image.new('RGB', (56, 56), color=(240, 240, 240))
+            placeholder.save(buf, format='PNG')
+            buf.seek(0)
+            return HttpResponse(buf.getvalue(), content_type='image/png')
+        except Exception:
+            return HttpResponse(
+                b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82',
+                content_type='image/png',
+            )
+
+
+@require_GET
+@login_required(login_url='/login/')
+@role_required('admin')
+def staff_personnel_eid_card(request, user_id):
+    """Printable staff/faculty e-ID (same layout family as student e-ID)."""
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = get_object_or_404(User, pk=user_id)
+    if not (user.groups.filter(name__iexact='staff').exists() or user.groups.filter(name__iexact='faculty').exists()):
+        return HttpResponseForbidden('Not a staff/faculty account.')
+    profile, _ = StaffPersonnelProfile.objects.get_or_create(user=user, defaults={})
+    qr_url = request.build_absolute_uri(reverse('gate-staff-personnel-qr', kwargs={'user_id': user.pk}))
+    site_name = getattr(settings, 'SITE_NAME', 'City College of Bayawan')
+    logo_url = None
+    try:
+        theme = SiteTheme.objects.first()
+        if theme and theme.logo:
+            logo_url = request.build_absolute_uri(theme.logo.url)
+    except Exception:
+        pass
+    if not logo_url:
+        try:
+            logo_url = request.build_absolute_uri(static('gate/images/university-logo.png'))
+        except Exception:
+            pass
+    photo_url = None
+    try:
+        up = getattr(user, 'user_profile', None)
+        if up and getattr(up, 'avatar', None) and up.avatar:
+            url = up.avatar.url
+            photo_url = url if url.startswith('http') else request.build_absolute_uri(url)
+    except Exception:
+        pass
+    role_label = 'Faculty' if user.groups.filter(name__iexact='faculty').exists() else 'Staff'
+    id_display = (profile.employee_id or '').strip() or user.username
+    return render(request, 'gate/staff_eid_card.html', {
+        'user': user,
+        'profile': profile,
+        'role_label': role_label,
+        'qr_url': qr_url,
+        'site_name': site_name,
+        'logo_url': logo_url,
+        'photo_url': photo_url,
+        'id_display': id_display,
+    })
+
+
+@require_GET
+@login_required(login_url='/login/')
+@role_required('admin')
+def staff_personnel_eid_print_all(request):
+    """Print all filtered staff/faculty e-ID cards (same GET filters as registry)."""
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    users = list(_query_staff_registry_users(request).order_by('last_name', 'first_name'))
+    site_name = getattr(settings, 'SITE_NAME', 'City College of Bayawan')
+    logo_url = None
+    try:
+        theme = SiteTheme.objects.first()
+        if theme and theme.logo:
+            logo_url = request.build_absolute_uri(theme.logo.url)
+    except Exception:
+        pass
+    staff_cards = []
+    for u in users:
+        profile, _ = StaffPersonnelProfile.objects.get_or_create(user=u, defaults={})
+        qr_url = request.build_absolute_uri(reverse('gate-staff-personnel-qr', kwargs={'user_id': u.pk}))
+        photo_url = None
+        try:
+            up = getattr(u, 'user_profile', None)
+            if up and getattr(up, 'avatar', None) and up.avatar:
+                url = up.avatar.url
+                photo_url = url if url.startswith('http') else request.build_absolute_uri(url)
+        except Exception:
+            pass
+        role_label = 'Faculty' if u.groups.filter(name__iexact='faculty').exists() else 'Staff'
+        id_display = (profile.employee_id or '').strip() or u.username
+        staff_cards.append({
+            'user': u,
+            'profile': profile,
+            'role_label': role_label,
+            'qr_url': qr_url,
+            'photo_url': photo_url,
+            'id_display': id_display,
+        })
+    return render(request, 'gate/staff_eid_print_all.html', {
+        'staff_cards': staff_cards,
+        'total': len(staff_cards),
+        'site_name': site_name,
+        'logo_url': logo_url,
+    })
+
+
+@require_GET
+@login_required(login_url='/login/')
+@role_required('admin')
+def staff_personnel_export_csv(request):
+    """Export all staff/faculty users + profile fields to CSV (mirrors student export: full roster)."""
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    id_qs = User.objects.filter(
+        Q(groups__name__iexact='staff') |
+        Q(groups__name__iexact='faculty')
+    ).distinct().values_list('id', flat=True)
+    users = User.objects.filter(id__in=id_qs).order_by('last_name', 'first_name').select_related('staff_personnel_profile')
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="staff_faculty_export.csv"'
+    response.write('\ufeff')
+    writer = csv.writer(response)
+    writer.writerow([
+        'Username', 'Email', 'First name', 'Last name', 'Role', 'Employee ID',
+        'Department', 'Position', 'Contact number', 'Middle name', 'Address',
+        'Is active', 'Date joined',
+    ])
+    for u in users:
+        profile, _ = StaffPersonnelProfile.objects.get_or_create(user=u, defaults={})
+        role = ''
+        for g in u.groups.all():
+            n = (g.name or '').lower()
+            if n in ('staff', 'faculty'):
+                role = g.name or n.title()
+                break
+        writer.writerow([
+            u.username,
+            u.email or '',
+            u.first_name,
+            u.last_name,
+            role,
+            profile.employee_id or '',
+            profile.department or '',
+            profile.position or '',
+            profile.contact_number or '',
+            profile.middle_name or '',
+            (profile.address or '').replace('\r\n', ' ').replace('\n', ' '),
+            'Yes' if u.is_active else 'No',
+            timezone.localtime(u.date_joined).strftime('%Y-%m-%d %H:%M:%S') if u.date_joined else '',
+        ])
+    return response
+
+
+@login_required(login_url='/login/')
+@role_required('admin')
+def import_staff_personnel_csv(request):
+    """Import staff/faculty from CSV: username, email, first_name, last_name, role, optional fields."""
+    from django.contrib.auth import get_user_model
+    import secrets
+
+    if request.method != 'POST':
+        return render(request, 'gate/import_staff_personnel_csv.html', {'site_name': 'City College of Bayawan'})
+
+    csv_file = request.FILES.get('csv_file')
+    if not csv_file or not csv_file.name.lower().endswith(('.csv', '.txt')):
+        messages.warning(request, 'Please upload a CSV file.')
+        return redirect('gate-staff-personnel-import-csv')
+
+    try:
+        content = csv_file.read().decode('utf-8-sig').strip()
+        reader = csv.reader(io.StringIO(content))
+        rows = list(reader)
+    except Exception as e:
+        messages.error(request, 'Could not read CSV: %s' % str(e))
+        return redirect('gate-staff-personnel-import-csv')
+
+    if not rows:
+        messages.warning(request, 'CSV file is empty.')
+        return redirect('gate-staff-personnel-import-csv')
+
+    from django.contrib.auth.models import Group
+
+    User = get_user_model()
+    HEADER_ALIASES = {
+        'username': 'username', 'user': 'username',
+        'email': 'email',
+        'first_name': 'first_name', 'first name': 'first_name',
+        'last_name': 'last_name', 'last name': 'last_name',
+        'middle_name': 'middle_name', 'middle name': 'middle_name',
+        'role': 'role', 'type': 'role',
+        'employee_id': 'employee_id', 'employee id': 'employee_id', 'id': 'employee_id',
+        'department': 'department',
+        'position': 'position',
+        'contact_number': 'contact_number', 'contact number': 'contact_number', 'phone': 'contact_number',
+        'password': 'password',
+        'is_active': 'is_active', 'active': 'is_active',
+    }
+
+    first = rows[0]
+    first_lower = [str(c or '').strip().lower() for c in first]
+    has_header = 'username' in first_lower and 'email' in first_lower
+    if has_header:
+        col_map = {}
+        for idx, cell in enumerate(first):
+            key = str(cell or '').strip().lower()
+            if key in HEADER_ALIASES:
+                col_map[HEADER_ALIASES[key]] = idx
+        data_rows = rows[1:]
+    else:
+        col_map = None
+        data_rows = rows
+
+    created = 0
+    skipped = 0
+    errors = []
+
+    def _get(row, key, default=''):
+        if col_map is None:
+            return default
+        idx = col_map.get(key)
+        if idx is None or idx >= len(row):
+            return default
+        return (row[idx] or '').strip()
+
+    for i, row in enumerate(data_rows):
+        if not row:
+            continue
+        line_no = i + 2 if has_header else i + 1
+        if col_map is not None:
+            username = _get(row, 'username')
+            email = _get(row, 'email')
+            first_name = _get(row, 'first_name')
+            last_name = _get(row, 'last_name')
+            role_raw = (_get(row, 'role') or 'staff').lower()
+            middle_name = _get(row, 'middle_name')
+            employee_id = _get(row, 'employee_id')
+            department = _get(row, 'department')
+            position = _get(row, 'position')
+            contact_number = _get(row, 'contact_number')
+            password = _get(row, 'password')
+            is_active_raw = (_get(row, 'is_active') or 'yes').lower()
+        else:
+            if len(row) < 4:
+                continue
+            username = (row[0] or '').strip()
+            email = (row[1] or '').strip()
+            first_name = (row[2] or '').strip()
+            last_name = (row[3] or '').strip()
+            role_raw = (row[4] or 'staff').strip().lower() if len(row) > 4 else 'staff'
+            middle_name = ''
+            employee_id = ''
+            department = ''
+            position = ''
+            contact_number = ''
+            password = ''
+            is_active_raw = 'yes'
+
+        if not username or not email or not first_name or not last_name:
+            skipped += 1
+            continue
+        if User.objects.filter(username__iexact=username).exists():
+            errors.append(f'Line {line_no}: username "{username}" already exists.')
+            skipped += 1
+            continue
+        if role_raw not in ('staff', 'faculty'):
+            errors.append(f'Line {line_no}: role must be staff or faculty.')
+            skipped += 1
+            continue
+        is_active = is_active_raw in ('1', 'yes', 'true', 'active')
+
+        pwd = password or secrets.token_urlsafe(14)
+        try:
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=pwd,
+                    first_name=first_name,
+                    last_name=last_name,
+                    is_active=is_active,
+                )
+                grp = Group.objects.filter(name__iexact=role_raw).first()
+                if grp:
+                    user.groups.add(grp)
+                profile, _ = StaffPersonnelProfile.objects.get_or_create(user=user, defaults={})
+                profile.middle_name = (middle_name or '')[:100]
+                profile.employee_id = (employee_id or '')[:50]
+                profile.department = (department or '')[:150]
+                profile.position = (position or '')[:150]
+                profile.contact_number = (contact_number or '')[:20]
+                profile.save()
+                created += 1
+        except Exception as ex:
+            errors.append(f'Line {line_no}: {ex}')
+            skipped += 1
+
+    if created:
+        messages.success(request, f'Imported {created} staff/faculty account(s).')
+    if skipped and not created:
+        messages.warning(request, 'No rows imported. Check errors below.')
+    if errors:
+        for err in errors[:15]:
+            messages.warning(request, err)
+        if len(errors) > 15:
+            messages.warning(request, f'…and {len(errors) - 15} more errors.')
+    return redirect('pending-staff-personnel-list')
+
+
+@login_required(login_url='/login/')
+@role_required('admin')
+def staff_personnel_create(request):
+    """Add staff/faculty user + profile (in-app, same idea as Add student)."""
+    from django.contrib.auth import get_user_model
+    from django.contrib.auth.models import Group
+
+    User = get_user_model()
+    form = StaffPersonnelCreateForm(request.POST or None)
+    if form.is_valid():
+        d = form.cleaned_data
+        with transaction.atomic():
+            user = User.objects.create_user(
+                username=d['username'],
+                email=d['email'],
+                password=d['password'],
+                first_name=d['first_name'],
+                last_name=d['last_name'],
+                is_active=d.get('is_active', True),
+            )
+            grp = Group.objects.filter(name__iexact=d['role']).first()
+            if grp:
+                user.groups.add(grp)
+            profile, _ = StaffPersonnelProfile.objects.get_or_create(user=user, defaults={})
+            profile.middle_name = (d.get('middle_name') or '')[:100]
+            profile.employee_id = (d.get('employee_id') or '')[:50]
+            profile.department = (d.get('department') or '')[:150]
+            profile.position = (d.get('position') or '')[:150]
+            profile.contact_number = (d.get('contact_number') or '')[:20]
+            profile.save()
+        messages.success(request, f'Created account for {user.get_full_name() or user.username}.')
+        return redirect('pending-staff-personnel-list')
+    return render(request, 'gate/staff_personnel_form.html', {
+        'site_name': 'City College of Bayawan',
+        'form': form,
+        'title': 'Add staff / faculty',
     })
 
 
@@ -3707,23 +4467,37 @@ def approve_all_pending_students(request):
 
 @require_GET
 @login_required(login_url='/login/')
-@role_required('admin')
+@role_required('admin', 'staff', 'faculty', 'supervisor')
 def student_list_export_csv(request):
     """Export all student information to CSV (all fields)."""
+    import time
+    started_at = time.monotonic()
     students = Student.objects.all().order_by('last_name', 'first_name')
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="students_export.csv"'
-    response.write('\ufeff')  # BOM for Excel UTF-8
-    writer = csv.writer(response)
+    # Build CSV fully first to make downloads reliable (some clients error on
+    # chunked/streamed responses). Use UTF-8-SIG so Excel opens it correctly.
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+
+    # Excel can convert long numeric IDs (student_id/contact numbers) into scientific
+    # notation or truncate leading zeros. Prefix with TAB to force Excel to treat
+    # them as text.
+    def _excel_text(v):
+        if v is None:
+            return ''
+        s = str(v)
+        return '\t' + s
+
     writer.writerow([
         'Student ID', 'First name', 'Middle name', 'Last name', 'Email', 'Address',
         'Birthdate', 'Sex/Gender', 'Guardians / Parents', 'Guardian contact', 'Course', 'Year level', 'Section', 'Course or section (legacy)',
         'Contact number', 'Account status', 'Is active', 'Approved by', 'Approved at', 'Rejection reason',
         'Created at', 'Updated at',
     ])
+    student_count = 0
     for s in students:
+        student_count += 1
         writer.writerow([
-            s.student_id,
+            _excel_text(s.student_id),
             s.first_name,
             s.middle_name or '',
             s.last_name,
@@ -3732,12 +4506,12 @@ def student_list_export_csv(request):
             s.birthdate.isoformat() if s.birthdate else '',
             s.get_sex_display() if s.sex else '',
             s.guardians_parents or '',
-            s.guardian_contact or '',
+            _excel_text(s.guardian_contact) if s.guardian_contact else '',
             s.course or '',
             s.get_year_level_display() if s.year_level else '',
             s.section or '',
             s.course_or_section or '',
-            s.contact_number or '',
+            _excel_text(s.contact_number) if s.contact_number else '',
             s.account_status,
             'Yes' if s.is_active else 'No',
             s.approved_by.username if s.approved_by_id else '',
@@ -3746,11 +4520,34 @@ def student_list_export_csv(request):
             timezone.localtime(s.created_at).strftime('%Y-%m-%d %H:%M:%S') if s.created_at else '',
             timezone.localtime(s.updated_at).strftime('%Y-%m-%d %H:%M:%S') if s.updated_at else '',
         ])
+    csv_bytes = buffer.getvalue().encode('utf-8-sig')
+    elapsed = time.monotonic() - started_at
+    response = HttpResponse(csv_bytes, content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = 'attachment; filename="students_export.csv"'
+    response['Content-Length'] = str(len(csv_bytes))
+    response['Cache-Control'] = 'no-store'
+    response['Pragma'] = 'no-cache'
+    # Django/WGSI forbids hop-by-hop headers like 'Connection' and will throw 500.
+    # Some proxies may try to add it; ensure it's removed.
+    try:
+        response.headers.pop('Connection', None)
+    except Exception:
+        pass
+    logging.getLogger(__name__).info(
+        "student_list_export_csv: students=%s bytes=%s elapsed=%.2fs",
+        student_count,
+        len(csv_bytes),
+        elapsed,
+    )
+    # Also print to console so it's visible even if logging isn't configured.
+    print(
+        f"student_list_export_csv: students={student_count} bytes={len(csv_bytes)} elapsed={elapsed:.2f}s"
+    )
     return response
 
 
 @login_required(login_url='/login/')
-@role_required('admin')
+@role_required('admin', 'staff', 'faculty', 'supervisor')
 def student_create(request):
     """Create student. Syncs is_active with account_status when APPROVED."""
     form = StudentForm(request.POST or None, request.FILES or None)
@@ -3782,7 +4579,7 @@ def student_create(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin')
+@role_required('admin', 'staff', 'faculty', 'supervisor')
 def student_edit(request, pk):
     """Edit student. When approving (account_status=APPROVED), set approved_by/approved_at and is_active=True."""
     student = get_object_or_404(Student, pk=pk)
@@ -3831,7 +4628,7 @@ def student_edit(request, pk):
 
 @require_GET
 @login_required(login_url='/login/')
-@role_required('admin')
+@role_required('admin', 'staff', 'faculty', 'supervisor')
 def student_sample_csv(request):
     """Download sample students CSV: 50 students (20240001–20240050) with full details."""
     sample_path = os.path.join(os.path.dirname(__file__), 'sample_students_50.csv')
@@ -4285,36 +5082,9 @@ def student_entries_yearly_summary(request):
         })
 
     total_year = sum(s['count'] for s in monthly_stats)
-    yr_range_from = (request.GET.get('from_date') or '').strip()
-    yr_range_to = (request.GET.get('to_date') or '').strip()
-    if yr_range_from and yr_range_to:
-        try:
-            d_from = datetime.date.fromisoformat(yr_range_from)
-            d_to = datetime.date.fromisoformat(yr_range_to)
-            if d_from <= d_to:
-                y_lo = datetime.date(selected_year, 1, 1)
-                y_hi = datetime.date(selected_year, 12, 31)
-                d_from = max(d_from, y_lo)
-                d_to = min(d_to, y_hi)
-                if d_from <= d_to:
-                    filtered_months = []
-                    for s in monthly_stats:
-                        fd = datetime.date.fromisoformat(s['first_day_iso'])
-                        ld = datetime.date.fromisoformat(s['last_day_iso'])
-                        if fd <= d_to and ld >= d_from:
-                            filtered_months.append(s)
-                    monthly_stats = filtered_months
-                    total_year = sum(s['count'] for s in monthly_stats)
-                    yr_range_from = d_from.isoformat()
-                    yr_range_to = d_to.isoformat()
-                else:
-                    yr_range_from = yr_range_to = ''
-            else:
-                yr_range_from = yr_range_to = ''
-        except ValueError:
-            yr_range_from = yr_range_to = ''
 
     years_qs = GateEntry.objects.filter(
+        granted=True,
         student_id__isnull=False,
         event__isnull=True,
         visitor_visit__isnull=True,
@@ -4330,8 +5100,6 @@ def student_entries_yearly_summary(request):
         'monthly_stats': monthly_stats,
         'total_year': total_year,
         'available_years': available_years,
-        'yr_range_from': yr_range_from,
-        'yr_range_to': yr_range_to,
     }
     return render(request, 'gate/student_entries_yearly.html', context)
 
@@ -4349,7 +5117,7 @@ def reports_incidents_overrides_redirect(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin')
+@role_required('admin', 'staff', 'faculty', 'supervisor')
 def import_students_csv(request):
     """Import students from CSV (from registrar).
     Supports two formats:

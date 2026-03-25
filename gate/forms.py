@@ -306,7 +306,12 @@ class StudentRegistrationForm(forms.Form):
     sex = forms.ChoiceField(
         required=True,
         label='Sex / Gender',
-        choices=[('', 'Select sex/gender')] + list(Student.SEX_CHOICES),
+        # Public student registration: only allow the two explicit options requested
+        # (other values can still exist in the DB from older records/imports).
+        choices=[('', 'Select sex/gender')] + [
+            c for c in Student.SEX_CHOICES
+            if c[0] in (Student.SEX_MALE, Student.SEX_FEMALE)
+        ],
         widget=forms.Select(attrs={'class': 'form-control'})
     )
     guardians_parents = forms.CharField(
@@ -444,5 +449,44 @@ class StudentRegistrationForm(forms.Form):
             self.cleaned_data.get('guardian_contact'),
             'Guardian contact number',
         )
+
+
+class StaffPersonnelCreateForm(forms.Form):
+    """Admin: create staff/faculty user + profile (mirrors Add student flow)."""
+    username = forms.CharField(max_length=150, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control'}))
+    first_name = forms.CharField(max_length=150, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    last_name = forms.CharField(max_length=150, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    middle_name = forms.CharField(max_length=100, required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}))
+    password_confirm = forms.CharField(label='Confirm password', widget=forms.PasswordInput(attrs={'class': 'form-control'}))
+    role = forms.ChoiceField(
+        choices=(('staff', 'Staff'), ('faculty', 'Faculty')),
+        widget=forms.Select(attrs={'class': 'form-control'}),
+    )
+    employee_id = forms.CharField(max_length=50, required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    department = forms.CharField(max_length=150, required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    position = forms.CharField(max_length=150, required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    contact_number = forms.CharField(max_length=20, required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    is_active = forms.BooleanField(required=False, initial=True, widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}))
+
+    def clean_username(self):
+        from django.contrib.auth import get_user_model
+        u = (self.cleaned_data.get('username') or '').strip()
+        if not u:
+            raise ValidationError('Username is required.')
+        if get_user_model().objects.filter(username__iexact=u).exists():
+            raise ValidationError('This username is already taken.')
+        return u
+
+    def clean(self):
+        data = super().clean()
+        p1 = data.get('password') or ''
+        p2 = data.get('password_confirm') or ''
+        if p1 != p2:
+            raise ValidationError('Passwords do not match.')
+        if len(p1) < 8:
+            raise ValidationError('Password must be at least 8 characters.')
+        return data
 
 

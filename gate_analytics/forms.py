@@ -106,8 +106,6 @@ class StaffPersonnelCompleteProfileForm(forms.Form):
         ('', 'Select sex/gender'),
         ('MALE', 'Male'),
         ('FEMALE', 'Female'),
-        ('OTHER', 'Other'),
-        ('PREFER_NOT', 'Prefer not to say'),
     ]
     sex = forms.ChoiceField(
         required=True,
@@ -310,8 +308,6 @@ class UserProfileEditForm(forms.Form):
         ('', 'Select sex/gender'),
         ('MALE', 'Male'),
         ('FEMALE', 'Female'),
-        ('OTHER', 'Other'),
-        ('PREFER_NOT', 'Prefer not to say'),
     ]
     sex = forms.ChoiceField(
         required=False,

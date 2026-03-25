@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as AuthUserAdmin
 from django.db import transaction
 from django.utils import timezone
+from django.utils.html import format_html
 
 User = get_user_model()
 
@@ -59,9 +60,28 @@ admin.site.register(UserCoin)
 @admin.register(StaffPersonnelProfile)
 class StaffPersonnelProfileAdmin(PerPageListMixin, admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('user', 'department', 'position', 'contact_number')
-    search_fields = ('user__username', 'user__first_name', 'user__last_name', 'department', 'position')
+    list_display = ('user', 'employee_id_display', 'department', 'position', 'contact_number')
+    search_fields = (
+        'user__username',
+        'user__first_name',
+        'user__last_name',
+        'department',
+        'position',
+        'employee_id',
+    )
     raw_id_fields = ('user',)
+
+    def employee_id_display(self, obj):
+        eid = (obj.employee_id or '').strip()
+        if not eid:
+            return '—'
+        return format_html(
+            '<span style="color:#db2777;font-weight:600;text-decoration:underline;text-underline-offset:2px;">{}</span>',
+            eid,
+        )
+
+    employee_id_display.short_description = 'Employee ID'
+    employee_id_display.admin_order_field = 'employee_id'
 
 
 @admin.register(Student)
