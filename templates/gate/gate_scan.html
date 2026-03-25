@@ -1,7 +1,7 @@
 {% load static %}
 {% load i18n %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"{% if guard_wall %} class="guard-wall-html"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,6 +24,10 @@
 }
 *{box-sizing:border-box; margin:0; padding:0}
 html,body{height:100%}
+html.guard-wall-html{
+  height:auto;
+  min-height:100%;
+}
 body{
   font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
@@ -44,6 +48,43 @@ body{
   box-shadow: var(--shadow-1);
   overflow:hidden;
   margin-top:18px;
+}
+/* Staff / kiosk / guard-wall (logged-in): use full browser width — not guard token embed */
+body.staff-gate-scan:not(.guard-embed-mode){
+  padding:0;
+  height:auto;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  justify-content:flex-start;
+  min-height:100vh;
+  min-height:100dvh;
+  overflow-x:hidden;
+  overflow-y:auto;
+}
+body.staff-gate-scan:not(.guard-embed-mode) .container{
+  max-width:none !important;
+  width:100%;
+  margin:0 !important;
+  margin-top:0 !important;
+  border-radius:0;
+  box-shadow:none;
+  flex:1 1 auto;
+  min-height:100vh;
+  min-height:100dvh;
+  display:flex;
+  flex-direction:column;
+}
+body.staff-gate-scan:not(.guard-embed-mode) .main-content{
+  flex:1 1 auto;
+  width:100%;
+  max-width:none;
+  padding:clamp(14px, 2vw, 28px);
+  padding-bottom:24px;
+  align-items:stretch;
+}
+body.gate-kiosk-mode.staff-gate-scan:not(.guard-embed-mode){
+  padding:0;
 }
 header{
   background: linear-gradient(90deg, var(--accent) 0%, var(--accent-dark) 100%);
@@ -351,65 +392,6 @@ h1{font-size:20px; font-weight:600; display:flex; gap:10px; align-items:center}
   gap:8px;
   font-size:18px;
 }
-.live-entries-actions{
-  display:flex;
-  align-items:center;
-  gap:8px;
-}
-.live-entries-refresh{
-  border:1px solid rgba(40,167,69,0.35);
-  color:#1e5631;
-  background:#fff;
-  border-radius:8px;
-  padding:6px 10px;
-  font-size:13px;
-  font-weight:600;
-  cursor:pointer;
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-}
-.live-entries-refresh:hover{ background:#e8f5e9; }
-.live-entries-toggle{
-  border:1px solid rgba(40,167,69,0.35);
-  border-radius:8px;
-  background:#fff;
-  color:#1e5631;
-  font-size:13px;
-  font-weight:700;
-  padding:6px 10px;
-  cursor:pointer;
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-}
-.live-entries-toggle i{ font-size:12px; }
-.live-entries-toggle.on{
-  background:#e8f5e9;
-  color:#1e5631;
-  border-color:rgba(40,167,69,0.45);
-}
-.live-entries-toggle.off{
-  background:#f8f9fa;
-  color:#6c757d;
-  border-color:rgba(108,117,125,0.35);
-}
-.live-entries-toggle:hover{ transform:translateY(-1px); }
-.live-entries-interval{
-  border:1px solid rgba(40,167,69,0.25);
-  border-radius:8px;
-  background:#fff;
-  color:#1e5631;
-  font-size:13px;
-  font-weight:600;
-  padding:6px 8px;
-  min-width:72px;
-}
-.live-entries-interval:focus{
-  outline:none;
-  border-color:#28a745;
-  box-shadow:0 0 0 2px rgba(40,167,69,0.15);
-}
 .live-entries-frame{
   width:100%;
   min-height:180px;
@@ -442,7 +424,7 @@ h1{font-size:20px; font-weight:600; display:flex; gap:10px; align-items:center}
   display:flex;
   flex-direction:column;
   gap:15px;
-  z-index:2000;
+  z-index:3100;
   max-width:350px;
   pointer-events:none;
   padding:0 12px;
@@ -513,6 +495,12 @@ h1{font-size:20px; font-weight:600; display:flex; gap:10px; align-items:center}
   border:1px solid rgba(40,167,69,0.12);
   border-left:6px solid var(--accent);
   color:#0d3d1a;
+}
+.notification.success{
+  background: linear-gradient(180deg, rgba(46,204,113,0.10), rgba(46,204,113,0.04));
+  border:1px solid rgba(46,204,113,0.12);
+  border-left:6px solid rgba(39,174,96,0.92);
+  color:#052f17;
 }
 .notification.hiding{ animation: slideOut 380ms cubic-bezier(.55,.06,.68,.19) both; }
 @keyframes slideIn{
@@ -670,6 +658,157 @@ body.guard-embed-mode .student-popup{
   flex-direction: column;
   border-radius: 16px;
   box-shadow: 0 20px 56px rgba(0,0,0,0.38);
+}
+/* Guard wall: enlarge the scan-result popup and disable inner scrolling */
+body.guard-wall-mode .student-popup-overlay{
+  padding: 6px;
+  background: rgba(0,0,0,0.55);
+  align-items: center;
+  justify-content: center;
+}
+body.guard-wall-mode .student-popup{
+  width: 100%;
+  max-width: min(98vw, 1040px);
+  max-height: calc(100vh - 12px);
+  height: auto;
+  overflow: hidden; /* prevents guard from scrolling inside the modal */
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  box-shadow: 0 20px 56px rgba(0,0,0,0.42);
+}
+body.guard-wall-mode .student-popup-header{
+  flex-shrink: 0;
+  padding: 8px 14px;
+}
+body.guard-wall-mode .student-popup-header h2{
+  font-size: clamp(0.95rem, 2.4vmin, 1.35rem);
+  gap: 8px;
+}
+body.guard-wall-mode .student-popup-close{
+  width: 36px;
+  height: 36px;
+  font-size: 1rem;
+}
+body.guard-wall-mode .student-popup-status{
+  flex-shrink: 0;
+  margin-top: 0;
+  padding: 8px 12px;
+  font-size: clamp(0.9rem, 2.3vmin, 1.15rem);
+  line-height: 1.3;
+  border-radius: 10px;
+}
+body.guard-wall-mode .popup-schedule-status{
+  flex-shrink: 0;
+  margin-top: 0;
+  padding: 6px 10px;
+  font-size: clamp(0.82rem, 2vmin, 1.05rem);
+  border-radius: 8px;
+}
+body.guard-wall-mode .popup-schedule-status i{ font-size: 1em; }
+body.guard-wall-mode .popup-in-class-notice{
+  flex-shrink: 0;
+  font-size: clamp(0.82rem, 2vmin, 1rem);
+  padding: 6px 10px;
+  margin-bottom: 0;
+}
+/* Guard wall: use a larger split layout (photo left | details right) */
+body.guard-wall-mode.student-popup-style--split .student-popup{
+  /* Make the popup larger on the guard wall while staying within screen bounds */
+  max-width: min(96vw, 980px);
+  /* Don't clip the enlarged photo/details inside the guard wall popup. */
+  overflow: visible !important;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+body.guard-wall-mode.student-popup-style--split .student-popup-body{
+  padding: 14px 22px 16px;
+  overflow: visible; /* guard wall: avoid clipping photo; modal itself stays non-scrollable */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+body.guard-wall-mode.student-popup-style--split .student-popup-top{
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: clamp(16px, 3.2vw, 36px);
+  margin-bottom: 0;
+}
+body.guard-wall-mode.student-popup-style--split .student-popup-photo-wrap{
+  flex: 0 0 auto;
+  /* Bigger face preview for guard verification */
+  width: min(44vmin, 380px);
+  max-width: 52%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-sizing: border-box;
+  height: 100%;
+  align-self: stretch;
+}
+body.guard-wall-mode.student-popup-style--split .student-popup-photo{
+  /* Fill the wrapper height so it follows the same "rectangle" bounds as details. */
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  border-radius: 16px;
+  /* Use contain so the full face/photo is visible (no "half image" cropping). */
+  object-fit: contain !important;
+  object-position: center !important;
+  border: 3px solid rgba(40,167,69,0.4);
+  display: block;
+  box-sizing: border-box;
+}
+body.guard-wall-mode.student-popup-style--split .student-popup-badge{
+  font-size: clamp(0.75rem, 1.8vmin, 1rem);
+  padding: 5px 12px;
+}
+body.guard-wall-mode.student-popup-style--split .student-popup-name{
+  font-size: clamp(1.15rem, 3.4vmin, 2.0rem);
+  line-height: 1.15;
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
+}
+body.guard-wall-mode.student-popup-style--split .student-popup-info{
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  /* Prevent details from getting too narrow when photo is widened */
+  min-width: min(44vw, 420px);
+}
+body.guard-wall-mode.student-popup-style--split .student-popup-id{
+  font-size: 13px;
+}
+body.guard-wall-mode.student-popup-style--split .student-popup-course{
+  font-size: 12px;
+}
+body.guard-wall-mode.student-popup-style--split .student-popup-details li{
+  font-size: 13px;
+  padding: 2px 0;
+}
+body.guard-wall-mode.student-popup-style--split .student-popup-status{
+  font-size: 13px;
+}
+body.guard-wall-mode.student-popup-style--split .popup-schedule-status{
+  font-size: 12px;
+}
+
+/* Guard wall: remove only the "Note for OUT" block from the student popup modal */
+body.guard-wall-mode #popupOutNoteBlock,
+body.guard-wall-mode label[for="popupOutNote"],
+body.guard-wall-mode #popupOutNote{
+  display: none !important;
 }
 body.guard-embed-mode .student-popup-header{
   flex-shrink: 0;
@@ -1045,9 +1184,13 @@ body.guard-embed-mode.student-popup-style--idcard .student-popup-details li i{ w
   .main-content{ flex-direction:column; align-items:center }
   .main-content .scan-column,
   .main-content .info-column{ flex:1 1 100%; max-width:520px }
+  body.staff-gate-scan:not(.guard-embed-mode) .main-content{ align-items:stretch }
+  body.staff-gate-scan:not(.guard-embed-mode) .main-content .scan-column,
+  body.staff-gate-scan:not(.guard-embed-mode) .main-content .info-column{ max-width:none }
 }
 @media (max-width:768px){
   body:not(.guard-embed-mode){ padding:10px; min-height:100vh; overflow-y:auto; overflow-x:hidden }
+  body.staff-gate-scan:not(.guard-embed-mode){ padding:0 !important; }
   .container{ overflow:visible; margin-bottom:24px; max-width:100% !important; overflow-x:hidden }
   header{ padding:12px 14px }
   header .header-content{ flex-wrap:wrap }
@@ -1102,7 +1245,6 @@ body.guard-embed-mode.student-popup-style--idcard .student-popup-details li i{ w
   .live-entries{ width:100%; min-height:0 }
   .live-entries-frame{ min-height:220px; height:280px }
   .live-entries-head{ flex-wrap:wrap; gap:8px }
-  .live-entries-actions{ flex-wrap:wrap }
   .live-entries-goto-scanner{
     display:inline-block !important;
     margin-left:auto;
@@ -1570,6 +1712,34 @@ body.guard-embed-mode{
 @keyframes guardWaitSpin{
   to{ transform:rotate(360deg); }
 }
+.guard-wall-full-overlay{
+  position:fixed;
+  inset:0;
+  z-index:100200;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  padding:20px;
+  text-align:center;
+  background:rgba(10,18,16,0.96);
+  color:#e8f5e9;
+}
+.guard-wall-full-overlay h2{
+  margin:0;
+  font-size:clamp(1.1rem,3vw,1.5rem);
+  font-weight:700;
+  line-height:1.35;
+  max-width:32rem;
+}
+.guard-wall-full-overlay p{
+  margin:0;
+  font-size:0.95rem;
+  opacity:0.88;
+  max-width:38rem;
+  line-height:1.45;
+}
 .guard-embed-mode .guard-scanner-frame-wrap,
 .guard-embed-mode .camera-control-row{
   position:relative;
@@ -1762,6 +1932,12 @@ body.guard-embed-mode{
   transition:all .2s ease; box-shadow:0 2px 8px rgba(40,167,69,0.2);
 }
 #gateStartCameraBtn:hover{ transform:translateY(-1px); box-shadow:0 4px 12px rgba(40,167,69,0.3); }
+#gateStopCameraBtn{
+  background:#fff; color:#c82333; border:1px solid rgba(200,35,51,0.45);
+  border-radius:8px; padding:7px 14px; font-size:13px; font-weight:600;
+  display:none; align-items:center; gap:6px;
+}
+#gateStopCameraBtn:hover:not(:disabled){ background:#fff5f5; border-color:#c82333; }
 #gateSwitchCameraBtn{
   background:#fff; color:#495057; border:1px solid #d0ddd5;
   border-radius:8px; padding:7px 12px; font-size:13px; font-weight:600;
@@ -1821,20 +1997,6 @@ body.guard-embed-mode{
   font-size:17px; font-weight:700; color:#1e7e34;
   letter-spacing:.01em;
 }
-.live-entries-refresh,
-.live-entries-toggle{
-  border-radius:8px; padding:6px 12px;
-  font-size:12.5px; font-weight:700;
-  transition:all .18s ease;
-}
-.live-entries-refresh:hover,
-.live-entries-toggle:hover{
-  transform:translateY(-1px);
-}
-.live-entries-interval{
-  border-radius:8px; font-size:12.5px; font-weight:700;
-  padding:6px 10px;
-}
 .live-entries-frame{
   border-top:none;
 }
@@ -1857,6 +2019,81 @@ body.guard-embed-mode{
 }
 /* Gate PC: ?kiosk=1 — tighter layout; staff logged in; physical security assists without accounts */
 body.gate-kiosk-mode{ padding:8px; }
+/* Guard display (/gate/guard-display/?token=…): edge-to-edge width so Live Entries can show all columns */
+body.guard-wall-mode{
+  padding:0 !important;
+  align-items:stretch;
+  height:auto !important;
+  min-height:100vh;
+  min-height:100dvh;
+  overflow-x:hidden;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+body.guard-wall-mode .container{
+  max-width:none !important;
+  width:100%;
+  margin-top:0;
+  border-radius:0;
+  overflow:visible;
+}
+body.guard-wall-mode .main-content{
+  padding:clamp(12px,1.4vw,22px) clamp(12px,2vw,28px) 24px;
+}
+/* Guard wall: staff-only camera — overlay + frame match embed; container anchors absolute overlay */
+body.guard-wall-mode .scanner-container{
+  position:relative;
+}
+body.guard-wall-mode .guard-scanner-frame-wrap{
+  flex:0 0 auto;
+  margin:0 auto;
+  width:100%;
+  max-width:min(92vw, 820px);
+  display:block;
+}
+body.guard-wall-mode .guard-scanner-frame-wrap #reader{
+  width:100% !important;
+  max-width:100% !important;
+}
+body.guard-wall-mode .guard-scanner-instruction{
+  flex-shrink:0;
+  width:100%;
+  max-width:min(92vw,820px);
+  margin:10px auto 4px;
+  padding:0 12px;
+  text-align:center;
+  box-sizing:border-box;
+}
+body.guard-wall-mode .guard-scanner-instruction__text{
+  margin:0;
+  font-size:clamp(0.88rem,2vw,1.05rem);
+  font-weight:700;
+  color:#2e5e3e;
+}
+body.guard-wall-mode .guard-scanner-frame-wrap,
+body.guard-wall-mode .camera-control-row{
+  position:relative;
+  z-index:1;
+}
+@media (min-width: 992px){
+  /* Guard wall + logged-in staff: identical — wide Live Entries beside fixed-width scanner */
+  body.guard-wall-mode .main-content,
+  body.staff-gate-scan:not(.guard-embed-mode):not(.guard-wall-mode) .main-content{
+    flex-wrap:nowrap;
+    align-items:flex-start;
+  }
+  body.guard-wall-mode .main-content .scan-column,
+  body.staff-gate-scan:not(.guard-embed-mode):not(.guard-wall-mode) .main-content .scan-column{
+    flex:0 0 auto;
+    width:min(520px, 38vw);
+    max-width:520px;
+  }
+  body.guard-wall-mode .main-content .info-column,
+  body.staff-gate-scan:not(.guard-embed-mode):not(.guard-wall-mode) .main-content .info-column{
+    flex:1 1 0;
+    min-width:0;
+  }
+}
 .kiosk-topbar{
   display:flex; align-items:center; gap:12px; flex-wrap:wrap;
   background:#1b5e20; color:#fff; padding:8px 14px; border-radius:10px; margin-bottom:10px;
@@ -1870,7 +2107,7 @@ body.gate-kiosk-mode{ padding:8px; }
 .kiosk-fs-btn:hover{ filter:brightness(1.05); }
   </style>
 </head>
-<body{% if kiosk_mode %} class="gate-kiosk-mode{% if guard_embed %} guard-embed-mode student-popup-style--{{ guard_student_popup_style|default:'split' }}{% endif %}"{% elif guard_embed %} class="guard-embed-mode student-popup-style--{{ guard_student_popup_style|default:'split' }}"{% endif %}>
+<body{% if kiosk_mode %} class="gate-kiosk-mode staff-gate-scan{% if guard_embed %} guard-embed-mode student-popup-style--{{ guard_student_popup_style|default:'split' }}{% endif %}{% if guard_wall %} guard-wall-mode student-popup-style--{{ guard_student_popup_style|default:'split' }}{% endif %}"{% elif guard_embed %} class="guard-embed-mode student-popup-style--{{ guard_student_popup_style|default:'split' }}"{% else %} class="staff-gate-scan"{% endif %}>
 {% include 'base/confirm_modal.html' %}
     <!-- Offline / pending sync: clear messaging so staff see status and queue -->
     <div class="offline-banner" id="offlineBanner" aria-live="polite" role="status">
@@ -1878,7 +2115,7 @@ body.gate-kiosk-mode{ padding:8px; }
         <span class="offline-msg" id="offlineBannerMsg">You're offline. Scans are saved on this device and will sync when you're back online.</span>
         <span class="pending-count" id="offlinePendingCount" aria-label="Scans pending sync"></span>
     </div>
-    {% if kiosk_mode and not guard_embed %}
+    {% if kiosk_mode and not guard_embed and not guard_wall %}
     <div class="kiosk-topbar" id="kioskTopbar">
         <span>{% trans "Gate kiosk" %} — {% trans "Staff session (physical security assists; no separate login)" %}</span>
         <button type="button" id="kioskFullscreenBtn" class="kiosk-fs-btn">{% trans "Fullscreen" %}</button>
@@ -1933,8 +2170,10 @@ body.gate-kiosk-mode{ padding:8px; }
                 </div>
                 <div class="popup-early-out-form" id="popupEarlyOutForm">
                     <div class="popup-in-class-notice" id="popupInClassNotice" style="display:none;"></div>
-                    <label for="popupOutNote">Note for OUT (optional)</label>
-                    <textarea id="popupOutNote" placeholder="Optional — e.g. staff follow-up, audit"></textarea>
+                    <div id="popupOutNoteBlock">
+                      <label for="popupOutNote">Note for OUT (optional)</label>
+                      <textarea id="popupOutNote" placeholder="Optional — e.g. staff follow-up, audit"></textarea>
+                    </div>
                     <div class="form-actions">
                         <button type="button" class="popup-btn-back" id="popupBtnBack"><i class="fas fa-arrow-left"></i> Back</button>
                         <button type="button" class="popup-btn-submit-out" id="popupBtnSubmitOut"><i class="fas fa-check"></i> Submit</button>
@@ -2162,7 +2401,7 @@ body.gate-kiosk-mode{ padding:8px; }
                         <small style="color: #6c757d;">
                             • Ensure good lighting<br>
                             • Hold QR code steady and flat<br>
-                            • Try manual entry (type student ID)<br>
+                            • Try manual entry (registered name or student ID)<br>
                             • Check if camera permission is granted
                         </small>
                     </div>
@@ -2220,7 +2459,7 @@ body.gate-kiosk-mode{ padding:8px; }
                         <li>Keep the scanner page open during your shift</li>
                         <li>Check "Live Entries" to see recent scans</li>
                         <li>Use event selector for event attendance tracking</li>
-                        <li>Manual entry works when QR scanner fails</li>
+                        <li>Manual entry: check out with name/ID only (blank reason), Enter or Submit; check in requires a reason</li>
                         <li>Offline queue syncs automatically - no action needed</li>
                     </ul>
                 </div>
@@ -2235,6 +2474,13 @@ body.gate-kiosk-mode{ padding:8px; }
     </div>
 
     <div class="container">
+        {% if guard_wall %}
+        <div id="guardWallFullOverlay" class="guard-wall-full-overlay" aria-live="polite" aria-hidden="{% if guard_scanner_active %}true{% else %}false{% endif %}" style="display:{% if guard_scanner_active %}none{% else %}flex{% endif %};">
+            <div class="guard-staff-wait-spinner" aria-hidden="true"></div>
+            <h2>{% trans "Waiting for staff to start the gate scanner" %}</h2>
+            <p>{% trans "The gate dashboard is locked until staff starts the camera. Live entries and manual actions are disabled meanwhile." %}</p>
+        </div>
+        {% endif %}
         <header>
             <div class="header-content{% if guard_embed %} header-content--guard{% endif %}">
                 <h1><i class="fas fa-qrcode"></i> {% if guard_embed %}Gate scanner{% else %}QR Code Scanner{% endif %}</h1>
@@ -2255,7 +2501,7 @@ body.gate-kiosk-mode{ padding:8px; }
                         <span class="guard-incident-header-btn-text">{% trans "Report incident" %}</span>
                     </button>
                     {% endif %}
-                    {% if not guard_embed %}
+                    {% if not guard_embed and not guard_wall %}
                     <div class="header-user-dropdown" id="headerUserDropdown">
                         <button type="button" class="header-user-dropdown-trigger" id="headerUserDropdownTrigger" aria-expanded="false" aria-haspopup="true">
                             <i class="fas fa-user-shield"></i>
@@ -2281,14 +2527,6 @@ body.gate-kiosk-mode{ padding:8px; }
             </div>
         </header>
 
-        {% if not guard_embed and gate_scanner_session_active %}
-        <div class="container-fluid px-3 pt-2">
-          <div class="alert alert-warning mb-0 py-2 px-3" role="status" style="border-radius:8px;font-size:0.95rem;">
-            <i class="fas fa-info-circle"></i> {% trans "Your gate session is still active. Stop the camera or return to the gate console and stop the session before starting again elsewhere." %}
-          </div>
-        </div>
-        {% endif %}
-
         <!-- Quick Stats Bar (not on guard wall — clock lives in header center) -->
         {% if not guard_embed %}
         <div class="scan-stats-bar">
@@ -2300,12 +2538,14 @@ body.gate-kiosk-mode{ padding:8px; }
                     <i class="fas fa-clock"></i> <span class="ssb-clock" id="scanBarClock"></span>
                 </div>
             </div>
+            {% if not guard_wall %}
             <div class="ssb-group">
                 <div class="ssb-mode-toggle" title="Click to toggle scan mode">
                     <button type="button" class="smt-option active-in" id="smtIn" onclick="if(typeof toggleScanMode==='function'){if(document.getElementById('smtOut').classList.contains('active-out')){toggleScanMode();}};updateModeToggleUI();">IN</button>
                     <button type="button" class="smt-option" id="smtOut" onclick="if(typeof toggleScanMode==='function'){if(document.getElementById('smtIn').classList.contains('active-in')){toggleScanMode();}};updateModeToggleUI();">OUT</button>
                 </div>
             </div>
+            {% endif %}
         </div>
         {% endif %}
 
@@ -2339,11 +2579,11 @@ body.gate-kiosk-mode{ padding:8px; }
         <div class="main-content">
             <div class="scan-column" id="gate-scan-scanner">
                 <div class="scanner-container">
-                    {% if guard_embed %}
+                    {% if guard_embed or guard_wall %}
                     <div id="guardStaffWaitOverlay" class="guard-staff-wait-overlay" aria-live="polite">
                         <div class="guard-staff-wait-spinner" aria-hidden="true"></div>
                         <h2>{% trans "Waiting for staff to start the gate scanner" %}</h2>
-                        <p>{% trans "Scanning stays off until a staff member opens the gate console (or full gate scanner) and starts the gate session. This page will connect automatically." %}</p>
+                        <p>{% trans "Scanning stays off until a staff member opens the gate scanner and starts the gate session. This page will connect automatically." %}</p>
                     </div>
                     <div class="guard-scanner-frame-wrap">
                         <div id="reader"></div>
@@ -2354,6 +2594,7 @@ body.gate-kiosk-mode{ padding:8px; }
                     {% else %}
                     <div id="reader"></div>
                     {% endif %}
+                    {% if not guard_wall %}
                     <div class="camera-control-row">
                         <div class="camera-controls">
                             <select id="gateCameraPreference" class="camera-select" title="Choose camera">
@@ -2365,6 +2606,9 @@ body.gate-kiosk-mode{ padding:8px; }
                             <button type="button" id="gateStartCameraBtn" class="btn btn-primary btn-sm">
                                 <i class="fas fa-camera"></i> Start camera
                             </button>
+                            <button type="button" id="gateStopCameraBtn" class="btn btn-sm" title="{% trans 'Stop camera and gate session heartbeat' %}">
+                                <i class="fas fa-stop-circle"></i> {% trans "Stop camera" %}
+                            </button>
                             {% endif %}
                             <button type="button" id="gateSwitchCameraBtn" class="btn btn-outline-secondary btn-sm">
                                 <i class="fas fa-sync-alt"></i> Switch
@@ -2375,26 +2619,32 @@ body.gate-kiosk-mode{ padding:8px; }
                     {% if not guard_embed %}
                     <p class="scanner-text">{% trans "Position the QR code within the frame" %}</p>
                     {% endif %}
+                    {% endif %}
                     <div class="status-indicator">
                         <div class="status-dot"></div>
-                        <span>{% if guard_embed %}{% trans "Waiting for staff scanner" %}{% else %}{% trans "Scanner ready" %}{% endif %}</span>
+                        <span>{% if guard_embed or guard_wall %}{% trans "Waiting for staff scanner" %}{% else %}{% trans "Scanner ready" %}{% endif %}</span>
                     </div>
                 </div>
                 {% if not guard_embed %}
                 <div class="manual-input">
                     <h3><i class="fas fa-keyboard"></i> Manual Entry (Student)</h3>
                     <p id="manualEntryEventHint" class="small text-muted mb-2" style="display:none;"></p>
+                    <p class="small text-muted mb-2">{% trans "Check out: enter name or student ID only, leave reason blank, then Enter or Submit—no reason required. Check in: pick a reason, then Enter or Submit." %}</p>
                     <div class="input-group">
-                        <input type="text" id="manualInput" placeholder="Enter Student ID">
+                        <input type="text" id="manualInput" placeholder="{% trans 'Name or student ID' %}" autocomplete="off">
                         <span id="manualStatusWrap">
-                        <select id="manualStatus">
-                            <option value="">-- Select Status --</option>
-                            <option value="IN">IN</option>
-                            <option value="OUT">OUT</option>
+                        <select id="manualReason" title="{% trans 'Reason when checking in without scanning ID' %}">
+                            <option value="">{% trans "— No reason (check-out) or pick for check-in —" %}</option>
+                            <option value="{% trans 'ID missing or not with student' %}">{% trans 'ID missing or not with student' %}</option>
+                            <option value="{% trans 'ID damaged or unreadable' %}">{% trans 'ID damaged or unreadable' %}</option>
+                            <option value="{% trans 'ID lost or stolen (reported)' %}">{% trans 'ID lost or stolen (reported)' %}</option>
+                            <option value="{% trans 'QR code not scanning' %}">{% trans 'QR code not scanning' %}</option>
+                            <option value="{% trans 'Phone dead / no digital ID' %}">{% trans 'Phone dead / no digital ID' %}</option>
+                            <option value="{% trans 'Late; rushing to class' %}">{% trans 'Late; rushing to class' %}</option>
+                            <option value="{% trans 'Other (verified at gate)' %}">{% trans 'Other (verified at gate)' %}</option>
                         </select>
                         </span>
-                        <input type="time" id="manualTime">
-                        <button id="manualSubmit"><i class="fas fa-paper-plane"></i> Submit</button>
+                        <button type="button" id="manualSubmit"><i class="fas fa-paper-plane"></i> {% trans "Submit" %}</button>
                     </div>
                 </div>
                 {% endif %}
@@ -2427,26 +2677,13 @@ body.gate-kiosk-mode{ padding:8px; }
             </div>
                 </div>
                 {% if not guard_embed %}
-                <div class="live-entries" id="liveEntriesPanel">
+                <div class="live-entries" id="liveEntriesPanel"{% if guard_wall and not guard_scanner_active %} style="display:none;"{% endif %}>
                     <div class="live-entries-head">
                         <h3 id="live-entries-anchor"><i class="fas fa-door-open"></i> Live Entries</h3>
-                        <div class="live-entries-actions">
-                            <select id="liveEntriesRefreshInterval" class="live-entries-interval" title="Auto refresh interval (seconds)">
-                                <option value="5" selected>5s</option>
-                                <option value="10">10s</option>
-                                <option value="15">15s</option>
-                        </select>
-                            <button type="button" class="live-entries-toggle on" id="liveEntriesAutoToggleBtn" title="Hide filters: ON hides filters, OFF shows filters">
-                                <i class="fas fa-eye-slash"></i> Hide Filters ON
-                            </button>
-                            <button type="button" class="live-entries-refresh" id="liveEntriesRefreshBtn" title="Refresh now">
-                                <i class="fas fa-sync-alt"></i> Refresh
-                            </button>
-                        </div>
                     </div>
-                    <iframe id="liveEntriesIframe" class="live-entries-frame" src="{% url 'gate-entry-list' %}?embed=1{% if guard_embed_token %}&amp;guard_token={{ guard_embed_token|urlencode }}{% endif %}" title="Live gate entries"></iframe>
+                    <iframe id="liveEntriesIframe" class="live-entries-frame" src="{% url 'gate-entry-list' %}?embed=1{% if guard_embed_token %}&amp;guard_token={{ guard_embed_token|urlencode }}{% endif %}{% if guard_wall %}&amp;live_panel=1{% endif %}" title="Live gate entries"></iframe>
                     <div class="live-entries-meta">
-                        Hide filters: <span id="liveEntriesAutoStatus">ON</span> (ON hides filters, OFF shows filters). Interval: every <span id="liveEntriesIntervalLabel">5</span> seconds. Last refresh: <span id="liveEntriesLastRefresh">--:--:--</span>
+                        Last refresh: <span id="liveEntriesLastRefresh">--:--:--</span>
                         <a href="#gate-scan-scanner" class="live-entries-goto-scanner" id="liveEntriesGotoScanner" aria-label="Scroll to scanner">↓ Go to scanner</a>
                     </div>
                 </div>
@@ -2464,11 +2701,12 @@ body.gate-kiosk-mode{ padding:8px; }
             </div>
         </div>
     </div>
-
 <script>
 window.GUARD_EMBED_TOKEN = {% if guard_embed_token %}"{{ guard_embed_token|escapejs }}"{% else %}""{% endif %};
 window.GATE_GUARD_EMBED = {% if guard_embed %}true{% else %}false{% endif %};
-window.GATE_GUARD_DASHBOARD_MINIMAL_URL = {% if guard_embed %}"{% url 'gate-guard-dashboard-data' %}?token={{ guard_embed_token|urlencode }}&minimal=1"{% else %}""{% endif %};
+window.GATE_GUARD_WALL = {% if guard_wall %}true{% else %}false{% endif %};
+window._gateGuardWallScannerActive = {% if guard_wall %}{% if guard_scanner_active %}true{% else %}false{% endif %}{% else %}true{% endif %};
+window.GATE_GUARD_DASHBOARD_MINIMAL_URL = {% if guard_embed_token %}"{% url 'gate-guard-dashboard-data' %}?token={{ guard_embed_token|urlencode }}&minimal=1"{% else %}""{% endif %};
 function guardTokenPayload() {
   if (typeof window.GUARD_EMBED_TOKEN === 'string' && window.GUARD_EMBED_TOKEN) {
     return { guard_token: window.GUARD_EMBED_TOKEN };
@@ -2626,8 +2864,8 @@ function guardTokenPayload() {
   
   // Initialize scan mode button
   setScanMode(currentScanMode);
-  /* Guard wall: no IN/OUT UI — daily gate uses IN; backend still applies auto IN/OUT rules where configured */
-  if (window.GATE_GUARD_EMBED) {
+  /* Guard embed / wall: no IN/OUT control on display; backend applies auto IN/OUT */
+  if (window.GATE_GUARD_EMBED || window.GATE_GUARD_WALL) {
     setScanMode('IN');
   }
 
@@ -2641,8 +2879,8 @@ function guardTokenPayload() {
       return;
     }
     
-    // Ctrl + I / O: scan mode (staff scanner only — guard wall has no IN/OUT control)
-    if (window.GATE_GUARD_EMBED) {
+    // Ctrl + I / O: scan mode (staff scanner only — guard embed/wall have no IN/OUT toggle)
+    if (window.GATE_GUARD_EMBED || window.GATE_GUARD_WALL) {
       /* skip mode shortcuts */
     } else {
     if (e.ctrlKey && e.key === 'i') {
@@ -2660,7 +2898,7 @@ function guardTokenPayload() {
     // Ctrl + M: Focus manual entry field
     if (e.ctrlKey && e.key === 'm') {
       e.preventDefault();
-      var manualInput = document.getElementById('manualStudentId');
+      var manualInput = document.getElementById('manualInput');
       if (manualInput) {
         manualInput.focus();
         manualInput.select();
@@ -2716,10 +2954,6 @@ function guardTokenPayload() {
         manualEntryEventHint.textContent = 'Records to event: ' + selectedEventName.split('(')[0].trim();
         manualEntryEventHint.style.display = 'block';
       }
-      var manualStatusWrap = document.getElementById('manualStatusWrap');
-      var manualStatusAuto = document.getElementById('manualStatusAuto');
-      if (manualStatusWrap) manualStatusWrap.style.display = '';
-      if (manualStatusAuto) manualStatusAuto.style.display = 'none';
     } else {
       eventBadge.style.display = 'none';
       eventBadgeName.textContent = '';
@@ -2727,14 +2961,26 @@ function guardTokenPayload() {
       if (eventAttendeesBtn) eventAttendeesBtn.style.display = 'none';
       if (eventAttendeesPopupOverlay) eventAttendeesPopupOverlay.classList.remove('show');
       if (eventAttendeesIframe) eventAttendeesIframe.src = 'about:blank';
-      if (manualEntryEventHint) manualEntryEventHint.style.display = 'none';
-      // Daily gate: hide IN/OUT dropdown only (no "Auto" label)
-      var manualStatusWrap = document.getElementById('manualStatusWrap');
-      if (manualStatusWrap) manualStatusWrap.style.display = 'none';
+      if (manualEntryEventHint) {
+        manualEntryEventHint.textContent = 'Daily gate: QR scans still auto IN/OUT. Manual: blank reason + Enter or Submit = check out; reason + Submit = check in.';
+        manualEntryEventHint.style.display = 'block';
+      }
     }
   }
 
   if (eventSelector) {
+    try {
+      var paramsEv = new URLSearchParams(window.location.search);
+      var evParam = paramsEv.get('event');
+      if (evParam) {
+        for (var ei = 0; ei < eventSelector.options.length; ei++) {
+          if (String(eventSelector.options[ei].value) === String(evParam)) {
+            eventSelector.selectedIndex = ei;
+            break;
+          }
+        }
+      }
+    } catch (e) {}
     eventSelector.addEventListener('change', function() {
       var opt = eventSelector.options[eventSelector.selectedIndex];
       selectedEventId = eventSelector.value || null;
@@ -2876,7 +3122,10 @@ function guardTokenPayload() {
       scan_type: item.scan_type || null,
       local_time: item.local_time || null,
       event_id: item.event_id || null,
-      client_ts: item.client_ts || new Date().toISOString()
+      client_ts: item.client_ts || new Date().toISOString(),
+      gate_manual_entry: item.gate_manual_entry || null,
+      manual_entry_reason: item.manual_entry_reason || null,
+      use_save_scan: item.use_save_scan || false
     };
     openOfflineDB().then(function(db) {
       var tx = db.transaction(OFFLINE_STORE, 'readwrite');
@@ -2997,7 +3246,17 @@ function guardTokenPayload() {
       }
       
       // Route to correct endpoint
-      if (item.event_id) {
+      if (item.event_id && item.use_save_scan) {
+        url = saveScanUrl;
+        body.student_id = item.qr || item.student_id;
+        body.event_id = item.event_id;
+        var stEv = (item.manual_status || item.status || 'IN').toUpperCase();
+        body.manual_status = (stEv === 'OUT') ? 'OUT' : 'IN';
+        if (item.gate_manual_entry) body.gate_manual_entry = item.gate_manual_entry;
+        if (item.manual_entry_reason) body.manual_entry_reason = item.manual_entry_reason;
+        if (item.local_time) body.local_time = item.local_time;
+        body.device_id = DEVICE_ID + '-OFFLINE';
+      } else if (item.event_id) {
         // Event attendance scan
         url = eventScanUrl;
         body.event_id = item.event_id;
@@ -3012,6 +3271,8 @@ function guardTokenPayload() {
         body.student_id = item.qr || item.student_id;
         var status = item.manual_status || item.status || 'IN';
         if (status) body.manual_status = status;
+        if (item.gate_manual_entry) body.gate_manual_entry = item.gate_manual_entry;
+        if (item.manual_entry_reason) body.manual_entry_reason = item.manual_entry_reason;
         if (item.local_time) body.local_time = item.local_time;
       }
       
@@ -3022,12 +3283,13 @@ function guardTokenPayload() {
           var student_id = item.qr || item.student_id;
           
           // Clear offline mark on success or duplicate (don't retry these)
-          if (item.event_id && (result === 'SUCCESS' || result === 'DUPLICATE' || result === 'NOT_CHECKED_IN')) {
-            clearOfflineEventMark(student_id, item.event_id, body.scan_type);
+          if (item.event_id && (result === 'SUCCESS' || result === 'DUPLICATE' || result === 'NOT_CHECKED_IN' || response.success)) {
+            var stMark = body.scan_type || body.manual_status || 'IN';
+            clearOfflineEventMark(student_id, item.event_id, stMark);
           }
           
           // Play appropriate feedback
-          if ((response.success || response.ok) && result === 'SUCCESS') {
+          if ((response.success || response.ok) && (result === 'SUCCESS' || result === 'ALLOWED')) {
             playSuccessBeep && playSuccessBeep();
             var name = response.student_name || (response.student && response.student.name) || '';
             showNotification(name + ' synced to server.', 'info');
@@ -3074,19 +3336,12 @@ function guardTokenPayload() {
   // -------------------------
   // Live entries panel (right side)
   // -------------------------
-  var entriesPopupUrl = "{% url 'gate-entry-list' %}?embed=1{% if guard_embed_token %}&guard_token={{ guard_embed_token|urlencode }}{% endif %}";
+  var entriesPopupUrl = "{% url 'gate-entry-list' %}?embed=1{% if guard_embed_token %}&guard_token={{ guard_embed_token|urlencode }}{% endif %}{% if guard_wall %}&live_panel=1{% endif %}";
   var liveEntriesPanel = document.getElementById('liveEntriesPanel');
   var liveEntriesIframe = document.getElementById('liveEntriesIframe');
-  var liveEntriesRefreshBtn = document.getElementById('liveEntriesRefreshBtn');
-  var liveEntriesAutoToggleBtn = document.getElementById('liveEntriesAutoToggleBtn');
-  var liveEntriesAutoStatus = document.getElementById('liveEntriesAutoStatus');
-  var liveEntriesIntervalSelect = document.getElementById('liveEntriesRefreshInterval');
-  var liveEntriesIntervalLabel = document.getElementById('liveEntriesIntervalLabel');
   var liveEntriesLastRefresh = document.getElementById('liveEntriesLastRefresh');
   var LIVE_ENTRIES_REFRESH_KEY = 'live_entries_refresh_sec';
-  var LIVE_ENTRIES_AUTO_KEY = 'live_entries_auto_enabled';
   var liveEntriesRefreshSeconds = 5;
-  var liveEntriesAutoEnabled = true;
   var liveEntriesRefreshTimer = null;
 
   function isValidLiveEntriesRefreshValue(value) {
@@ -3097,13 +3352,6 @@ function guardTokenPayload() {
     var saved = localStorage.getItem(LIVE_ENTRIES_REFRESH_KEY);
     if (isValidLiveEntriesRefreshValue(saved)) return parseInt(saved, 10);
     return 5;
-  }
-
-  function readLiveEntriesAutoEnabled() {
-    var saved = localStorage.getItem(LIVE_ENTRIES_AUTO_KEY);
-    if (saved === '0' || saved === 'false') return false;
-    if (saved === '1' || saved === 'true') return true;
-    return true;
   }
 
   function getLiveEntriesActiveTab() {
@@ -3168,32 +3416,36 @@ function guardTokenPayload() {
     }
   }
 
-  function updateLiveEntriesIntervalLabel() {
-    if (!liveEntriesIntervalLabel) return;
-    liveEntriesIntervalLabel.textContent = String(liveEntriesRefreshSeconds);
-  }
-
-  function updateLiveEntriesAutoUI() {
-    if (liveEntriesAutoStatus) {
-      liveEntriesAutoStatus.textContent = liveEntriesAutoEnabled ? 'ON' : 'OFF';
-    }
-    if (liveEntriesAutoToggleBtn) {
-      liveEntriesAutoToggleBtn.classList.remove('on', 'off');
-      liveEntriesAutoToggleBtn.classList.add(liveEntriesAutoEnabled ? 'on' : 'off');
-      liveEntriesAutoToggleBtn.innerHTML = '<i class="fas fa-eye-slash"></i> Hide Filters ' + (liveEntriesAutoEnabled ? 'ON' : 'OFF');
-    }
-  }
-
   function refreshLiveEntriesPanel(forceRefresh, preferredTab) {
     if (!liveEntriesIframe || !navigator.onLine) return;
-    if (!forceRefresh && !liveEntriesAutoEnabled) return;
+    if (window.GATE_GUARD_WALL && window._gateGuardWallScannerActive === false) return;
     var tab = preferredTab || getLiveEntriesActiveTab();
     var nextUrl = entriesPopupUrl;
-    if (liveEntriesAutoEnabled) nextUrl += '&hide_controls=1';
     if (tab) nextUrl += '&tab=' + encodeURIComponent(tab);
     nextUrl += '&_ts=' + Date.now();
-    liveEntriesIframe.src = nextUrl;
-    markLiveEntriesRefresh();
+    // Avoid assigning iframe.src on every tick — full navigations flash white. Fetch HTML and
+    // replace the iframe document in place so the panel repaints without a blank frame.
+    fetch(nextUrl, { credentials: 'same-origin', cache: 'no-store' })
+      .then(function(r) {
+        if (!r.ok) throw new Error('live entries refresh failed');
+        return r.text();
+      })
+      .then(function(html) {
+        var doc = liveEntriesIframe.contentDocument;
+        if (!doc || !doc.open) {
+          liveEntriesIframe.src = nextUrl;
+          return;
+        }
+        doc.open();
+        doc.write(html);
+        doc.close();
+        markLiveEntriesRefresh();
+        setTimeout(fitLiveEntriesFrameHeight, 0);
+        setTimeout(fitLiveEntriesFrameHeight, 150);
+      })
+      .catch(function() {
+        liveEntriesIframe.src = nextUrl;
+      });
   }
 
   function restartLiveEntriesAutoRefresh() {
@@ -3201,44 +3453,13 @@ function guardTokenPayload() {
       clearInterval(liveEntriesRefreshTimer);
       liveEntriesRefreshTimer = null;
     }
-    if (!liveEntriesIframe || !liveEntriesAutoEnabled) return;
+    if (!liveEntriesIframe) return;
     liveEntriesRefreshTimer = setInterval(function() {
       refreshLiveEntriesPanel();
     }, liveEntriesRefreshSeconds * 1000);
   }
 
-  if (liveEntriesRefreshBtn) {
-    liveEntriesRefreshBtn.addEventListener('click', function() {
-      refreshLiveEntriesPanel(true);
-    });
-  }
-  if (liveEntriesAutoToggleBtn) {
-    liveEntriesAutoEnabled = readLiveEntriesAutoEnabled();
-    liveEntriesAutoToggleBtn.addEventListener('click', function() {
-      liveEntriesAutoEnabled = !liveEntriesAutoEnabled;
-      localStorage.setItem(LIVE_ENTRIES_AUTO_KEY, liveEntriesAutoEnabled ? '1' : '0');
-      updateLiveEntriesAutoUI();
-      restartLiveEntriesAutoRefresh();
-      refreshLiveEntriesPanel(true);
-    });
-  } else {
-    liveEntriesAutoEnabled = readLiveEntriesAutoEnabled();
-  }
-  if (liveEntriesIntervalSelect) {
-    liveEntriesRefreshSeconds = readLiveEntriesRefreshSeconds();
-    liveEntriesIntervalSelect.value = String(liveEntriesRefreshSeconds);
-    liveEntriesIntervalSelect.addEventListener('change', function() {
-      var next = String(liveEntriesIntervalSelect.value || '');
-      if (!isValidLiveEntriesRefreshValue(next)) return;
-      liveEntriesRefreshSeconds = parseInt(next, 10);
-      localStorage.setItem(LIVE_ENTRIES_REFRESH_KEY, next);
-      updateLiveEntriesIntervalLabel();
-      restartLiveEntriesAutoRefresh();
-      if (liveEntriesAutoEnabled) refreshLiveEntriesPanel(true);
-    });
-  }
-  updateLiveEntriesIntervalLabel();
-  updateLiveEntriesAutoUI();
+  liveEntriesRefreshSeconds = readLiveEntriesRefreshSeconds();
   if (liveEntriesIframe) {
     liveEntriesIframe.addEventListener('load', function() {
       markLiveEntriesRefresh();
@@ -3256,11 +3477,33 @@ function guardTokenPayload() {
       } catch (e) {}
     });
     restartLiveEntriesAutoRefresh();
-    refreshLiveEntriesPanel(true);
   }
   window.addEventListener('resize', function() {
     fitLiveEntriesFrameHeight();
   });
+
+  // -------------------------
+  // Live Entries iframe → full-page SAS report feedback (postMessage)
+  // -------------------------
+  (function gateLiveEntryReportFromIframe() {
+    window.addEventListener('message', function(ev) {
+      if (ev.origin !== window.location.origin) return;
+      if (!liveEntriesIframe || ev.source !== liveEntriesIframe.contentWindow) return;
+      var d = ev.data;
+      if (!d || d.type !== 'gate-id-mismatch-report') return;
+      if (d.phase === 'start') return;
+      if (d.phase === 'done') {
+        var ok = d.ok === true;
+        if (ok && typeof playSuccessBeep === 'function') playSuccessBeep();
+        showNotification(
+          d.message || '',
+          ok ? 'success' : 'error',
+          ok ? 'REPORT SENT' : 'ERROR',
+          new Date().toLocaleTimeString()
+        );
+      }
+    });
+  })();
 
   // -------------------------
   // Event attendees popup (when tracking an event: button opens modal table)
@@ -3304,10 +3547,15 @@ function guardTokenPayload() {
       out: 'fa-sign-out-alt',
       error: 'fa-exclamation-circle',
       warning: 'fa-exclamation-triangle',
-      info: 'fa-info-circle'
+      info: 'fa-info-circle',
+      success: 'fa-check-circle'
     };
     var displayTime = time || new Date().toLocaleTimeString();
-    var titleText = type === 'in' ? 'CHECKED IN' : type === 'out' ? 'CHECKED OUT' : type.toUpperCase();
+    var titleText;
+    if (type === 'in') titleText = 'CHECKED IN';
+    else if (type === 'out') titleText = 'CHECKED OUT';
+    else if (title && String(title).trim()) titleText = String(title).trim();
+    else titleText = (type || 'info').toUpperCase();
 
     var el = document.createElement('div');
     el.className = 'notification ' + type;
@@ -3383,16 +3631,23 @@ function guardTokenPayload() {
       if (isInScan) {
         headerEl.querySelector('h2').innerHTML = '<i class="fas fa-pen-square"></i> Optional note for IN';
       } else {
-        headerEl.querySelector('h2').innerHTML = '<i class="fas fa-pen-square"></i> Optional note for OUT';
+        // OUT: hide the note field completely (but keep the submit/back flow).
+        headerEl.querySelector('h2').innerHTML = '<i class="fas fa-user-check"></i> Scan successful';
       }
       headerEl.classList.add('duplicate');
-      statusEl.textContent = response.message || (isInScan ? 'Add an optional note to continue, or ask staff.' : 'Add an optional note to continue, or ask staff.');
+      statusEl.textContent = response.message || (isInScan ? 'Add an optional note to continue, or ask staff.' : 'Exit confirmed. No note required.');
       statusEl.className = 'student-popup-status duplicate';
       formEl.classList.add('show');
       formEl.style.display = 'block';
+      var noteBlock = formEl.querySelector('#popupOutNoteBlock');
+      // Strongly hide OUT note so it never appears on the guard popup (even if other code toggles DOM).
+      if (noteBlock) noteBlock.style.display = isInScan ? 'block' : 'none';
+      var noteTextareaEl = document.getElementById('popupOutNote');
+      if (noteTextareaEl) noteTextareaEl.style.display = isInScan ? '' : 'none';
       var noteLabel = formEl.querySelector('label[for="popupOutNote"]');
       if (noteLabel) {
         noteLabel.textContent = isInScan ? 'Note for IN (optional)' : 'Note for OUT (optional)';
+        noteLabel.style.display = isInScan ? '' : 'none';
       }
       document.getElementById('popupOutNote').value = '';
       document.getElementById('popupOutNote').placeholder = isInScan
@@ -3409,7 +3664,7 @@ function guardTokenPayload() {
       duplicateScanStudentId = null;
       duplicateScanInLunchWindow = false;
       duplicateScanAllClassesDone = response.all_classes_done || false;
-      if (badgeEl) {
+      if (badgeEl && isInScan) {
         badgeEl.textContent = 'NOTE (OPTIONAL)';
         badgeEl.className = 'student-popup-badge denied';
         badgeEl.style.display = 'inline-block';
@@ -3432,6 +3687,11 @@ function guardTokenPayload() {
       if (deniedNoteLabel) {
         deniedNoteLabel.textContent = isDeniedIn ? 'Note for IN (optional)' : 'Note for OUT (optional)';
       }
+      var deniedNoteBlock = formEl.querySelector('#popupOutNoteBlock');
+      // Strongly hide OUT note (denied flow).
+      if (deniedNoteBlock) deniedNoteBlock.style.display = isDeniedIn ? 'block' : 'none';
+      var deniedNoteTextareaEl = document.getElementById('popupOutNote');
+      if (deniedNoteTextareaEl) deniedNoteTextareaEl.style.display = isDeniedIn ? '' : 'none';
       document.getElementById('popupOutNote').value = '';
       document.getElementById('popupOutNote').placeholder = isDeniedIn
         ? 'Optional note, then click Submit.'
@@ -3592,6 +3852,8 @@ function guardTokenPayload() {
     var scheduleStatusEl = document.getElementById('popupScheduleStatus');
     if (scheduleStatusEl) scheduleStatusEl.style.display = 'none';
     document.getElementById('popupOutNote').value = '';
+    var noteBlock = document.getElementById('popupOutNoteBlock');
+    if (noteBlock) noteBlock.style.display = '';
     var regEl = document.getElementById('popupRegistrationForm');
     if (regEl) regEl.style.display = 'none';
     var fn = document.getElementById('popupRegFirstName');
@@ -4398,10 +4660,11 @@ function guardTokenPayload() {
   var scannerRunning = false;
   var scannerStarting = false;
   var scannerSwitching = false;
-  /** Staff /gate/ only: server heartbeat marks scanner "active" for guard wall; restored if session already started (must stop before new start). */
-  window._gateStaffScannerHeartbeatActive = {% if gate_scanner_session_active %}true{% else %}false{% endif %};
+  /** Staff /gate/ only: client sets true while camera runs; heartbeat notifies guard wall. */
+  window._gateStaffScannerHeartbeatActive = false;
   function setStaffScannerHeartbeatActive(on) {
     if (typeof window.GATE_GUARD_EMBED !== 'undefined' && window.GATE_GUARD_EMBED) return;
+    if (typeof window.GATE_GUARD_WALL !== 'undefined' && window.GATE_GUARD_WALL) return;
     window._gateStaffScannerHeartbeatActive = !!on;
     if (on && typeof window._gateScannerHeartbeatPingNow === 'function') {
       window._gateScannerHeartbeatPingNow();
@@ -4472,18 +4735,25 @@ function guardTokenPayload() {
   }
   function updateExternalCameraButtonState() {
     var extBtn = document.getElementById('gateStartCameraBtn');
+    var stopBtn = document.getElementById('gateStopCameraBtn');
     var swBtn = document.getElementById('gateSwitchCameraBtn');
     if (extBtn) {
       if (scannerRunning) {
-        extBtn.disabled = true;
-        extBtn.classList.remove('btn-primary');
-        extBtn.classList.add('btn-success');
-        extBtn.innerHTML = '<i class="fas fa-check-circle"></i> Camera running';
+        extBtn.style.display = 'none';
       } else {
+        extBtn.style.display = 'inline-flex';
         extBtn.disabled = scannerStarting;
         extBtn.classList.remove('btn-success');
         extBtn.classList.add('btn-primary');
         extBtn.innerHTML = scannerStarting ? '<i class="fas fa-spinner fa-spin"></i> Starting...' : '<i class="fas fa-camera"></i> Start camera';
+      }
+    }
+    if (stopBtn) {
+      if (scannerRunning) {
+        stopBtn.style.display = 'inline-flex';
+        stopBtn.disabled = scannerSwitching;
+      } else {
+        stopBtn.style.display = 'none';
       }
     }
     if (swBtn) {
@@ -4583,11 +4853,13 @@ function guardTokenPayload() {
       scannerRunning = false;
       activeCameraId = null;
       setStaffScannerHeartbeatActive(false);
+      updateExternalCameraButtonState();
       if (typeof done === 'function') done();
     }).catch(function() {
       scannerRunning = false;
       activeCameraId = null;
       setStaffScannerHeartbeatActive(false);
+      updateExternalCameraButtonState();
       if (typeof done === 'function') done();
     });
   }
@@ -4716,33 +4988,47 @@ function guardTokenPayload() {
   function startCameraFromExternalButton() {
     startScannerWithPreference(getCameraPreference(), function() {});
   }
-  /** Guard embed: no Start button — begin preview only after staff scanner is active (heartbeat). */
+  /** Guard embed / guard wall: no Start button — begin preview only after staff scanner is active (heartbeat). */
   function guardEmbedAutoStartCamera() {
-    if (!window.GATE_GUARD_EMBED) return;
+    if (!window.GATE_GUARD_EMBED && !window.GATE_GUARD_WALL) return;
     if (scannerRunning || scannerStarting) return;
     setTimeout(function() {
       if (scannerRunning || scannerStarting) return;
       startScannerWithPreference(getCameraPreference(), function() {});
     }, 400);
   }
-  /** Poll staff scanner heartbeat; keep guard wall blocked until staff taps Start camera on /gate/. */
+  /** Poll staff scanner heartbeat; guard embed + guard wall stay blocked until staff taps Start on /gate/. */
   function guardEmbedStaffScannerPoll() {
-    if (typeof window.GATE_GUARD_EMBED === 'undefined' || !window.GATE_GUARD_EMBED) return;
+    if (!window.GATE_GUARD_EMBED && !window.GATE_GUARD_WALL) return;
     var url = window.GATE_GUARD_DASHBOARD_MINIMAL_URL;
     if (!url) return;
     var overlay = document.getElementById('guardStaffWaitOverlay');
-    var statusSpan = document.querySelector('.guard-embed-mode .status-indicator span');
+    var fullOverlay = document.getElementById('guardWallFullOverlay');
+    var livePanel = document.getElementById('liveEntriesPanel');
+    var statusSpan = document.querySelector('.scanner-container .status-indicator span');
     function hideOverlay() {
+      window._gateGuardWallScannerActive = true;
       if (overlay) {
         overlay.style.display = 'none';
         overlay.setAttribute('aria-hidden', 'true');
       }
+      if (fullOverlay) {
+        fullOverlay.style.display = 'none';
+        fullOverlay.setAttribute('aria-hidden', 'true');
+      }
+      if (livePanel) livePanel.style.display = '';
     }
     function showOverlay() {
+      window._gateGuardWallScannerActive = false;
       if (overlay) {
         overlay.style.display = '';
         overlay.setAttribute('aria-hidden', 'false');
       }
+      if (fullOverlay) {
+        fullOverlay.style.display = 'flex';
+        fullOverlay.setAttribute('aria-hidden', 'false');
+      }
+      if (livePanel) livePanel.style.display = 'none';
     }
     function tick() {
       fetch(url, { credentials: 'same-origin' })
@@ -4814,7 +5100,7 @@ function guardTokenPayload() {
     if (!readerEl) return;
     function afterLibraryReady() {
       updateExternalCameraButtonState();
-      if (typeof window.GATE_GUARD_EMBED !== 'undefined' && window.GATE_GUARD_EMBED) {
+      if (window.GATE_GUARD_EMBED || window.GATE_GUARD_WALL) {
         guardEmbedStaffScannerPoll();
       }
     }
@@ -4871,6 +5157,12 @@ function guardTokenPayload() {
   if (externalStartBtn) {
     externalStartBtn.addEventListener('click', startCameraFromExternalButton);
   }
+  var externalStopBtn = document.getElementById('gateStopCameraBtn');
+  if (externalStopBtn) {
+    externalStopBtn.addEventListener('click', function() {
+      stopScanner(function() {});
+    });
+  }
   var switchCameraBtn = document.getElementById('gateSwitchCameraBtn');
   if (switchCameraBtn) {
     switchCameraBtn.addEventListener('click', switchCameraFromExternalButton);
@@ -4880,71 +5172,83 @@ function guardTokenPayload() {
 
   // -------------------------
   // Manual Entry (omitted on guard-only embed)
+  // Check-in: reason + Submit (or Enter when reason selected). Check-out: name/ID + Enter (no reason).
   // -------------------------
   (function() {
     var manualSubmitEl = document.getElementById('manualSubmit');
     var manualInputEl = document.getElementById('manualInput');
-    var manualStatusEl = document.getElementById('manualStatus');
-    var manualTimeEl = document.getElementById('manualTime');
-    if (!manualSubmitEl || !manualInputEl || !manualStatusEl || !manualTimeEl) return;
+    var manualReasonEl = document.getElementById('manualReason');
+    if (!manualSubmitEl || !manualInputEl || !manualReasonEl) return;
 
-    function doManualSubmit(studentId, status, customTime) {
+    function manualEntryLocalDateTime() {
+      var d = new Date();
+      var y = d.getFullYear();
+      var mo = String(d.getMonth() + 1).padStart(2, '0');
+      var day = String(d.getDate()).padStart(2, '0');
+      var h = String(d.getHours()).padStart(2, '0');
+      var mi = String(d.getMinutes()).padStart(2, '0');
+      return y + '-' + mo + '-' + day + 'T' + h + ':' + mi + ':00';
+    }
+
+    function doManualSubmit(studentInput, gateKind, reasonText, skipConfirm) {
       if (isProcessingScan) {
         showNotification('Please wait while the current scan is being processed', 'warning');
         return;
       }
-      isProcessingScan = true;
+      var scanStatus = gateKind === 'in' ? 'IN' : 'OUT';
+      var runPost = function() {
+        isProcessingScan = true;
 
-      var statusIndicator = document.querySelector('.status-indicator');
-      statusIndicator.classList.add('scanning');
-      statusIndicator.querySelector('span').textContent = 'Processing manual input...';
+        var statusIndicator = document.querySelector('.status-indicator');
+        statusIndicator.classList.add('scanning');
+        statusIndicator.querySelector('span').textContent = 'Processing manual input...';
 
-      var todayDate = new Date().toISOString().split('T')[0];
-      var fullDateTime = todayDate + 'T' + customTime + ':00';
+        var fullDateTime = manualEntryLocalDateTime();
 
-      if (!navigator.onLine) {
-        addToOfflineQueue({
-          student_id: studentId,
-          manual_status: status,
+        if (!navigator.onLine) {
+          addToOfflineQueue({
+            student_id: studentInput,
+            manual_status: scanStatus,
+            gate_manual_entry: gateKind,
+            manual_entry_reason: gateKind === 'in' ? (reasonText || '') : '',
+            use_save_scan: true,
+            local_time: fullDateTime,
+            event_id: selectedEventId,
+            client_ts: new Date().toISOString()
+          }, function(isDuplicate) {
+            if (isDuplicate) {
+              playErrorBeep();
+              document.getElementById('result').innerHTML = 'Already scanned today. No duplicate recorded.';
+              document.getElementById('result').className = 'warning';
+              showNotification('Already scanned today. No duplicate recorded.', 'warning');
+            } else {
+              playSuccessBeep();
+              var n = _offlineQueueCache.length;
+              document.getElementById('result').innerHTML = 'Saved offline' + (n ? ' (' + n + ' scan(s) pending sync). ' : '. ') + 'Will sync when online.';
+              document.getElementById('result').className = 'success';
+              showNotification('Manual entry saved to local database. Will sync to server when back online.', 'info');
+            }
+            statusIndicator.classList.remove('scanning');
+            statusIndicator.querySelector('span').textContent = 'Scanner ready';
+            isProcessingScan = false;
+            manualInputEl.value = '';
+            manualReasonEl.value = '';
+          });
+          return;
+        }
+
+        var postData = {
+          student_id: studentInput,
           local_time: fullDateTime,
-          event_id: selectedEventId,
-          client_ts: new Date().toISOString()
-        }, function(isDuplicate) {
-          if (isDuplicate) {
-            playErrorBeep();
-            document.getElementById('result').innerHTML = 'Already scanned today. No duplicate recorded.';
-            document.getElementById('result').className = 'warning';
-            showNotification('Already scanned today. No duplicate recorded.', 'warning');
-          } else {
-            playSuccessBeep();
-            var n = _offlineQueueCache.length;
-            document.getElementById('result').innerHTML = 'Saved offline' + (n ? ' (' + n + ' scan(s) pending sync). ' : '. ') + 'Will sync when online.';
-            document.getElementById('result').className = 'success';
-            showNotification('Manual entry saved to local database. Will sync to server when back online.', 'info');
-          }
-          statusIndicator.classList.remove('scanning');
-          statusIndicator.querySelector('span').textContent = 'Scanner ready';
-          isProcessingScan = false;
-          manualInputEl.value = '';
-          manualStatusEl.value = '';
-          manualTimeEl.value = '';
-        });
-        return;
-      }
+          device_id: DEVICE_ID,
+          csrfmiddlewaretoken: (getCsrfFromCookie() || "{{ csrf_token }}"),
+          manual_status: scanStatus,
+          gate_manual_entry: gateKind
+        };
+        if (gateKind === 'in' && reasonText) postData.manual_entry_reason = reasonText;
+        if (selectedEventId) postData.event_id = selectedEventId;
 
-      var postData = {
-        student_id: studentId,
-        local_time: fullDateTime,
-        device_id: DEVICE_ID,
-        csrfmiddlewaretoken: (getCsrfFromCookie() || "{{ csrf_token }}")
-      };
-      if (selectedEventId) {
-        postData.event_id = selectedEventId;
-        postData.manual_status = status;
-      }
-      // Daily gate: omit manual_status so backend uses auto IN/OUT from current state
-
-      $.post("{% url 'save_scan' %}", $.extend({}, postData, guardTokenPayload()), function(response) {
+        $.post("{% url 'save_scan' %}", $.extend({}, postData, guardTokenPayload()), function(response) {
       var resultDiv = document.getElementById('result');
       var hintDiv = document.getElementById('resultScheduleHint');
       var notePanel = document.getElementById('requireNotePanel');
@@ -5002,8 +5306,18 @@ function guardTokenPayload() {
         resultDiv.className = response.color === 'success' ? 'success' : 'info';
         showScheduleHint();
         showStudentPopup(response);
+        manualInputEl.value = '';
+        manualReasonEl.value = '';
         if (response.status === 'IN') {
-          showNotification(response.message, 'in', response.student_name, response.time || currentTime);
+          /* Same toast pattern as visitor check-in success (upper-right .notification.success) */
+          showNotification(
+            response.message,
+            'success',
+            response.student_name || 'Checked in',
+            response.time || currentTime
+          );
+          incrementSessionScan();
+          window.updateModeToggleUI();
         } else if (response.status === 'OUT') {
           showNotification(response.message, 'out', response.student_name, response.time || currentTime);
         } else {
@@ -5015,7 +5329,7 @@ function guardTokenPayload() {
         resultDiv.className = 'warning';
         showScheduleHint();
         if (response.deny_detail) hintDiv.innerHTML = (hintDiv.innerHTML || '') + '<div class="next-suggested">' + escapeHtml(response.deny_detail) + '</div>';
-        window._pendingNoteScan = { student_id: studentId, manual_status: status };
+        window._pendingNoteScan = { student_id: studentInput, manual_status: scanStatus };
         notePanel.style.display = 'block';
         document.getElementById('outNoteSelect').value = '';
         document.getElementById('outNoteText').value = '';
@@ -5064,38 +5378,47 @@ function guardTokenPayload() {
       statusIndicator.querySelector('span').textContent = 'Scanner ready';
       isProcessingScan = false;
     });
+      };
 
-      manualInputEl.value = '';
-      manualStatusEl.value = '';
-      manualTimeEl.value = '';
+      if (skipConfirm) {
+        runPost();
+      } else {
+        var reasonLabel = gateKind === 'in' ? (reasonText || 'check-in') : 'check-out (no ID scan)';
+        themeConfirm(
+          'Submit manual entry for "' + studentInput + '" as ' + reasonLabel + '?',
+          function() { runPost(); }
+        );
+      }
     }
 
     manualSubmitEl.addEventListener('click', function() {
-      var studentId = manualInputEl.value.trim();
-      var status = manualStatusEl.value;
-      var customTime = manualTimeEl.value;
+      var raw = manualInputEl.value.trim();
+      var reason = (manualReasonEl.value || '').trim();
 
-      if (!studentId) {
-        showNotification('Please enter a Student ID', 'warning');
+      if (!raw) {
+        showNotification('Enter a registered name or student ID.', 'warning');
         return;
       }
-      if (selectedEventId && !status) {
-        showNotification('Please select IN or OUT', 'warning');
-        return;
+      if (reason) {
+        doManualSubmit(raw, 'in', reason, false);
+      } else {
+        doManualSubmit(raw, 'out', '', true);
       }
-      if (!customTime) {
-        showNotification('Please select a time', 'warning');
-        return;
-      }
-      var statusLabel = selectedEventId ? status : 'Auto (IN/OUT)';
-      themeConfirm('Are you sure you want to submit this manual entry for Student ID ' + studentId + ' as ' + statusLabel + '?', function() {
-        doManualSubmit(studentId, status, customTime);
-      });
     });
 
-    manualInputEl.addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') {
-        manualSubmitEl.click();
+    manualInputEl.addEventListener('keydown', function(e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      var raw = manualInputEl.value.trim();
+      var reason = (manualReasonEl.value || '').trim();
+      if (!raw) {
+        showNotification('Enter a registered name or student ID.', 'warning');
+        return;
+      }
+      if (reason) {
+        doManualSubmit(raw, 'in', reason, false);
+      } else {
+        doManualSubmit(raw, 'out', '', true);
       }
     });
   })();
@@ -5182,7 +5505,7 @@ function guardTokenPayload() {
   }
 })();
 </script>
-{% if kiosk_mode and not guard_embed %}
+{% if kiosk_mode and not guard_embed and not guard_wall %}
 <script>
 (function() {
   var btn = document.getElementById('kioskFullscreenBtn');
@@ -5622,6 +5945,7 @@ console.log('[Gate Scan Notifications] Notification polling initialized');
   }
   function sendStaffScannerHeartbeatState() {
     if (typeof window.GATE_GUARD_EMBED !== 'undefined' && window.GATE_GUARD_EMBED) return;
+    if (typeof window.GATE_GUARD_WALL !== 'undefined' && window.GATE_GUARD_WALL) return;
     var active = !!window._gateStaffScannerHeartbeatActive;
     var headers = {
       'X-CSRFToken': csrf(),
@@ -5639,12 +5963,6 @@ console.log('[Gate Scan Notifications] Notification polling initialized');
   setInterval(function() {
     if (window._gateStaffScannerHeartbeatActive) sendStaffScannerHeartbeatState();
   }, 30000);
-})();
-(function gateSessionRestorePing() {
-  if (typeof window.GATE_GUARD_EMBED !== 'undefined' && window.GATE_GUARD_EMBED) return;
-  if (window._gateStaffScannerHeartbeatActive && typeof window._gateScannerHeartbeatPingNow === 'function') {
-    window._gateScannerHeartbeatPingNow();
-  }
 })();
 </script>
 

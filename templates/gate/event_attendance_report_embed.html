@@ -85,7 +85,7 @@
 
   <div class="emb-bar">
     {% if not event_ended %}
-    <a href="{% url 'event-field-trip-scan' event.id %}" target="_top" class="btn btn-success btn-sm"><i class="fas fa-qrcode mr-1"></i> Scanner</a>
+    <a href="{% url 'gate-scan' %}?event={{ event.id }}" target="_top" class="btn btn-success btn-sm"><i class="fas fa-qrcode mr-1"></i> Scanner</a>
     {% endif %}
 
     <div class="emb-export-wrap" id="exportWrap">

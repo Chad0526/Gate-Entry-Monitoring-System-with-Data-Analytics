@@ -34,7 +34,6 @@
     .emb-stat.checked-in .icon-wrap { background: #dbeafe; color: var(--info); }
     .emb-stat.checked-out .icon-wrap { background: #dcfce7; color: var(--ok); }
     .emb-stat.inside .icon-wrap { background: #fef3c7; color: var(--warn); }
-    .emb-stat.capacity .icon-wrap { background: #f1f5f9; color: var(--muted); }
     .emb-stat .num { font-size: 1.35rem; font-weight: 800; color: var(--text); line-height: 1; }
     .emb-stat .lbl { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; margin-top: 4px; }
     .emb-stat .progress { height: 6px; border-radius: 3px; margin-top: 6px; }
@@ -107,14 +106,6 @@
       <div class="icon-wrap"><i class="fas fa-user-friends"></i></div>
       <div class="num">{{ currently_inside }}</div>
       <div class="lbl">Inside</div>
-    </div>
-    <div class="emb-stat capacity">
-      <div class="icon-wrap"><i class="fas fa-users"></i></div>
-      <div class="num">{% if capacity %}{{ currently_inside }}/{{ capacity }}{% else %}—{% endif %}</div>
-      <div class="lbl">Capacity</div>
-      {% if capacity %}
-      <div class="progress"><div class="progress-bar bg-{{ capacity_status }}" style="width:{{ capacity_pct }}%;"></div></div>
-      {% endif %}
     </div>
   </div>
 

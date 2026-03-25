@@ -121,10 +121,7 @@ class StudentAdmin(PerPageListMixin, admin.ModelAdmin):
                 object_id=obj.pk,
                 description=f'Student {obj.student_id} approved via Django admin',
             )
-        elif new_status in (Student.ACCOUNT_STATUS_REJECTED, Student.ACCOUNT_STATUS_INACTIVE) and old_status not in (
-            Student.ACCOUNT_STATUS_REJECTED,
-            Student.ACCOUNT_STATUS_INACTIVE,
-        ):
+        elif new_status == Student.ACCOUNT_STATUS_INACTIVE and old_status != Student.ACCOUNT_STATUS_INACTIVE:
             if obj.is_active:
                 obj.is_active = False
                 obj.save(update_fields=['is_active'])

@@ -70,7 +70,6 @@ class Command(BaseCommand):
                     start_date=start,
                     end_date=end,
                     points=10,
-                    maximum_attende=100,
                     status='scheduled',
                     attendance_mode='OPEN',
                     created_user=user,

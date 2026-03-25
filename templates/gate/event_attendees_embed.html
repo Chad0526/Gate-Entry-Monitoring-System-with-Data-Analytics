@@ -46,15 +46,7 @@
             <td><code>{% if in_e %}{{ in_e.student.student_id }}{% else %}{{ out_e.student.student_id }}{% endif %}</code></td>
             <td>{% if in_e %}{{ in_e.student.get_full_name }}{% else %}{{ out_e.student.get_full_name }}{% endif %}</td>
             <td>{% if in_e %}{% if in_e.granted %}<span class="badge badge-success">Granted</span>{% else %}<span class="badge badge-danger">Denied</span>{% endif %}{% else %}{% if out_e.granted %}<span class="badge badge-success">Granted</span>{% else %}<span class="badge badge-danger">Denied</span>{% endif %}{% endif %}</td>
-            <td>
-              {% if in_e and out_e %}
-                IN → <span class="text-info">{{ out_e.out_reason|default:"OUT" }}</span>
-              {% elif in_e %}
-                {{ in_e.notes|default:"IN" }}
-              {% else %}
-                <span class="text-info">OUT{% if out_e.out_reason %} ({{ out_e.out_reason }}){% endif %}</span>
-              {% endif %}
-            </td>
+            {% include 'gate/includes/entry_notes_cell.html' with in_e=in_e out_e=out_e %}
           </tr>
         {% empty %}
           <tr><td colspan="5" class="text-muted text-center py-3">No attendees for this date yet.</td></tr>

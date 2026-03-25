@@ -96,41 +96,6 @@ def notify_denied_entry(incident, student_id=None, scanned_id=None):
         logger.warning('notify_denied_entry failed: %s', e)
 
 
-def notify_capacity_alert(event, current_count, capacity):
-    """Send email when event reaches 80% capacity (once per event)."""
-    if not getattr(settings, 'NOTIFY_ON_CAPACITY_ALERT', True):
-        return
-    if event.capacity_alert_sent_at:
-        return
-    if capacity <= 0:
-        return
-    pct = 100.0 * current_count / capacity
-    if pct < 80:
-        return
-    emails = _get_admin_emails()
-    if not emails:
-        return
-    try:
-        subject = f"[Event] Capacity alert – {event.name} at {pct:.0f}%"
-        body = (
-            f"Event: {event.name}\n"
-            f"Current inside: {current_count}\n"
-            f"Capacity: {capacity}\n"
-            f"Reached {pct:.1f}%.\n"
-        )
-        send_mail(
-            subject,
-            body,
-            getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@localhost'),
-            emails,
-            fail_silently=True,
-        )
-        event.capacity_alert_sent_at = timezone.now()
-        event.save(update_fields=['capacity_alert_sent_at'])
-    except Exception as e:
-        logger.warning('notify_capacity_alert failed: %s', e)
-
-
 def send_daily_digest(date=None):
     """Send daily digest email to admins (call from management command or cron). Uses local day bounds for timezone correctness."""
     from .models import GateEntry, GateIncident

@@ -9,9 +9,9 @@ from datetime import timedelta
 
 def notifications_context(request):
     """
-    Add notification counts and items for the navbar: pending approvals, upcoming events,
-    new events (recently created). Unread count includes summary rows and each item so
-    the badge shows "notifications still to be opened".
+    Add notification counts and items for the navbar: staff/faculty pending approval,
+    upcoming events, new events (recently created). Unread count includes summary rows
+    and each item so the badge shows "notifications still to be opened".
     """
     pending_students_count = 0
     pending_students = []
@@ -25,18 +25,6 @@ def notifications_context(request):
     if request.user.is_authenticated:
         try:
             role = get_user_role(request.user)
-            # Student approvals: admin only (not staff)
-            if role == 'admin':
-                from gate.models import Student
-                pending_students = list(
-                    Student.objects.filter(
-                        account_status=Student.ACCOUNT_STATUS_PENDING
-                    ).order_by('-created_at')[:10]
-                )
-                pending_students_count = Student.objects.filter(
-                    account_status=Student.ACCOUNT_STATUS_PENDING
-                ).count()
-
             # Staff/Faculty/Personnel pending approval: admin, staff, supervisor can see and approve
             # Use id subquery so distinct + order_by works on both MySQL and PostgreSQL
             if role in ('admin', 'staff', 'supervisor'):
@@ -81,8 +69,7 @@ def notifications_context(request):
             pass
 
     total_notifications_count = (
-        int(pending_students_count or 0)
-        + int(pending_staff_personnel_count or 0)
+        int(pending_staff_personnel_count or 0)
         + int(upcoming_events_count or 0)
         + int(new_events_count or 0)
     )
@@ -116,13 +103,8 @@ def notifications_context(request):
         except Exception:
             pass
 
-    # Unread = summary rows (pending, upcoming, new) + each item not yet opened
+    # Unread = summary rows (staff pending, upcoming, new) + each item not yet opened
     unread_notifications_count = 0
-    if pending_students_count and 'notif_pending_students' not in read_notification_ids:
-        unread_notifications_count += 1
-    for s in pending_students:
-        if s.pk not in read_student_pks:
-            unread_notifications_count += 1
     if pending_staff_personnel_count and 'notif_pending_staff_personnel' not in read_notification_ids:
         unread_notifications_count += 1
     for u in pending_staff_personnel:
@@ -142,36 +124,14 @@ def notifications_context(request):
     NOTIFICATION_DROPDOWN_MAX = 8
     notification_all = []
     if request.user.is_authenticated and (
-        pending_students or pending_staff_personnel or upcoming_events or new_events
+        pending_staff_personnel or upcoming_events or new_events
     ):
         try:
-            pending_url = reverse('gate-student-list') + '?pending=1'
             events_url = reverse('event-list')
             pending_staff_personnel_url = reverse('pending-staff-personnel-list')
         except Exception:
-            pending_url = '#'
             events_url = '#'
             pending_staff_personnel_url = '#'
-
-        if pending_students_count:
-            notification_all.append({
-                'type': 'pending_summary',
-                'url': pending_url,
-                'label': f'{pending_students_count} student(s) pending approval',
-                'label_right': 'Review',
-                'icon': 'fa-user-clock',
-                'is_read': 'notif_pending_students' in read_notification_ids,
-            })
-        for s in pending_students:
-            notification_all.append({
-                'type': 'student',
-                'url': reverse('gate-student-edit', kwargs={'pk': s.pk}) + '?from=pending',
-                'label': f'{s.get_full_name()} ({s.student_id})',
-                'label_right': '',
-                'icon': 'fa-user-plus',
-                'is_read': s.pk in read_student_pks,
-                'obj': s,
-            })
 
         if pending_staff_personnel_count:
             notification_all.append({

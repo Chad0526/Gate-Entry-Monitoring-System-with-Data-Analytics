@@ -95,9 +95,9 @@
           {% if user_role == 'admin' or user_role == 'faculty' or user_role == 'staff' %}
           <li class="nav-header">{% trans "Events" %}</li>
           <li class="nav-item">
-            <a href="{% url 'event-attendance-scanner' %}" class="nav-link {% if current == 'event-attendance-scanner' or current == 'event-field-trip-scan' %}active{% endif %}">
-              <i class="nav-icon fas fa-qrcode"></i>
-              <p>{% trans "Attendance Scanner" %}</p>
+            <a href="{% url 'event-attendance-scanner' %}" class="nav-link {% if current == 'event-attendance-scanner' %}active{% endif %}">
+              <i class="nav-icon fas fa-clipboard-check"></i>
+              <p>{% trans "Attendance scanner" %}</p>
             </a>
           </li>
           <li class="nav-item has-treeview {% if current == 'event-list' or current == 'event-create' or current == 'event-category-list' or current == 'event-edit' or current == 'event-detail' or current == 'event-delete' %}menu-open{% endif %}">

@@ -47,13 +47,8 @@ CSRF_TRUSTED_ORIGINS = [
 # Host header validation. For local dev + LAN + ngrok/tunnels, use '*' (only safe with DEBUG=True).
 # Production: set DJANGO_ALLOWED_HOSTS=example.com,www.example.com (comma-separated, no spaces needed)
 # or rely on the non-DEBUG list below. Never use '*' when DEBUG=False.
-_hosts_env = os.environ.get('DJANGO_ALLOWED_HOSTS', '').strip()
-if _hosts_env:
-    ALLOWED_HOSTS = [h.strip() for h in _hosts_env.split(',') if h.strip()]
-elif DEBUG:
-    ALLOWED_HOSTS = ['*']
-else:
-    ALLOWED_HOSTS = [
+
+ALLOWED_HOSTS = [
         'localhost',
         '127.0.0.1',
         '192.168.180.160',
@@ -71,14 +66,6 @@ else:
         '.ngrok.io',
     ]
 
-# Ngrok / tunnel: allow forms (CSRF) and redirects from the public URL
-_ngrok_host = os.environ.get('NGROK_HOST', '').strip()
-if _ngrok_host:
-    _ngrok_origin = f'https://{_ngrok_host}' if not _ngrok_host.startswith('http') else _ngrok_host
-    CSRF_TRUSTED_ORIGINS.append(_ngrok_origin.rstrip('/'))
-# When behind ngrok, the request to Django is often HTTP; trust X-Forwarded-Proto so links use HTTPS
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-USE_X_FORWARDED_HOST = True
 
 
 # Application definition
@@ -309,9 +296,9 @@ CACHES = {
 CACHE_DASHBOARD_SECONDS = 120  # 2 minutes
 
 # After login, if the user did not open /login/?next=...
-# — Staff / Faculty / Supervisor: default landing page (dashboard vs gate scanner).
-# — Set LOGIN_REDIRECT_DEFAULT_GATE_STAFF = 'gate-scan' if gate staff should open the scanner first.
-# Physical guards do not log in; only assigned staff use the gate PC.
+# — Staff / Faculty / Supervisor: default landing page (set to 'dashboard'; use 'gate-scan' to open scanner first).
+# — Admin default: LOGIN_REDIRECT_DEFAULT_ADMIN.
+# Physical guards do not log in; staff open /gate/ from the dashboard when needed.
 LOGIN_REDIRECT_GATE_FIRST_ROLES = ('staff', 'faculty', 'supervisor')
 LOGIN_REDIRECT_DEFAULT_GATE_STAFF = 'dashboard'
 LOGIN_REDIRECT_DEFAULT_ADMIN = 'dashboard'
@@ -336,10 +323,6 @@ GATE_SCAN_REPEAT_COOLDOWN_SCOPE = _raw_gate_cool_scope if _raw_gate_cool_scope i
 # Guard scan-success popup layout: split (photo | text), poster (photo banner on top), idcard (photo + bordered info panel)
 _raw_guard_popup = (os.environ.get('GATE_GUARD_STUDENT_POPUP_STYLE', 'split') or '').strip().lower()
 GATE_GUARD_STUDENT_POPUP_STYLE = _raw_guard_popup if _raw_guard_popup in ('split', 'poster', 'idcard') else 'split'
-# Staff /gate/: minimal page with only Start/Stop gate session (no camera UI). Scanner dashboard uses the camera.
-# Set to 0/false/off to restore the full QR scanner page (camera, manual entry, live entries). Or add ?full=1 to the URL.
-_val_gate_console = (os.environ.get('GATE_STAFF_GATE_CONSOLE_ONLY', '1') or '').strip().lower()
-GATE_STAFF_GATE_CONSOLE_ONLY = _val_gate_console not in ('0', 'false', 'no', 'off')
 # Optional: user id for GateEntry.recorded_by when using token-only /gate/embed-scanner/ (guard monitor).
 GATE_GUARD_EMBED_RECORDED_BY_USER_ID = os.environ.get('GATE_GUARD_EMBED_RECORDED_BY_USER_ID', '') or None
 if GATE_GUARD_EMBED_RECORDED_BY_USER_ID:

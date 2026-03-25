@@ -330,17 +330,18 @@
       <div class="db-card h-100">
         <div class="db-card-head"><i class="fas fa-bolt"></i> <span>Quick Actions</span></div>
         <div class="db-card-body" style="display:flex;flex-direction:column;gap:8px;">
-          {% if gate_scanner_session_active %}
-          <a href="{% url 'gate-scan' %}" class="btn action-btn w-100" style="background:#c82333;border-color:#bd2130;color:#fff;">
-            <i class="fas fa-stop"></i> Stop Gate Scanner
-          </a>
-          <p class="small text-muted mb-0" style="margin-top:-4px;">Your gate session is active — open to stop the camera.</p>
-          {% else %}
-          <a href="{% url 'gate-scan' %}" class="btn action-btn action-primary w-100">
-            <i class="fas fa-qrcode"></i> Start Gate Scanner
-          </a>
-          {% endif %}
-          <a href="{% url 'event-attendance-scanner' %}" class="btn action-btn w-100"><i class="fas fa-user-check"></i> Event Attendance</a>
+          <div class="w-100 p-2 rounded border" style="background:#f8fafc;border-color:#e2e8f0!important;">
+            <div class="small text-muted mb-2" style="line-height:1.35;">Arm the gate session so the scanner display can open the camera. Use <strong>Stop</strong> when gate duty ends.</div>
+            <div class="d-flex flex-column gap-2">
+              <button type="button" id="gateDashSessionStart" class="btn action-btn action-primary w-100">
+                <i class="fas fa-play"></i> Start gate session
+              </button>
+              <button type="button" id="gateDashSessionStop" class="btn action-btn w-100" style="border:1px solid #cbd5e1;color:#b91c1c;background:#fff;" disabled>
+                <i class="fas fa-stop"></i> Stop gate session
+              </button>
+            </div>
+            <a href="{% url 'gate-scan' %}" class="btn btn-link btn-sm w-100 mt-1 p-0 small">Open full scanner page (camera + manual entry here)</a>
+          </div>
           <a href="{% url 'visitor-pass-create' %}" class="btn action-btn w-100"><i class="fas fa-user-tag"></i> Visitor Pass</a>
           <a href="{% url 'gate-entry-list' %}" class="btn action-btn w-100"><i class="fas fa-list"></i> Gate Entries</a>
           <a href="{% url 'reports-overview' %}" class="btn action-btn w-100"><i class="fas fa-file-alt"></i> Reports</a>
@@ -472,5 +473,73 @@
   window.addEventListener('offline', updateNetworkStatus);
   updateDashboardStats();
   setInterval(updateDashboardStats, 7000);
+
+  (function gateDashboardScannerSessionControls() {
+    var hbUrl = '{% url "gate-scan-scanner-heartbeat" %}';
+    var hbMs = 30000;
+    var storageKey = 'gateDashGateSession';
+    var timer = null;
+
+    function csrfToken() {
+      var m = document.cookie.match(/\bcsrftoken=([^;]+)/);
+      return m ? m[1].trim() : '';
+    }
+
+    function sendHeartbeat(cameraOn) {
+      return fetch(hbUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'X-CSRFToken': csrfToken(),
+          'X-Requested-With': 'XMLHttpRequest',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ camera_running: !!cameraOn }),
+      }).then(function(r) { return r.json().catch(function() { return {}; }); });
+    }
+
+    function setSessionUi(running) {
+      var startBtn = document.getElementById('gateDashSessionStart');
+      var stopBtn = document.getElementById('gateDashSessionStop');
+      if (startBtn) {
+        startBtn.disabled = !!running;
+      }
+      if (stopBtn) {
+        stopBtn.disabled = !running;
+      }
+    }
+
+    function startSessionFromUi() {
+      if (timer) clearInterval(timer);
+      sendHeartbeat(true).catch(function() {});
+      timer = setInterval(function() {
+        sendHeartbeat(true).catch(function() {});
+      }, hbMs);
+      try { sessionStorage.setItem(storageKey, '1'); } catch (e) {}
+      setSessionUi(true);
+    }
+
+    function stopSessionFromUi() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+      sendHeartbeat(false).catch(function() {});
+      try { sessionStorage.removeItem(storageKey); } catch (e) {}
+      setSessionUi(false);
+      updateDashboardStats();
+    }
+
+    var startBtn = document.getElementById('gateDashSessionStart');
+    var stopBtn = document.getElementById('gateDashSessionStop');
+    if (startBtn) startBtn.addEventListener('click', startSessionFromUi);
+    if (stopBtn) stopBtn.addEventListener('click', stopSessionFromUi);
+
+    try {
+      if (sessionStorage.getItem(storageKey) === '1') {
+        startSessionFromUi();
+      }
+    } catch (e) {}
+  })();
 </script>
 {% endblock content %}

@@ -50,7 +50,8 @@ class StaffPersonnelCompleteProfileMiddleware(MiddlewareMixin):
         if not getattr(request, 'user', None) or not request.user.is_authenticated:
             return None
         path = (request.path or '').rstrip('/')
-        skip_prefixes = ('/profile/complete', '/logout', '/static', '/media', '/admin', '/login')
+        # Allow gate JSON APIs to work before staff profile completion (heartbeat, dashboard polling, etc.)
+        skip_prefixes = ('/profile/complete', '/logout', '/static', '/media', '/admin', '/login', '/gate/api')
         if any(path == p or path.startswith(p + '/') for p in skip_prefixes):
             return None
         if path in ('', '/') or path == '/login':

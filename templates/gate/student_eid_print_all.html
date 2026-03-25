@@ -6,55 +6,295 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Print all student e-ID cards — {{ site_name }}</title>
   <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; padding: 16px; font-family: 'Segoe UI', system-ui, sans-serif; background: #e8e8e8; }
-    .no-print { margin-bottom: 16px; }
-    .cards-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 16px;
-      max-width: 560px;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Arial', 'Helvetica', sans-serif; background: #e8e8e8; padding: 16px; }
+
+    .no-print { margin-bottom: 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .no-print button {
+      padding: 10px 20px; font-size: 14px; cursor: pointer; border: none;
+      background: #16a34a; color: #fff; border-radius: 8px; font-weight: 600;
     }
-    .card-slot {
-      width: 100%;
-      max-width: 288px;
-      min-height: 212px;
-      background: #fff;
-      border-radius: 14px;
-      overflow: hidden;
-      border: 1px solid #ddd;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+    .no-print button:hover { background: #15803d; }
+    .no-print .info { color: #666; font-size: 14px; }
+
+    .print-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+      gap: 24px;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+
+    .student-card-block {
+      background: #fff; border-radius: 16px; overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1); padding: 16px;
       page-break-inside: avoid;
     }
-    .card-slot iframe {
-      width: 100%;
-      height: 420px;
-      border: 0;
-      display: block;
+    .student-card-block .card-label {
+      font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase;
+      letter-spacing: 0.5px; margin-bottom: 6px;
     }
-    .card-slot:nth-child(4n) { page-break-after: always; }
-    .card-slot:last-child { page-break-after: auto; }
+    .student-card-block .card-pair {
+      display: flex; flex-direction: column; gap: 12px;
+    }
+
+    /* ===== Inline ID card styles (same as student_eid_card.html) ===== */
+    .id-card {
+      width: 500px; height: 340px;
+      background: #fff; border-radius: 12px; overflow: hidden; display: flex;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15); flex-shrink: 0;
+    }
+    .id-card-front { flex-direction: row; position: relative; }
+    .id-card-front::before {
+      content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background-image: url('{% static "gate/images/CCB.jpg" %}');
+      background-size: cover; background-position: center;
+      opacity: 0.12; z-index: 0; pointer-events: none;
+    }
+    .card-body {
+      flex: 1; display: flex; flex-direction: column;
+      padding: 6px 18px 12px 18px; position: relative; z-index: 1;
+    }
+    .card-header-section {
+      display: flex; align-items: flex-start; gap: 12px;
+      margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #ddd;
+    }
+    .logo-circle {
+      width: 90px; height: 90px; border-radius: 50%; background: transparent;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-left: 150px;
+    }
+    .logo-image { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; padding: 2px; }
+    .header-text-block { flex: 1; text-align: left; margin-top: 8px; }
+    .school-address { font-size: 7px; color: #666; line-height: 1.2; margin-bottom: 1px; }
+    .institution-name { font-size: 17px; font-weight: bold; color: #333; margin: 2px 0; letter-spacing: 0.3px; }
+    .contact-info { font-size: 7px; color: #666; line-height: 1.2; margin: 1px 0; }
+    .card-title { font-size: 11px; font-weight: bold; color: #FF6B35; margin-top: 2px; letter-spacing: 0.5px; }
+    .card-content { display: flex; gap: 15px; flex: 1; margin-bottom: 8px; }
+    .left-column { flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; margin-top: -105px; }
+    .photo-box { border: 3px solid #4CAF50; border-radius: 4px; overflow: hidden; }
+    .photo-placeholder {
+      width: 130px; height: 155px;
+      background: linear-gradient(135deg, #e8e8e8 0%, #f5f5f5 100%);
+      display: flex; align-items: center; justify-content: center;
+      color: #999; font-size: 9px; font-weight: bold; text-align: center; overflow: hidden;
+    }
+    .photo-placeholder img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+    .signature-box { text-align: center; padding-top: 40px; }
+    .signature-line { width: 100%; height: 1px; background: #333; margin-bottom: 2px; }
+    .signature-text { font-size: 10px; color: #666; }
+    .right-column { flex: 1; display: flex; flex-direction: column; }
+    .student-name-block { margin-bottom: 8px; }
+    .name-line1 { font-size: 21px; font-weight: normal; color: #333; line-height: 1.1; min-height: 23px; text-transform: uppercase; }
+    .name-line2 { font-size: 21px; font-weight: bold; color: #000; letter-spacing: 0.5px; line-height: 1.1; margin-top: 1px; min-height: 23px; text-transform: uppercase; }
+    .name-underline { width: 100%; height: 2px; background: #333; margin: 3px 0 2px 0; }
+    .name-label { font-size: 11px; color: #666; }
+    .info-list { display: flex; flex-direction: column; gap: 5px; }
+    .info-row { display: flex; align-items: baseline; }
+    .info-label { font-size: 9px; color: #666; min-width: 85px; flex-shrink: 0; }
+    .info-value { font-size: 10px; color: #000; font-weight: 600; line-height: 1.3; flex: 1; min-height: 13px; text-transform: uppercase; }
+    .card-footer-front { margin-top: auto; }
+    .reminders-box { background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 100%); padding: 7px 12px; border-radius: 4px; }
+    .reminders-heading { font-size: 9px; font-weight: bold; color: white; margin-bottom: 3px; text-align: center; }
+    .reminders-content { font-size: 6.5px; color: white; line-height: 1.4; text-align: justify; }
+
+    /* Back card */
+    .id-card-back { flex-direction: column; background: #f8f8f8; }
+    .back-top-bar {
+      height: 70px; background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 50%, #4CAF50 100%);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 8px 15px;
+    }
+    .emergency-section { text-align: center; display: flex; flex-direction: column; gap: 2px; }
+    .emergency-label { font-size: 8px; color: white; font-weight: bold; letter-spacing: 0.5px; }
+    .emergency-underline { width: 80%; height: 1px; background: white; margin: 3px auto; }
+    .emergency-name { font-size: 13px; font-weight: bold; color: white; letter-spacing: 0.3px; text-transform: uppercase; }
+    .emergency-mobile { font-size: 10px; color: white; font-weight: 500; }
+    .back-main-content {
+      flex: 1; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .signatory-block { flex: 1; text-align: center; }
+    .signatory-space { height: 20px; }
+    .signatory-line { width: 100%; height: 1px; background: #333; margin-bottom: 2px; }
+    .signatory-name { font-size: 10px; font-weight: 900; color: #333; text-transform: uppercase; line-height: 1.2; }
+    .signatory-title { font-size: 7px; color: #666; text-transform: uppercase; line-height: 1.3; }
+    .qr-block { flex-shrink: 0; text-align: center; }
+    .qr-wrap {
+      padding: 4px; border: 2px solid #4CAF50; border-radius: 8px;
+      display: inline-block; background: #fff;
+    }
+    .qr-wrap img { display: block; width: 100px; height: 100px; image-rendering: pixelated; image-rendering: crisp-edges; }
+    .qr-hint { font-size: 7px; color: #555; margin-top: 3px; font-weight: 600; }
+    .back-rules-bar {
+      flex-shrink: 0; background: #f0f0f0; border-top: 1px solid #ddd;
+      padding: 5px 16px; text-align: center;
+    }
+    .back-rules-text { font-size: 6.5px; color: #444; line-height: 1.3; }
+    .back-bottom-bar {
+      height: 32px; background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 50%, #4CAF50 100%);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    }
+    .validity-text { font-size: 8px; font-weight: bold; color: white; letter-spacing: 0.5px; text-align: center; }
+
+    /* ===== PRINT (browser) ===== */
     @media print {
-      @page { size: portrait; }
-      html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #fff; padding: 4mm; margin: 0; }
+      @page { size: letter; margin: 0.25in; }
+      html, body {
+        background: #fff !important; margin: 0 !important; padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
       .no-print { display: none !important; }
-      .cards-grid { max-width: none; gap: 0.25in; grid-template-columns: repeat(2, 1fr); justify-items: center; }
-      .card-slot { max-width: 3in; min-height: 2in; box-shadow: none; border: 1px solid #ccc; }
-      .card-slot iframe { height: 4.25in; }
+      .print-grid {
+        display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start;
+        gap: 0.12in; max-width: none;
+      }
+      .student-card-block {
+        background: none; box-shadow: none; padding: 0; border-radius: 0;
+        page-break-inside: avoid;
+        width: auto;
+      }
+      .student-card-block .card-label { display: none; }
+      .student-card-block .card-pair { gap: 0.08in; }
+      .id-card {
+        zoom: 0.649;
+        box-shadow: none !important;
+        border: 1px solid #aaa;
+        border-radius: 6px;
+      }
     }
   </style>
 </head>
 <body>
   <div class="no-print">
-    <button type="button" onclick="window.print();" style="padding: 8px 16px; font-size: 14px; cursor: pointer;">Print all e-ID cards</button>
-    <span style="margin-left: 12px; color: #666;">{{ students|length }} card(s). Use your browser's print dialog. Enable &quot;Background graphics&quot; for best result.</span>
+    <button type="button" onclick="window.print();">🖨️ Print all e-ID cards</button>
+    <span class="info">{{ total }} student(s). Cards print at 3.377 × 2.127 in on letter paper. Enable "Background graphics" in print settings.</span>
   </div>
-  <div class="cards-grid">
-  {% for student in students %}
-  <div class="card-slot">
-    <iframe src="{% url 'gate-student-eid' student.pk %}" title="e-ID {{ student.student_id }}"></iframe>
-  </div>
-  {% endfor %}
+
+  <div class="print-grid">
+    {% for card in student_cards %}
+    <div class="student-card-block">
+      <div class="card-label">{{ card.student.student_id }} — {{ card.student.get_full_name }}</div>
+      <div class="card-pair">
+        <!-- FRONT -->
+        <div class="id-card id-card-front">
+          <div class="card-body">
+            <div class="card-header-section">
+              <div class="logo-circle">
+                {% if logo_url %}
+                <img src="{{ logo_url }}" alt="Logo" class="logo-image">
+                {% else %}
+                <img src="{% static 'gate/images/CBB.png' %}" alt="Logo" class="logo-image">
+                {% endif %}
+              </div>
+              <div class="header-text-block">
+                <p class="school-address">Upper Cabcabon, Banga, Bayawan City, Negros Oriental</p>
+                <h1 class="institution-name">CITY COLLEGE OF BAYAWAN</h1>
+                <p class="contact-info">citycollegebayawan@gmail.com</p>
+                <p class="contact-info">(035) 430 - 0045 local (120)</p>
+                <p class="card-title">STUDENT IDENTIFICATION CARD</p>
+              </div>
+            </div>
+            <div class="card-content">
+              <div class="left-column">
+                <div class="photo-box">
+                  <div class="photo-placeholder">
+                    {% if card.photo_url %}
+                    <img src="{{ card.photo_url }}" alt="Photo">
+                    {% elif card.student.photo %}
+                    <img src="{{ card.student.photo.url }}" alt="Photo">
+                    {% else %}
+                    <span>2x2<br>PHOTO</span>
+                    {% endif %}
+                  </div>
+                </div>
+                <div class="signature-box">
+                  <div class="signature-line"></div>
+                  <p class="signature-text">Signature</p>
+                </div>
+              </div>
+              <div class="right-column">
+                <div class="student-name-block">
+                  <div class="name-line1">{{ card.student.first_name|upper }}{% if card.student.middle_name %} {{ card.student.middle_name|slice:":1"|upper }}.{% endif %}</div>
+                  <div class="name-line2">{{ card.student.last_name|upper }}</div>
+                  <div class="name-underline"></div>
+                  <div class="name-label">Student Name</div>
+                </div>
+                <div class="info-list">
+                  <div class="info-row">
+                    <span class="info-label">Student ID No.</span>
+                    <span class="info-value">: {{ card.student.student_id }}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="info-label">Course</span>
+                    <span class="info-value">: {{ card.student.get_course_display|default:card.student.course_or_section|default:"—" }}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="info-label">Birthdate</span>
+                    <span class="info-value">: {{ card.student.birthdate|date:"F j, Y"|default:"—" }}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="info-label">Address</span>
+                    <span class="info-value">: {{ card.student.address|default:"—" }}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="info-label">Contact No.</span>
+                    <span class="info-value">: {{ card.student.contact_number|default:"—" }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card-footer-front">
+              <div class="reminders-box">
+                <p class="reminders-heading">IMPORTANT REMINDERS</p>
+                <p class="reminders-content">Always carry your ID while inside the premises and present it to any authorized personnel of the school upon request. If found, please surrender to the Office of Student Affairs - Bayawan City Campus.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BACK -->
+        <div class="id-card id-card-back">
+          <div class="back-top-bar">
+            <div class="emergency-section">
+              <p class="emergency-label">IN CASE OF EMERGENCY, PLEASE NOTIFY</p>
+              <div class="emergency-underline"></div>
+              <div class="emergency-name">{{ card.student.guardians_parents|default:card.student.guardian_contact|default:"—" }}</div>
+              <div class="emergency-mobile">{{ card.student.guardian_contact|default:card.student.contact_number|default:"—" }}</div>
+            </div>
+          </div>
+          <div class="back-main-content">
+            <div class="signatory-block">
+              <div class="signatory-space"></div>
+              <div class="signatory-line"></div>
+              <p class="signatory-name">1ST SIGNATORY NAME</p>
+              <p class="signatory-title">Designation</p>
+            </div>
+            <div class="qr-block">
+              <div class="qr-wrap">
+                <img src="{{ card.qr_url }}" alt="QR {{ card.student.student_id }}">
+              </div>
+              <p class="qr-hint">Scan at gate for IN / OUT</p>
+            </div>
+            <div class="signatory-block">
+              <div class="signatory-space"></div>
+              <div class="signatory-line"></div>
+              <p class="signatory-name">2ND SIGNATORY NAME</p>
+              <p class="signatory-title">Designation</p>
+            </div>
+          </div>
+          <div class="back-rules-bar">
+            <p class="back-rules-text">This e-ID is non-transferable. Present upon entry when requested. Report loss immediately to Security Office. Misuse may result in disciplinary action.</p>
+          </div>
+          <div class="back-bottom-bar">
+            <p class="validity-text">VALID UNTIL: A.Y. 2025 - 2026 (1ST SEMESTER)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <p style="color: #888; padding: 40px; text-align: center;">No students match the selected filters.</p>
+    {% endfor %}
   </div>
 </body>
 </html>

@@ -46,7 +46,7 @@
   }
   .student-eid-inline-wrap iframe {
     width: 100%;
-    height: 470px;
+    height: 620px;
     border: 0;
     display: block;
     background: #f3f3f3;
@@ -140,7 +140,7 @@
     background: linear-gradient(135deg, #218838 0%, #1b5e20 100%);
     color: #fff;
   }
-  /* Account status Rejected/Inactive warning – yellow to soft orange */
+  /* Account status Inactive warning – yellow to soft orange */
   .account-status-warn-backdrop {
     position: fixed;
     top: 0;
@@ -247,12 +247,11 @@
   <div class="col-md-8">
     <div class="card card-primary">
       <div class="card-header position-relative d-flex align-items-center" style="min-height: 2.5rem;">
-        <a href="{% if from_pending %}{% url 'gate-student-list' %}?pending=1{% else %}{% url 'gate-student-list' %}{% endif %}" class="btn btn-sm btn-success" style="font-weight: 500;"><i class="fas fa-arrow-left mr-1"></i>Back</a>
+        <a href="{% url 'gate-student-list' %}" class="btn btn-sm btn-success" style="font-weight: 500;"><i class="fas fa-arrow-left mr-1"></i>Back</a>
         <h5 class="m-0 position-absolute text-center w-100" style="left: 0; transform: translateX(0); pointer-events: none;">{{ title }}</h5>
       </div>
       <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        {% if from_pending %}<input type="hidden" name="from_pending" value="1">{% endif %}
         <div class="card-body">
           {% if form.non_field_errors %}
           <div class="alert alert-danger py-2">
@@ -439,7 +438,7 @@
 </div>
 {% if student %}
 <div class="modal fade" id="studentEidPopupModal" tabindex="-1" role="dialog" aria-labelledby="studentEidPopupModalTitle" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 430px;">
+  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 540px;">
     <div class="modal-content">
       <div class="modal-header py-2">
         <h5 class="modal-title" id="studentEidPopupModalTitle">Student e-ID card</h5>
@@ -448,7 +447,7 @@
         </button>
       </div>
       <div class="modal-body p-0">
-        <iframe id="studentEidPopupFrame" src="about:blank" style="width:100%; height:520px; border:0;" title="Student e-ID popup"></iframe>
+        <iframe id="studentEidPopupFrame" src="about:blank" style="width:100%; height:680px; border:0;" title="Student e-ID popup"></iframe>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-sm btn-primary" data-dismiss="modal">Close</button>
@@ -457,7 +456,7 @@
   </div>
 </div>
 {% endif %}
-<!-- Account status Rejected/Inactive warning modal -->
+<!-- Account status Inactive warning modal -->
 <div id="accountStatusWarnBackdrop" class="account-status-warn-backdrop" aria-hidden="true">
   <div class="account-status-warn-dialog" role="dialog" aria-modal="true" aria-labelledby="accountStatusWarnTitle">
     <div class="account-status-warn-header" id="accountStatusWarnTitle">
@@ -491,7 +490,7 @@
 </div>
 <script>
   (function() {
-    // Account status Rejected/Inactive: show warning before save (cannot save directly)
+    // Account status Inactive: show warning before save
     var form = document.querySelector('form[method="post"]');
     var accountStatusSelect = form ? form.querySelector('select[name="account_status"]') : null;
     var accountStatusWarnBackdrop = document.getElementById('accountStatusWarnBackdrop');
@@ -501,10 +500,10 @@
     if (form && accountStatusSelect && accountStatusWarnBackdrop) {
       form.addEventListener('submit', function(e) {
         var val = (accountStatusSelect.value || '').toUpperCase();
-        if (val === 'REJECTED' || val === 'INACTIVE') {
+        if (val === 'INACTIVE') {
           e.preventDefault();
           if (accountStatusWarnValue) {
-            accountStatusWarnValue.textContent = val === 'REJECTED' ? 'Rejected' : 'Inactive';
+            accountStatusWarnValue.textContent = 'Inactive';
           }
           accountStatusWarnBackdrop.classList.add('show');
         }

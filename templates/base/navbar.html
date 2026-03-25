@@ -271,14 +271,8 @@
           {% if notification_all %}
           <div class="notif-body">
             {% for item in notification_all %}
-            {% if item.type == 'pending_summary' %}
-            <div class="notif-section-title">{% trans "Pending approvals" %}</div>
-            <div class="notif-item notif-item-row-only{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
-              <i class="fas {{ item.icon }} notif-icon"></i>
-              <strong>{{ item.label }}</strong>
-              <a href="{{ item.url }}" class="notif-label-right-link" data-notif-unread="{% if not item.is_read %}1{% endif %}">{{ item.label_right }}</a>
-            </div>
-            {% elif item.type == 'new_events_summary' %}
+            {% if item.type != 'pending_summary' and item.type != 'student' %}
+            {% if item.type == 'new_events_summary' %}
             <div class="notif-section-title">{% trans "New events" %}</div>
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
               <i class="fas {{ item.icon }} notif-icon"></i>
@@ -305,6 +299,7 @@
               {{ item.label }}
               {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
             </a>
+            {% endif %}
             {% endif %}
             {% endfor %}
           </div>

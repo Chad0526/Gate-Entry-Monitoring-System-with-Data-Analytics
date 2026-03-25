@@ -6,294 +6,321 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Student e-ID — {{ student.student_id }}</title>
   <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; padding: 16px; font-family: 'Segoe UI', system-ui, sans-serif; background: #e8e8e8; }
-    .eid-sheet { display: flex; flex-direction: column; align-items: center; gap: 16px; }
-    /* Landscape card: 3×2 inches */
-    .card-wrap {
-      width: 288px; height: 192px; max-width: 100%;
-      background: #fff; border-radius: 12px; overflow: hidden;
-      border: 1px solid #ddd; box-shadow: 0 6px 24px rgba(0,0,0,0.12);
-      display: flex; flex-direction: column;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Arial', 'Helvetica', sans-serif; background: #f5f5f5; padding: 10px 10px 30px; }
+    .eid-sheet { display: flex; flex-direction: column; align-items: center; gap: 24px; }
+
+    /* ==================== ID CARD - LANDSCAPE ==================== */
+    .id-card {
+      width: 500px; height: 340px;
+      background: #fff; border-radius: 15px; overflow: hidden; display: flex;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.25);
     }
-    .eid-front .card-header {
-      flex: 0 0 auto;
-      background-image: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 6px),
-        linear-gradient(135deg, #0e7001 0%, #8ddf00 50%, #006b05 100%);
-      padding: 6px 10px; display: flex; align-items: center; gap: 6px;
-      min-height: 32px; border-radius: 12px 12px 0 0;
+
+    /* ==================== FRONT CARD ==================== */
+    .id-card-front { flex-direction: row; position: relative; }
+    .id-card-front::before {
+      content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background-image: url('{% static "gate/images/CCB.jpg" %}');
+      background-size: cover; background-position: center; background-repeat: no-repeat;
+      opacity: 0.12; z-index: 0; pointer-events: none;
     }
-    .eid-front .card-header-logo {
-      width: 26px; height: 26px; border-radius: 50%;
-      background: rgba(255,255,255,0.15); border: 2px solid #d4af37;
-      flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;
+    .card-body {
+      flex: 1; display: flex; flex-direction: column;
+      padding: 6px 18px 12px 18px; position: relative; z-index: 1;
     }
-    .eid-front .card-header-logo img { width: 100%; height: 100%; object-fit: cover; }
-    .eid-front .card-header-logo.logo-fallback { font-size: 9px; color: rgba(255,255,255,0.95); font-weight: 700; }
-    .eid-front .card-header-text { flex: 1; min-width: 0; }
-    .eid-front .card-header-title { margin: 0; font-size: 9px; font-weight: 700; color: #fff; letter-spacing: 0.04em; line-height: 1.2; text-transform: uppercase; }
-    .eid-front .card-header-sub { margin: 0; font-size: 6px; font-weight: 600; color: rgba(255,255,255,0.9); text-transform: uppercase; }
-    .eid-front .card-body {
-      flex: 1 1 0; min-height: 0; padding: 5px 10px; background: #faf9f0;
-      display: flex; flex-direction: column; gap: 2px;
+    .card-header-section {
+      display: flex; align-items: flex-start; gap: 12px;
+      margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #ddd;
     }
-    .eid-front .card-body-inner { display: flex; gap: 8px; align-items: flex-start; flex: 1; min-height: 0; }
-    .eid-front .student-photo-wrap {
-      width: 60px; height: 74px; border-radius: 6px; overflow: hidden; background: #fff; border: 1px solid #ddd; flex-shrink: 0;
+    .logo-circle {
+      width: 90px; height: 90px; border-radius: 50%; background: transparent;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-left: 150px;
     }
-    .eid-front .student-photo-wrap img { width: 100%; height: 100%; object-fit: cover; }
-    .eid-front .student-photo-placeholder {
-      width: 100%; height: 100%; background: linear-gradient(135deg, #e8e8e8 0%, #d0d0d0 100%); display: flex; align-items: center; justify-content: center; font-size: 8px; color: #888;
+    .logo-image {
+      width: 100%; height: 100%; object-fit: contain; border-radius: 50%; padding: 2px;
     }
-    .eid-front .student-info { flex: 1; min-width: 0; }
-    .eid-front .student-name { font-size: 11px; font-weight: 700; color: #2c2c2c; text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 3px; line-height: 1.2; }
-    .eid-front .academic-block {
-      background: #fffde7; border: 1px solid #c9b800; border-radius: 4px; padding: 4px 6px; font-size: 8px; color: #333;
+    .logo-fallback {
+      font-size: 18px; font-weight: 700; color: #333;
     }
-    .eid-front .academic-block p { margin: 0; }
-    .eid-front .student-id-line { font-size: 9px; font-weight: 700; color: #1a4d2e; margin-top: 2px; }
-    .eid-front .eid-signature-line { margin-top: 4px; display: flex; align-items: center; gap: 4px; }
-    .eid-front .eid-signature-label { font-size: 6px; font-weight: 600; color: #555; text-transform: uppercase; }
-    .eid-front .eid-signature-img { height: 18px; max-width: 80px; object-fit: contain; display: block; }
-    .eid-front .card-access-bar {
-      flex: 0 0 auto; background: linear-gradient(90deg, #1a4d2e 0%, #2d6a3e 100%);
-      padding: 4px 10px; display: flex; align-items: center; justify-content: space-around; gap: 6px;
-      border-top: 1px solid #d4af37;
+    .header-text-block { flex: 1; text-align: left; margin-top: 8px; }
+    .school-address { font-size: 7px; color: #666; line-height: 1.2; margin-bottom: 1px; }
+    .institution-name { font-size: 17px; font-weight: bold; color: #333; margin: 2px 0; letter-spacing: 0.3px; }
+    .contact-info { font-size: 7px; color: #666; line-height: 1.2; margin: 1px 0; }
+    .card-title { font-size: 11px; font-weight: bold; color: #FF6B35; margin-top: 2px; letter-spacing: 0.5px; }
+    .card-content { display: flex; gap: 15px; flex: 1; margin-bottom: 8px; }
+
+    /* Left Column - Photo */
+    .left-column { flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; margin-top: -105px; }
+    .photo-box { border: 3px solid #4CAF50; border-radius: 4px; overflow: hidden; }
+    .photo-placeholder {
+      width: 130px; height: 155px;
+      background: linear-gradient(135deg, #e8e8e8 0%, #f5f5f5 100%);
+      display: flex; align-items: center; justify-content: center;
+      color: #999; font-size: 9px; font-weight: bold; text-align: center;
+      overflow: hidden; position: relative;
     }
-    .eid-front .card-access-item { display: flex; align-items: center; gap: 3px; font-size: 6px; font-weight: 700; color: #fff; text-transform: uppercase; }
-    .eid-front .card-access-item svg { width: 10px; height: 10px; flex-shrink: 0; }
-    .eid-front .card-footer-front { flex: 0 0 auto; padding: 3px 10px; font-size: 5px; color: #555; border-top: 1px solid #eee; background: #f5f5f5; }
-    /* Back card 3×2 in */
-    .eid-back .card-back-body { padding: 10px 10px 5px; flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 4px; background: #fff; }
-    .eid-back .back-row { display: flex; gap: 8px; align-items: flex-start; flex: 1; min-height: 0; }
-    .eid-back .id-rules { flex: 1; min-width: 0; }
-    .eid-back .id-rules h4 { margin: 0 0 3px; font-size: 11px; font-weight: 700; color: #1a4d2e; }
-    .eid-back .id-rules ol { margin: 0; padding-left: 14px; font-size: 8px; color: #333; line-height: 1.4; }
-    .eid-back .qr-section { flex-shrink: 0; text-align: center; }
-    .eid-back .qr-wrap { padding: 4px; border: 2px solid #e6b800; border-radius: 6px; display: inline-block; background: #fff; margin-bottom: 2px; }
-    .eid-back .qr-wrap img { display: block; width: 96px; height: 96px; image-rendering: pixelated; image-rendering: crisp-edges; }
-    .eid-back .qr-open-btn {
-      border: 0;
-      background: transparent;
-      padding: 0;
-      cursor: zoom-in;
+    .photo-placeholder img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+    .signature-box { text-align: center; padding-top: 40px; }
+    .signature-line { width: 100%; height: 1px; background: #333; margin-bottom: 2px; }
+    .signature-text { font-size: 10px; color: #666; }
+    .signature-img { height: 28px; max-width: 100px; object-fit: contain; display: block; margin: 0 auto 2px; }
+
+    /* Right Column - Student Details */
+    .right-column { flex: 1; display: flex; flex-direction: column; }
+    .student-name-block { margin-bottom: 8px; }
+    .name-line1 {
+      font-size: 21px; font-weight: normal; color: #333;
+      line-height: 1.1; min-height: 23px; text-transform: uppercase;
     }
-    .eid-back .qr-hint { font-size: 7px; color: #555; }
-    .eid-back .emergency-box { border: 1px dashed #1a4d2e; border-radius: 3px; padding: 3px 6px; background: #fffde7; }
-    .eid-back .emergency-box h4 { margin: 0 0 2px; font-size: 7px; font-weight: 700; color: #1a4d2e; }
-    .eid-back .emergency-box p { margin: 0; font-size: 6px; color: #333; }
-    .eid-back .card-back-footer {
-      flex: 0 0 auto; background: linear-gradient(90deg, #1a4d2e 0%, #fd9800 100%);
-      padding: 4px 10px; display: flex; align-items: center; justify-content: space-around; gap: 6px;
+    .name-line2 {
+      font-size: 21px; font-weight: bold; color: #000;
+      letter-spacing: 0.5px; line-height: 1.1; margin-top: 1px; min-height: 23px; text-transform: uppercase;
     }
-    .eid-back .card-back-footer .item { display: flex; align-items: center; gap: 3px; font-size: 6px; font-weight: 700; color: #fff; text-transform: uppercase; }
-    .eid-back .card-back-footer .item svg { width: 8px; height: 8px; }
-    .eid-back .card-back-footer .divider { width: 1px; height: 12px; background: rgba(255,255,255,0.5); }
+    .name-underline { width: 100%; height: 2px; background: #333; margin: 3px 0 2px 0; }
+    .name-label { font-size: 11px; color: #666; }
+    .info-list { display: flex; flex-direction: column; gap: 5px; }
+    .info-row { display: flex; align-items: baseline; }
+    .info-label { font-size: 9px; color: #666; min-width: 85px; flex-shrink: 0; }
+    .info-value { font-size: 10px; color: #000; font-weight: 600; line-height: 1.3; flex: 1; min-height: 13px; text-transform: uppercase; }
+    .card-footer-front {
+      margin-top: auto;
+    }
+    .reminders-box {
+      background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 100%);
+      padding: 7px 12px; border-radius: 4px;
+    }
+    .reminders-heading { font-size: 9px; font-weight: bold; color: white; margin-bottom: 3px; text-align: center; }
+    .reminders-content { font-size: 6.5px; color: white; line-height: 1.4; text-align: justify; }
+
+    /* ==================== BACK CARD ==================== */
+    .id-card-back { flex-direction: column; background: #f8f8f8; }
+    .back-top-bar {
+      height: 70px; background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 50%, #4CAF50 100%);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 8px 15px;
+    }
+    .emergency-section { text-align: center; display: flex; flex-direction: column; gap: 2px; }
+    .emergency-label { font-size: 8px; color: white; font-weight: bold; letter-spacing: 0.5px; }
+    .emergency-underline { width: 80%; height: 1px; background: white; margin: 3px auto; }
+    .emergency-name { font-size: 13px; font-weight: bold; color: white; letter-spacing: 0.3px; text-transform: uppercase; }
+    .emergency-mobile { font-size: 10px; color: white; font-weight: 500; }
+    .back-main-content {
+      flex: 1; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .signatory-block { flex: 1; text-align: center; }
+    .signatory-space { height: 20px; }
+    .signatory-line { width: 100%; height: 1px; background: #333; margin-bottom: 2px; }
+    .signatory-name { font-size: 10px; font-weight: 900; color: #333; text-transform: uppercase; line-height: 1.2; }
+    .signatory-title { font-size: 7px; color: #666; text-transform: uppercase; line-height: 1.3; }
+    .qr-block { flex-shrink: 0; text-align: center; }
+    .qr-wrap {
+      padding: 4px; border: 2px solid #4CAF50; border-radius: 8px;
+      display: inline-block; background: #fff; cursor: zoom-in;
+    }
+    .qr-wrap img { display: block; width: 100px; height: 100px; image-rendering: pixelated; image-rendering: crisp-edges; }
+    .qr-hint { font-size: 7px; color: #555; margin-top: 3px; font-weight: 600; }
+    .back-rules-bar {
+      flex-shrink: 0; background: #f0f0f0; border-top: 1px solid #ddd;
+      padding: 5px 16px; text-align: center;
+    }
+    .back-rules-text { font-size: 6.5px; color: #444; line-height: 1.3; }
+    .back-bottom-bar {
+      height: 32px; background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 50%, #4CAF50 100%);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    }
+    .validity-text { font-size: 8px; font-weight: bold; color: white; letter-spacing: 0.5px; text-align: center; }
+
+    /* ==================== QR ZOOM OVERLAY ==================== */
     .qr-zoom-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.62);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      z-index: 9999;
+      position: fixed; inset: 0; background: rgba(0,0,0,0.62);
+      display: none; align-items: center; justify-content: center; padding: 20px; z-index: 9999;
     }
     .qr-zoom-overlay.show { display: flex; }
     .qr-zoom-dialog {
-      width: min(92vw, 460px);
-      background: #fff;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.35);
+      width: min(92vw, 460px); background: #fff; border-radius: 12px;
+      overflow: hidden; box-shadow: 0 16px 50px rgba(0,0,0,0.35);
     }
     .qr-zoom-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 14px;
-      border-bottom: 1px solid #ececec;
-      background: #f8f9fa;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; border-bottom: 1px solid #ececec; background: #f8f9fa;
     }
-    .qr-zoom-header h3 {
-      margin: 0;
-      font-size: 16px;
-      font-weight: 600;
-      color: #1f2937;
-    }
-    .qr-zoom-close {
-      border: 0;
-      background: transparent;
-      font-size: 24px;
-      line-height: 1;
-      color: #6b7280;
-      cursor: pointer;
-    }
-    .qr-zoom-body {
-      text-align: center;
-      padding: 16px;
-      background: #f9fafb;
-    }
+    .qr-zoom-header h3 { margin: 0; font-size: 16px; font-weight: 600; color: #1f2937; }
+    .qr-zoom-close { border: 0; background: transparent; font-size: 24px; line-height: 1; color: #6b7280; cursor: pointer; }
+    .qr-zoom-body { text-align: center; padding: 16px; background: #f9fafb; }
     .qr-zoom-body img {
-      width: min(78vw, 340px);
-      height: auto;
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      background: #fff;
-      padding: 8px;
+      width: min(78vw, 340px); height: auto; image-rendering: pixelated; image-rendering: crisp-edges;
+      border: 1px solid #d1d5db; border-radius: 8px; background: #fff; padding: 8px;
     }
-    .qr-zoom-footer {
-      display: flex;
-      justify-content: flex-end;
-      padding: 10px 14px 14px;
-      background: #fff;
-    }
+    .qr-zoom-footer { display: flex; justify-content: flex-end; padding: 10px 14px 14px; background: #fff; }
     .qr-zoom-footer a {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      text-decoration: none;
-      border: 1px solid #2563eb;
-      color: #2563eb;
-      border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 13px;
-      font-weight: 600;
+      display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+      border: 1px solid #4CAF50; color: #4CAF50; border-radius: 6px; padding: 6px 10px; font-size: 13px; font-weight: 600;
     }
+
+    /* ==================== PRINT ==================== */
     @media print {
-      @page { size: 3in 4.5in; margin: 0; }
+      @page { size: letter; margin: 0.5in; }
       html, body {
-        background: #fff !important;
-        margin: 0 !important;
-        padding: 0 !important;
+        background: #fff !important; margin: 0 !important; padding: 0 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
         color-adjust: exact !important;
       }
-      * {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-        color-adjust: exact !important;
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+      body { padding: 0.3in !important; zoom: 1 !important; }
+      .eid-sheet { gap: 0.2in; align-items: center; }
+      .id-card {
+        zoom: 0.649;
+        box-shadow: none !important;
+        border: 1px solid #aaa;
+        border-radius: 6px;
       }
-      .card-wrap {
-        box-shadow: none;
-        border: 1px solid #ccc;
-        width: 3in;
-        height: 2in;
-      }
-      .eid-sheet { gap: 0.25in; }
-      .eid-back .qr-wrap img { width: 1in; height: 1in; }
+      .id-card-front::before { opacity: 0.10; }
       .qr-zoom-overlay { display: none !important; }
     }
   </style>
 </head>
 <body>
   <div class="eid-sheet">
-    <div class="card-wrap eid-front">
-      <div class="card-header">
-        <div class="card-header-logo {% if not logo_url %}logo-fallback{% endif %}" id="student-eid-logo-wrap">
-          {% if logo_url %}
-          <img src="{{ logo_url }}" alt="" onerror="this.style.display='none'; this.parentElement.classList.add('logo-fallback'); this.parentElement.textContent='CCB';" />
-          {% else %}
-          CCB
-          {% endif %}
-        </div>
-        <div class="card-header-text">
-          <p class="card-header-title">{{ site_name }}</p>
-          <p class="card-header-sub">Official Student e-ID</p>
-        </div>
-      </div>
+    <!-- ==================== FRONT ==================== -->
+    <div class="id-card id-card-front">
       <div class="card-body">
-        <div class="card-body-inner">
-          <div class="student-photo-wrap">
-            {% if photo_url %}
-            <img src="{{ photo_url }}" alt="" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'student-photo-placeholder\'>Photo</div>';" />
-            {% elif student.photo %}
-            <img src="{{ student.photo.url }}" alt="" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'student-photo-placeholder\'>Photo</div>';" />
+        <div class="card-header-section">
+          <div class="logo-circle">
+            {% if logo_url %}
+            <img src="{{ logo_url }}" alt="College Logo" class="logo-image"
+                 onerror="this.style.display='none'; this.parentElement.innerHTML='<span class=\'logo-fallback\'>CCB</span>';">
             {% else %}
-            <div class="student-photo-placeholder">Photo</div>
+            <img src="{% static 'gate/images/CBB.png' %}" alt="College Logo" class="logo-image"
+                 onerror="this.style.display='none'; this.parentElement.innerHTML='<span class=\'logo-fallback\'>CCB</span>';">
             {% endif %}
           </div>
-          <div class="student-info">
-            <p class="student-name">{{ student.last_name|upper }}, {{ student.first_name|upper }}{% if student.middle_name %} {{ student.middle_name|slice:":1"|upper }}.{% endif %}</p>
-            <div class="academic-block">
-              <p>Course: {{ student.get_course_display|default:student.course_or_section|default:"—" }}</p>
-              <p>Year: {{ student.get_year_level_display|default:"—" }}</p>
-              <p>Section: {{ student.section|default:"—" }}</p>
-              <p>Sex: {{ student.get_sex_display|default:"—" }}</p>
+          <div class="header-text-block">
+            <p class="school-address">Upper Cabcabon, Banga, Bayawan City, Negros Oriental</p>
+            <h1 class="institution-name">CITY COLLEGE OF BAYAWAN</h1>
+            <p class="contact-info">citycollegebayawan@gmail.com</p>
+            <p class="contact-info">(035) 430 - 0045 local (120)</p>
+            <p class="card-title">STUDENT IDENTIFICATION CARD</p>
+          </div>
+        </div>
+
+        <div class="card-content">
+          <div class="left-column">
+            <div class="photo-box">
+              <div class="photo-placeholder">
+                {% if photo_url %}
+                <img src="{{ photo_url }}" alt="Student Photo"
+                     onerror="this.style.display='none'; this.parentElement.innerHTML='<span>2x2<br>PHOTO</span>';">
+                {% elif student.photo %}
+                <img src="{{ student.photo.url }}" alt="Student Photo"
+                     onerror="this.style.display='none'; this.parentElement.innerHTML='<span>2x2<br>PHOTO</span>';">
+                {% else %}
+                <span>2x2<br>PHOTO</span>
+                {% endif %}
+              </div>
             </div>
-            <p class="student-id-line">Student ID: <strong>{{ student.student_id }}</strong></p>
-            {% if signature_url or student.signature %}
-            <div class="eid-signature-line">
-              <span class="eid-signature-label">Signature:</span>
+            <div class="signature-box">
               {% if signature_url %}
-              <img src="{{ signature_url }}" alt="Signature" class="eid-signature-img" />
+              <img src="{{ signature_url }}" alt="Signature" class="signature-img">
               {% elif student.signature %}
-              <img src="{{ student.signature.url }}" alt="Signature" class="eid-signature-img" />
+              <img src="{{ student.signature.url }}" alt="Signature" class="signature-img">
               {% endif %}
+              <div class="signature-line"></div>
+              <p class="signature-text">Signature</p>
             </div>
-            {% endif %}
+          </div>
+
+          <div class="right-column">
+            <div class="student-name-block">
+              <div class="name-line1">{{ student.first_name|upper }}{% if student.middle_name %} {{ student.middle_name|slice:":1"|upper }}.{% endif %}</div>
+              <div class="name-line2">{{ student.last_name|upper }}</div>
+              <div class="name-underline"></div>
+              <div class="name-label">Student Name</div>
+            </div>
+            <div class="info-list">
+              <div class="info-row">
+                <span class="info-label">Student ID No.</span>
+                <span class="info-value">: {{ student.student_id }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Course</span>
+                <span class="info-value">: {{ student.get_course_display|default:student.course_or_section|default:"—" }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Birthdate</span>
+                <span class="info-value">: {{ student.birthdate|date:"F j, Y"|default:"—" }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Address</span>
+                <span class="info-value">: {{ student.address|default:"—" }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Contact No.</span>
+                <span class="info-value">: {{ student.contact_number|default:"—" }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-footer-front">
+          <div class="reminders-box">
+            <p class="reminders-heading">IMPORTANT REMINDERS</p>
+            <p class="reminders-content">Always carry your ID while inside the premises and present it to any authorized personnel of the school upon request. If found, please surrender to the Office of Student Affairs - Bayawan City Campus.</p>
           </div>
         </div>
       </div>
-      <div class="card-access-bar">
-        <div class="card-access-item">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
-          Scan at Gate
-        </div>
-        <div class="card-access-item">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
-          Campus Access
-        </div>
-      </div>
-      <div class="card-footer-front">Emergency Contact: {{ student.guardian_contact|default:student.contact_number|default:"_______________" }}</div>
     </div>
-    <div class="card-wrap eid-back">
-      <div class="card-back-body">
-        <div class="back-row">
-          <div class="id-rules">
-            <h4>ID Rules</h4>
-            <ol>
-              <li>This e-ID is non-transferable.</li>
-              <li>Present upon entry when requested by guards.</li>
-              <li>Report loss immediately to Security Office.</li>
-              <li>Misuse may result in disciplinary action.</li>
-            </ol>
-          </div>
-          <div class="qr-section">
-            <div class="qr-wrap">
-              <button type="button" class="qr-open-btn" id="eidQrOpenBtn" title="View QR in larger popup">
-                <img src="{{ qr_url }}" alt="QR {{ student.student_id }}" />
-              </button>
-            </div>
-            <p class="qr-hint">Scan at gate for IN / OUT</p>
-          </div>
-        </div>
-        <div class="emergency-box">
-          <h4>Emergency Contact:</h4>
-          <p>Contact No.: {{ student.guardian_contact|default:student.contact_number|default:"_______________" }}</p>
-          <p>Address: {{ student.address|default:"_______________" }}</p>
+
+    <!-- ==================== BACK ==================== -->
+    <div class="id-card id-card-back">
+      <div class="back-top-bar">
+        <div class="emergency-section">
+          <p class="emergency-label">IN CASE OF EMERGENCY, PLEASE NOTIFY</p>
+          <div class="emergency-underline"></div>
+          <div class="emergency-name">{{ student.guardians_parents|default:student.guardian_contact|default:"—" }}</div>
+          <div class="emergency-mobile">{{ student.guardian_contact|default:student.contact_number|default:"—" }}</div>
         </div>
       </div>
-      <div class="card-back-footer">
-        <div class="item">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          Campus Access
+
+      <div class="back-main-content">
+        <div class="signatory-block">
+          <div class="signatory-space"></div>
+          <div class="signatory-line"></div>
+          <p class="signatory-name">{{ first_signatory_name|default:"1ST SIGNATORY NAME" }}</p>
+          <p class="signatory-title">{{ first_signatory_title|default:"Designation" }}</p>
         </div>
-        <div class="divider"></div>
-        <div class="item">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
-          Secure Scan
+
+        <div class="qr-block">
+          <div class="qr-wrap" id="eidQrOpenBtn" title="Click to enlarge QR">
+            <img src="{{ qr_url }}" alt="QR {{ student.student_id }}">
+          </div>
+          <p class="qr-hint">Scan at gate for IN / OUT</p>
         </div>
+
+        <div class="signatory-block">
+          <div class="signatory-space"></div>
+          <div class="signatory-line"></div>
+          <p class="signatory-name">{{ second_signatory_name|default:"2ND SIGNATORY NAME" }}</p>
+          <p class="signatory-title">{{ second_signatory_title|default:"Designation" }}</p>
+        </div>
+      </div>
+
+      <div class="back-rules-bar">
+        <p class="back-rules-text">This e-ID is non-transferable. Present upon entry when requested. Report loss immediately to Security Office. Misuse may result in disciplinary action.</p>
+      </div>
+
+      <div class="back-bottom-bar">
+        <p class="validity-text">VALID UNTIL: A.Y. 2025 - 2026 (1ST SEMESTER)</p>
       </div>
     </div>
   </div>
+
+  <!-- QR Zoom Overlay -->
   <div class="qr-zoom-overlay" id="qrZoomOverlay" aria-hidden="true">
     <div class="qr-zoom-dialog" role="dialog" aria-modal="true" aria-label="Large QR code">
       <div class="qr-zoom-header">
-        <h3>Large QR code</h3>
+        <h3>Student QR — {{ student.student_id }}</h3>
         <button type="button" class="qr-zoom-close" id="qrZoomCloseBtn" aria-label="Close">&times;</button>
       </div>
       <div class="qr-zoom-body">
@@ -304,34 +331,29 @@
       </div>
     </div>
   </div>
+
   <script>
     (function() {
       var openBtn = document.getElementById('eidQrOpenBtn');
       var overlay = document.getElementById('qrZoomOverlay');
       var closeBtn = document.getElementById('qrZoomCloseBtn');
       if (!openBtn || !overlay) return;
-
-      function openOverlay() {
-        overlay.classList.add('show');
-        overlay.setAttribute('aria-hidden', 'false');
-      }
-      function closeOverlay() {
-        overlay.classList.remove('show');
-        overlay.setAttribute('aria-hidden', 'true');
-      }
-
-      openBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        openOverlay();
-      });
-      if (closeBtn) closeBtn.addEventListener('click', closeOverlay);
-      overlay.addEventListener('click', function(e) {
-        if (e.target === overlay) closeOverlay();
-      });
-      document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') closeOverlay();
-      });
+      function show() { overlay.classList.add('show'); overlay.setAttribute('aria-hidden', 'false'); }
+      function hide() { overlay.classList.remove('show'); overlay.setAttribute('aria-hidden', 'true'); }
+      openBtn.addEventListener('click', function(e) { e.preventDefault(); show(); });
+      if (closeBtn) closeBtn.addEventListener('click', hide);
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) hide(); });
+      document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hide(); });
     })();
+
+    function fitCards() {
+      var needed = 520;
+      var avail = document.documentElement.clientWidth;
+      var z = Math.min(avail / needed, 1);
+      document.body.style.zoom = z;
+    }
+    fitCards();
+    window.addEventListener('resize', fitCards);
   </script>
 </body>
 </html>

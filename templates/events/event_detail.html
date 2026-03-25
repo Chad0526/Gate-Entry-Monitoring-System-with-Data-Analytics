@@ -338,10 +338,6 @@
           <span class="label">Points</span>
           <span class="value">{{ event.points|default:"—" }}</span>
         </div>
-        <div class="ed-field">
-          <span class="label">Maximum attendees</span>
-          <span class="value">{{ event.maximum_attende|default:"—" }}</span>
-        </div>
         {% if event.attendance_mode %}
         <div class="ed-field">
           <span class="label">Attendance mode</span>
@@ -407,7 +403,7 @@
         <button type="button" class="btn btn-primary btn-sm ed-modal-btn" data-target="#edSummaryModal" data-src="{% url 'event-live-dashboard' event.id %}?embed=1&refresh=0"><i class="fas fa-broadcast-tower mr-1"></i> Live dashboard</button>
         <a href="{% url 'event-currently-inside' event.id %}" class="btn btn-warning btn-sm"><i class="fas fa-user-check mr-1"></i> Currently inside</a>
         {% if event.event_location == 'field_trip' %}
-        <a href="{% url 'event-field-trip-scan' event.id %}" class="btn btn-success btn-sm"><i class="fas fa-clipboard-check mr-1"></i> Take attendance</a>
+        <a href="{% url 'gate-scan' %}?event={{ event.id }}" class="btn btn-success btn-sm"><i class="fas fa-clipboard-check mr-1"></i> Take attendance</a>
         {% endif %}
         {% endif %}
         <button type="button" class="btn btn-secondary btn-sm ed-modal-btn" data-target="#edRegsModal" data-src="{% url 'event-manage-registrations' event.id %}?embed=1"><i class="fas fa-list-alt mr-1"></i> Registrations</button>

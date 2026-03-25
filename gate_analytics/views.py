@@ -14,7 +14,6 @@ from django.contrib.auth.models import Group
 User = get_user_model()
 from gate.models import EventCategory, Event, Student, GateEntry, GateIncident, AuditLog, GateShift, StaffPersonnelProfile
 from gate.gate_views import _granted_visits_count_for_date, _local_day_bounds, _local_year_bounds
-from gate.gate_personnel_views import staff_gate_scanner_session_active_for_user
 from .forms import (
     LoginForm,
     StaffPersonnelRegistrationForm,
@@ -213,7 +212,7 @@ def _mask_phone(phone_normalized):
     return '*' * (len(phone_normalized) - 4) + phone_normalized[-4:]
 
 
-PER_PAGE_OPTIONS = [10, 20, 30, 50, 100]
+PER_PAGE_OPTIONS = [10, 20, 30, 40, 50, 100]
 
 
 def _get_per_page_and_query(request):
@@ -334,7 +333,6 @@ def dashboard(request):
         'dashboard_student_year': today.year,
         'personnel_on_duty_list': personnel_on_duty_list,
         'personnel_on_duty_count': len(personnel_on_duty_list),
-        'gate_scanner_session_active': staff_gate_scanner_session_active_for_user(request.user),
     }
     return render(request, 'dashboard/dashboard.html', context)
 
@@ -394,6 +392,41 @@ def dashboard_stats_api(request):
         visitor_visit__isnull=True,
     ).count()
 
+    from gate.gate_personnel_services import RealtimeDashboardService
+    from gate.gate_personnel_views import GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY
+
+    stats = RealtimeDashboardService.get_current_stats()
+    inside_now = stats['currently_inside']
+
+    last_entry = GateEntry.objects.filter(
+        timestamp__gte=day_start,
+        timestamp__lt=day_end,
+    ).order_by('-timestamp').first()
+    if last_entry:
+        last_scan_label = timezone.localtime(last_entry.timestamp).strftime('%Y-%m-%d %H:%M')
+    else:
+        last_scan_label = 'No scans yet today'
+
+    scanner_status = 'ACTIVE' if cache.get(GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY) else 'IDLE'
+
+    recent_qs = GateEntry.objects.filter(
+        timestamp__gte=day_start,
+        timestamp__lt=day_end,
+    ).select_related('student', 'visitor_visit').order_by('-timestamp')[:12]
+    recent_activity = []
+    for e in recent_qs:
+        if e.student_id:
+            who = e.student.get_full_name()
+        elif e.visitor_visit_id:
+            who = e.visitor_visit.full_name
+        else:
+            who = (e.notes or 'Unknown')[:120]
+        recent_activity.append({
+            'student_name': who,
+            'action': (e.scan_type or 'IN').upper(),
+            'time': timezone.localtime(e.timestamp).strftime('%Y-%m-%d %H:%M'),
+        })
+
     return JsonResponse({
         'success': True,
         'granted_today': granted_today,
@@ -403,6 +436,10 @@ def dashboard_stats_api(request):
         'personnel_on_duty_count': personnel_on_duty_count,
         'student_entries_this_month': student_entries_this_month,
         'student_entries_this_year': student_entries_this_year,
+        'inside_now': inside_now,
+        'last_scan_label': last_scan_label,
+        'scanner_status': scanner_status,
+        'recent_activity': recent_activity,
     })
 
 

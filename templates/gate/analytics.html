@@ -363,6 +363,12 @@
                 <option value="{{ selected_year }}" selected>{{ selected_year }}</option>
               {% endif %}
             </select>
+            <label class="mb-0 text-muted" for="analyticsStudentIO" style="font-weight:500;">Student</label>
+            <select id="analyticsStudentIO" name="student_io" class="form-control form-control-sm" onchange="this.form.submit()" style="min-width:140px;">
+              <option value="all" {% if student_io == 'all' %}selected{% endif %}>All (IN+OUT)</option>
+              <option value="in" {% if student_io == 'in' %}selected{% endif %}>IN only</option>
+              <option value="out" {% if student_io == 'out' %}selected{% endif %}>OUT only</option>
+            </select>
           </form>
         </div>
       </div>
@@ -372,11 +378,20 @@
             <div class="row">
               <div class="col-12">
                 <div class="card subcard">
-                  <div class="card-header"><strong>Monthly gate entries</strong> <span class="text-muted small">(entries granted)</span></div>
+                  <div class="card-header"><strong>Monthly student entries</strong> <span class="text-muted small">({{ student_io_label }})</span></div>
                   <div class="card-body">
                     <div style="position:relative; height:280px;">
                       <canvas id="chartMonthlyEntries"></canvas>
                     </div>
+                    {% if student_monthly_highest_month %}
+                      <div class="text-muted small mt-2">
+                        Highest: <strong>{{ student_monthly_highest_month }}</strong> ({{ student_monthly_highest_count }})
+                        &nbsp;·&nbsp;
+                        Lowest: <strong>{{ student_monthly_lowest_month }}</strong> ({{ student_monthly_lowest_count }})
+                      </div>
+                    {% else %}
+                      <div class="text-muted small mt-2">No student data for this filter.</div>
+                    {% endif %}
                   </div>
                 </div>
               </div>
@@ -384,7 +399,7 @@
           </div>
           <div class="col-lg-4">
             <div class="card subcard">
-              <div class="card-header"><strong>Annual trend</strong> <span class="text-muted small">(entries by year)</span></div>
+              <div class="card-header"><strong>Annual student trend</strong> <span class="text-muted small">(by year · {{ student_io_label }})</span></div>
               <div class="card-body">
                 <div style="position:relative; height:240px;">
                   <canvas id="chartAnnualTrend"></canvas>
@@ -676,7 +691,7 @@
         labels: monthLabels,
         datasets: [
           {
-            label: 'Entries granted',
+            label: '{{ student_chart_dataset_label|escapejs }}',
             data: monthlyGranted,
             backgroundColor: 'rgba(34, 197, 94, 0.75)',
             borderColor: 'rgba(34, 197, 94, 1)',
@@ -705,7 +720,7 @@
         labels: annualYears,
         datasets: [
           {
-            label: 'Entries granted',
+            label: '{{ student_chart_dataset_label|escapejs }}',
             data: annualGranted,
             borderColor: 'rgba(34, 197, 94, 1)',
             backgroundColor: 'rgba(34, 197, 94, 0.12)',

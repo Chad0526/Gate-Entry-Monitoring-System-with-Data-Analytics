@@ -39,12 +39,8 @@
   .live-stat-card.checked-in .icon-wrap { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: var(--info, #2563eb); }
   .live-stat-card.checked-out .icon-wrap { background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: var(--ok, #16a34a); }
   .live-stat-card.inside .icon-wrap { background: linear-gradient(135deg, #fef3c7, #fde68a); color: var(--warn, #d97706); }
-  .live-stat-card.capacity .icon-wrap { background: linear-gradient(135deg, #f1f5f9, #e2e8f0); color: var(--monitor-muted, #4d7c5e); }
   .live-stat-card .num { font-size: 1.75rem; font-weight: 800; color: var(--monitor-text, #14532d); line-height: 1.2; }
   .live-stat-card .lbl { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--monitor-muted); font-weight: 600; margin-top: 4px; }
-  .live-stat-card.capacity .sub { font-size: 0.8rem; color: var(--monitor-muted); margin-top: 6px; }
-  .live-stat-card.capacity .progress { height: 8px; border-radius: 4px; background: var(--monitor-border); margin-top: 8px; }
-  .live-stat-card.capacity .progress-bar { border-radius: 4px; }
 
   .live-card {
     background: #fff;
@@ -149,17 +145,6 @@
       <div class="icon-wrap"><i class="fas fa-user-friends"></i></div>
       <div class="num">{{ currently_inside }}</div>
       <div class="lbl">Currently inside</div>
-    </div>
-    <div class="live-stat-card capacity">
-      <div class="icon-wrap"><i class="fas fa-users"></i></div>
-      <div class="num">{% if capacity %}{{ currently_inside }} / {{ capacity }}{% else %}—{% endif %}</div>
-      <div class="lbl">Capacity</div>
-      {% if capacity %}
-      <div class="sub">{{ capacity_pct }}% full</div>
-      <div class="progress">
-        <div class="progress-bar bg-{{ capacity_status }}" role="progressbar" style="width: {{ capacity_pct }}%;" aria-valuenow="{{ capacity_pct }}" aria-valuemin="0" aria-valuemax="100"></div>
-      </div>
-      {% endif %}
     </div>
   </div>
 

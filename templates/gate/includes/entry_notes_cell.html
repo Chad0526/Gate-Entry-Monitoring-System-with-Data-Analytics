@@ -1,0 +1,43 @@
+{% load i18n %}
+{# GateEntry.notes may hold e.g. "IN | Manual: …" or "OUT | Manual (no ID scan)" — show staff-facing detail in Notes / OUT column. #}
+<td class="entry-cell-notes">
+  {% if in_e and out_e %}
+    {% if "Manual" in in_e.notes|default:"" or "Manual" in out_e.notes|default:"" %}
+      <div class="font-weight-bold small mb-1">IN → OUT</div>
+      {% if "Manual" in in_e.notes|default:"" %}
+        <div class="small mb-1">
+          <span class="badge badge-success align-text-top" style="font-size:0.65rem;">{% trans "Manual" %}</span>
+          {{ in_e.notes }}
+        </div>
+      {% endif %}
+      {% if "Manual" in out_e.notes|default:"" %}
+        <div class="small mb-0">
+          <span class="badge badge-success align-text-top" style="font-size:0.65rem;">{% trans "Manual" %}</span>
+          {{ out_e.notes }}
+        </div>
+      {% elif out_e.out_reason %}
+        <div class="small text-muted">{{ out_e.out_reason }}</div>
+      {% endif %}
+    {% else %}
+      IN → <span class="text-info">{{ out_e.out_reason|default:"OUT" }}</span>
+    {% endif %}
+  {% elif in_e %}
+    {% if "Manual" in in_e.notes|default:"" %}
+      <div class="mb-1">
+        <span class="badge badge-success" style="font-size:0.65rem;">{% trans "Manual entry" %}</span>
+      </div>
+      <div class="small">{{ in_e.notes }}</div>
+    {% else %}
+      {{ in_e.notes|default:"IN" }}
+    {% endif %}
+  {% else %}
+    {% if "Manual" in out_e.notes|default:"" %}
+      <div class="mb-1">
+        <span class="badge badge-success" style="font-size:0.65rem;">{% trans "Manual entry" %}</span>
+      </div>
+      <div class="small text-info">{{ out_e.notes }}</div>
+    {% else %}
+      <span class="text-info">OUT{% if out_e.out_reason %} ({{ out_e.out_reason }}){% endif %}</span>
+    {% endif %}
+  {% endif %}
+</td>

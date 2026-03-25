@@ -384,7 +384,7 @@
                 {% endif %}
                 <a class="el-act-btn danger" href="{% url 'event-delete' event.pk %}" title="Delete"><i class="fas fa-trash-alt"></i></a>
                 {% if event.event_location == 'field_trip' %}
-                <a class="el-act-btn scan" href="{% url 'event-field-trip-scan' event.pk %}" title="Take attendance (field trip)"><i class="fas fa-clipboard-check"></i></a>
+                <a class="el-act-btn scan" href="{% url 'gate-scan' %}?event={{ event.pk }}" title="Take attendance (field trip)"><i class="fas fa-clipboard-check"></i></a>
                 {% endif %}
               </div>
             </td>
@@ -449,7 +449,7 @@
           {% endif %}
           <a class="el-act-btn danger" href="{% url 'event-delete' event.pk %}" title="Delete"><i class="fas fa-trash-alt"></i></a>
           {% if event.event_location == 'field_trip' %}
-          <a class="el-act-btn scan" href="{% url 'event-field-trip-scan' event.pk %}" title="Take attendance"><i class="fas fa-clipboard-check"></i></a>
+          <a class="el-act-btn scan" href="{% url 'gate-scan' %}?event={{ event.pk }}" title="Take attendance"><i class="fas fa-clipboard-check"></i></a>
           {% endif %}
         </div>
         {% if event.event_location == 'field_trip' %}

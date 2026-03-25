@@ -19,6 +19,8 @@
     .card-body .table { font-size: 0.82rem; line-height: 1.2; }
     .card-body .table thead th,
     .card-body .table tbody td { white-space: nowrap; padding: 0.38rem 0.5rem; vertical-align: middle; }
+    .card-body .table .entry-cell-name,
+    .card-body .table .entry-cell-notes { white-space: normal; word-break: break-word; vertical-align: middle; }
     .card-body .table code { font-size: 0.78rem; white-space: nowrap; }
     .card-body .table .btn { white-space: nowrap; font-size: 0.72rem; padding: 0.22rem 0.45rem; }
     .badge-success { background: #28a745; }
@@ -59,38 +61,127 @@
     #alertModal .modal-body { padding: 18px; }
     #alertModalMessage { margin-bottom: 18px; line-height: 1.5; color: #212529; }
     #alertModalOk { min-width: 100px; }
+    .entry-photo-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; border: 1px solid #dee2e6; vertical-align: middle; background: #f8f9fa; }
+    .entry-photo-placeholder { width: 44px; height: 44px; border-radius: 8px; background: #e9ecef; display: inline-flex; align-items: center; justify-content: center; color: #adb5bd; font-size: 0.65rem; text-align: center; line-height: 1.1; padding: 2px; }
+    .btn-report-id-mismatch {
+      font-size: 0.68rem;
+      padding: 0.18rem 0.42rem;
+      white-space: nowrap;
+      width: auto;
+      max-width: none;
+      line-height: 1.25;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.28rem;
+      color: #14532d;
+      border: 1px solid #22c55e;
+      background: linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%);
+      border-radius: 8px;
+      font-weight: 600;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+    }
+    .btn-report-id-mismatch:hover:not(:disabled):not(.btn-report-id-mismatch--sent):not(.btn-report-id-mismatch--pending) {
+      background: #bbf7d0;
+      border-color: #16a34a;
+      color: #052e16;
+    }
+    .btn-report-id-mismatch:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.35);
+    }
+    .btn-report-id-mismatch--pending {
+      opacity: 0.98;
+      cursor: wait;
+      pointer-events: none;
+      user-select: none;
+      color: #92400e !important;
+      border-color: #f59e0b !important;
+      background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%) !important;
+      box-shadow: none;
+    }
+    .btn-report-id-mismatch--sent {
+      opacity: 1;
+      cursor: default;
+      pointer-events: none;
+      user-select: none;
+      color: #166534 !important;
+      border-color: #22c55e !important;
+      background: linear-gradient(180deg, #ecfdf5 0%, #bbf7d0 100%) !important;
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(22, 163, 74, 0.22);
+    }
+    /* Confirm dialog above table / iframe stacking */
+    .theme-confirm-backdrop { z-index: 10050 !important; }
+    .theme-confirm-modal { z-index: 10051 !important; }
+    .gate-embed-filter.card-header {
+      background: linear-gradient(to right, #e8f5e9 0%, #fff 100%);
+      border-bottom: 1px solid rgba(40,167,69,0.2);
+      color: #1e5631;
+      font-weight: 600;
+      border-radius: 12px 12px 0 0;
+    }
+    {% if hide_embed_filters %}
+    /* Guard live panel compact mode: keep full table visible without horizontal scrolling. */
+    body { padding: 8px; }
+    .card-body .table { font-size: 0.74rem; line-height: 1.15; table-layout: fixed; width: 100%; }
+    .card-body .table thead th,
+    .card-body .table tbody td { padding: 0.28rem 0.35rem; }
+    .card-body .table code { font-size: 0.71rem; }
+    .entry-photo-thumb, .entry-photo-placeholder { width: 34px; height: 34px; }
+    .btn-report-id-mismatch { font-size: 0.62rem; padding: 0.14rem 0.32rem; gap: 0.2rem; }
+    .card-body .table thead th:nth-child(1),
+    .card-body .table tbody td:nth-child(1) { width: 7%; }
+    .card-body .table thead th:nth-child(2),
+    .card-body .table tbody td:nth-child(2) { width: 16%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-body .table thead th:nth-child(3),
+    .card-body .table tbody td:nth-child(3) { width: 12%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-body .table thead th:nth-child(4),
+    .card-body .table tbody td:nth-child(4) { width: 14%; }
+    .card-body .table thead th:nth-child(5),
+    .card-body .table tbody td:nth-child(5) { width: 10%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-body .table thead th:nth-child(6),
+    .card-body .table tbody td:nth-child(6) { width: 8%; white-space: nowrap; }
+    .card-body .table thead th:nth-child(7),
+    .card-body .table tbody td:nth-child(7) { width: 18%; }
+    .card-body .table thead th:nth-child(8),
+    .card-body .table tbody td:nth-child(8) { width: 15%; white-space: nowrap; }
+    .card-body .table tbody td:nth-child(3) code { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+    {% endif %}
   </style>
 </head>
 <body>
 {% include 'base/confirm_modal.html' %}
   <div class="card">
-    <div class="card-header">
+    {% if not hide_embed_filters %}
+    <div class="card-header gate-embed-filter py-3">
       <div class="d-flex flex-wrap align-items-center justify-content-between" style="gap:10px;">
-        <h5 class="m-0">Search & filter</h5>
-        {% if not hide_controls %}
-        <div class="d-flex flex-wrap align-items-center" style="gap:8px;">
-          <form method="get" class="form-inline" id="entriesFilterForm" style="gap:8px; display:flex; flex-wrap:wrap; align-items:center;">
-            <input type="hidden" name="embed" value="1">
-            {% if student_gate_only %}<input type="hidden" name="student_gate_only" value="1">{% endif %}
-            <input type="text" name="q" value="{{ q|default:'' }}" class="form-control form-control-sm" placeholder="Search ID / name / notes" style="min-width:200px;">
-            <input type="date" name="from_date" value="{{ from_date|default:'' }}" class="form-control form-control-sm" title="From date">
-            <span class="text-muted small">to</span>
-            <input type="date" name="to_date" value="{{ to_date|default:'' }}" class="form-control form-control-sm" title="To date (optional — set both for a range)">
-            <input type="time" name="from_time" value="{{ from_time|default:'' }}" class="form-control form-control-sm" title="From time (single day only)">
-            <select name="filter" class="form-control form-control-sm" style="min-width:140px;">
-              <option value="" {% if not filter %}selected{% endif %}>All</option>
-              <option value="granted" {% if filter == 'granted' %}selected{% endif %}>Granted</option>
-              <option value="denied" {% if filter == 'denied' %}selected{% endif %}>Denied</option>
-              <option value="in" {% if filter == 'in' %}selected{% endif %}>IN</option>
-              <option value="out" {% if filter == 'out' %}selected{% endif %}>OUT</option>
-            </select>
-            <button type="submit" class="btn btn-sm btn-primary">Apply</button>
-            <a href="{% url 'gate-entry-list' %}?embed=1" class="btn btn-sm btn-outline-secondary">Reset</a>
-          </form>
-        </div>
-        {% endif %}
+        <h6 class="m-0"><i class="fas fa-filter mr-1"></i> Search &amp; date range</h6>
+        <form method="get" class="form-inline" style="gap:8px; display:flex; flex-wrap:wrap; align-items:center;">
+          <input type="hidden" name="embed" value="1">
+          {% if student_gate_only %}<input type="hidden" name="student_gate_only" value="1">{% endif %}
+          {% if guard_token %}<input type="hidden" name="guard_token" value="{{ guard_token }}">{% endif %}
+          <input type="hidden" name="per_page" value="{{ per_page|default:10 }}">
+          <input type="search" name="q" value="{{ q|default:'' }}" placeholder="Search ID / name / notes" class="form-control form-control-sm" style="max-width:200px;" title="Search">
+          <input type="date" name="from_date" value="{{ from_date|default:'' }}" class="form-control form-control-sm" title="From date">
+          <span class="text-muted small">to</span>
+          <input type="date" name="to_date" value="{{ to_date|default:'' }}" class="form-control form-control-sm" title="To date (optional)">
+          <select name="filter" class="form-control form-control-sm" style="min-width:130px;" title="Result filter">
+            <option value="" {% if not filter %}selected{% endif %}>All</option>
+            <option value="granted" {% if filter == 'granted' %}selected{% endif %}>Granted</option>
+            <option value="denied" {% if filter == 'denied' %}selected{% endif %}>Denied</option>
+            <option value="in" {% if filter == 'in' %}selected{% endif %}>IN</option>
+            <option value="out" {% if filter == 'out' %}selected{% endif %}>OUT</option>
+          </select>
+          <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+          <a href="{% url 'gate-entry-list' %}?embed=1{% if student_gate_only %}&amp;student_gate_only=1{% endif %}" class="btn btn-sm btn-outline-secondary">Reset</a>
+        </form>
       </div>
+      <p class="mb-0 mt-2 small text-muted" style="font-weight:400;">Set both dates for a range (like monthly analytics). Leave end date empty to use a single day.</p>
     </div>
+    {% endif %}
     <div class="entries-tabs-wrap">
       <div class="entries-tabs">
         <a href="#" class="active" data-tab="entries"><i class="fas fa-door-open mr-2"></i> Student entries</a>
@@ -102,16 +193,27 @@
         <table class="table table-striped table-hover mb-0">
           <thead>
             <tr>
+              <th>Photo</th>
               <th>Time</th>
               <th>Student ID</th>
               <th>Name</th>
+              <th>Gender</th>
               <th>Result</th>
               <th>Notes / OUT</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {% for in_e, out_e, student_incident, already_reported in visits %}
+              {% with primary_e=in_e|default:out_e %}
               <tr>
+                <td>
+                  {% if primary_e.student and primary_e.student.photo %}
+                    <img class="entry-photo-thumb" src="{{ primary_e.student.photo.url }}" alt="" loading="lazy">
+                  {% else %}
+                    <span class="entry-photo-placeholder" title="No ID photo on file"><i class="fas fa-user"></i></span>
+                  {% endif %}
+                </td>
                 <td>
                   {% if in_e and out_e %}
                     {{ in_e.timestamp|date:"Y-m-d H:i" }} → {{ out_e.timestamp|date:"H:i" }}
@@ -121,21 +223,23 @@
                     {{ out_e.timestamp|date:"Y-m-d H:i:s" }}
                   {% endif %}
                 </td>
-                <td><code>{% if in_e %}{{ in_e.student.student_id }}{% else %}{{ out_e.student.student_id }}{% endif %}</code></td>
-                <td>{% if in_e %}{{ in_e.student.get_full_name }}{% else %}{{ out_e.student.get_full_name }}{% endif %}</td>
+                <td><code>{% if primary_e.student %}{{ primary_e.student.student_id }}{% else %}{{ primary_e.student_id|default:"—" }}{% endif %}</code></td>
+                <td class="entry-cell-name">{% if primary_e.student %}{{ primary_e.student.get_full_name }}{% else %}—{% endif %}</td>
+                <td>{% if primary_e.student and primary_e.student.sex %}{{ primary_e.student.get_sex_display }}{% else %}—{% endif %}</td>
                 <td>{% if in_e %}{% if in_e.granted %}<span class="badge badge-success">Granted</span>{% else %}<span class="badge badge-danger">Denied</span>{% endif %}{% else %}{% if out_e.granted %}<span class="badge badge-success">Granted</span>{% else %}<span class="badge badge-danger">Denied</span>{% endif %}{% endif %}</td>
+                {% include 'gate/includes/entry_notes_cell.html' with in_e=in_e out_e=out_e %}
                 <td>
-                  {% if in_e and out_e %}
-                    IN → <span class="text-info">{{ out_e.out_reason|default:"OUT" }}</span>
-                  {% elif in_e %}
-                    {{ in_e.notes|default:"IN" }}
-                  {% else %}
-                    <span class="text-info">OUT{% if out_e.out_reason %} ({{ out_e.out_reason }}){% endif %}</span>
-                  {% endif %}
+                  <button type="button" class="btn-report-id-mismatch"
+                    data-student-id="{% if primary_e.student %}{{ primary_e.student.student_id }}{% else %}{{ primary_e.student_id|default:'' }}{% endif %}"
+                    data-entry-id="{{ primary_e.pk }}"
+                    title="Notify Student Affairs (SAS) — possible ID / person mismatch">
+                    <i class="fas fa-exclamation-triangle"></i> {% if hide_embed_filters %}Report{% else %}Report ID mismatch{% endif %}
+                  </button>
                 </td>
               </tr>
+              {% endwith %}
             {% empty %}
-              <tr><td colspan="5" class="text-muted text-center py-4">No entries yet.</td></tr>
+              <tr><td colspan="8" class="text-muted text-center py-4">No entries yet.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -230,6 +334,222 @@
   </div>
 
   <script>
+    window.GUARD_EMBED_TOKEN = "{{ guard_token|default:''|escapejs }}";
+    window.GATE_ID_MISMATCH_REPORT_URL = "{% url 'gate-api-guard-incident-report' %}";
+    (function() {
+      var LS_REPORTED_KEY = 'gate_id_mismatch_reported_v1';
+      function mergeReportedMapsFromStorages() {
+        var merged = {};
+        function mergeFrom(storage) {
+          if (!storage || !storage.getItem) return;
+          try {
+            var o = JSON.parse(storage.getItem(LS_REPORTED_KEY) || '{}');
+            Object.keys(o).forEach(function(k) {
+              if (o[k]) merged[k] = 1;
+            });
+          } catch (e) {}
+        }
+        mergeFrom(localStorage);
+        try {
+          if (window.parent && window.parent !== window) {
+            mergeFrom(window.parent.localStorage);
+          }
+        } catch (e) {}
+        return merged;
+      }
+      function storeReportedGateEntry(entryPk) {
+        if (!entryPk) return;
+        var key = String(entryPk);
+        function writeTo(storage) {
+          if (!storage || !storage.getItem) return;
+          try {
+            var o = JSON.parse(storage.getItem(LS_REPORTED_KEY) || '{}');
+            o[key] = 1;
+            storage.setItem(LS_REPORTED_KEY, JSON.stringify(o));
+          } catch (e) {}
+        }
+        writeTo(localStorage);
+        try {
+          if (window.parent && window.parent !== window) {
+            writeTo(window.parent.localStorage);
+          }
+        } catch (e) {}
+      }
+      function applyStoredReportedStates() {
+        var o = mergeReportedMapsFromStorages();
+        document.querySelectorAll('.btn-report-id-mismatch').forEach(function(b) {
+          var id = (b.getAttribute('data-entry-id') || '').trim();
+          if (!id || !o[id]) return;
+          b.disabled = true;
+          b.setAttribute('disabled', 'disabled');
+          b.setAttribute('aria-disabled', 'true');
+          b.classList.add('btn-report-id-mismatch--sent');
+          b.setAttribute('title', 'Report already sent to SAS');
+          b.innerHTML = '<i class="fas fa-check"></i> Reported';
+        });
+      }
+      applyStoredReportedStates();
+
+      function getCsrfToken() {
+        var m = document.cookie.match(/\bcsrftoken=([^;]+)/);
+        return m ? decodeURIComponent(m[1].trim()) : '';
+      }
+      function postToParent(payload) {
+        try {
+          if (!window.parent || window.parent === window) return false;
+          window.parent.postMessage(Object.assign({ type: 'gate-id-mismatch-report' }, payload), window.location.origin);
+          return true;
+        } catch (err) {
+          return false;
+        }
+      }
+      document.getElementById('pane-entries').addEventListener('click', function(e) {
+        var btn = e.target && e.target.closest ? e.target.closest('.btn-report-id-mismatch') : null;
+        if (!btn || btn.disabled || btn.classList.contains('btn-report-id-mismatch--sent') || btn.classList.contains('btn-report-id-mismatch--pending')) return;
+        var studentId = (btn.getAttribute('data-student-id') || '').trim();
+        var entryId = (btn.getAttribute('data-entry-id') || '').trim();
+        if (!studentId) return;
+        var confirmMsg = 'Report an ID mismatch for student ' + studentId + '? Student Affairs (SAS) will be notified.';
+        function markReportSent() {
+          btn.classList.remove('btn-report-id-mismatch--pending');
+          btn.removeAttribute('aria-busy');
+          btn.disabled = true;
+          btn.setAttribute('disabled', 'disabled');
+          btn.setAttribute('aria-disabled', 'true');
+          btn.classList.add('btn-report-id-mismatch--sent');
+          btn.setAttribute('title', 'Report already sent to SAS');
+          btn.innerHTML = '<i class="fas fa-check"></i> Reported';
+          storeReportedGateEntry(entryId);
+        }
+        function runIdMismatchReport() {
+          btn.disabled = true;
+          btn.setAttribute('disabled', 'disabled');
+          btn.classList.add('btn-report-id-mismatch--pending');
+          btn.setAttribute('aria-busy', 'true');
+          btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
+          var useParentUi = postToParent({ phase: 'start' });
+          var msgOk = 'SAS has been notified about a possible ID mismatch for student ' + studentId + '.';
+          /* Gate scanner parent UI: success within 3s — fast path when server responds; else optimistic at 3s. */
+          var REPORT_DONE_MAX_MS = 3000;
+          var reportUiDone = false;
+          var reportTimer = null;
+          if (useParentUi) {
+            reportTimer = setTimeout(function() {
+              if (reportUiDone) return;
+              reportUiDone = true;
+              postToParent({ phase: 'done', ok: true, title: 'Success', message: msgOk, optimistic: true });
+            }, REPORT_DONE_MAX_MS);
+          }
+          var fd = new FormData();
+          fd.append('category', 'id_issue');
+          fd.append('scanned_id', studentId);
+          fd.append('details', 'ID mismatch reported from Live Entries. Gate entry ID: ' + (entryId || '—') + '. Please verify the person matches the e-ID photo.');
+          if (window.GUARD_EMBED_TOKEN) fd.append('guard_token', window.GUARD_EMBED_TOKEN);
+          fetch(window.GATE_ID_MISMATCH_REPORT_URL, {
+            method: 'POST',
+            body: fd,
+            credentials: 'same-origin',
+            headers: {
+              'X-CSRFToken': getCsrfToken(),
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          })
+            .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+            .then(function(x) {
+              if (useParentUi) {
+                if (reportTimer) {
+                  clearTimeout(reportTimer);
+                  reportTimer = null;
+                }
+                if (x.ok && x.j && x.j.success) {
+                  markReportSent();
+                  if (!reportUiDone) {
+                    reportUiDone = true;
+                    postToParent({ phase: 'done', ok: true, title: 'Success', message: msgOk });
+                  }
+                  return;
+                }
+                var err = (x.j && x.j.error) ? x.j.error : 'Could not send report.';
+                if (!reportUiDone) {
+                  reportUiDone = true;
+                  postToParent({ phase: 'done', ok: false, title: 'Error', message: err });
+                }
+                btn.classList.remove('btn-report-id-mismatch--pending');
+                btn.removeAttribute('aria-busy');
+                btn.removeAttribute('disabled');
+                btn.removeAttribute('aria-disabled');
+                btn.disabled = false;
+                btn.classList.remove('btn-report-id-mismatch--sent');
+                btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Report ID mismatch';
+                btn.setAttribute('title', 'Notify Student Affairs (SAS) — possible ID / person mismatch');
+                return;
+              }
+              if (x.ok && x.j && x.j.success) {
+                markReportSent();
+                if (typeof window.showAlertModal === 'function') {
+                  window.showAlertModal(msgOk, 'Success');
+                } else {
+                  alert('Report sent to Student Affairs (SAS).');
+                }
+              } else {
+                var err2 = (x.j && x.j.error) ? x.j.error : 'Could not send report.';
+                if (typeof window.showAlertModal === 'function') {
+                  window.showAlertModal(err2, 'Error');
+                } else {
+                  alert(err2);
+                }
+                btn.classList.remove('btn-report-id-mismatch--pending');
+                btn.removeAttribute('aria-busy');
+                btn.removeAttribute('disabled');
+                btn.removeAttribute('aria-disabled');
+                btn.disabled = false;
+                btn.classList.remove('btn-report-id-mismatch--sent');
+                btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Report ID mismatch';
+                btn.setAttribute('title', 'Notify Student Affairs (SAS) — possible ID / person mismatch');
+              }
+            })
+            .catch(function() {
+              if (useParentUi) {
+                if (reportTimer) {
+                  clearTimeout(reportTimer);
+                  reportTimer = null;
+                }
+                if (!reportUiDone) {
+                  reportUiDone = true;
+                  postToParent({ phase: 'done', ok: false, title: 'Error', message: 'Network error — try again.' });
+                }
+                btn.classList.remove('btn-report-id-mismatch--pending');
+                btn.removeAttribute('aria-busy');
+                btn.removeAttribute('disabled');
+                btn.removeAttribute('aria-disabled');
+                btn.disabled = false;
+                btn.classList.remove('btn-report-id-mismatch--sent');
+                btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Report ID mismatch';
+                btn.setAttribute('title', 'Notify Student Affairs (SAS) — possible ID / person mismatch');
+                return;
+              }
+              if (typeof window.showAlertModal === 'function') {
+                window.showAlertModal('Network error — try again.', 'Error');
+              } else {
+                alert('Network error.');
+              }
+              btn.classList.remove('btn-report-id-mismatch--pending');
+              btn.removeAttribute('aria-busy');
+              btn.removeAttribute('disabled');
+              btn.removeAttribute('aria-disabled');
+              btn.disabled = false;
+              btn.classList.remove('btn-report-id-mismatch--sent');
+              btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Report ID mismatch';
+              btn.setAttribute('title', 'Notify Student Affairs (SAS) — possible ID / person mismatch');
+            });
+        }
+        if (typeof window.themeConfirm === 'function') {
+          window.themeConfirm(confirmMsg, runIdMismatchReport, null, { deny: true });
+        } else if (window.confirm(confirmMsg)) {
+          runIdMismatchReport();
+        }
+      });
+    })();
     (function() {
       var tabFromUrl = (function() {
         var m = /[?&]tab=([^&]+)/.exec(window.location.search);

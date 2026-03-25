@@ -48,7 +48,6 @@ class Event(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
     points = models.PositiveIntegerField(blank=True, null=True)
-    maximum_attende = models.PositiveIntegerField(blank=True, null=True)
     capacity_alert_sent_at = models.DateTimeField(null=True, blank=True, help_text='When 80%% capacity alert was last sent')
     created_user = models.ForeignKey('auth.User', on_delete=models.CASCADE, blank=True, null=True, related_name='event_created_user')
     updated_user = models.ForeignKey('auth.User', on_delete=models.CASCADE, blank=True, null=True, related_name='event_updated_user')
@@ -183,13 +182,19 @@ class Event(models.Model):
     def save(self, *args, **kwargs):
         if self.uid is None:
             from django.db.models import Max
-            max_uid = Event.objects.aggregate(Max('uid'))['uid__max']
-            self.uid = (max_uid or 0) + 1
-        # Store 0 when left blank so DB accepts (works even if column is still NOT NULL)
+            from django.db import transaction
+            with transaction.atomic():
+                max_uid = (
+                    Event.objects.select_for_update()
+                    .aggregate(Max('uid'))['uid__max']
+                )
+                self.uid = (max_uid or 0) + 1
+                if self.points is None:
+                    self.points = 0
+                super().save(*args, **kwargs)
+            return
         if self.points is None:
             self.points = 0
-        if self.maximum_attende is None:
-            self.maximum_attende = 0
         super().save(*args, **kwargs)
 
 
@@ -342,15 +347,14 @@ def normalize_student_name(value):
 class Student(models.Model):
     """Student profile; QR code on ID embeds student_id for gate lookup."""
 
-    # --- Registration / approval status ---
+    # --- Account status ---
     ACCOUNT_STATUS_PENDING = 'PENDING'
     ACCOUNT_STATUS_APPROVED = 'APPROVED'
-    ACCOUNT_STATUS_REJECTED = 'REJECTED'
+    ACCOUNT_STATUS_ACTIVE = 'APPROVED'
     ACCOUNT_STATUS_INACTIVE = 'INACTIVE'
     ACCOUNT_STATUS_CHOICES = (
-        ('PENDING', 'Pending Approval'),
-        ('APPROVED', 'Approved'),
-        ('REJECTED', 'Rejected'),
+        ('PENDING', 'Pending'),
+        ('APPROVED', 'Active'),
         ('INACTIVE', 'Inactive'),
     )
     account_status = models.CharField(
@@ -425,7 +429,7 @@ class Student(models.Model):
         if self.middle_name:
             self.middle_name = normalize_student_name(self.middle_name)
         if self.student_id:
-            self.student_id = normalize_student_name(self.student_id) or self.student_id
+            self.student_id = self.student_id.strip()
         if self.address:
             self.address = normalize_student_name(self.address)
         if self.guardians_parents:
@@ -461,44 +465,26 @@ def _student_store_previous_status(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Student)
 def _student_handle_status_change(sender, instance, created, **kwargs):
-    """
-    Centralize student approval logic:
-    - When status changes to APPROVED: ensure is_active=True, approved_at set, send approval email.
-    - When status changes to REJECTED/INACTIVE: ensure is_active=False, send status email.
-    This guarantees email + flags even if different parts of the app change the status.
-    """
-    from .notifications import notify_student_status_change  # local import to avoid circulars
-
+    """Keep is_active and approved_at in sync with account_status."""
     old_status = getattr(instance, '_old_account_status', None)
     new_status = instance.account_status
     if old_status == new_status:
         return
 
-    changed_fields = []
-
+    update_fields = {}
     if new_status == Student.ACCOUNT_STATUS_APPROVED:
         if not instance.is_active:
             instance.is_active = True
-            changed_fields.append('is_active')
+            update_fields['is_active'] = True
         if not instance.approved_at:
             instance.approved_at = timezone.now()
-            changed_fields.append('approved_at')
-        if changed_fields:
-            sender.objects.filter(pk=instance.pk).update(
-                **{field: getattr(instance, field) for field in changed_fields}
-            )
-        try:
-            notify_student_status_change(instance, new_status=new_status)
-        except Exception:
-            pass
-    elif new_status in (Student.ACCOUNT_STATUS_REJECTED, Student.ACCOUNT_STATUS_INACTIVE):
+            update_fields['approved_at'] = instance.approved_at
+        if update_fields:
+            sender.objects.filter(pk=instance.pk).update(**update_fields)
+    elif new_status in (Student.ACCOUNT_STATUS_INACTIVE, Student.ACCOUNT_STATUS_PENDING):
         if instance.is_active:
             instance.is_active = False
             sender.objects.filter(pk=instance.pk).update(is_active=False)
-        try:
-            notify_student_status_change(instance, new_status=new_status)
-        except Exception:
-            pass
 
 
 class StaffPersonnelProfile(models.Model):
@@ -1381,8 +1367,11 @@ class GateActivityLog(models.Model):
             raise ValueError('Gate activity log records are immutable and cannot be updated')
         super().save(*args, **kwargs)
 
-    # Deletion: allow CASCADE when User (or related rows) are deleted in admin.
-    # Immutability is enforced via save(); do not delete from app UI unless intended.
+    def delete(self, *args, **kwargs):
+        # Block direct application-level deletes. Django's CASCADE collector
+        # uses QuerySet._raw_delete() and bypasses Model.delete(), so
+        # cascaded cleanup (e.g. when a User is deleted) still works.
+        raise ValueError('Gate activity log records are immutable and cannot be deleted')
 
 
 class AdminNotification(models.Model):

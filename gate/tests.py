@@ -121,6 +121,8 @@ class GatePolicyTests(TestCase):
         from .gate_views import _reports_export_build_data, _local_day_bounds, _reports_export_preview
         today = timezone.localdate()
         day_start, day_end = _local_day_bounds(today)
+        self.student.sex = Student.SEX_MALE
+        self.student.save(update_fields=['sex'])
         # student log
         entry = GateEntry.objects.create(
             timestamp=timezone.now(),
@@ -148,26 +150,30 @@ class GatePolicyTests(TestCase):
         headers, rows = _reports_export_build_data(today, day_start, day_end, 'daily_gate_visits', '', None)
         # header should include new course/section column as well as student id
         self.assertIn('Student ID', headers)
+        self.assertIn('Gender', headers)
         self.assertIn('Course/Section', headers)
         # first student row should show the course/section value we set
-        self.assertTrue(any(isinstance(r, list) and r and r[2] == 'BST A' for r in rows))
+        self.assertTrue(any(isinstance(r, list) and r and r[3] == 'BST A' for r in rows))
+        # gender from student.sex
+        self.assertTrue(any(isinstance(r, list) and r and r[2] == 'Male' for r in rows))
         # name formatting should use last, first
         self.assertTrue(any(isinstance(r, list) and r and r[1].startswith('Student,') for r in rows))
         # ensure earliest timestamp comes first
         # only consider rows that are not visitor headers (student rows have numeric datetime strings)
-        times = [r[4] for r in rows if len(r) > 4 and r[0] != 'Visitor Name' and r[4]]
+        times = [r[5] for r in rows if len(r) > 5 and r[0] != 'Visitor Name' and r[5]]
         if len(times) > 1:
             self.assertLessEqual(times[0], times[-1])
         # name should be formatted as Last, First
         self.assertTrue(any(isinstance(r, list) and r and r[1].startswith('Student,') for r in rows))
         # and ordering should be oldest-first (first row timestamp <= last row)
-        times = [r[3] for r in rows if len(r) > 3 and r[3]]
+        times = [r[4] for r in rows if len(r) > 4 and r[4]]
         if len(times) > 1:
             self.assertLessEqual(times[0], times[-1])
         # rows should contain at least one blank row and a visitor header row
         self.assertTrue(any(isinstance(r, list) and r and r[0] == 'Visitor Name' for r in rows))
         # preview is student-only; it should include Course/Section and student rows
         preview = _reports_export_preview(today, day_start, day_end, 'daily_gate_visits', '', None)
+        self.assertTrue(any(r.get('Gender') == 'Male' for r in preview))
         self.assertTrue(any(r.get('Course/Section') == 'BST A' for r in preview))
         # preview name ordering
         self.assertTrue(any(r.get('Name','').startswith('Student,') for r in preview))
@@ -431,7 +437,7 @@ class GuardScannerDashboardTests(TestCase):
             self.assertEqual(r2.status_code, 403)
             r3 = c.get('/gate/guard-display/', {'token': tok})
             self.assertEqual(r3.status_code, 200)
-            self.assertContains(r3, 'embed-scanner')
+            self.assertContains(r3, 'gate-scan-scanner')
             self.assertContains(r3, 'token=' + tok)
 
             ra = c.get('/gate/api/guard-dashboard/')

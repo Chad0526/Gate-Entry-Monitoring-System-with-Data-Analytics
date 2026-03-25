@@ -130,7 +130,7 @@ def create_event(request):
         'form_2': event_agenda_form,
         'ctg': catg
     }
-    return render(request, 'events/create.html', context)
+    return render(request, 'events/create_event.html', context)
 
 class EventCreateView(RoleRequiredMixin, LoginRequiredMixin, CreateView):
     allowed_roles = EVENT_ROLES
@@ -433,7 +433,7 @@ class UserMarkList(RoleRequiredMixin, LoginRequiredMixin, ListView):
 @role_required('admin', 'faculty', 'staff')
 def search_event_category(request):
     if request.method == 'POST':
-       data = request.POST['search']
+       data = request.POST.get('search', '')
        event_category = EventCategory.objects.filter(name__icontains=data)
        context = {
            'event_category': event_category
@@ -462,7 +462,7 @@ def search_event(request):
         events_qs = Event.objects.filter(name__icontains=search_q)
     else:
         events_qs = all_events
-    PER_PAGE_OPTIONS = [10, 20, 30, 50, 100]
+    PER_PAGE_OPTIONS = [10, 20, 30, 40, 50, 100]
     raw_pp = request.GET.get('per_page', '10')
     try:
         per_page = int(raw_pp)

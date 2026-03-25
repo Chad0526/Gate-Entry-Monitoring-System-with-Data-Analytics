@@ -31,20 +31,6 @@ logger = logging.getLogger(__name__)
 GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY = 'gate_staff_scanner_heartbeat_v2'
 
 
-def staff_gate_scanner_session_active_for_user(user):
-    """
-    True when the heartbeat cache indicates this staff user already has an active gate session
-    (gate console Start, or full /gate/ camera with heartbeat running).
-    Used by dashboard and /gate/ to show Stop vs Start and restore UI state after navigation.
-    """
-    if not user or not getattr(user, 'is_authenticated', False):
-        return False
-    hb = cache.get(GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY)
-    if not hb or not isinstance(hb, dict):
-        return False
-    return hb.get('user_id') == user.id
-
-
 def _can_use_gate_tools(user):
     """Staff/faculty/supervisor/admin may use gate APIs (no separate Guard role)."""
     role = get_user_role(user)
@@ -385,15 +371,24 @@ def admin_send_gate_notification_view(request):
     return render(request, 'gate/admin_send_gate_notification.html', context)
 
 
+def _guard_incident_request_authorized(request):
+    """Valid GATE_GUARD_DISPLAY_TOKEN or logged-in staff/faculty/supervisor/admin (gate tools)."""
+    token = (request.POST.get('guard_token') or request.headers.get('X-Gate-Guard-Token') or '').strip()
+    expected = getattr(settings, 'GATE_GUARD_DISPLAY_TOKEN', '') or ''
+    if expected and token == expected:
+        return True
+    if request.user.is_authenticated and _can_use_gate_tools(request.user):
+        return True
+    return False
+
+
 @require_POST
 def guard_incident_report_view(request):
     """
-    Guard monitor (embed-scanner token): report incident → SAS / Registrar / both.
-    POST: guard_token, category (id_issue | not_registered | other), optional details, scanned_id.
+    Guard monitor (token) or logged-in gate staff: report incident → SAS / Registrar / both.
+    POST: guard_token (optional if staff session), category (id_issue | not_registered | other), optional details, scanned_id.
     """
-    token = (request.POST.get('guard_token') or request.headers.get('X-Gate-Guard-Token') or '').strip()
-    expected = getattr(settings, 'GATE_GUARD_DISPLAY_TOKEN', '') or ''
-    if not expected or token != expected:
+    if not _guard_incident_request_authorized(request):
         return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
     category = (request.POST.get('category') or '').strip()

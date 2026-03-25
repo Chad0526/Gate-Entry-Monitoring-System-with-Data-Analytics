@@ -6,7 +6,7 @@
   {% if per_page_options and query_extra_base is not None and per_page %}
   <div class="ccb-per-page-row">
     <label class="ccb-per-page-label" for="ccb-per-page-select-{{ position|default:'bottom' }}">{% trans 'Show' %}</label>
-    <select id="ccb-per-page-select-{{ position|default:'bottom' }}" class="ccb-per-page-select" data-query-base="{{ query_extra_base|escapejs }}" data-param-name="{{ param_name|default:'page' }}">
+    <select id="ccb-per-page-select-{{ position|default:'bottom' }}" class="ccb-per-page-select" data-query-base="{{ query_extra_base|escape }}" data-param-name="{{ param_name|default:'page' }}">
       {% for opt in per_page_options %}
       <option value="{{ opt }}" {% if opt == per_page %}selected{% endif %}>{{ opt }}</option>
       {% endfor %}
@@ -19,13 +19,13 @@
     <ul class="pagination ccb-pagination mb-0">
       {% if page_obj.has_previous %}
       <li class="page-item">
-        <a class="page-link" href="?{% if query_extra %}{{ query_extra }}&{% endif %}{{ param_name|default:'page' }}={{ page_obj.previous_page_number }}">{% trans 'Previous' %}</a>
+        <a class="page-link" href="?{% if query_extra %}{{ query_extra }}&amp;{% endif %}{{ param_name|default:'page' }}={{ page_obj.previous_page_number }}">{% trans 'Previous' %}</a>
       </li>
       {% endif %}
       <li class="page-item active ccb-page-go-wrap">
         <span class="page-link ccb-page-go-inner">
           <span class="ccb-page-go-label">{% trans 'Page' %}</span>
-          <select class="ccb-page-select" data-query-extra="{{ query_extra|default:''|escapejs }}" data-param-name="{{ param_name|default:'page' }}" aria-label="{% trans 'Go to page' %}">
+          <select class="ccb-page-select" data-param-name="{{ param_name|default:'page' }}" aria-label="{% trans 'Go to page' %}">
             {% for p in page_obj.paginator.page_range %}
             <option value="{{ p }}" {% if p == page_obj.number %}selected{% endif %}>{{ p }}</option>
             {% endfor %}
@@ -35,7 +35,7 @@
       </li>
       {% if page_obj.has_next %}
       <li class="page-item">
-        <a class="page-link" href="?{% if query_extra %}{{ query_extra }}&{% endif %}{{ param_name|default:'page' }}={{ page_obj.next_page_number }}">{% trans 'Next' %}</a>
+        <a class="page-link" href="?{% if query_extra %}{{ query_extra }}&amp;{% endif %}{{ param_name|default:'page' }}={{ page_obj.next_page_number }}">{% trans 'Next' %}</a>
       </li>
       {% endif %}
     </ul>
@@ -80,21 +80,37 @@
 </style>
 <script>
 (function() {
-  document.querySelectorAll('.ccb-per-page-select').forEach(function(sel) {
+  function go(url) {
+    window.location.assign(url);
+  }
+  document.querySelectorAll('.ccb-per-page-select:not([data-ccb-nav-bound])').forEach(function(sel) {
+    sel.setAttribute('data-ccb-nav-bound', '1');
     sel.addEventListener('change', function() {
-      var q = this.getAttribute('data-query-base') || '';
       var pname = this.getAttribute('data-param-name') || 'page';
-      var query = (q ? q + '&' : '') + 'per_page=' + encodeURIComponent(this.value) + '&' + pname + '=1';
-      window.location = window.location.pathname + '?' + query;
+      try {
+        var u = new URL(window.location.href);
+        u.searchParams.set('per_page', String(this.value));
+        u.searchParams.set(pname, '1');
+        go(u.pathname + u.search + u.hash);
+      } catch (e) {
+        var q = this.getAttribute('data-query-base') || '';
+        var query = (q ? q + '&' : '') + 'per_page=' + encodeURIComponent(this.value) + '&' + pname + '=1';
+        go(window.location.pathname + '?' + query);
+      }
     });
   });
-  document.querySelectorAll('.ccb-page-select').forEach(function(sel) {
+  document.querySelectorAll('.ccb-page-select:not([data-ccb-nav-bound])').forEach(function(sel) {
+    sel.setAttribute('data-ccb-nav-bound', '1');
     sel.addEventListener('change', function() {
-      var q = this.getAttribute('data-query-extra') || '';
       var pname = this.getAttribute('data-param-name') || 'page';
-      var page = this.value;
-      var query = (q ? q + '&' : '') + pname + '=' + encodeURIComponent(page);
-      window.location = window.location.pathname + '?' + query;
+      try {
+        var u = new URL(window.location.href);
+        u.searchParams.set(pname, String(this.value));
+        go(u.pathname + u.search + u.hash);
+      } catch (e) {
+        var query = pname + '=' + encodeURIComponent(this.value);
+        go(window.location.pathname + '?' + query);
+      }
     });
   });
 })();

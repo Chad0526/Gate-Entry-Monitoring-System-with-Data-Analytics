@@ -1211,32 +1211,6 @@ class RealtimeDashboardService:
                 'timestamp': incident.timestamp
             })
         
-        # Check event capacities
-        today = now.date()
-        active_events = Event.objects.filter(
-            start_date__lte=today,
-            end_date__gte=today,
-            status__in=('scheduled', 'active')
-        ).exclude(maximum_attende__isnull=True).exclude(maximum_attende=0)
-        
-        for event in active_events:
-            current_count = EventAttendance.objects.filter(
-                event=event,
-                checked_in_at__isnull=False,
-                checked_out_at__isnull=True
-            ).count()
-            
-            if event.maximum_attende > 0:
-                percentage = (current_count / event.maximum_attende) * 100
-                if percentage >= 80:
-                    alerts.append({
-                        'type': 'capacity',
-                        'priority': 'urgent' if percentage >= 100 else 'high',
-                        'title': f"Capacity Alert: {event.name}",
-                        'message': f"{percentage:.0f}% full ({current_count}/{event.maximum_attende})",
-                        'timestamp': now
-                    })
-        
         return alerts
 
 
@@ -1453,84 +1427,5 @@ class StudentLookupService:
 
 
 def check_event_capacity_and_alert(event):
-    """
-    Check event capacity and create alerts if thresholds are reached.
-    Implements rate limiting (one alert per hour per event).
-    
-    Args:
-        event: Event object
-        
-    Returns:
-        dict with status and alert info
-    """
-    if not event.maximum_attende or event.maximum_attende <= 0:
-        return {
-            'status': 'no_capacity_limit',
-            'alerts_created': []
-        }
-    
-    # Calculate current attendee count (checked in but not checked out)
-    current_count = EventAttendance.objects.filter(
-        event=event,
-        checked_in_at__isnull=False,
-        checked_out_at__isnull=True
-    ).count()
-    
-    # Calculate capacity percentage
-    capacity_percentage = (current_count / event.maximum_attende) * 100
-    
-    # Check if we need to alert
-    should_alert = False
-    priority = 'high'
-    
-    if capacity_percentage >= 100:
-        should_alert = True
-        priority = 'urgent'
-    elif capacity_percentage >= 80:
-        should_alert = True
-        priority = 'high'
-    
-    if not should_alert:
-        return {
-            'status': 'below_threshold',
-            'current_count': current_count,
-            'capacity': event.maximum_attende,
-            'percentage': round(capacity_percentage, 2),
-            'alerts_created': []
-        }
-    
-    # Rate limiting: check if we've sent an alert in the last hour
-    now = timezone.now()
-    one_hour_ago = now - timedelta(hours=1)
-    
-    recent_alerts = GateNotification.objects.filter(
-        notification_type='capacity',
-        related_event=event,
-        created_at__gte=one_hour_ago
-    )
-    
-    if recent_alerts.exists():
-        return {
-            'status': 'rate_limited',
-            'current_count': current_count,
-            'capacity': event.maximum_attende,
-            'percentage': round(capacity_percentage, 2),
-            'alerts_created': [],
-            'message': 'Alert already sent within last hour'
-        }
-    
-    # Create capacity alert (broadcast to all on-duty guards)
-    alerts = GateNotificationService.create_capacity_alert(
-        event=event,
-        current_count=current_count,
-        capacity=event.maximum_attende
-    )
-    
-    return {
-        'status': 'alert_sent',
-        'current_count': current_count,
-        'capacity': event.maximum_attende,
-        'percentage': round(capacity_percentage, 2),
-        'priority': priority,
-        'alerts_created': alerts
-    }
+    """Capacity alerting removed (maximum_attende field dropped)."""
+    return {'status': 'no_capacity_limit', 'alerts_created': []}

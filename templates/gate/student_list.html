@@ -177,6 +177,13 @@
   #students-list-card .table-striped tbody tr:nth-of-type(odd) {
     background-color: rgba(248, 250, 249, 0.8);
   }
+  @media (max-width: 991px) {
+    #students-list-card table .col-name { white-space: normal; min-width: 100px; }
+    #students-list-card table .col-email { white-space: normal; min-width: 140px; width: auto; font-size: 0.75rem; word-break: break-all; }
+    #students-list-card table .col-course-year { white-space: normal; width: 90px; font-size: 0.75rem; }
+    #students-list-card table .col-sex { width: 50px; font-size: 0.75rem; }
+    #students-list-card table .col-actions { min-width: 100px; width: auto; }
+  }
   @media (max-width: 767px) {
     .students-hero {
       min-height: 108px;
@@ -185,6 +192,24 @@
     .students-hero h2 {
       font-size: 1.3rem;
     }
+    #students-list-card table thead th,
+    #students-list-card table tbody td {
+      padding: 0.35rem 0.25rem;
+      font-size: 0.75rem;
+    }
+    #students-list-card table .col-qr { width: 50px; }
+    #students-list-card table .col-qr img { width: 36px; height: 36px; }
+    #students-list-card table .col-id { width: 70px; font-size: 0.7rem; }
+    #students-list-card table .col-name { min-width: 80px; font-size: 0.75rem; }
+    #students-list-card table .col-email { display: none; }
+    #students-list-card table thead th.col-email { display: none; }
+    #students-list-card table .col-actions .student-eid-btn { min-width: auto; padding: 0.2rem 0.4rem; font-size: 0.7rem; }
+    #students-list-card table .col-actions .btn { padding: 0.2rem 0.4rem; font-size: 0.7rem; }
+  }
+  @media (max-width: 480px) {
+    #students-list-card table .col-sex { display: none; }
+    #students-list-card table thead th.col-sex { display: none; }
+    #students-list-card table .col-course-year { width: 70px; font-size: 0.68rem; }
   }
 </style>
 {% endblock extrahead %}
@@ -192,52 +217,37 @@
 {% block content %}
 {% if not embed %}
 <div class="students-hero">
-  <h2>{% if show_pending %}Pending Student Approvals{% else %}Students Registry{% endif %}</h2>
-  <p>{% if show_pending %}Review and approve newly registered students.{% else %}Manage student records and generate e-IDs automatically.{% endif %}{% if not can_edit_students %} <span class="badge badge-light align-middle">View only</span>{% endif %}</p>
+  <h2>Students Registry</h2>
+  <p>Manage student records and generate e-IDs automatically.{% if not can_edit_students %} <span class="badge badge-light align-middle">View only</span>{% endif %}</p>
 </div>
 {% endif %}
 <div class="row">
   <div class="col-12">
     <div class="card" id="students-list-card">
       <div class="card-header">
-        <h5 class="m-0">{% if show_pending %}Accounts to review{% else %}Student list (QR e-ID generated automatically){% endif %}</h5>
+        <h5 class="m-0">Student list (QR e-ID generated automatically)</h5>
         {% if not embed %}
         <div class="card-tools">
-          {% if show_pending %}
-          {% if pending_count > 0 and can_edit_students %}
-          <form id="approve-all-pending-form" method="post" action="{% url 'gate-student-approve-all-pending' %}" class="d-inline mr-1">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-sm btn-success"><i class="fas fa-check-double mr-1"></i> Approve all ({{ pending_count }})</button>
-          </form>
-          {% endif %}
-          <a href="{% url 'gate-student-list' %}" class="btn btn-sm btn-outline-secondary mr-1"><i class="fas fa-list mr-1"></i> Show all students</a>
-          {% else %}
           <div class="students-toolbar" style="display:flex; flex-wrap:wrap; gap:8px;">
-            <a href="{% url 'gate-student-list' %}?pending=1" class="btn btn-sm btn-outline-warning"><i class="fas fa-clock mr-1"></i> Pending approvals</a>
             {% if can_edit_students %}
             <div class="btn-group" role="group" aria-label="Import">
               <a href="{% url 'gate-student-import' %}" class="btn btn-sm btn-success"><i class="fas fa-file-csv mr-1"></i> Import students</a>
             </div>
-            <div class="btn-group" role="group" aria-label="Outputs">
-              <a href="{% url 'gate-student-export-csv' %}" class="btn btn-sm btn-outline-primary" title="Download all student data (CSV)"><i class="fas fa-download mr-1"></i> Export CSV</a>
+            <a href="{% url 'gate-student-export-csv' %}" class="btn btn-sm btn-outline-primary" title="Download all student data (CSV)"><i class="fas fa-download mr-1"></i> Export CSV</a>
               {% if students %}
-              <a href="{% url 'gate-student-eid-print-all' %}{% if filter_course or filter_year_level or filter_section or filter_sex or search_q %}?{% if filter_course %}course={{ filter_course }}&{% endif %}{% if filter_year_level %}year_level={{ filter_year_level }}&{% endif %}{% if filter_section %}section={{ filter_section }}&{% endif %}{% if filter_sex %}sex={{ filter_sex }}&{% endif %}{% if search_q %}q={{ search_q|urlencode }}{% endif %}{% endif %}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fas fa-print mr-1"></i> Print all e‑ID</a>
-              <a href="{% url 'gate-student-eid-print-all' %}{% if filter_course or filter_year_level or filter_section or filter_sex or search_q %}?{% if filter_course %}course={{ filter_course }}&{% endif %}{% if filter_year_level %}year_level={{ filter_year_level }}&{% endif %}{% if filter_section %}section={{ filter_section }}&{% endif %}{% if filter_sex %}sex={{ filter_sex }}&{% endif %}{% if search_q %}q={{ search_q|urlencode }}&{% endif %}download=1{% else %}?download=1{% endif %}" target="_blank" class="btn btn-sm btn-outline-success"><i class="fas fa-download mr-1"></i> Download all e‑ID</a>
+              <button type="button" class="btn btn-sm btn-outline-primary ml-1" data-toggle="modal" data-target="#printEidModal"><i class="fas fa-print mr-1"></i> Print/Download e‑ID cards</button>
               {% endif %}
-            </div>
             {% endif %}
             {% if can_edit_students %}
             <a href="{% url 'gate-student-create' %}" class="btn btn-sm btn-primary"><i class="fas fa-plus mr-1"></i> Add student</a>
             {% endif %}
           </div>
-          {% endif %}
         </div>
         {% endif %}
       </div>
       <div class="filter-row d-flex flex-wrap align-items-center">
         <form method="get" action="{% url 'gate-student-list' %}" class="d-flex flex-wrap align-items-center">
           {% if embed %}<input type="hidden" name="embed" value="1">{% endif %}
-          {% if show_pending %}<input type="hidden" name="pending" value="1">{% endif %}
           <div class="form-group mb-0 mr-2">
             <label for="filter-course">Course</label>
             <select name="course" id="filter-course" class="form-control form-control-sm" style="width: auto; min-width: 90px;">
@@ -274,16 +284,15 @@
               {% endfor %}
             </select>
           </div>
-          <button type="submit" class="btn btn-sm btn-outline-secondary mr-1"><i class="fas fa-filter mr-1"></i> Apply</button>
+          <button type="submit" class="btn btn-sm btn-outline-secondary mr-1" style="align-self: flex-end; margin-bottom: 1px;"><i class="fas fa-filter mr-1"></i> Apply</button>
         </form>
         {% if filter_course or filter_year_level or filter_section or filter_sex %}
-        <a href="{% if show_pending %}{% url 'gate-student-list' %}?pending=1{% if embed %}&embed=1{% endif %}{% else %}{% url 'gate-student-list' %}{% if embed %}?embed=1{% endif %}{% endif %}" class="btn btn-sm btn-link text-muted">Clear filters</a>
+        <a href="{% url 'gate-student-list' %}{% if embed %}?embed=1{% endif %}" class="btn btn-sm btn-link text-muted">Clear filters</a>
         {% endif %}
       </div>
       <div class="search-row">
         <form method="get" action="{% url 'gate-student-list' %}" class="d-flex align-items-center flex-wrap" style="gap: 0.5rem; width: 100%;">
           {% if embed %}<input type="hidden" name="embed" value="1">{% endif %}
-          {% if show_pending %}<input type="hidden" name="pending" value="1">{% endif %}
           {% if filter_course %}<input type="hidden" name="course" value="{{ filter_course }}">{% endif %}
           {% if filter_year_level %}<input type="hidden" name="year_level" value="{{ filter_year_level }}">{% endif %}
           {% if filter_section %}<input type="hidden" name="section" value="{{ filter_section }}">{% endif %}
@@ -329,16 +338,16 @@
                 <td class="align-middle col-sex">{{ s.get_sex_display|default:"—" }}</td>
                 <td class="align-middle col-course-year">{% if s.course or s.year_level or s.section %}<span class="d-block">{% if s.course or s.year_level %}{{ s.course }}{% if s.year_level %} / {{ s.get_year_level_display }}{% endif %}{% elif s.section %}{{ s.section }}{% endif %}</span>{% if s.section %}{% if s.course or s.year_level %}<span class="d-block text-muted small mt-0">{{ s.section }}</span>{% endif %}{% endif %}{% else %}—{% endif %}</td>
                 <td class="align-middle col-email">{{ s.email|default:"—" }}</td>
-                <td class="align-middle col-status">{% if s.account_status == 'APPROVED' %}<span class="badge badge-success">Approved</span>{% elif s.account_status == 'PENDING' %}<span class="badge badge-warning">Pending</span>{% elif s.account_status == 'REJECTED' %}<span class="badge badge-danger">Rejected</span>{% else %}<span class="badge badge-secondary">{{ s.get_account_status_display }}</span>{% endif %}</td>
+                <td class="align-middle col-status">{% if s.account_status == 'APPROVED' %}<span class="badge badge-success">{{ s.get_account_status_display }}</span>{% else %}<span class="badge badge-secondary">{{ s.get_account_status_display }}</span>{% endif %}</td>
                 <td class="align-middle col-actions">
                   {% if can_edit_students %}
-                  <a href="{% url 'gate-student-edit' s.pk %}{% if show_pending %}?from=pending{% endif %}" class="btn btn-sm btn-info" title="Edit"><i class="fas fa-edit"></i></a>
+                  <a href="{% url 'gate-student-edit' s.pk %}" class="btn btn-sm btn-info" title="Edit"><i class="fas fa-edit"></i></a>
                   {% endif %}
                   <button type="button" class="btn btn-sm btn-outline-primary student-eid-btn" title="View / print student e-ID card" data-card-url="{% url 'gate-student-eid' s.pk %}"><i class="fas fa-id-card mr-1"></i> e-ID</button>
                 </td>
               </tr>
             {% empty %}
-              <tr><td colspan="8" class="text-muted text-center">{% if show_pending %}No pending approvals. <a href="{% url 'gate-student-list' %}">Show all students</a>{% else %}No students.{% if can_edit_students %} <a href="{% url 'gate-student-create' %}">Add one</a> or <a href="{% url 'gate-student-import' %}">Import CSV</a>{% endif %}{% endif %}.</td></tr>
+              <tr><td colspan="8" class="text-muted text-center">No students.{% if can_edit_students %} <a href="{% url 'gate-student-create' %}">Add one</a> or <a href="{% url 'gate-student-import' %}">Import CSV</a>{% endif %}.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -353,9 +362,88 @@
   </div>
 </div>
 
+<!-- Print / Download e-ID modal -->
+<div class="modal fade" id="printEidModal" tabindex="-1" role="dialog" aria-labelledby="printEidModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 500px;">
+    <div class="modal-content">
+      <div class="modal-header" style="background: linear-gradient(135deg, #16a34a, #15803d); border: none;">
+        <h5 class="modal-title text-white" id="printEidModalTitle"><i class="fas fa-id-card mr-2"></i>Print / Download e-ID Cards</h5>
+        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted mb-3" style="font-size: 0.9rem;">Filter which students' e-ID cards to print or download. Leave all filters on "All" to include every active student.</p>
+        <form id="printEidForm">
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="print-eid-course"><i class="fas fa-graduation-cap mr-1 text-muted"></i> Course</label>
+                <select name="course" id="print-eid-course" class="form-control">
+                  <option value="">All Courses</option>
+                  {% for value, label in course_choices %}
+                  <option value="{{ value }}">{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="print-eid-year"><i class="fas fa-layer-group mr-1 text-muted"></i> Year Level</label>
+                <select name="year_level" id="print-eid-year" class="form-control">
+                  <option value="">All Year Levels</option>
+                  {% for value, label in year_level_choices %}
+                  <option value="{{ value }}">{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="print-eid-section"><i class="fas fa-users mr-1 text-muted"></i> Section</label>
+                <select name="section" id="print-eid-section" class="form-control">
+                  <option value="">All Sections</option>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="print-eid-sex"><i class="fas fa-venus-mars mr-1 text-muted"></i> Sex</label>
+                <select name="sex" id="print-eid-sex" class="form-control">
+                  <option value="">All</option>
+                  {% for value, label in sex_choices %}
+                  <option value="{{ value }}">{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="print-eid-status"><i class="fas fa-check-circle mr-1 text-muted"></i> Account Status</label>
+            <select name="status" id="print-eid-status" class="form-control">
+              <option value="approved" selected>Active only</option>
+              <option value="all">All statuses</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer d-flex justify-content-between">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-dismiss="modal">Cancel</button>
+        <div>
+          <button type="button" class="btn btn-sm btn-outline-success mr-1" id="printEidExportPdfBtn"><i class="fas fa-file-pdf mr-1"></i> Export as PDF</button>
+          <button type="button" class="btn btn-sm btn-primary" id="printEidPrintBtn"><i class="fas fa-print mr-1"></i> Print</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Student e-ID card modal -->
 <div class="modal fade" id="studentEidCardModal" tabindex="-1" role="dialog" aria-labelledby="studentEidCardModalTitle" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 400px;">
+  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 540px;">
     <div class="modal-content">
       <div class="modal-header py-2">
         <h5 class="modal-title" id="studentEidCardModalTitle">Student e-ID card</h5>
@@ -363,8 +451,8 @@
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
-      <div class="modal-body p-0 position-relative" style="min-height: 420px;">
-        <iframe id="studentEidCardIframe" src="" style="width:100%; height:420px; border:0;" title="Student e-ID card"></iframe>
+      <div class="modal-body p-0 position-relative" style="min-height: 680px;">
+        <iframe id="studentEidCardIframe" src="" style="width:100%; height:680px; border:0;" title="Student e-ID card"></iframe>
       </div>
       <div class="modal-footer eid-action-bar py-3 px-4">
         <a id="studentEidCardOpenNewTab" href="#" target="_blank" class="eid-action-btn" title="Open in new tab"><i class="fas fa-external-link-alt"></i></a>
@@ -402,40 +490,40 @@
     });
     $(modal).on('hidden.bs.modal', function() { iframe.src = 'about:blank'; });
   }
-})();
-</script>
-{% if show_pending and pending_count > 0 %}
-<script>
-(function() {
-  function initApproveAllConfirm() {
-    var form = document.getElementById('approve-all-pending-form');
-    if (!form) return;
-    if (typeof window.themeConfirm !== 'function') {
-      setTimeout(initApproveAllConfirm, 50);
-      return;
-    }
-    form.addEventListener('submit', function(e) {
-      if (window._approveAllPendingConfirmed) {
-        window._approveAllPendingConfirmed = false;
-        return;
-      }
-      e.preventDefault();
-      e.stopPropagation();
-      window.themeConfirm(
-        'Approve all {{ pending_count }} pending student(s)? They will appear in the main student list.',
-        function() {
-          window._approveAllPendingConfirmed = true;
-          form.submit();
-        }
-      );
+
+  function buildEidUrl(download) {
+    var form = document.getElementById('printEidForm');
+    if (!form) return '#';
+    var params = [];
+    var course = form.querySelector('[name="course"]').value;
+    var year = form.querySelector('[name="year_level"]').value;
+    var section = form.querySelector('[name="section"]').value;
+    var sex = form.querySelector('[name="sex"]').value;
+    var status = form.querySelector('[name="status"]').value;
+    if (course) params.push('course=' + encodeURIComponent(course));
+    if (year) params.push('year_level=' + encodeURIComponent(year));
+    if (section) params.push('section=' + encodeURIComponent(section));
+    if (sex) params.push('sex=' + encodeURIComponent(sex));
+    if (status === 'all') params.push('status=all');
+    if (download) params.push('download=1');
+    var base = "{% url 'gate-student-eid-print-all' %}";
+    return base + (params.length ? '?' + params.join('&') : '');
+  }
+
+  var printBtn = document.getElementById('printEidPrintBtn');
+  var exportPdfBtn = document.getElementById('printEidExportPdfBtn');
+  if (printBtn) {
+    printBtn.addEventListener('click', function() {
+      window.open(buildEidUrl(false), '_blank');
+      $('#printEidModal').modal('hide');
     });
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initApproveAllConfirm);
-  } else {
-    initApproveAllConfirm();
+  if (exportPdfBtn) {
+    exportPdfBtn.addEventListener('click', function() {
+      window.open(buildEidUrl(false) + (buildEidUrl(false).includes('?') ? '&' : '?') + 'pdf=1', '_blank');
+      $('#printEidModal').modal('hide');
+    });
   }
 })();
 </script>
-{% endif %}
 {% endblock extrascript %}

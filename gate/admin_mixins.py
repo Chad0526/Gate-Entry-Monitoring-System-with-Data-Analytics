@@ -1,8 +1,8 @@
 """
 Admin mixins for gate app.
-PerPageListMixin: default 10 per page + per-page dropdown (10, 20, 30, 50, 100) in change list.
+PerPageListMixin: default 10 per page + per-page dropdown (10, 20, 30, 40, 50, 100) in change list.
 """
-ADMIN_PER_PAGE_OPTIONS = [10, 20, 30, 50, 100]
+ADMIN_PER_PAGE_OPTIONS = [10, 20, 30, 40, 50, 100]
 
 
 class PerPageListMixin:

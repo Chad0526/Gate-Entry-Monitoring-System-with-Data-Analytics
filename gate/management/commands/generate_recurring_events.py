@@ -68,7 +68,6 @@ class Command(BaseCommand):
                         start_date=next_date,
                         end_date=next_date,
                         points=0,
-                        maximum_attende=100,
                         status='scheduled',
                     )
                     t.last_generated = next_date

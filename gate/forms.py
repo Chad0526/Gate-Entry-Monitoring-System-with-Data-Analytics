@@ -67,7 +67,7 @@ class EventForm(forms.ModelForm):
             self.fields['job_category'].queryset = JobCategory.objects.all().order_by('name')
             self.fields['job_category'].widget.attrs.update({'class': 'form-control'})
         for k in (
-            'name', 'uid', 'venue', 'points', 'maximum_attende',
+            'name', 'uid', 'venue', 'points',
             'status', 'attendance_mode', 'event_location',
             'audience_scope', 'audience_course', 'audience_year_level', 'audience_section',
         ):
@@ -107,7 +107,7 @@ class EventForm(forms.ModelForm):
         if 'description' in self.fields:
             self.fields['description'].required = False
             self.fields['description'].help_text = 'Optional. You can add details later.'
-        for k in ('venue', 'points', 'maximum_attende'):
+        for k in ('venue', 'points'):
             if k in self.fields:
                 self.fields[k].required = False
                 self.fields[k].help_text = self.fields[k].help_text or 'Optional.'
@@ -147,7 +147,7 @@ class EventForm(forms.ModelForm):
         model = Event
         fields = [
             'category', 'name', 'uid', 'description', 'job_category',
-            'venue', 'start_date', 'end_date', 'points', 'maximum_attende',
+            'venue', 'start_date', 'end_date', 'points',
             'attendance_mode', 'event_location',
             'audience_scope', 'audience_course', 'audience_year_level', 'audience_section',
             'status',

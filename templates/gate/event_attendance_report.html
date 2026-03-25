@@ -315,7 +315,7 @@
   <!-- Action bar -->
   <div class="ear-action-bar no-print">
     {% if not event_ended %}
-    <a href="{% url 'event-field-trip-scan' event.id %}" class="ear-btn-primary">
+    <a href="{% url 'gate-scan' %}?event={{ event.id }}" class="ear-btn-primary">
       <i class="fas fa-qrcode"></i> Open Scanner
     </a>
     {% endif %}

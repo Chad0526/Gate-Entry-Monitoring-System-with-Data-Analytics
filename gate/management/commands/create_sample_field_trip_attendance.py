@@ -97,7 +97,6 @@ class Command(BaseCommand):
                         start_date=start,
                         end_date=end,
                         points=15,
-                        maximum_attende=50,
                         status='active',
                         attendance_mode='OPEN',
                         event_location='field_trip',
@@ -156,5 +155,5 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(f'Created {added} sample attendance record(s) for "{event.name}".'))
         self.stdout.write('  Event detail (Take attendance): /gate/detail/{}/'.format(event.pk))
-        self.stdout.write('  Field trip scan URL: /gate/events/{}/field-trip-scan/'.format(event.pk))
+        self.stdout.write('  Gate scanner (event): /gate/?event={}'.format(event.pk))
         self.stdout.write('  Admin EventAttendance: /admin/gate/eventattendance/')
