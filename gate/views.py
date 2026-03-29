@@ -12,8 +12,8 @@ from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseRedirect
-from django.core.mail import send_mass_mail
 from django.conf import settings
+from django.db.models import Q
 
 from gate_analytics.roles import RoleRequiredMixin, role_required
 from .models import (
@@ -162,26 +162,27 @@ class EventCreateView(RoleRequiredMixin, LoginRequiredMixin, CreateView):
         event_agenda.event = evt
         event_agenda.save()
 
-        # Notify only staff/faculty by email (not students; students have separate approval/rejection emails).
+        # Email: staff/faculty (profile opt-in), Admin, Student Affairs, superuser (see gate.notifications).
         try:
             from django.contrib.auth import get_user_model
-            from django.db.models import Q
-            from gate.models import StaffPersonnelProfile
+            from gate.notifications import _user_accepts_announcement_email, send_announcement_emails
 
             User = get_user_model()
-            profiles = (
-                StaffPersonnelProfile.objects.select_related('user')
-                .filter(email_notifications_announcements=True, user__is_active=True)
+            candidates = (
+                User.objects.filter(is_active=True)
+                .exclude(groups__name__iexact='student')
                 .filter(
-                    Q(user__groups__name__iexact='staff')
-                    | Q(user__groups__name__iexact='faculty')
+                    Q(is_superuser=True)
+                    | Q(groups__name__iexact='staff')
+                    | Q(groups__name__iexact='faculty')
+                    | Q(groups__name__iexact='admin')
+                    | Q(groups__name__iexact='student affairs')
                 )
                 .distinct()
+                .prefetch_related('groups')
             )
-            recipient_emails = [p.user.email for p in profiles if p.user and p.user.email]
-            if recipient_emails:
-                site_name = getattr(settings, 'SITE_NAME', 'City College of Bayawan')
-                subject = f"[{site_name}] New event: {evt.name}"
+            users_to_notify = [u for u in candidates if _user_accepts_announcement_email(u)]
+            if users_to_notify:
                 event_url = self.request.build_absolute_uri(
                     reverse('event-detail', kwargs={'pk': evt.pk})
                 )
@@ -194,14 +195,11 @@ class EventCreateView(RoleRequiredMixin, LoginRequiredMixin, CreateView):
                     "You can view more details in the event page:",
                     event_url,
                 ]
-                body = "\n".join(body_lines)
-                from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None)
-                # Send one email per recipient to avoid leaking addresses in To/CC.
-                messages = [
-                    (subject, body, from_email, [email])
-                    for email in recipient_emails
-                ]
-                send_mass_mail(messages, fail_silently=True)
+                send_announcement_emails(
+                    users_to_notify,
+                    f"New event: {evt.name}",
+                    "\n".join(body_lines),
+                )
         except Exception:
             # Never block event creation if email sending fails.
             pass

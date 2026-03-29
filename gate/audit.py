@@ -1,7 +1,8 @@
 """Audit log: who did what, when."""
 from django.contrib.auth import get_user_model
+from django.db import models
 
-from .models import AuditLog
+from .models import AuditLog, AdminNotification
 
 
 def log_action(request, action, model_name='', object_id='', description=''):
@@ -25,7 +26,7 @@ def log_action_with_user(user, action, model_name='', object_id='', description=
     if not User.objects.filter(pk=uid).exists():
         user = None
     try:
-        AuditLog.objects.create(
+        entry = AuditLog.objects.create(
             user=user,
             action=action,
             model_name=model_name,
@@ -33,5 +34,41 @@ def log_action_with_user(user, action, model_name='', object_id='', description=
             description=(description or '')[:2000],
             ip_address=ip_address or None,
         )
+        _notify_admins_of_audit_change(entry)
     except Exception:
         pass
+
+
+def _notify_admins_of_audit_change(audit_entry):
+    """
+    Create in-app admin notifications for tracked system changes.
+    This gives admin visibility on staff/SAS edits across the app.
+    """
+    if not audit_entry or not getattr(audit_entry, 'user_id', None):
+        return
+    User = get_user_model()
+    admins = User.objects.filter(
+        is_active=True,
+    ).filter(
+        models.Q(groups__name__iexact='admin')
+        | models.Q(is_superuser=True)
+        | models.Q(is_staff=True)
+    ).distinct()
+    actor = audit_entry.user
+    actor_name = (actor.get_full_name() or '').strip() or actor.username
+    model_label = (audit_entry.model_name or 'System').strip() or 'System'
+    action_label = (audit_entry.action or 'updated').replace('_', ' ').strip()
+    object_label = f" #{audit_entry.object_id}" if (audit_entry.object_id or '').strip() else ''
+    msg = (
+        f'{actor_name} performed "{action_label}" on {model_label}{object_label}.\n'
+        f'Details: {(audit_entry.description or "—")[:600]}'
+    )
+    for admin in admins:
+        AdminNotification.objects.create(
+            notification_type='system',
+            priority='normal',
+            title=f'System change: {model_label}',
+            message=msg[:1000],
+            target_user=admin,
+            broadcast=False,
+        )

@@ -1,4 +1,4 @@
-"""Email and in-app notifications: denied entry, capacity alert, daily digest, announcements to staff/guard/faculty."""
+"""Email and in-app notifications: denied entry, capacity alert, daily digest, announcements."""
 import datetime
 import logging
 from django.conf import settings
@@ -8,53 +8,72 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
+def _user_accepts_announcement_email(user):
+    """
+    Who receives org announcement / AdminNotification follow-up emails:
+    - Staff/faculty with StaffPersonnelProfile: respect email_notifications_announcements.
+    - Admin, Student Affairs, superuser: use User.email when set (no profile required).
+    - Staff/faculty without a profile yet: no email (avoid noise until profile exists).
+    """
+    if not user or not getattr(user, 'is_active', True):
+        return False
+    email = (getattr(user, 'email', None) or '').strip()
+    if not email:
+        return False
+    try:
+        if user.groups.filter(name__iexact='student').exists():
+            return False
+    except Exception:
+        pass
+    from gate.models import StaffPersonnelProfile
+    try:
+        profile = StaffPersonnelProfile.objects.get(user_id=user.pk)
+    except StaffPersonnelProfile.DoesNotExist:
+        profile = None
+    if profile is not None:
+        return bool(profile.email_notifications_announcements)
+    if getattr(user, 'is_superuser', False):
+        return True
+    try:
+        gnames = {g.name.lower() for g in user.groups.all()}
+    except Exception:
+        gnames = set()
+    return 'admin' in gnames or 'student affairs' in gnames
+
+
 def send_announcement_emails(users, title, message, subject_prefix=None):
     """
-    Send announcement/event emails only to staff, faculty, and guards who have
-    email_notifications_announcements=True and a non-empty email.
-    Students are never included; they have their own separate email flow
-    (e.g. approval/rejection by admin).
-    users: iterable of User objects (e.g. queryset or list).
-    title: email subject line (or use subject_prefix + title).
-    message: plain text body.
-    subject_prefix: optional prefix like "[CCB] " for subject; uses SITE_NAME if not set.
+    Send plain-text emails for broadcast AdminNotifications and similar alerts.
+    Respects StaffPersonnelProfile opt-in for staff/faculty; always sends to
+    Admin / Student Affairs / superuser when User.email is set (operational accounts).
     """
     try:
         from django.contrib.auth import get_user_model
-        from django.db.models import Q
-        from gate.models import StaffPersonnelProfile
 
         User = get_user_model()
         site_name = getattr(settings, 'SITE_NAME', 'City College of Bayawan')
         prefix = subject_prefix if subject_prefix is not None else f"[{site_name}] "
         subject = f"{prefix}{title}" if title else f"{prefix}Announcement"
 
-        # Only staff, faculty, and guards — exclude students (they have separate approval/rejection emails)
         user_ids = [u.pk for u in users if getattr(u, 'pk', None)]
         if not user_ids:
             return
-        non_student_ids = list(
+        user_qs = (
             User.objects.filter(pk__in=user_ids)
             .exclude(groups__name__iexact='student')
             .distinct()
-            .values_list('pk', flat=True)
+            .prefetch_related('groups')
         )
-        if not non_student_ids:
-            return
-        profiles = StaffPersonnelProfile.objects.filter(
-            user_id__in=non_student_ids,
-            email_notifications_announcements=True,
-            user__is_active=True,
-        ).select_related('user')
         recipient_emails = []
-        for p in profiles:
-            if p.user and getattr(p.user, 'email', None) and str(p.user.email).strip():
-                recipient_emails.append(str(p.user.email).strip())
+        for u in user_qs:
+            if _user_accepts_announcement_email(u):
+                recipient_emails.append(str(u.email).strip())
+        recipient_emails = list(dict.fromkeys(recipient_emails))
         if not recipient_emails:
             return
         from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None)
         body = message or "(No message body)"
-        messages = [(subject, body, from_email, [email]) for email in recipient_emails]
+        messages = [(subject, body, from_email, [em]) for em in recipient_emails]
         send_mass_mail(messages, fail_silently=True)
     except Exception as e:
         logger.warning('send_announcement_emails failed: %s', e)
@@ -129,7 +148,7 @@ def send_daily_digest(date=None):
 
 
 def notify_student_status_change(student, new_status=None):
-    """Email the student when their account status changes (pending, approved, rejected, inactive)."""
+    """Email the student when their account status changes (active/inactive)."""
     email = (student.email or '').strip()
     if not email:
         return
@@ -148,12 +167,6 @@ def notify_student_status_change(student, new_status=None):
         if status_code_upper == 'APPROVED':
             main_line = "Your student account has been approved by the administrator."
             extra_line = "You can now sign in and use the gate & attendance system."
-        elif status_code_upper == 'PENDING':
-            main_line = "Your student registration is received and is pending approval."
-            extra_line = "You will receive another email once the administrator approves your account."
-        elif status_code_upper == 'REJECTED':
-            main_line = "Your student account request was not approved."
-            extra_line = "Please contact the school for more details if you believe this is a mistake."
         elif status_code_upper == 'INACTIVE':
             main_line = "Your student account has been set to inactive."
             extra_line = "You will not be able to use the gate & attendance system until it is reactivated."

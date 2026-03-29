@@ -1,42 +1,64 @@
 """
 Role-based access for City College of Bayawan.
-Roles: Admin, Supervisor, Faculty, Staff, Student (legacy).
-Gate kiosk: assigned staff/faculty/supervisor log in; no separate gate-only role.
+Roles: Admin, Faculty, Staff, Student (legacy), Student Affairs (registry / e-ID release).
+Gate kiosk: assigned staff/faculty log in; no separate gate-only role.
 """
 from functools import wraps
 from django.shortcuts import redirect
 from django.http import HttpResponseForbidden
 from django.contrib import messages
 
-ROLE_NAMES = ('Admin', 'Supervisor', 'Faculty', 'Staff', 'Student')
+ROLE_NAMES = (
+    'Admin',
+    'Faculty',
+    'Staff',
+    'Student',
+    'Student Affairs',  # Student services: student registry, approve records, print/release e-IDs
+)
 ROLE_GROUPS = {name.lower(): name for name in ROLE_NAMES}
+
+# When a user has several role groups, pick one deterministically (highest first).
+# Ensures e.g. Staff + Student Affairs resolves to student affairs so SAS actions match the sidebar.
+ROLE_PRIORITY = (
+    'admin',
+    'student affairs',
+    'staff',
+    'faculty',
+    'student',
+)
 
 
 def get_user_role(user):
-    """Return user's role as lowercase string ('admin','supervisor','staff', etc.) or None.
+    """Return user's role as lowercase string ('admin','staff', etc.) or None.
     Staff/superuser without a group are treated as 'admin'.
+
+    If the user belongs to more than one known role group, the role with the highest
+    ROLE_PRIORITY wins (not ORM iteration order).
 
     Role lookup is case-insensitive to avoid mismatches when group names
     may be stored with different capitalization.
     """
     if not user or not user.is_authenticated:
         return None
-    # check group names in a case-insensitive way
+    matched = set()
     for group in user.groups.all():
         lname = group.name.lower()
         if lname in ROLE_GROUPS:
-            # ROLE_GROUPS maps lowercase keys to canonical names; return the
-            # lowercase string as the role identifier.
-            return lname
+            matched.add(lname)
+    if matched:
+        for role_slug in ROLE_PRIORITY:
+            if role_slug in matched:
+                return role_slug
+        return next(iter(matched))
     if getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
         return 'admin'
     return None
 
 
-def has_supervisor_access(user):
-    """True if user can do supervisor-level gate: all reports, export, audit log."""
+def has_reports_access(user):
+    """True if user can use full reports, export, and audit (admin, staff, faculty)."""
     role = get_user_role(user)
-    return role in ('admin', 'staff', 'supervisor')
+    return role in ('admin', 'staff', 'faculty')
 
 
 def role_required(*allowed_roles):

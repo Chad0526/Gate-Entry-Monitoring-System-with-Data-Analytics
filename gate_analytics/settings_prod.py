@@ -27,7 +27,8 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = 'DENY'
+# SAMEORIGIN: e-ID card previews use same-site iframes; DENY would show a blank/broken iframe.
+X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 # HSTS (HTTP Strict Transport Security)
 SECURE_HSTS_SECONDS = 31536000  # 1 year

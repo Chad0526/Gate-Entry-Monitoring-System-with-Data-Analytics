@@ -1,7 +1,7 @@
 {% extends 'base/base.html' %}
 {% load static %}
 {% block title %}Staff / Faculty Registry – {{ site_name }}{% endblock title %}
-{% block breadcrumb %}Staff / Faculty{% endblock breadcrumb %}
+{% block page_heading %}Staff / Faculty{% endblock page_heading %}
 
 {% block extrahead %}
 <link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
@@ -30,9 +30,7 @@
   #staff-list-card .search-row .search-input-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #858585; pointer-events: none; }
   #staff-list-card .search-row .search-input-wrap input { padding-left: 36px; border-radius: 8px; border: 1px solid #e0d555; }
   #staff-list-card .table-wrap { overflow-x: auto; margin: 0 -1px; }
-  #staff-list-card .table-wrap .table { min-width: 1100px; margin-bottom: 0; font-size: 0.8125rem; }
-  #staff-list-card .col-qr { width: 68px; text-align: center; }
-  #staff-list-card .staff-eid-btn { min-width: 4.5em; white-space: nowrap; }
+  #staff-list-card .table-wrap .table { min-width: 980px; margin-bottom: 0; font-size: 0.8125rem; }
   .psg-toolbar {
     display: flex;
     align-items: center;
@@ -177,27 +175,17 @@
 {% block content %}
 <div class="students-hero">
   <h2>Staff / Faculty Registry</h2>
-  <p>Manage staff and faculty records and generate e-IDs automatically. Pending accounts cannot log in until approved.{% if not can_edit_staff_registry %} <span class="badge badge-light align-middle">View only</span>{% endif %}</p>
+  <p>Manage staff, faculty, and Student Affairs accounts. Pending accounts cannot log in until approved.{% if not can_edit_staff_registry %} <span class="badge badge-light align-middle">View only</span>{% endif %}</p>
 </div>
 
 <div class="row">
   <div class="col-12">
     <div class="card" id="staff-list-card">
-      <div class="card-header">
-        <h5 class="m-0">Staff / faculty list (QR e-ID generated automatically)</h5>
-        {% if can_edit_staff_registry %}
-        <div class="card-tools">
-          <div class="d-flex flex-wrap" style="gap:8px;">
-            <a href="{% url 'gate-staff-personnel-import-csv' %}" class="btn btn-sm btn-success"><i class="fas fa-file-csv mr-1"></i> Import staff / faculty</a>
-            <a href="{% url 'gate-staff-personnel-export-csv' %}" class="btn btn-sm btn-outline-primary" title="Download all staff/faculty (CSV)"><i class="fas fa-download mr-1"></i> Export CSV</a>
-            {% if users_with_role %}
-            <button type="button" class="btn btn-sm btn-outline-primary" data-toggle="modal" data-target="#printStaffEidModal"><i class="fas fa-print mr-1"></i> Print/Download e‑ID cards</button>
-            {% endif %}
-            <a href="{% url 'gate-staff-personnel-create' %}" class="btn btn-sm btn-primary"><i class="fas fa-plus mr-1"></i> Add staff / faculty</a>
-          </div>
-        </div>
-        {% endif %}
+      {% if can_edit_staff_registry %}
+      <div class="card-header d-flex justify-content-end align-items-center flex-wrap" style="gap: 8px;">
+        <button type="button" class="btn btn-sm btn-primary" data-toggle="modal" data-target="#staffPersonnelCreateModal" title="Add a new staff or faculty account"><i class="fas fa-plus mr-1"></i> Add staff / faculty</button>
       </div>
+      {% endif %}
       <div class="filter-row d-flex flex-wrap align-items-center">
         <form method="get" action="{% url 'pending-staff-personnel-list' %}" class="d-flex flex-wrap align-items-center">
           <div class="form-group mb-0 mr-2">
@@ -214,6 +202,7 @@
               <option value="">All</option>
               <option value="staff" {% if filter_role == 'staff' %}selected{% endif %}>Staff</option>
               <option value="faculty" {% if filter_role == 'faculty' %}selected{% endif %}>Faculty</option>
+              <option value="student_affairs" {% if filter_role == 'student_affairs' %}selected{% endif %}>Student Affairs</option>
             </select>
           </div>
           <button type="submit" class="btn btn-sm btn-outline-secondary mr-1" style="align-self:flex-end;margin-bottom:1px;"><i class="fas fa-filter mr-1"></i> Apply</button>
@@ -224,7 +213,6 @@
         {% if pending_count > 0 %}
         <a href="{% url 'pending-staff-personnel-list' %}?status=pending" class="btn btn-sm btn-warning ml-2"><i class="fas fa-user-clock"></i> {{ pending_count }} pending</a>
         {% endif %}
-        <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-primary ml-auto"><i class="fas fa-arrow-left"></i> Dashboard</a>
       </div>
       <div class="search-row">
         <form method="get" action="{% url 'pending-staff-personnel-list' %}" class="d-flex align-items-center flex-wrap" style="gap:0.5rem;width:100%;">
@@ -249,7 +237,6 @@
     <table class="table table-hover table-striped psg-registry-table">
       <thead>
         <tr>
-          <th class="col-qr">QR code</th>
           <th>Name</th>
           <th>Employee ID</th>
           <th>Username</th>
@@ -263,15 +250,10 @@
       <tbody>
         {% for user, role, profile in users_with_role %}
         <tr id="user-{{ user.pk }}">
-          <td class="align-middle col-qr">
-            <a href="{% url 'gate-staff-personnel-qr' user.pk %}" target="_blank" title="Open full-size QR" class="d-inline-block">
-              <img src="{% url 'gate-staff-personnel-qr' user.pk %}?v=2" alt="QR" width="56" height="56" class="rounded border" style="image-rendering:pixelated;">
-            </a>
-          </td>
           <td>{{ user.get_full_name|default:user.username }}</td>
           <td class="text-nowrap">{% if profile.employee_id %}<span class="registry-id-emphasis">{{ profile.employee_id }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
           <td><code>{{ user.username }}</code></td>
-          <td class="col-role">{% if role|lower == 'staff' %}<span class="badge badge-success">{{ role }}</span>{% elif role|lower == 'faculty' %}<span class="badge badge-info">{{ role }}</span>{% else %}<span class="badge badge-secondary">{{ role }}</span>{% endif %}</td>
+          <td class="col-role">{% if role|lower == 'staff' %}<span class="badge badge-success">{{ role }}</span>{% elif role|lower == 'faculty' %}<span class="badge badge-info">{{ role }}</span>{% elif 'student affairs' in role|lower %}<span class="badge badge-warning text-dark">{{ role }}</span>{% else %}<span class="badge badge-secondary">{{ role }}</span>{% endif %}</td>
           <td class="text-center small">{% if profile.department %}<span class="d-block">{{ profile.department }}</span>{% endif %}{% if profile.position %}<span class="d-block text-muted">{{ profile.position }}</span>{% endif %}{% if not profile.department and not profile.position %}—{% endif %}</td>
           <td>{{ user.email|default:"—" }}</td>
           <td>
@@ -287,7 +269,6 @@
               <i class="fas fa-edit"></i>
             </button>
             {% endif %}
-            <button type="button" class="btn btn-sm btn-outline-primary staff-eid-btn" title="View / print e-ID card" data-card-url="{% url 'gate-staff-personnel-eid' user.pk %}"><i class="fas fa-id-card mr-1"></i> e-ID</button>
             <div class="dropdown d-inline psg-actions-dropdown">
               <button type="button" class="btn btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 Actions
@@ -356,7 +337,7 @@
       <i class="fas fa-users fa-2x mb-3" style="opacity:0.4;"></i>
       <p class="mb-0">No staff/faculty accounts match your filters.</p>
       {% if can_edit_staff_registry %}
-      <p class="small mt-2 mb-0"><a href="{% url 'gate-staff-personnel-create' %}">Add staff / faculty</a> or <a href="{% url 'gate-staff-personnel-import-csv' %}">Import CSV</a>.</p>
+      <p class="small mt-2 mb-0">{% if can_edit_staff_registry %}<button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-toggle="modal" data-target="#staffPersonnelCreateModal">Add staff / faculty</button>{% else %}Add staff / faculty{% endif %}.</p>
       {% endif %}
       {% if filter_status == 'pending' or filter_role or search_q %}
       <p class="small mt-2"><a href="{% url 'pending-staff-personnel-list' %}">Clear all filters</a></p>
@@ -369,67 +350,20 @@
   </div>
 </div>
 
-<!-- Print / Download staff e-ID modal -->
-<div class="modal fade" id="printStaffEidModal" tabindex="-1" role="dialog" aria-labelledby="printStaffEidModalTitle" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 500px;">
-    <div class="modal-content">
-      <div class="modal-header" style="background: linear-gradient(135deg, #16a34a, #15803d); border: none;">
-        <h5 class="modal-title text-white" id="printStaffEidModalTitle"><i class="fas fa-id-card mr-2"></i>Print / Download e-ID Cards</h5>
+<!-- Add staff / faculty (iframe modal, same pattern as Add student) -->
+<div class="modal fade" id="staffPersonnelCreateModal" tabindex="-1" role="dialog" aria-labelledby="staffPersonnelCreateModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document" style="max-width: min(900px, 99vw); margin: 0.5rem auto;">
+    <div class="modal-content" style="overflow: hidden;">
+      <div class="modal-header py-2" style="background: linear-gradient(135deg, #16a34a, #15803d); border: none;">
+        <h5 class="modal-title text-white m-0" id="staffPersonnelCreateModalTitle"><i class="fas fa-user-plus mr-2"></i>Add staff / faculty</h5>
         <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
       </div>
-      <div class="modal-body">
-        <p class="text-muted mb-3" style="font-size: 0.9rem;">Open a printable page of e-ID cards for the current filter. Adjust Status and Role on the list, then click Print below.</p>
-        <form id="printStaffEidForm">
-          <div class="form-group">
-            <label for="print-staff-status">Account status</label>
-            <select name="status" id="print-staff-status" class="form-control">
-              <option value="active" selected>Active only</option>
-              <option value="all">All statuses</option>
-              <option value="pending">Pending only</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="print-staff-role">Role</label>
-            <select name="role" id="print-staff-role" class="form-control">
-              <option value="">All roles</option>
-              <option value="staff">Staff</option>
-              <option value="faculty">Faculty</option>
-            </select>
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer d-flex justify-content-between">
-        <button type="button" class="btn btn-sm btn-outline-secondary" data-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-sm btn-primary" id="printStaffEidPrintBtn"><i class="fas fa-print mr-1"></i> Print</button>
+      <div class="modal-body p-0" style="overflow: hidden; min-height: 0;">
+        <iframe id="staffPersonnelCreateModalIframe" src="about:blank" style="width:100%; height:78vh; min-height: 380px; border:0; display:block; vertical-align:top;" title="Add staff or faculty form"></iframe>
       </div>
     </div>
   </div>
 </div>
-
-<!-- Staff e-ID card modal -->
-<div class="modal fade" id="staffEidCardModal" tabindex="-1" role="dialog" aria-labelledby="staffEidCardModalTitle" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 540px;">
-    <div class="modal-content">
-      <div class="modal-header py-2">
-        <h5 class="modal-title" id="staffEidCardModalTitle">Staff / Faculty e-ID card</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-      </div>
-      <div class="modal-body p-0 position-relative" style="min-height: 680px;">
-        <iframe id="staffEidCardIframe" src="" style="width:100%; height:680px; border:0;" title="Staff e-ID card"></iframe>
-      </div>
-      <div class="modal-footer eid-action-bar py-3 px-4">
-        <a id="staffEidCardOpenNewTab" href="#" target="_blank" class="eid-action-btn" title="Open in new tab"><i class="fas fa-external-link-alt"></i></a>
-        <a id="staffEidCardDownload" href="#" download class="eid-action-btn" title="Download"><i class="fas fa-download"></i></a>
-        <button type="button" class="btn btn-sm btn-primary ml-auto" data-dismiss="modal">Close</button>
-      </div>
-    </div>
-  </div>
-</div>
-<style>
-.eid-action-bar { background: linear-gradient(180deg, #e8e8e8 0%, #d8d8d8 100%) !important; border-top: 1px solid #ccc; border-radius: 0 0 12px 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
-.eid-action-btn { color: #555; padding: 6px 10px; border-radius: 8px; text-decoration: none; font-size: 1rem; transition: color 0.15s, background 0.15s; }
-.eid-action-btn:hover { color: #1a4d2e; background: rgba(0,0,0,0.06); }
-</style>
 
 <!-- Edit user modal -->
 <div class="modal fade" id="psgEditModal" tabindex="-1" role="dialog" aria-labelledby="psgEditModalTitle" aria-hidden="true">
@@ -456,7 +390,7 @@
             <input type="text" class="form-control" id="psgEditLastName" name="last_name" maxlength="150">
           </div>
           <div class="form-group">
-            <label for="psgEditMiddleName">Middle name</label>
+            <label for="psgEditMiddleName">Middle Initial</label>
             <input type="text" class="form-control" id="psgEditMiddleName" name="middle_name" maxlength="100">
           </div>
           <div class="form-group">
@@ -472,6 +406,7 @@
             <select class="form-control" id="psgEditRole" name="role" required>
               <option value="staff">Staff</option>
               <option value="faculty">Faculty</option>
+              <option value="student_affairs">Student Affairs</option>
             </select>
           </div>
           <hr class="my-3">
@@ -507,7 +442,7 @@
 </div>
 {% endblock content %}
 
-{% block extrascript %}
+{% block extrascript_inner %}
 <script>
 (function() {
   var params = new URLSearchParams(window.location.search);
@@ -515,47 +450,6 @@
   if (userId) {
     var row = document.getElementById('user-' + userId);
     if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-
-  var staffEidModal = document.getElementById('staffEidCardModal');
-  var staffIframe = document.getElementById('staffEidCardIframe');
-  var staffOpenTab = document.getElementById('staffEidCardOpenNewTab');
-  var staffDl = document.getElementById('staffEidCardDownload');
-  if (staffEidModal && staffIframe) {
-    document.querySelectorAll('.staff-eid-btn').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        var url = this.getAttribute('data-card-url');
-        if (!url) return;
-        staffIframe.src = url;
-        if (staffOpenTab) staffOpenTab.href = url;
-        if (staffDl) staffDl.href = url;
-        if (typeof jQuery !== 'undefined' && jQuery(staffEidModal).modal) {
-          jQuery(staffEidModal).modal('show');
-        }
-      });
-    });
-    if (typeof jQuery !== 'undefined') {
-      jQuery(staffEidModal).on('hidden.bs.modal', function() { staffIframe.src = 'about:blank'; });
-    }
-  }
-
-  function buildStaffPrintUrl() {
-    var form = document.getElementById('printStaffEidForm');
-    if (!form) return '{% url "gate-staff-personnel-eid-print-all" %}';
-    var params = [];
-    var st = form.querySelector('[name="status"]');
-    var rl = form.querySelector('[name="role"]');
-    if (st && st.value) params.push('status=' + encodeURIComponent(st.value));
-    if (rl && rl.value) params.push('role=' + encodeURIComponent(rl.value));
-    var base = '{% url "gate-staff-personnel-eid-print-all" %}';
-    return base + (params.length ? '?' + params.join('&') : '');
-  }
-  var printStaffBtn = document.getElementById('printStaffEidPrintBtn');
-  if (printStaffBtn) {
-    printStaffBtn.addEventListener('click', function() {
-      window.open(buildStaffPrintUrl(), '_blank');
-      if (typeof jQuery !== 'undefined') jQuery('#printStaffEidModal').modal('hide');
-    });
   }
 
   // Edit modal: populate and show when Edit is clicked
@@ -573,7 +467,8 @@
         var role = (this.getAttribute('data-role') || '').toLowerCase();
         var roleEl = document.getElementById('psgEditRole');
         if (roleEl) {
-          roleEl.value = (role === 'staff' || role === 'faculty') ? role : 'staff';
+          var rl = role === 'student affairs' ? 'student_affairs' : role;
+          roleEl.value = (rl === 'staff' || rl === 'faculty' || rl === 'student_affairs') ? rl : 'staff';
         }
         document.getElementById('psgEditContactNumber').value = this.getAttribute('data-contact-number') || '';
         document.getElementById('psgEditEmployeeId').value = this.getAttribute('data-employee-id') || '';
@@ -588,6 +483,50 @@
       });
     });
   }
+
+  var staffPersonnelCreateModal = document.getElementById('staffPersonnelCreateModal');
+  var staffPersonnelCreateModalIframe = document.getElementById('staffPersonnelCreateModalIframe');
+  var staffPersonnelCreateFormUrl = '{% url "gate-staff-personnel-create" %}?modal=1';
+  if (staffPersonnelCreateModal && staffPersonnelCreateModalIframe && typeof jQuery !== 'undefined') {
+    jQuery(staffPersonnelCreateModal).on('show.bs.modal', function() {
+      staffPersonnelCreateModalIframe.src = staffPersonnelCreateFormUrl;
+    });
+    jQuery(staffPersonnelCreateModal).on('hidden.bs.modal', function() {
+      staffPersonnelCreateModalIframe.src = 'about:blank';
+    });
+    jQuery(staffPersonnelCreateModal).on('hide.bs.modal', function(e) {
+      var iframe = document.getElementById('staffPersonnelCreateModalIframe');
+      if (!iframe || !iframe.contentWindow) return;
+      var dirty = false;
+      try {
+        dirty = !!iframe.contentWindow.__staffPersonnelFormDirty;
+      } catch (err) {
+        return;
+      }
+      if (!dirty) return;
+      if (!window.confirm('You have unsaved changes. Close without saving?')) {
+        e.preventDefault();
+      } else {
+        try { iframe.contentWindow.__staffPersonnelFormDirty = false; } catch (err2) {}
+      }
+    });
+  }
+  window.addEventListener('message', function(ev) {
+    if (ev.origin !== window.location.origin) return;
+    var d = ev.data;
+    if (!d || typeof d !== 'object') return;
+    if (d.type === 'gate-staff-personnel-created') {
+      if (typeof jQuery !== 'undefined') {
+        jQuery('#staffPersonnelCreateModal').modal('hide');
+      }
+      window.location.reload();
+    }
+    if (d.type === 'gate-staff-personnel-create-close') {
+      if (typeof jQuery !== 'undefined') {
+        jQuery('#staffPersonnelCreateModal').modal('hide');
+      }
+    }
+  });
 })();
 </script>
-{% endblock %}
+{% endblock extrascript_inner %}

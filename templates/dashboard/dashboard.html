@@ -1,7 +1,7 @@
 {% extends 'base/base.html' %}
 {% load static %}
-{% block title %}Dashboard - {{ site_name|default:"City College of Bayawan" }}{% endblock title %}
-{% block breadcrumb %}Dashboard{% endblock breadcrumb %}
+{% block title %}Dashboard - Gate Entry{% endblock title %}
+{% block page_heading %}Dashboard{% endblock page_heading %}
 {% block extrahead %}
 <link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
 {% endblock extrahead %}
@@ -45,53 +45,185 @@
     text-shadow: 0 1px 6px rgba(0,0,0,0.3);
   }
 
-  /* Metric cards – grid layout matching gate activity */
+  /* KPI row – left accent bar, value + label, icon right */
   .dash-stats {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 14px;
-    margin-bottom: 20px;
+    gap: 16px;
+    margin-bottom: 14px;
   }
-  .dash-stat-card {
+  .dash-kpi-card {
+    position: relative;
     background: #fff;
     border-radius: 14px;
-    padding: 18px 16px;
+    padding: 18px 16px 18px 22px;
     border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
     display: flex;
     align-items: center;
-    gap: 14px;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 92px;
+    overflow: hidden;
+    isolation: isolate;
+    transition: box-shadow 0.35s ease;
   }
-  .dash-stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  /* Left accent + hover: same layer expands left → right like a progress fill */
+  .dash-kpi-card::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    border-radius: 14px 0 0 14px;
+    background: var(--kpi-accent, #2563eb);
+    z-index: 0;
+    transition: width 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
   }
-  .dash-stat-icon {
-    width: 44px;
-    height: 44px;
+  .dash-kpi-card:hover {
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+  }
+  .dash-kpi-card:hover::after {
+    width: 100%;
+    border-radius: 14px;
+  }
+  /* Dark green (replaces blue) for “Total entries today” */
+  .dash-kpi-accent-blue { --kpi-accent: #166534; }
+  .dash-kpi-accent-green { --kpi-accent: #16a34a; }
+  .dash-kpi-accent-orange { --kpi-accent: #ea580c; }
+  .dash-kpi-accent-amber { --kpi-accent: #f59e0b; }
+  .dash-kpi-body {
+    flex: 1;
+    min-width: 0;
+    padding-right: 4px;
+    position: relative;
+    z-index: 1;
+  }
+  .dash-kpi-val {
+    font-size: 1.85rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    transition: color 0.4s ease 0.05s;
+  }
+  .dash-kpi-label {
+    font-size: 0.8125rem;
+    color: #64748b;
+    font-weight: 600;
+    margin-top: 6px;
+    line-height: 1.3;
+    transition: color 0.4s ease 0.05s;
+  }
+  .dash-kpi-card:hover .dash-kpi-val { color: #fff; }
+  .dash-kpi-card:hover .dash-kpi-label { color: rgba(255, 255, 255, 0.92); }
+  .dash-kpi-iconbox {
+    width: 52px;
+    height: 52px;
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.1rem;
+    font-size: 1.28rem;
     flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+    transition: background 0.4s ease 0.05s, color 0.4s ease 0.05s;
   }
-  .dash-stat-icon.green { background: linear-gradient(135deg,#dcfce7,#bbf7d0); color: #16a34a; }
-  .dash-stat-icon.blue { background: linear-gradient(135deg,#dbeafe,#bfdbfe); color: #2563eb; }
-  .dash-stat-icon.amber { background: linear-gradient(135deg,#fef3c7,#fde68a); color: #d97706; }
-  .dash-stat-icon.red { background: linear-gradient(135deg,#fee2e2,#fecaca); color: #dc2626; }
-  .dash-stat-icon.teal { background: linear-gradient(135deg,#ccfbf1,#99f6e4); color: #0f766e; }
-  .dash-stat-icon.indigo { background: linear-gradient(135deg,#e0e7ff,#c7d2fe); color: #4338ca; }
-  .dash-stat-val { font-size: 1.5rem; font-weight: 800; color: #14532d; line-height: 1; }
-  .dash-stat-label { font-size: 0.75rem; color: #4d7c5e; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+  .dash-kpi-iconbox.blue { background: #d1fae5; color: #166534; }
+  .dash-kpi-iconbox.green { background: #dcfce7; color: #16a34a; }
+  .dash-kpi-iconbox.orange { background: #ffedd5; color: #ea580c; }
+  .dash-kpi-iconbox.amber { background: #fef3c7; color: #d97706; }
+  .dash-kpi-card:hover .dash-kpi-iconbox {
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dash-kpi-card::after {
+      transition-duration: 0.01ms;
+    }
+    .dash-kpi-val, .dash-kpi-label, .dash-kpi-iconbox {
+      transition-duration: 0.01ms;
+    }
+  }
+
+  .dash-stats-secondary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .dash-sec-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 14px 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .dash-sec-card .dash-kpi-val { font-size: 1.35rem; color: #14532d; }
+  .dash-sec-card .dash-kpi-label { margin-top: 2px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: #4d7c5e; }
   .dash-stat-link {
     font-size: 0.72rem; font-weight: 700; color: #16a34a; margin-top: 6px; display: inline-block;
     text-decoration: none; letter-spacing: 0.02em;
   }
   .dash-stat-link:hover { color: #14532d; text-decoration: underline; }
 
-  @media (max-width: 991px) { .dash-stats { grid-template-columns: repeat(2, 1fr); } }
+  /* Gate entries by program (BST / BSE) — two cards only */
+  .dash-program-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  @media (max-width: 575px) {
+    .dash-program-grid { grid-template-columns: 1fr; }
+  }
+  .dash-program-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 18px 16px 16px;
+    background: linear-gradient(180deg, #f8fdf9 0%, #fff 55%);
+    text-align: center;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .dash-program-card:hover {
+    box-shadow: 0 8px 24px rgba(22, 163, 74, 0.12);
+    border-color: #bbf7d0;
+  }
+  .dash-program-card__code {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #14532d;
+    letter-spacing: 0.08em;
+  }
+  .dash-program-card__sub {
+    font-size: 0.8rem;
+    color: #64748b;
+    font-weight: 600;
+    margin-top: 4px;
+  }
+  .dash-program-card__count {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.15;
+    margin: 12px 0 6px;
+  }
+  .dash-program-card__hint {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 1199px) { .dash-stats { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 991px) { .dash-stats-secondary { grid-template-columns: 1fr; } }
   @media (max-width: 575px) { .dash-stats { grid-template-columns: 1fr; } }
 
   /* Status chips */
@@ -178,6 +310,108 @@
     border-color: transparent;
   }
   .action-primary .action-sub { display: none; }
+  /* SAS dashboard — same green hero as rest of gate/SAS (matches Visitor QR, default dashboard) */
+  .dash-hero--sas {
+    background-image:
+      linear-gradient(135deg, rgba(22, 163, 74, 0.82), rgba(21, 128, 61, 0.75)),
+      url('/media/event_image/background.jpg'),
+      url('/media/background.jpg');
+    box-shadow: 0 8px 24px rgba(22, 163, 74, 0.18);
+  }
+  .dash-hero--sas p {
+    color: #d1fae5;
+    font-weight: 600;
+    max-width: 36rem;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+  }
+  .sas-quick-panel__lead {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    color: #4d7c5e;
+    margin: 0 0 14px;
+  }
+  .sas-quick-panel__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  @media (max-width: 767px) {
+    .sas-quick-panel__grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .sas-quick-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 16px 16px 18px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: linear-gradient(180deg, #fafbfc 0%, #fff 100%);
+    color: #0f172a;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+  }
+  .sas-quick-tile:hover {
+    border-color: #bbf7d0;
+    box-shadow: 0 6px 20px rgba(22, 163, 74, 0.12);
+    transform: translateY(-1px);
+    color: #0f172a;
+    text-decoration: none;
+  }
+  .sas-quick-tile__icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05rem;
+    background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+    color: #16a34a;
+  }
+  .sas-quick-tile:hover .sas-quick-tile__icon {
+    background: linear-gradient(135deg, #bbf7d0, #86efac);
+    color: #15803d;
+  }
+  .sas-quick-tile__title {
+    line-height: 1.25;
+  }
+  .sas-quick-tile__desc {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #64748b;
+    line-height: 1.35;
+  }
+  .sas-at-a-glance {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 20px;
+    padding: 12px 0 4px;
+    margin-top: 4px;
+    border-top: 1px solid #e2e8f0;
+    font-size: 0.8125rem;
+    color: #4d7c5e;
+  }
+  .sas-at-a-glance strong {
+    color: #14532d;
+    font-weight: 700;
+  }
+  .sas-live-wrap {
+    max-height: 320px;
+    overflow: auto;
+  }
+  .sas-program-hint {
+    font-size: 0.8rem;
+    color: #4d7c5e;
+    margin-bottom: 12px;
+    line-height: 1.4;
+  }
 
   /* Live table */
   .live-table {
@@ -244,54 +478,125 @@
 </style>
 
 <div class="monitor-wrap">
+  {% if user_role == 'student affairs' %}
+  <div class="dash-hero dash-hero--sas">
+    <div>
+      <h2>Student Affairs</h2>
+      <p>Student records, visitor passes, and gate incident follow-up — {{ site_name|default:"City College of Bayawan" }}</p>
+    </div>
+  </div>
+  {% else %}
   <div class="dash-hero">
     <div>
       <h2>Dashboard</h2>
       <p>{{ site_name|default:"City College of Bayawan" }}</p>
     </div>
   </div>
+  {% endif %}
 
   <div class="dash-stats">
-    <div class="dash-stat-card">
-      <div class="dash-stat-icon green"><i class="fas fa-user-graduate"></i></div>
-      <div>
-        <div class="dash-stat-label">Students</div>
-        <div class="dash-stat-val" id="total_students">{{ total_students|default:0 }}</div>
+    <div class="dash-kpi-card dash-kpi-accent-blue">
+      <div class="dash-kpi-body">
+        <div class="dash-kpi-val" id="granted_today">{{ granted_today|default:0 }}</div>
+        <div class="dash-kpi-label">Total entries today</div>
+      </div>
+      <div class="dash-kpi-iconbox blue" aria-hidden="true"><i class="fas fa-door-open"></i></div>
+    </div>
+    <div class="dash-kpi-card dash-kpi-accent-green">
+      <div class="dash-kpi-body">
+        <div class="dash-kpi-val" id="inside_now">{{ inside_now|default:0 }}</div>
+        <div class="dash-kpi-label">Currently inside</div>
+      </div>
+      <div class="dash-kpi-iconbox green" aria-hidden="true"><i class="fas fa-users"></i></div>
+    </div>
+    <div class="dash-kpi-card dash-kpi-accent-orange">
+      <div class="dash-kpi-body">
+        <div class="dash-kpi-val" id="visitors_today">{{ visitors_today|default:0 }}</div>
+        <div class="dash-kpi-label">Visitors today</div>
+      </div>
+      <div class="dash-kpi-iconbox orange" aria-hidden="true"><i class="fas fa-user-tag"></i></div>
+    </div>
+    <div class="dash-kpi-card dash-kpi-accent-amber">
+      <div class="dash-kpi-body">
+        {% if user_role == 'student affairs' %}
+        <div class="dash-kpi-val" id="incidents_today">{{ incidents_today|default:0 }}</div>
+        <div class="dash-kpi-label">Gate incidents today</div>
+        {% else %}
+        <div class="dash-kpi-val" id="denied_today">{{ denied_today|default:0 }}</div>
+        <div class="dash-kpi-label">Denied attempts</div>
+        {% endif %}
+      </div>
+      <div class="dash-kpi-iconbox amber" aria-hidden="true">
+        {% if user_role == 'student affairs' %}<i class="fas fa-exclamation-triangle"></i>{% else %}<i class="fas fa-ban"></i>{% endif %}
       </div>
     </div>
-    <div class="dash-stat-card">
-      <div class="dash-stat-icon blue"><i class="fas fa-door-open"></i></div>
+  </div>
+
+  <div class="dash-stats-secondary">
+    <div class="dash-sec-card">
+      <div class="dash-kpi-iconbox green" style="width:44px;height:44px;font-size:1.1rem;"><i class="fas fa-user-graduate"></i></div>
       <div>
-        <div class="dash-stat-label">Entries Today</div>
-        <div class="dash-stat-val" id="granted_today">{{ granted_today|default:0 }}</div>
+        <div class="dash-kpi-label">Active students</div>
+        <div class="dash-kpi-val" id="total_students">{{ total_students|default:0 }}</div>
       </div>
     </div>
-    <div class="dash-stat-card">
-      <div class="dash-stat-icon amber"><i class="fas fa-ban"></i></div>
+    <div class="dash-sec-card">
+      <div class="dash-kpi-iconbox green" style="width:44px;height:44px;font-size:1.1rem;"><i class="fas fa-mars" aria-hidden="true"></i></div>
       <div>
-        <div class="dash-stat-label">Denied</div>
-        <div class="dash-stat-val" id="denied_today">{{ denied_today|default:0 }}</div>
+        <div class="dash-kpi-label">Male students</div>
+        <div class="dash-kpi-val" id="students_male">{{ students_male|default:0 }}</div>
+        <a href="{% url 'gate-student-list' %}?sex=MALE" class="dash-stat-link">View students <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i></a>
       </div>
     </div>
-    <div class="dash-stat-card">
-      <div class="dash-stat-icon teal"><i class="fas fa-exchange-alt"></i></div>
+    <div class="dash-sec-card">
+      <div class="dash-kpi-iconbox orange" style="width:44px;height:44px;font-size:1.1rem;"><i class="fas fa-venus" aria-hidden="true"></i></div>
       <div>
-        <div class="dash-stat-label">Student entries (month)</div>
-        <div class="dash-stat-val" id="student_entries_month">{{ student_entries_this_month|default:0 }}</div>
-        <a href="{% url 'gate-entry-list' %}?from_date={{ student_entries_month_from }}&amp;to_date={{ student_entries_month_to }}&amp;filter=granted&amp;student_gate_only=1" class="dash-stat-link">View log <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i></a>
+        <div class="dash-kpi-label">Female students</div>
+        <div class="dash-kpi-val" id="students_female">{{ students_female|default:0 }}</div>
+        <a href="{% url 'gate-student-list' %}?sex=FEMALE" class="dash-stat-link">View students <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i></a>
       </div>
     </div>
-    <div class="dash-stat-card">
-      <div class="dash-stat-icon indigo"><i class="fas fa-calendar-alt"></i></div>
-      <div>
-        <div class="dash-stat-label">Student entries (year)</div>
-        <div class="dash-stat-val" id="student_entries_year">{{ student_entries_this_year|default:0 }}</div>
-        <a href="{% url 'gate-student-entries-yearly' %}?year={{ dashboard_student_year }}" class="dash-stat-link">Yearly summary <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i></a>
+  </div>
+
+  <div class="db-card dashboard-section" style="margin-top:12px;">
+    <div class="db-card-head"><i class="fas fa-layer-group"></i> <span>Student gate entries by program (today)</span></div>
+    <div class="db-card-body pt-2">
+      {% if user_role == 'student affairs' %}
+      <p class="sas-program-hint mb-0">Gate traffic today by program (all IN+OUT scans).</p>
+      {% else %}
+      <p class="text-muted small mb-3" style="line-height:1.45;">Total gate scans today (IN+OUT) for each program. Counts aggregate all scans, not one box per scan.</p>
+      {% endif %}
+      <div id="dashProgramEntries">
+        {% if program_entries_today %}
+        {% with first=program_entries_today.0 second=program_entries_today.1 %}
+        {% if first.count == 0 and second.count == 0 %}
+        <p class="text-muted small mb-2">No student gate scans today yet.</p>
+        {% endif %}
+        <div class="dash-program-grid">
+          {% for row in program_entries_today %}
+          <div class="dash-program-card">
+            <div class="dash-program-card__code">{{ row.label }}</div>
+            {% if row.subtitle %}
+            <div class="dash-program-card__sub">{{ row.subtitle }}</div>
+            {% endif %}
+            <div class="dash-program-card__count">{{ row.count }}</div>
+            <div class="dash-program-card__hint">Scans today</div>
+            {% if row.program %}
+            <a href="{% url 'gate-student-list' %}?course={{ row.program }}" class="dash-stat-link mt-2 d-inline-block">View students</a>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% endwith %}
+        {% else %}
+        <p class="text-muted small mb-0">No student gate scans today yet.</p>
+        {% endif %}
       </div>
     </div>
   </div>
 
   <div class="row dashboard-section" style="margin-top:16px;">
+    {% if user_role != 'student affairs' %}
     <div class="col-lg-8 mb-3">
       <div class="db-card h-100">
         <div class="db-card-head"><i class="fas fa-broadcast-tower"></i> <span>Gate Status</span></div>
@@ -299,8 +604,8 @@
           <div class="row">
             <div class="col-md-4 mb-2">
               <div class="status-chip h-100">
-                <div class="label">Students Inside</div>
-                <div class="value" id="inside_now">{{ inside_now|default:0 }}</div>
+                <div class="label">Students inside</div>
+                <div class="value" id="inside_now_secondary">{{ inside_now|default:0 }}</div>
               </div>
             </div>
             <div class="col-md-4 mb-2">
@@ -326,10 +631,37 @@
         </div>
       </div>
     </div>
-    <div class="col-lg-4 mb-3">
+    {% endif %}
+    <div class="{% if user_role == 'student affairs' %}col-12{% else %}col-lg-4{% endif %} mb-3">
       <div class="db-card h-100">
         <div class="db-card-head"><i class="fas fa-bolt"></i> <span>Quick Actions</span></div>
         <div class="db-card-body" style="display:flex;flex-direction:column;gap:8px;">
+          {% if user_role == 'student affairs' %}
+          <div class="sas-quick-panel">
+            <p class="sas-quick-panel__lead">Your tasks</p>
+            <div class="sas-quick-panel__grid">
+              <a href="{% url 'gate-student-list' %}" class="sas-quick-tile ccb-spa-nav">
+                <span class="sas-quick-tile__icon"><i class="fas fa-id-card"></i></span>
+                <span class="sas-quick-tile__title">Students &amp; e-ID</span>
+                <span class="sas-quick-tile__desc">Records, activation, and ID cards</span>
+              </a>
+              <a href="{% url 'visitor-pass-create' %}" class="sas-quick-tile ccb-spa-nav">
+                <span class="sas-quick-tile__icon"><i class="fas fa-user-tag"></i></span>
+                <span class="sas-quick-tile__title">Visitor passes</span>
+                <span class="sas-quick-tile__desc">Issue QR codes for guests</span>
+              </a>
+              <a href="{% url 'gate-incident-list' %}" class="sas-quick-tile ccb-spa-nav">
+                <span class="sas-quick-tile__icon"><i class="fas fa-exclamation-triangle"></i></span>
+                <span class="sas-quick-tile__title">Gate incidents</span>
+                <span class="sas-quick-tile__desc">Review and verify reports</span>
+              </a>
+            </div>
+            <div class="sas-at-a-glance">
+              <span><strong id="sas_glance_inside">{{ inside_now|default:0 }}</strong> on campus now</span>
+              <span>Last gate activity: <strong id="sas_glance_last">{{ last_scan_label|default:"No scans yet today" }}</strong></span>
+            </div>
+          </div>
+          {% else %}
           <div class="w-100 p-2 rounded border" style="background:#f8fafc;border-color:#e2e8f0!important;">
             <div class="small text-muted mb-2" style="line-height:1.35;">Arm the gate session so the scanner display can open the camera. Use <strong>Stop</strong> when gate duty ends.</div>
             <div class="d-flex flex-column gap-2">
@@ -340,12 +672,13 @@
                 <i class="fas fa-stop"></i> Stop gate session
               </button>
             </div>
-            <a href="{% url 'gate-scan' %}" class="btn btn-link btn-sm w-100 mt-1 p-0 small">Open full scanner page (camera + manual entry here)</a>
+            <a href="{% url 'gate-scan' %}" class="btn btn-link btn-sm w-100 mt-1 p-0 small ccb-spa-nav">Open full scanner page (camera + manual entry here)</a>
           </div>
-          <a href="{% url 'visitor-pass-create' %}" class="btn action-btn w-100"><i class="fas fa-user-tag"></i> Visitor Pass</a>
-          <a href="{% url 'gate-entry-list' %}" class="btn action-btn w-100"><i class="fas fa-list"></i> Gate Entries</a>
-          <a href="{% url 'reports-overview' %}" class="btn action-btn w-100"><i class="fas fa-file-alt"></i> Reports</a>
-          <a href="{% url 'gate-analytics' %}" class="btn action-btn w-100"><i class="fas fa-chart-line"></i> Analytics</a>
+          <a href="{% url 'visitor-pass-create' %}" class="btn action-btn w-100 ccb-spa-nav"><i class="fas fa-user-tag"></i> Visitor Pass</a>
+          <a href="{% url 'gate-entry-list' %}" class="btn action-btn w-100 ccb-spa-nav"><i class="fas fa-list"></i> Gate Entries</a>
+          <a href="{% url 'reports-overview' %}" class="btn action-btn w-100 ccb-spa-nav"><i class="fas fa-file-alt"></i> Reports</a>
+          <a href="{% url 'gate-analytics' %}" class="btn action-btn w-100 ccb-spa-nav"><i class="fas fa-chart-line"></i> Analytics</a>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -353,7 +686,7 @@
 
   <div class="db-card dashboard-section">
     <div class="db-card-head"><i class="fas fa-stream"></i> <span>Live Activity</span></div>
-    <div style="padding:0;">
+    <div style="padding:0;" class="{% if user_role == 'student affairs' %}sas-live-wrap{% endif %}">
       <div class="table-responsive">
         <table class="table live-table mb-0">
           <thead>
@@ -420,6 +753,39 @@
     setText('camera_status', 'Ready');
   }
 
+  var dashStudentListUrl = '{% url "gate-student-list" %}';
+
+  function renderProgramEntries(rows) {
+    var wrap = document.getElementById('dashProgramEntries');
+    if (!wrap) return;
+    if (!rows || !rows.length) {
+      wrap.innerHTML = '<p class="text-muted small mb-0">No student gate scans today yet.</p>';
+      return;
+    }
+    var total = 0;
+    rows.forEach(function(r) { total += (r.count != null ? Number(r.count) : 0); });
+    var emptyNote = total === 0 ? '<p class="text-muted small mb-2">No student gate scans today yet.</p>' : '';
+    var html = emptyNote + '<div class="dash-program-grid">';
+    rows.forEach(function(r) {
+      var prog = (r.program || '').trim();
+      var link = '';
+      if (prog) {
+        link = '<a href="' + dashStudentListUrl + '?course=' + encodeURIComponent(prog) + '" class="dash-stat-link mt-2 d-inline-block">View students</a>';
+      }
+      var sub = (r.subtitle || '').trim();
+      var subHtml = sub ? '<div class="dash-program-card__sub">' + String(sub).replace(/</g, '&lt;') + '</div>' : '';
+      html += '<div class="dash-program-card">' +
+        '<div class="dash-program-card__code">' + (r.label || '').replace(/</g, '&lt;') + '</div>' +
+        subHtml +
+        '<div class="dash-program-card__count">' + (r.count != null ? r.count : 0) + '</div>' +
+        '<div class="dash-program-card__hint">Scans today</div>' +
+        link +
+        '</div>';
+    });
+    html += '</div>';
+    wrap.innerHTML = html;
+  }
+
   function renderLiveActivity(rows) {
     var body = document.getElementById('liveActivityBody');
     if (!body) return;
@@ -448,9 +814,15 @@
         setText('total_students', data.total_students);
         setText('granted_today', data.granted_today);
         setText('denied_today', data.denied_today);
-        if (data.student_entries_this_month !== undefined) setText('student_entries_month', data.student_entries_this_month);
-        if (data.student_entries_this_year !== undefined) setText('student_entries_year', data.student_entries_this_year);
+        if (data.incidents_today !== undefined) setText('incidents_today', data.incidents_today);
+        if (data.visitors_today !== undefined) setText('visitors_today', data.visitors_today);
+        if (data.students_male !== undefined) setText('students_male', data.students_male);
+        if (data.students_female !== undefined) setText('students_female', data.students_female);
+        if (data.program_entries_today !== undefined) renderProgramEntries(data.program_entries_today);
         setText('inside_now', data.inside_now);
+        setText('inside_now_secondary', data.inside_now);
+        setText('sas_glance_inside', data.inside_now);
+        setText('sas_glance_last', data.last_scan_label);
         setText('last_scan_label', data.last_scan_label);
         setText('scanner_status', data.scanner_status);
         syncScannerReadiness(data.scanner_status);

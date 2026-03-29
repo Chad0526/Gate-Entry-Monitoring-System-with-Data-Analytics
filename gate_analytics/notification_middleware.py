@@ -4,8 +4,9 @@ Read state is stored in the database (NotificationRead) so it persists across se
 """
 from django.urls import resolve
 from django.urls.exceptions import Resolver404
+from django.utils import timezone
 
-from gate.models import NotificationRead
+from gate.models import AdminNotification, NotificationRead
 
 
 def _get_notification_keys(request):
@@ -58,5 +59,24 @@ class NotificationReadMiddleware:
                     user=request.user,
                     notification_key=key,
                 )
+        # Gate incident alerts (AdminNotification) clear when user opens the incident log
+        if request.user.is_authenticated:
+            try:
+                rm = resolve(request.path_info)
+                if rm.url_name == 'gate-incident-list':
+                    AdminNotification.objects.filter(
+                        target_user=request.user,
+                        is_read=False,
+                        notification_type='incident',
+                    ).update(is_read=True, read_at=timezone.now())
+                if rm.url_name == 'gate-student-edit' and rm.kwargs.get('pk'):
+                    AdminNotification.objects.filter(
+                        target_user=request.user,
+                        is_read=False,
+                        notification_type='sas_inactive_ready_activation',
+                        related_student_id=rm.kwargs['pk'],
+                    ).update(is_read=True, read_at=timezone.now())
+            except Exception:
+                pass
         response = self.get_response(request)
         return response

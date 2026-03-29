@@ -1,140 +1,138 @@
 {% extends 'base/base.html' %}
 {% load static %}
 
-{% block title %}Send gate notification{% endblock %}
+{% block title %}Send gate notification - Gate Entry{% endblock %}
+{% block page_heading %}Send gate notification{% endblock %}
 
 {% block content %}
-<div class="content-wrapper">
-    <section class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1>Send gate notification</h1>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Home</a></li>
-                        <li class="breadcrumb-item active">Send Notification</li>
-                    </ol>
-                </div>
-            </div>
+<div class="row">
+  <div class="col-md-8">
+    <div class="card card-primary">
+      <div class="card-header">
+        <h3 class="card-title">Create Notification</h3>
+      </div>
+      <form method="post" action="{% url 'admin-send-gate-notification' %}">
+        {% csrf_token %}
+        <div class="card-body">
+          <div class="form-group">
+            <label for="recipient_type">Send To</label>
+            <select class="form-control" id="recipient_type" name="recipient_type" required>
+              <option value="all">All personnel</option>
+              <option value="on_duty">On-duty only ({{ on_duty_count }} currently)</option>
+              <option value="specific">Specific user</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="specific_user_group" style="display: none;">
+            <label for="specific_user">Select user</label>
+            <select class="form-control" id="specific_user" name="specific_user">
+              <option value="">-- Select a user --</option>
+              {% for u in all_staff %}
+              <option value="{{ u.id }}">{{ u.get_full_name|default:u.username }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="priority">Priority</label>
+            <select class="form-control" id="priority" name="priority" required>
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+            <small class="form-text text-muted">Urgent notifications appear prominently on the gate dashboard</small>
+          </div>
+
+          <div class="form-group">
+            <label for="title">Title</label>
+            <input type="text" class="form-control" id="title" name="title" placeholder="e.g., Shift Reminder, Security Alert" required maxlength="200">
+          </div>
+
+          <div class="form-group">
+            <label for="message">Message</label>
+            <textarea class="form-control" id="message" name="message" rows="5" placeholder="Enter notification message..." required maxlength="1000"></textarea>
+            <small class="form-text text-muted"><span id="char_count">0</span>/1000 characters</small>
+          </div>
         </div>
-    </section>
 
-    <section class="content">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-md-8">
-                    <div class="card card-primary">
-                        <div class="card-header">
-                            <h3 class="card-title">Create Notification</h3>
-                        </div>
-                        <form method="post" action="{% url 'admin-send-gate-notification' %}">
-                            {% csrf_token %}
-                            <div class="card-body">
-                                <div class="form-group">
-                                    <label for="recipient_type">Send To</label>
-                                    <select class="form-control" id="recipient_type" name="recipient_type" required>
-                                        <option value="all">All personnel</option>
-                                        <option value="on_duty">On-duty only ({{ on_duty_count }} currently)</option>
-                                        <option value="specific">Specific user</option>
-                                    </select>
-                                </div>
-
-                                <div class="form-group" id="specific_user_group" style="display: none;">
-                                    <label for="specific_user">Select user</label>
-                                    <select class="form-control" id="specific_user" name="specific_user">
-                                        <option value="">-- Select a user --</option>
-                                        {% for u in all_staff %}
-                                        <option value="{{ u.id }}">{{ u.get_full_name|default:u.username }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="priority">Priority</label>
-                                    <select class="form-control" id="priority" name="priority" required>
-                                        <option value="normal">Normal</option>
-                                        <option value="high">High</option>
-                                        <option value="urgent">Urgent</option>
-                                    </select>
-                                    <small class="form-text text-muted">Urgent notifications appear prominently on the gate dashboard</small>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="title">Title</label>
-                                    <input type="text" class="form-control" id="title" name="title" placeholder="e.g., Shift Reminder, Security Alert" required maxlength="200">
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="message">Message</label>
-                                    <textarea class="form-control" id="message" name="message" rows="5" placeholder="Enter notification message..." required maxlength="1000"></textarea>
-                                    <small class="form-text text-muted"><span id="char_count">0</span>/1000 characters</small>
-                                </div>
-                            </div>
-
-                            <div class="card-footer">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-paper-plane"></i> Send Notification
-                                </button>
-                                <a href="{% url 'dashboard' %}" class="btn btn-default">Cancel</a>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
-                <div class="col-md-4">
-                    <div class="card card-info">
-                        <div class="card-header">
-                            <h3 class="card-title">Notification Info</h3>
-                        </div>
-                        <div class="card-body">
-                            <p><strong>Purpose:</strong> Send custom notifications to gate staff for important updates, reminders, or alerts.</p>
-
-                            <p><strong>Recipients:</strong></p>
-                            <ul>
-                                <li><strong>All personnel:</strong> Sends to every eligible account</li>
-                                <li><strong>On-duty:</strong> Only users currently clocked in</li>
-                                <li><strong>Specific:</strong> Target a single user</li>
-                            </ul>
-
-                            <p><strong>Priority Levels:</strong></p>
-                            <ul>
-                                <li><strong>Normal:</strong> Regular updates</li>
-                                <li><strong>High:</strong> Important information</li>
-                                <li><strong>Urgent:</strong> Critical alerts (red badge)</li>
-                            </ul>
-
-                            <p class="text-muted"><small>Recipients will see notifications on their dashboard and on the notifications page.</small></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="card-footer">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-paper-plane"></i> Send Notification
+          </button>
+          <a href="{% url 'dashboard' %}" class="btn btn-default">Cancel</a>
         </div>
-    </section>
+      </form>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card card-info">
+      <div class="card-header">
+        <h3 class="card-title">Notification Info</h3>
+      </div>
+      <div class="card-body">
+        <p><strong>Purpose:</strong> Send custom notifications to gate staff for important updates, reminders, or alerts.</p>
+
+        <p><strong>Recipients:</strong></p>
+        <ul>
+          <li><strong>All personnel:</strong> Sends to every eligible account</li>
+          <li><strong>On-duty:</strong> Only users currently clocked in</li>
+          <li><strong>Specific:</strong> Target a single user</li>
+        </ul>
+
+        <p><strong>Priority Levels:</strong></p>
+        <ul>
+          <li><strong>Normal:</strong> Regular updates</li>
+          <li><strong>High:</strong> Important information</li>
+          <li><strong>Urgent:</strong> Critical alerts (red badge)</li>
+        </ul>
+
+        <p class="text-muted"><small>Recipients will see notifications on their dashboard and on the notifications page.</small></p>
+      </div>
+    </div>
+  </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const recipientType = document.getElementById('recipient_type');
-    const specificUserGroup = document.getElementById('specific_user_group');
-    const specificUser = document.getElementById('specific_user');
-    const messageField = document.getElementById('message');
-    const charCount = document.getElementById('char_count');
-
-    recipientType.addEventListener('change', function() {
-        if (this.value === 'specific') {
-            specificUserGroup.style.display = 'block';
-            specificUser.required = true;
-        } else {
-            specificUserGroup.style.display = 'none';
-            specificUser.required = false;
-        }
-    });
-
-    messageField.addEventListener('input', function() {
-        charCount.textContent = this.value.length;
-    });
-});
-</script>
 {% endblock %}
+
+{% block extrascript_inner %}
+<script>
+(function() {
+  function run() {
+    var recipientType = document.getElementById('recipient_type');
+    var specificUserGroup = document.getElementById('specific_user_group');
+    var specificUser = document.getElementById('specific_user');
+    var messageField = document.getElementById('message');
+    var charCount = document.getElementById('char_count');
+    if (!recipientType || !specificUserGroup || !specificUser || !messageField || !charCount) return;
+
+    function syncRecipient() {
+      if (recipientType.value === 'specific') {
+        specificUserGroup.style.display = 'block';
+        specificUser.required = true;
+      } else {
+        specificUserGroup.style.display = 'none';
+        specificUser.required = false;
+      }
+    }
+    recipientType.removeEventListener('change', syncRecipient);
+    recipientType.addEventListener('change', syncRecipient);
+    syncRecipient();
+
+    function onInput() {
+      charCount.textContent = String(messageField.value || '').length;
+    }
+    messageField.removeEventListener('input', onInput);
+    messageField.addEventListener('input', onInput);
+    onInput();
+  }
+
+  if (window.ccbRunWhenDocumentReady) {
+    window.ccbRunWhenDocumentReady(run);
+  } else if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run);
+  } else {
+    run();
+  }
+})();
+</script>
+{% endblock extrascript_inner %}

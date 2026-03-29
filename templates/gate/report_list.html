@@ -1,12 +1,12 @@
 {% extends 'base/base.html' %}
 {% block title %}Generated Reports - {{ site_name }}{% endblock title %}
-{% block breadcrumb %}Generated Reports{% endblock breadcrumb %}
+{% block page_heading %}Generated Reports{% endblock page_heading %}
 
 {% block content %}
 <div class="row mb-3">
   <div class="col-12">
-    <a href="{% url 'reports-hub' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left mr-1"></i> Reports hub</a>
-    <a href="{% url 'report-on-demand' %}" class="btn btn-outline-success ml-2"><i class="fas fa-calendar-alt mr-1"></i> On-demand report</a>
+    <a href="{% url 'reports-hub' %}" class="btn btn-outline-secondary ccb-spa-nav"><i class="fas fa-arrow-left mr-1"></i> Reports hub</a>
+    <a href="{% url 'report-on-demand' %}" class="btn btn-outline-success ml-2 ccb-spa-nav"><i class="fas fa-calendar-alt mr-1"></i> On-demand report</a>
   </div>
 </div>
 
@@ -43,7 +43,7 @@
             {% if r.file %}
             <a href="{% url 'report-download' r.pk %}" class="btn btn-sm btn-outline-primary" target="_blank"><i class="fas fa-download"></i></a>
             {% elif r.report_type == 'on_demand' %}
-            <a href="{% url 'report-on-demand-view' r.pk %}" class="btn btn-sm btn-outline-secondary">View</a>
+            <a href="{% url 'report-on-demand-view' r.pk %}" class="btn btn-sm btn-outline-secondary ccb-spa-nav">View</a>
             {% else %}
             <span class="text-muted small">No file</span>
             {% endif %}

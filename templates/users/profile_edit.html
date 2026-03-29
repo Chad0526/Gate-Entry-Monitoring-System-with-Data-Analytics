@@ -2,7 +2,7 @@
 {% load static %}
 {% load i18n %}
 {% block title %}{% trans "Edit profile" %} – {{ site_name }}{% endblock title %}
-{% block breadcrumb %}{% trans "My profile" %}{% endblock breadcrumb %}
+{% block page_heading %}{% trans "My profile" %}{% endblock page_heading %}
 
 {% block extrahead %}
 <style>
@@ -88,7 +88,7 @@
       {% if has_profile %}
       <div class="profile-section-title">Additional information (Staff / Faculty / Personnel)</div>
       <div class="form-group">
-        <label for="id_middle_name">Middle name</label>
+        <label for="id_middle_name">{% trans "Middle Initial" %}</label>
         {{ form.middle_name }}
       </div>
       <div class="form-group">

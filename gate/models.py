@@ -93,11 +93,11 @@ class Event(models.Model):
     # Audience targeting: who is expected/allowed to attend this event.
     AUDIENCE_SCOPE_CHOICES = (
         ('all', 'All students'),
-        ('course', 'By course'),
+        ('course', 'By program'),
         ('year_level', 'By year level'),
-        ('course_year', 'By course + year level'),
-        ('course_section', 'By course + section'),
-        ('course_section_year', 'By course + section + year level'),
+        ('course_year', 'By program + year level'),
+        ('course_section', 'By program + section'),
+        ('course_section_year', 'By program + section + year level'),
         ('specific_students', 'Specific students (registration list)'),
     )
     audience_scope = models.CharField(
@@ -110,19 +110,20 @@ class Event(models.Model):
         max_length=50,
         blank=True,
         default='',
-        help_text='Required when audience is by course / course+year / course+section / course+section+year.'
+        verbose_name='Audience program',
+        help_text='Required when audience is by program / program+year / program+section / program+section+year.',
     )
     audience_year_level = models.CharField(
         max_length=10,
         blank=True,
         default='',
-        help_text='Required when audience is by year level / course+year / course+section+year.'
+        help_text='Required when audience is by year level / program+year / program+section+year.',
     )
     audience_section = models.CharField(
         max_length=30,
         blank=True,
         default='',
-        help_text='Required when audience is by course+section / course+section+year.'
+        help_text='Required when audience is by program+section / program+section+year.',
     )
 
     def audience_matches_student(self, student):
@@ -160,15 +161,15 @@ class Event(models.Model):
         if scope == 'all':
             return 'All students'
         if scope == 'course':
-            return f'Course: {self.audience_course or "—"}'
+            return f'Program: {self.audience_course or "—"}'
         if scope == 'year_level':
             return f'Year level: {self.audience_year_level or "—"}'
         if scope == 'course_year':
-            return f'Course + Year: {self.audience_course or "—"} / {self.audience_year_level or "—"}'
+            return f'Program + Year: {self.audience_course or "—"} / {self.audience_year_level or "—"}'
         if scope == 'course_section':
-            return f'Course + Section: {self.audience_course or "—"} / {self.audience_section or "—"}'
+            return f'Program + Section: {self.audience_course or "—"} / {self.audience_section or "—"}'
         if scope == 'course_section_year':
-            return f'Course + Section + Year: {self.audience_course or "—"} / {self.audience_section or "—"} / {self.audience_year_level or "—"}'
+            return f'Program + Section + Year: {self.audience_course or "—"} / {self.audience_section or "—"} / {self.audience_year_level or "—"}'
         if scope == 'specific_students':
             return 'Specific students (registration list)'
         return self.get_audience_scope_display()
@@ -348,19 +349,17 @@ class Student(models.Model):
     """Student profile; QR code on ID embeds student_id for gate lookup."""
 
     # --- Account status ---
-    ACCOUNT_STATUS_PENDING = 'PENDING'
     ACCOUNT_STATUS_APPROVED = 'APPROVED'
     ACCOUNT_STATUS_ACTIVE = 'APPROVED'
     ACCOUNT_STATUS_INACTIVE = 'INACTIVE'
     ACCOUNT_STATUS_CHOICES = (
-        ('PENDING', 'Pending'),
         ('APPROVED', 'Active'),
         ('INACTIVE', 'Inactive'),
     )
     account_status = models.CharField(
         max_length=10,
         choices=ACCOUNT_STATUS_CHOICES,
-        default='PENDING',
+        default='APPROVED',
         db_index=True,
     )
     approved_by = models.ForeignKey(
@@ -368,12 +367,10 @@ class Student(models.Model):
         related_name='students_approved',
     )
     approved_at = models.DateTimeField(null=True, blank=True)
-    rejection_reason = models.TextField(blank=True)
-
     # --- Core identity ---
     student_id = models.CharField(max_length=50, unique=True)  # Embedded in QR code
     first_name = models.CharField(max_length=100)
-    middle_name = models.CharField(max_length=100, blank=True)
+    middle_name = models.CharField(max_length=100, blank=True, verbose_name='Middle Initial')
     last_name = models.CharField(max_length=100)
     email = models.EmailField(blank=True)
     photo = models.ImageField(upload_to=student_photo_upload_to, blank=True, null=True)
@@ -382,16 +379,17 @@ class Student(models.Model):
     birthdate = models.DateField(null=True, blank=True)
     SEX_MALE = 'MALE'
     SEX_FEMALE = 'FEMALE'
-    SEX_OTHER = 'OTHER'
-    SEX_PREFER_NOT = 'PREFER_NOT'
     SEX_CHOICES = (
         (SEX_MALE, 'Male'),
         (SEX_FEMALE, 'Female'),
-        (SEX_OTHER, 'Other'),
-        (SEX_PREFER_NOT, 'Prefer not to say'),
     )
     sex = models.CharField(max_length=20, choices=SEX_CHOICES, blank=True, help_text='Sex/Gender')
-    guardians_parents = models.CharField(max_length=255, blank=True, help_text='Guardian(s) or parent(s) name(s)')
+    guardians_parents = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name='Guardian / Parent',
+        help_text='Guardian(s) or parent(s) name(s)',
+    )
 
     # --- Academic info (for analytics) ---
     COURSE_BST = 'BST'
@@ -400,7 +398,12 @@ class Student(models.Model):
         ('BST', 'BST'),
         ('BSE', 'BSE'),
     )
-    course = models.CharField(max_length=20, choices=COURSE_CHOICES, blank=True)
+    course = models.CharField(
+        max_length=20,
+        choices=COURSE_CHOICES,
+        blank=True,
+        verbose_name='Program',
+    )
     section = models.CharField(max_length=20, blank=True)
     YEAR_LEVEL_CHOICES = (
         ('1', '1st Year'),
@@ -409,11 +412,42 @@ class Student(models.Model):
         ('4', '4th Year'),
     )
     year_level = models.CharField(max_length=50, choices=YEAR_LEVEL_CHOICES, blank=True, help_text='Year level for reports (1–4).')
-    course_or_section = models.CharField(max_length=100, blank=True, help_text='Legacy: e.g. BSIT-A (for reports).')
+    course_or_section = models.CharField(max_length=100, blank=True, help_text='Legacy: e.g. BSIT-A (for reports by program/section).')
+    SEMESTER_TRANSITION_CLEAR = 'CLEAR'
+    SEMESTER_TRANSITION_PENDING_SECOND_SEM = 'PENDING_SECOND_SEM'
+    SEMESTER_TRANSITION_SECOND_SEM_CLEARED = 'SECOND_SEM_CLEARED'
+    SEMESTER_TRANSITION_CHOICES = (
+        (SEMESTER_TRANSITION_CLEAR, 'Clear / no semester hold'),
+        (SEMESTER_TRANSITION_PENDING_SECOND_SEM, '1st semester completed - pending 2nd semester clearance'),
+        (SEMESTER_TRANSITION_SECOND_SEM_CLEARED, '2nd semester cleared'),
+    )
+    semester_transition_status = models.CharField(
+        max_length=30,
+        choices=SEMESTER_TRANSITION_CHOICES,
+        default=SEMESTER_TRANSITION_CLEAR,
+        db_index=True,
+        help_text='Set pending after 1st semester completion to block class entry until cleared for 2nd semester.',
+    )
+    office_clearance_hold = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text='When true, student is blocked from gate entry until office issue is resolved.',
+    )
+    office_clearance_note = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text='Why the office clearance hold was applied.',
+    )
 
     # --- Contacts ---
-    contact_number = models.CharField(max_length=20, blank=True)
-    guardian_contact = models.CharField(max_length=20, blank=True, help_text='Guardian contact number (safety).')
+    contact_number = models.CharField(max_length=20, blank=True, verbose_name='Mobile number')
+    guardian_contact = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name='Contact number',
+        help_text='Emergency contact number (guardian).',
+    )
 
     is_active = models.BooleanField(default=True)  # Gate access: True only when account_status=APPROVED
     created_at = models.DateTimeField(auto_now_add=True)
@@ -438,6 +472,8 @@ class Student(models.Model):
             self.section = normalize_student_name(self.section)
         if self.course_or_section:
             self.course_or_section = normalize_student_name(self.course_or_section)
+        if self.sex and self.sex not in (self.SEX_MALE, self.SEX_FEMALE):
+            self.sex = ''
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -446,6 +482,12 @@ class Student(models.Model):
     def get_full_name(self):
         parts = [self.first_name, self.middle_name, self.last_name]
         return ' '.join(p for p in parts if p).strip()
+
+    def blocked_for_second_semester(self):
+        return self.semester_transition_status == self.SEMESTER_TRANSITION_PENDING_SECOND_SEM
+
+    def blocked_for_office_clearance(self):
+        return bool(self.office_clearance_hold)
 
 
 @receiver(pre_save, sender=Student)
@@ -481,7 +523,7 @@ def _student_handle_status_change(sender, instance, created, **kwargs):
             update_fields['approved_at'] = instance.approved_at
         if update_fields:
             sender.objects.filter(pk=instance.pk).update(**update_fields)
-    elif new_status in (Student.ACCOUNT_STATUS_INACTIVE, Student.ACCOUNT_STATUS_PENDING):
+    elif new_status == Student.ACCOUNT_STATUS_INACTIVE:
         if instance.is_active:
             instance.is_active = False
             sender.objects.filter(pk=instance.pk).update(is_active=False)
@@ -494,12 +536,10 @@ class StaffPersonnelProfile(models.Model):
         on_delete=models.CASCADE,
         related_name='staff_personnel_profile',
     )
-    middle_name = models.CharField(max_length=100, blank=True)
+    middle_name = models.CharField(max_length=100, blank=True, verbose_name='Middle Initial')
     SEX_CHOICES = (
         ('MALE', 'Male'),
         ('FEMALE', 'Female'),
-        ('OTHER', 'Other'),
-        ('PREFER_NOT', 'Prefer not to say'),
     )
     sex = models.CharField(max_length=20, choices=SEX_CHOICES, blank=True)
     birthdate = models.DateField(null=True, blank=True)
@@ -523,6 +563,12 @@ class StaffPersonnelProfile(models.Model):
     class Meta:
         verbose_name = 'Staff/Faculty/Personnel profile'
         verbose_name_plural = 'Staff/Faculty/Personnel profiles'
+
+    def save(self, *args, **kwargs):
+        allowed = {c[0] for c in self.SEX_CHOICES}
+        if self.sex and self.sex not in allowed:
+            self.sex = ''
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.user.get_full_name()} (Staff/Personnel)"
@@ -563,6 +609,10 @@ class GateIncident(models.Model):
         ('proxy_attendance', 'Proxy Attendance'),
         ('other', 'Other'),
     )
+    SAS_REVIEW_CHOICES = (
+        ('to_check', 'To be checked'),
+        ('verified', 'Verified by Student Affairs'),
+    )
     student = models.ForeignKey(Student, on_delete=models.SET_NULL, null=True, blank=True)
     scanned_id = models.CharField(max_length=100, blank=True)  # What was scanned if no match
     reason = models.CharField(max_length=30, choices=REASON_CHOICES, default='identity_mismatch')
@@ -572,6 +622,32 @@ class GateIncident(models.Model):
         default=True,
         verbose_name='Gate staff alerted',
         help_text='Whether gate personnel were notified about this incident.',
+    )
+    sas_review_status = models.CharField(
+        max_length=20,
+        choices=SAS_REVIEW_CHOICES,
+        default='to_check',
+        db_index=True,
+        help_text='Student Affairs review status for ID mismatch follow-up.',
+    )
+    sas_checked_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='gate_incidents_checked',
+        help_text='Student Affairs/admin user who verified this incident.',
+    )
+    sas_checked_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When Student Affairs marked this incident as verified.',
+    )
+    sas_check_notes = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text='Optional Student Affairs review note.',
     )
     timestamp = models.DateTimeField(auto_now_add=True)
 
@@ -784,7 +860,7 @@ class AttendanceLog(models.Model):
     scan_time = models.DateTimeField(auto_now_add=True, help_text='Server time when scan was recorded')
     client_scan_time = models.DateTimeField(null=True, blank=True, help_text='Client device time (for offline scans)')
     scan_type = models.CharField(max_length=3, choices=SCAN_TYPE_CHOICES, default='IN')
-    result = models.CharField(max_length=20, choices=RESULT_CHOICES)
+    result = models.CharField(max_length=32, choices=RESULT_CHOICES)
     
     token = models.CharField(max_length=64, blank=True, default='', help_text='Token that was scanned')
     device_id = models.CharField(max_length=64, blank=True, default='', help_text='Scanner device identifier')
@@ -1383,6 +1459,7 @@ class AdminNotification(models.Model):
         ('student_registration', 'Student Registration'),
         ('staff_personnel_registration', 'Staff/Faculty/Personnel Registration'),
         ('incident', 'Incident Alert'),
+        ('sas_inactive_ready_activation', 'SAS checked — inactive student ready to activate'),
         ('capacity', 'Capacity Alert'),
         ('system', 'System Message'),
         ('personnel_alert', 'Personnel alert'),

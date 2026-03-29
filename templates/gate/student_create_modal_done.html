@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Student saved — {{ site_name }}</title>
+</head>
+<body>
+<script>
+(function() {
+  if (window.parent && window.parent !== window) {
+    try {
+      window.parent.postMessage({ type: 'gate-student-created' }, window.location.origin);
+    } catch (e) {}
+  } else {
+    window.location.replace("{% url 'gate-student-list' %}");
+  }
+})();
+</script>
+<p style="font-family: system-ui, sans-serif; padding: 1rem; margin: 0;">Saved successfully. <a href="{% url 'gate-student-list' %}">Return to list</a></p>
+</body>
+</html>

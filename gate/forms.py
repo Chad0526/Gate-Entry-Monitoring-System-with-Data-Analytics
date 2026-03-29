@@ -2,6 +2,7 @@ from django import forms
 from django.forms import inlineformset_factory
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from betterforms.multiform import MultiModelForm
 
 from .models import Event, EventImage, EventAgenda, Student, EventCategory, JobCategory
@@ -67,28 +68,37 @@ class EventForm(forms.ModelForm):
             self.fields['job_category'].queryset = JobCategory.objects.all().order_by('name')
             self.fields['job_category'].widget.attrs.update({'class': 'form-control'})
         for k in (
-            'name', 'uid', 'venue', 'points',
-            'status', 'attendance_mode', 'event_location',
+            'name', 'venue',
+            'status',
             'audience_scope', 'audience_course', 'audience_year_level', 'audience_section',
         ):
             if k in self.fields:
                 self.fields[k].widget.attrs.setdefault('class', 'form-control')
-        if 'attendance_mode' in self.fields:
-            self.fields['attendance_mode'].widget.attrs.setdefault('class', 'form-control')
-            self.fields['attendance_mode'].help_text = 'Attendance is taken by scanning student eEID at Events → Attendance Scanner. OPEN is recommended.'
         if 'event_location' in self.fields:
-            self.fields['event_location'].widget.attrs.setdefault('class', 'form-control')
-            self.fields['event_location'].help_text = 'Display only. Both types use the same scanner (student eEID).'
+            self.fields['event_location'].widget = forms.RadioSelect()
+            self.fields['event_location'].label = 'Where is it held?'
+            self.fields['event_location'].help_text = 'On campus, or off campus (e.g. field trip). Same scanner either way.'
+            self.fields['event_location'].choices = [
+                ('on_campus', 'On campus'),
+                ('field_trip', 'Off campus / field trip'),
+            ]
+        if 'venue' in self.fields:
+            self.fields['venue'].label = 'Place name'
+            self.fields['venue'].help_text = 'Room, building, or address (optional).'
+            self.fields['venue'].widget.attrs.setdefault(
+                'placeholder',
+                'e.g. Main Gym, AVR Room 2, City Museum…',
+            )
         if 'audience_scope' in self.fields:
             self.fields['audience_scope'].widget.attrs.setdefault('class', 'form-control')
             self.fields['audience_scope'].help_text = 'Choose who is allowed/expected to attend this event.'
         if 'audience_course' in self.fields:
             self.fields['audience_course'].required = False
             self.fields['audience_course'].widget = forms.Select(
-                choices=[('', 'Select course')] + list(Student.COURSE_CHOICES),
+                choices=[('', 'Select program')] + list(Student.COURSE_CHOICES),
                 attrs={'class': 'form-control'}
             )
-            self.fields['audience_course'].help_text = 'Used when scope includes course.'
+            self.fields['audience_course'].help_text = 'Used when scope includes program.'
         if 'audience_year_level' in self.fields:
             self.fields['audience_year_level'].required = False
             self.fields['audience_year_level'].widget = forms.Select(
@@ -100,17 +110,20 @@ class EventForm(forms.ModelForm):
             self.fields['audience_section'].required = False
             self.fields['audience_section'].widget.attrs.setdefault('class', 'form-control')
             self.fields['audience_section'].widget.attrs.setdefault('placeholder', 'e.g. A or 1A')
-            self.fields['audience_section'].help_text = 'Used when scope is course + section.'
+            self.fields['audience_section'].help_text = 'Used when scope is program + section.'
         if 'uid' in self.fields:
             self.fields['uid'].required = False
-            self.fields['uid'].help_text = 'Leave blank to auto-generate.'
         if 'description' in self.fields:
             self.fields['description'].required = False
             self.fields['description'].help_text = 'Optional. You can add details later.'
-        for k in ('venue', 'points'):
-            if k in self.fields:
-                self.fields[k].required = False
-                self.fields[k].help_text = self.fields[k].help_text or 'Optional.'
+        if 'venue' in self.fields:
+            self.fields['venue'].required = False
+
+        # Not shown on create/edit UI; still submitted (defaults: auto uid, OPEN mode, optional job/points)
+        for _adv in ('uid', 'job_category', 'attendance_mode', 'points'):
+            if _adv in self.fields:
+                self.fields[_adv].widget = forms.HiddenInput()
+                self.fields[_adv].help_text = ''
 
     def clean(self):
         cleaned_data = super().clean()
@@ -120,7 +133,7 @@ class EventForm(forms.ModelForm):
         section = (cleaned_data.get('audience_section') or '').strip()
 
         if scope in ('course', 'course_year', 'course_section', 'course_section_year') and not course:
-            self.add_error('audience_course', 'Select a course for this audience scope.')
+            self.add_error('audience_course', 'Select a program for this audience scope.')
         if scope in ('year_level', 'course_year', 'course_section_year') and not year:
             self.add_error('audience_year_level', 'Select a year level for this audience scope.')
         if scope in ('course_section', 'course_section_year') and not section:
@@ -181,6 +194,9 @@ class EventAgendaForm(forms.ModelForm):
     class Meta:
         model = EventAgenda
         fields = ['session_name', 'speaker_name', 'start_time', 'end_time', 'venue_name']
+        labels = {
+            'venue_name': 'Session room or area',
+        }
         widgets = {
             'start_time': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'type': 'time'}),
             'end_time': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'type': 'time'}),
@@ -211,29 +227,41 @@ class StudentForm(forms.ModelForm):
         model = Student
         fields = [
             'student_id', 'first_name', 'middle_name', 'last_name', 'email',
-            'address', 'birthdate', 'sex', 'guardians_parents', 'guardian_contact',
+            'birthdate', 'sex', 'contact_number',
+            'address',
             'course', 'year_level', 'section',
-            'contact_number', 'photo', 'signature',
-            'account_status', 'rejection_reason',
+            'guardians_parents', 'guardian_contact',
+            'photo', 'signature',
+            'account_status',
         ]
         widgets = {
             'student_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ID embedded in QR code (max 8 digits)', 'maxlength': '8', 'pattern': '[0-9]*', 'inputmode': 'numeric'}),
-            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'middle_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'First name'}),
+            'middle_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Middle Initial'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Last name'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'name@school.edu'}),
             'address': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
             'birthdate': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'sex': forms.Select(attrs={'class': 'form-control'}),
             'guardians_parents': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Guardian(s) or parent(s) name(s)'}),
-            'guardian_contact': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Guardian contact number', 'maxlength': '11', 'pattern': '[0-9]*', 'inputmode': 'numeric'}),
+            'guardian_contact': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Contact number', 'maxlength': '11', 'pattern': '[0-9]*', 'inputmode': 'numeric'}),
             'course': forms.Select(attrs={'class': 'form-control'}),
             'year_level': forms.Select(attrs={'class': 'form-control'}),
             'section': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. A, 1A'}),
-            'contact_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Contact number', 'maxlength': '11', 'pattern': '[0-9]*', 'inputmode': 'numeric'}),
+            'contact_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Your contact number', 'maxlength': '11', 'pattern': '[0-9]*', 'inputmode': 'numeric'}),
             'account_status': forms.Select(attrs={'class': 'form-control'}),
-            'rejection_reason': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Reason if rejected'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['sex'].required = True
+        self.fields['sex'].choices = list(Student.SEX_CHOICES)
+
+    def clean_sex(self):
+        v = (self.cleaned_data.get('sex') or '').strip()
+        if not v:
+            raise ValidationError(_('Sex / gender is required.'))
+        return v
 
     def clean_student_id(self):
         data = (self.cleaned_data.get('student_id') or '').strip()
@@ -260,14 +288,51 @@ class StudentForm(forms.ModelForm):
     def clean_contact_number(self):
         return self._clean_phone_11(
             self.cleaned_data.get('contact_number'),
-            'Contact number',
+            'Your contact number',
         )
 
     def clean_guardian_contact(self):
         return self._clean_phone_11(
             self.cleaned_data.get('guardian_contact'),
-            'Guardian contact number',
+            'Contact number',
         )
+
+
+class StudentModalForm(StudentForm):
+    """Quick-add fields for the student list modal. Defaults to Active account_status."""
+
+    class Meta(StudentForm.Meta):
+        fields = [
+            'student_id', 'first_name', 'middle_name', 'last_name', 'email',
+            'birthdate', 'sex', 'contact_number',
+            'address',
+            'course', 'year_level', 'section',
+            'guardians_parents', 'guardian_contact',
+            'photo', 'signature',
+        ]
+
+
+class StudentStudentAffairsForm(StudentForm):
+    """Student Affairs office: uses the same student form fields, including account status."""
+
+
+class StudentAdminForm(forms.ModelForm):
+    """Django admin: sex/gender required (same policy as Gate student create/edit)."""
+
+    class Meta:
+        model = Student
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['sex'].required = True
+        self.fields['sex'].choices = list(Student.SEX_CHOICES)
+
+    def clean_sex(self):
+        v = (self.cleaned_data.get('sex') or '').strip()
+        if not v:
+            raise ValidationError(_('Sex / gender is required.'))
+        return v
 
 
 class StudentRegistrationForm(forms.Form):
@@ -286,8 +351,8 @@ class StudentRegistrationForm(forms.Form):
     middle_name = forms.CharField(
         max_length=100,
         required=False,
-        label='Middle name',
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Middle name'})
+        label='Middle Initial',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Middle Initial'})
     )
     last_name = forms.CharField(
         max_length=100,
@@ -306,12 +371,7 @@ class StudentRegistrationForm(forms.Form):
     sex = forms.ChoiceField(
         required=True,
         label='Sex / Gender',
-        # Public student registration: only allow the two explicit options requested
-        # (other values can still exist in the DB from older records/imports).
-        choices=[('', 'Select sex/gender')] + [
-            c for c in Student.SEX_CHOICES
-            if c[0] in (Student.SEX_MALE, Student.SEX_FEMALE)
-        ],
+        choices=[('', 'Select sex/gender')] + list(Student.SEX_CHOICES),
         widget=forms.Select(attrs={'class': 'form-control'})
     )
     guardians_parents = forms.CharField(
@@ -326,8 +386,8 @@ class StudentRegistrationForm(forms.Form):
     )
     course = forms.ChoiceField(
         required=True,
-        label='Course / Program',
-        choices=[('', 'Select course')] + list(Student.COURSE_CHOICES),
+        label='Program',
+        choices=[('', 'Select program')] + list(Student.COURSE_CHOICES),
         widget=forms.Select(attrs={'class': 'form-control'})
     )
     year_level = forms.ChoiceField(
@@ -356,10 +416,10 @@ class StudentRegistrationForm(forms.Form):
     guardian_contact = forms.CharField(
         required=True,
         max_length=11,
-        label='Guardian contact number',
+        label='Contact number',
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Guardian contact number',
+            'placeholder': 'Contact number',
             'maxlength': '11',
             'pattern': '[0-9]*',
             'inputmode': 'numeric',
@@ -402,7 +462,7 @@ class StudentRegistrationForm(forms.Form):
     def clean_middle_name(self):
         data = (self.cleaned_data.get('middle_name') or '').strip()
         if data and not self._name_ok(data):
-            raise ValidationError('Middle name should contain only letters.')
+            raise ValidationError('Middle Initial should contain only letters.')
         return data
 
     def clean_birthdate(self):
@@ -447,7 +507,7 @@ class StudentRegistrationForm(forms.Form):
     def clean_guardian_contact(self):
         return self._clean_phone(
             self.cleaned_data.get('guardian_contact'),
-            'Guardian contact number',
+            'Contact number',
         )
 
 
@@ -457,7 +517,12 @@ class StaffPersonnelCreateForm(forms.Form):
     email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control'}))
     first_name = forms.CharField(max_length=150, widget=forms.TextInput(attrs={'class': 'form-control'}))
     last_name = forms.CharField(max_length=150, widget=forms.TextInput(attrs={'class': 'form-control'}))
-    middle_name = forms.CharField(max_length=100, required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    middle_name = forms.CharField(
+        max_length=100,
+        required=False,
+        label='Middle Initial',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Middle Initial'}),
+    )
     password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}))
     password_confirm = forms.CharField(label='Confirm password', widget=forms.PasswordInput(attrs={'class': 'form-control'}))
     role = forms.ChoiceField(

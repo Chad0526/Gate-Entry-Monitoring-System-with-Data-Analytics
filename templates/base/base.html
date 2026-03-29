@@ -8,9 +8,10 @@
 
   <title>{% block title %} {% endblock title %}</title>
   {% include 'base/header.html' %}
-  
+  <style>
+    .content-wrapper.ccb-nav-loading { opacity: 0.72; transition: opacity 0.12s ease; pointer-events: none; }
+  </style>
   {% block extrahead %}
-
   {% endblock extrahead %}
 </head>
 <body class="hold-transition sidebar-mini layout-fixed layout-navbar-fixed">
@@ -28,14 +29,10 @@
     <div class="content-header">
       <div class="container-fluid">
         <div class="row mb-2">
-          <div class="col-sm-6">
-            <h4 class="m-0 text-dark">City College of Bayawan - Gate Entry</h4>
-          </div><!-- /.col -->
-          <div class="col-sm-6">
-            <ol class="breadcrumb float-sm-right">
-              <li class="breadcrumb-item"><a href="#">Home</a></li>
-              <li class="breadcrumb-item active">{% block breadcrumb %} {% endblock breadcrumb %}</li>
-            </ol>
+          <div class="col-12">
+            {% block content_header_title %}
+            <h1 class="m-0 text-dark mb-0" style="font-size: 1.5rem; font-weight: 700;">{% block page_heading %}Gate Entry{% endblock %}</h1>
+            {% endblock %}
           </div><!-- /.col -->
         </div><!-- /.row -->
       </div><!-- /.container-fluid -->
@@ -153,7 +150,9 @@
 })();
 </script>
 {% block extrascript %}
-
+<!-- ccb-nav-page-scripts -->
+{% block extrascript_inner %}{% endblock extrascript_inner %}
+<!-- /ccb-nav-page-scripts -->
 {% endblock extrascript %}
 
 {% if user.is_authenticated %}
@@ -193,7 +192,7 @@ function showClockInRequiredModal() {
   function showBrowserNotification(count) {
     if (!window.Notification || Notification.permission !== 'granted') return;
     try {
-      var n = new Notification('City College of Bayawan - Gate Entry', {
+      var n = new Notification('Gate Entry', {
         body: 'You have ' + count + ' new notification(s). Click the bell in the navbar to view.',
         tag: 'ccb-notification'
       });

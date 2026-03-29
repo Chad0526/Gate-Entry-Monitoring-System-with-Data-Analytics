@@ -84,7 +84,7 @@ class Command(BaseCommand):
                 'Registered %d sample students (20240001–20240050). %s already existed.'
                 % (len(new_list), skipped if skipped else 'None')
             ))
-            self.stdout.write('  Course: BST, Year: 1st, Sections: A (1–17), B (18–34), C (35–50).')
+            self.stdout.write('  Program: BST, Year: 1st, Sections: A (1–17), B (18–34), C (35–50).')
             self.stdout.write('  Use Gate → Students to review or import additional data via CSV if needed.')
         except Exception as e:
             self.stderr.write(self.style.ERROR('Failed: %s' % e))

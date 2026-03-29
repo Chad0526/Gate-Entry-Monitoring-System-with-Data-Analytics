@@ -1,5 +1,5 @@
 """
-Clear User.email for staff/faculty/supervisor/guard accounts so addresses can be reused.
+Clear User.email for staff/faculty/guard accounts so addresses can be reused.
 
 Usage:
   python manage.py clear_personnel_emails --dry-run   # list only
@@ -13,11 +13,11 @@ from django.db.models import Q
 User = get_user_model()
 
 # Gate / college personnel (not students). Case-insensitive group names.
-PERSONNEL_GROUP_NAMES = ('staff', 'faculty', 'supervisor', 'guard')
+PERSONNEL_GROUP_NAMES = ('staff', 'faculty', 'guard')
 
 
 class Command(BaseCommand):
-    help = 'Clear email on User accounts in staff/faculty/supervisor/guard groups (for reusing addresses).'
+    help = 'Clear email on User accounts in staff/faculty/guard groups (for reusing addresses).'
 
     def add_arguments(self, parser):
         parser.add_argument(

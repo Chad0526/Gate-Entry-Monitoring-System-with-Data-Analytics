@@ -286,12 +286,14 @@
           <p class="signatory-title">{{ first_signatory_title|default:"Designation" }}</p>
         </div>
 
+        {% if qr_url %}
         <div class="qr-block">
           <div class="qr-wrap" id="eidQrOpenBtn" title="Click to enlarge QR">
             <img src="{{ qr_url }}" alt="QR {{ id_display }}">
           </div>
           <p class="qr-hint">Scan at gate for IN / OUT</p>
         </div>
+        {% endif %}
 
         <div class="signatory-block">
           <div class="signatory-space"></div>
@@ -311,6 +313,7 @@
     </div>
   </div>
 
+  {% if qr_url %}
   <!-- QR Zoom Overlay -->
   <div class="qr-zoom-overlay" id="qrZoomOverlay" aria-hidden="true">
     <div class="qr-zoom-dialog" role="dialog" aria-modal="true" aria-label="Large QR code">
@@ -326,8 +329,10 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
   <script>
+    {% if qr_url %}
     (function() {
       var openBtn = document.getElementById('eidQrOpenBtn');
       var overlay = document.getElementById('qrZoomOverlay');
@@ -340,6 +345,7 @@
       overlay.addEventListener('click', function(e) { if (e.target === overlay) hide(); });
       document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hide(); });
     })();
+    {% endif %}
 
     function fitCards() {
       var needed = 520;

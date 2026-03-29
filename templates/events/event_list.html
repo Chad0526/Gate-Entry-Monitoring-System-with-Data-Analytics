@@ -1,7 +1,7 @@
 {% extends 'base/base.html' %}
 {% load static %}
 {% block title %}Events – {{ site_name|default:"CCB" }}{% endblock title %}
-{% block breadcrumb %}Event List{% endblock breadcrumb %}
+{% block page_heading %}Event List{% endblock page_heading %}
 
 {% block extrahead %}
 <link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
@@ -465,7 +465,7 @@
 </div>
 {% endblock content %}
 
-{% block extrascript %}
+{% block extrascript_inner %}
 <script>
 (function() {
   var listView = document.getElementById('listView');
@@ -508,4 +508,4 @@
   });
 })();
 </script>
-{% endblock extrascript %}
+{% endblock extrascript_inner %}

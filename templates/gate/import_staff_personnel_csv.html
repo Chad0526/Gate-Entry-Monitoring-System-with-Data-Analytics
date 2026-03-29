@@ -1,6 +1,6 @@
 {% extends 'base/base.html' %}
 {% block title %}Import staff / faculty (CSV) - {{ site_name }}{% endblock title %}
-{% block breadcrumb %}Import staff / faculty{% endblock breadcrumb %}
+{% block page_heading %}Import staff / faculty{% endblock page_heading %}
 
 {% block content %}
 <div class="row">
@@ -10,7 +10,7 @@
         <h5 class="m-0"><i class="fas fa-file-csv mr-1"></i> Import staff / faculty from CSV</h5>
       </div>
       <div class="card-body">
-        <p class="text-muted">Upload a CSV with header row. Required columns: <code>username</code>, <code>email</code>, <code>first_name</code>, <code>last_name</code>. Optional: <code>role</code> (staff or faculty, default staff), <code>middle_name</code>, <code>employee_id</code>, <code>department</code>, <code>position</code>, <code>contact_number</code>, <code>password</code> (if omitted a random password is set), <code>is_active</code> (yes/no).</p>
+        <p class="text-muted">Upload a CSV with header row. Required columns: <code>username</code>, <code>email</code>, <code>first_name</code>, <code>last_name</code>. Optional: <code>role</code> (staff or faculty, default staff), <code>middle_name</code> (Middle Initial), <code>employee_id</code>, <code>department</code>, <code>position</code>, <code>contact_number</code>, <code>password</code> (if omitted a random password is set), <code>is_active</code> (yes/no).</p>
         <p class="small text-muted mb-3">New accounts are assigned to the Staff or Faculty group. Users can reset password via “Forgot password” if no password column is provided.</p>
         <form method="post" enctype="multipart/form-data">
           {% csrf_token %}

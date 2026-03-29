@@ -1,0 +1,1193 @@
+<style>
+  .analytics-hero {
+    position: relative;
+    overflow: hidden;
+    background-image:
+      linear-gradient(135deg, rgba(22,163,74,0.82), rgba(21,128,61,0.75)),
+      url('/media/event_image/background.jpg'),
+      url('/media/background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: #fff;
+    border-radius: 16px;
+    padding: 28px 24px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-bottom: 16px;
+    box-shadow: 0 8px 24px rgba(22,163,74,0.18);
+  }
+  .analytics-hero h2 {
+    margin: 0;
+    font-size: 1.55rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.25);
+  }
+  .analytics-hero p {
+    margin: 4px 0 0;
+    font-size: 0.9rem;
+    color: #d1fae5; font-weight: 600; text-shadow: 0 1px 6px rgba(0,0,0,0.3);
+  }
+  .metrics-grid .metric-card {
+    background: #fff;
+    border: 1px solid var(--monitor-border, #e2e8f0);
+    border-radius: 14px;
+    padding: 18px;
+    min-height: 92px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+    transition: all 0.2s ease;
+  }
+  .metrics-grid .metric-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    transform: translateY(-2px);
+  }
+  .metric-label {
+    font-size: 0.78rem;
+    color: var(--monitor-muted, #4d7c5e);
+    font-weight: 600;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .metric-value {
+    margin-top: 4px;
+    font-size: 1.72rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .metric-success .metric-value { color: var(--ok); }
+  .metric-success .stat-icon { background: var(--ok); }
+  .metric-info .metric-value { color: var(--info); }
+  .metric-info .stat-icon { background: var(--info); }
+  .metric-warn .metric-value { color: var(--warn); }
+  .metric-warn .stat-icon { background: var(--warn); }
+  .metric-danger .metric-value { color: var(--danger); }
+  .metric-danger .stat-icon { background: var(--danger); }
+  .metric-neutral .metric-value { color: var(--neutral); }
+  .metric-neutral .stat-icon { background: var(--neutral); }
+  .metric-teal .metric-value { color: #0f9d8f; }
+  .metric-teal .stat-icon { background: #0f9d8f; }
+  .metric-link {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+  .metric-link a {
+    color: #1f6a49;
+  }
+  .metric-link a:hover {
+    color: #0f5132;
+    text-decoration: none;
+  }
+  .analytics-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .report-sections-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+    gap: 6px 12px;
+  }
+  .subcard {
+    box-shadow: none;
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 12px;
+  }
+  .subcard .card-header {
+    background: #f8fafc;
+    border-bottom: 1px solid #e9eef3;
+    border-radius: 12px 12px 0 0;
+  }
+  .table thead th {
+    color: #60706a;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.74rem;
+  }
+  /* ---- Enhanced analytics cards ---- */
+  .ca-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.05),
+      0 6px 22px rgba(15, 23, 42, 0.08),
+      0 16px 40px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+  }
+  .ca-card-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .ca-card-icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.95rem; flex-shrink: 0;
+  }
+  .ca-card-icon.green { background: linear-gradient(135deg,#dcfce7,#bbf7d0); color: #16a34a; }
+  .ca-card-icon.blue { background: linear-gradient(135deg,#dbeafe,#bfdbfe); color: #2563eb; }
+  .ca-card-icon.red { background: linear-gradient(135deg,#fee2e2,#fecaca); color: #dc2626; }
+  .ca-card-icon.amber { background: linear-gradient(135deg,#fef3c7,#fde68a); color: #d97706; }
+  .ca-card-icon.teal { background: linear-gradient(135deg,#cffafe,#a5f3fc); color: #0891b2; }
+  .ca-card-title { margin: 0; font-size: 0.92rem; font-weight: 800; color: #14532d; }
+  .ca-card-sub { font-size: 0.74rem; color: #4d7c5e; font-weight: 500; }
+  .ca-card-action {
+    margin-left: auto;
+    font-size: 0.78rem; font-weight: 700; color: #16a34a;
+    text-decoration: none;
+    display: flex; align-items: center; gap: 4px;
+    white-space: nowrap;
+    transition: color 0.15s;
+  }
+  .ca-card-action:hover { color: #15803d; text-decoration: none; }
+  .ca-card-body { padding: 16px 20px; }
+
+  .ca-table thead th {
+    background: #f1f5f9;
+    color: #2d6a42;
+    font-weight: 700;
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid #e2e8f0;
+    padding: 10px 16px;
+  }
+  .ca-table tbody td {
+    padding: 10px 16px;
+    font-size: 0.84rem;
+    color: #1a5c35;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .ca-table tbody tr:hover { background: #f0fdf4; }
+
+  .ca-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 6px;
+    font-size: 0.74rem; font-weight: 700;
+  }
+  .ca-badge i { font-size: 0.65rem; }
+  .ca-badge-green { background: #dcfce7; color: #166534; }
+  .ca-badge-red { background: #fee2e2; color: #991b1b; }
+
+  .ca-time { font-size: 0.8rem; color: #4d7c5e; font-variant-numeric: tabular-nums; }
+
+  .ca-count-pill {
+    display: inline-block;
+    background: #f1f5f9;
+    color: #1a5c35;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    min-width: 32px;
+    text-align: center;
+  }
+
+  .ca-sub-title {
+    font-size: 0.78rem; font-weight: 700; color: #2d6a42;
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .ca-action-btn {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #4d7c5e; font-size: 0.78rem;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+  .ca-action-btn:hover {
+    background: #16a34a; color: #fff; border-color: #16a34a;
+    text-decoration: none;
+  }
+
+  .ca-event-list { display: flex; flex-direction: column; gap: 10px; }
+  .ca-event-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    transition: all 0.15s;
+  }
+  .ca-event-item:hover { border-color: #16a34a; background: #f0fdf4; }
+  .ca-event-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #16a34a;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 3px rgba(22,163,74,0.2);
+    animation: ca-pulse 2s ease-in-out infinite;
+  }
+  @keyframes ca-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(22,163,74,0.2); }
+    50% { box-shadow: 0 0 0 6px rgba(22,163,74,0.1); }
+  }
+
+  @media (max-width: 767px) {
+    .analytics-hero {
+      min-height: 120px;
+      padding: 18px 14px;
+    }
+    .analytics-hero h2 {
+      font-size: 1.35rem;
+    }
+    .ca-card-head { flex-wrap: wrap; gap: 8px; }
+    .ca-card-action { margin-left: 0; }
+  }
+
+  /* Analytics overview (filters + KPI grid: summary + profile breakdowns) */
+  .monitor-wrap > .section-card.dashboard-section {
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.05),
+      0 8px 28px rgba(15, 23, 42, 0.09),
+      0 22px 52px rgba(15, 23, 42, 0.07);
+    border-radius: 16px;
+  }
+  .analytics-overview-bar {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px 16px;
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.04),
+      0 4px 18px rgba(15, 23, 42, 0.07),
+      0 12px 32px rgba(15, 23, 42, 0.05);
+  }
+  .analytics-overview-bar label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+  .analytics-overview-bar .form-control,
+  .analytics-overview-bar .custom-select {
+    min-width: 140px;
+    border-radius: 10px;
+    border-color: #cbd5e1;
+    font-size: 0.88rem;
+  }
+  .analytics-overview-bar .overview-preset-select {
+    min-width: 11.5rem;
+  }
+  .analytics-overview-custom-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px 16px;
+  }
+  .analytics-overview-custom-fields.d-none {
+    display: none !important;
+  }
+  /* Four equal columns: row 1 = four summary KPIs; row 2 = three profile cards + one empty cell */
+  .ao-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    align-items: stretch;
+  }
+  @media (max-width: 1199px) {
+    .ao-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 575px) {
+    .ao-kpi-grid { grid-template-columns: 1fr; }
+  }
+  /* KPI cards: left stripe + hover fills left→right (same idea as dashboard) */
+  .ao-metric-card {
+    position: relative;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 16px 14px 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 108px;
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.05),
+      0 4px 16px rgba(15, 23, 42, 0.07),
+      0 14px 36px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+    isolation: isolate;
+    transition: box-shadow 0.35s ease;
+  }
+  .ao-metric-card:hover {
+    box-shadow:
+      0 4px 8px rgba(15, 23, 42, 0.06),
+      0 14px 36px rgba(15, 23, 42, 0.12),
+      0 28px 56px rgba(15, 23, 42, 0.1);
+  }
+  .ao-metric-card::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    border-radius: 14px 0 0 14px;
+    background: var(--ao-kpi-accent, #16a34a);
+    z-index: 0;
+    transition: width 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+  }
+  .ao-metric-card:hover::after {
+    width: 100%;
+    border-radius: 14px;
+  }
+  .ao-metric-accent-total { --ao-kpi-accent: #166534; }
+  .ao-metric-accent-avg { --ao-kpi-accent: #16a34a; }
+  .ao-metric-accent-visitors { --ao-kpi-accent: #ea580c; }
+  .ao-metric-accent-peak { --ao-kpi-accent: #166534; }
+  .ao-metric-inner {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    position: relative;
+    z-index: 1;
+  }
+  .ao-metric-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin: 0;
+    transition: color 0.4s ease 0.05s;
+  }
+  .ao-metric-value {
+    font-size: 1.65rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+    transition: color 0.4s ease 0.05s;
+  }
+  .ao-metric-sub {
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: color 0.4s ease 0.05s;
+  }
+  .ao-metric-sub.up { color: #16a34a; }
+  .ao-metric-sub.down { color: #dc2626; }
+  .ao-metric-sub.flat { color: #64748b; }
+  .ao-metric-sub.normal { color: #16a34a; }
+  .ao-metric-card:hover .ao-metric-title { color: rgba(255, 255, 255, 0.92); }
+  .ao-metric-card:hover .ao-metric-value { color: #fff; }
+  .ao-metric-card:hover .ao-metric-sub,
+  .ao-metric-card:hover .ao-metric-sub.up,
+  .ao-metric-card:hover .ao-metric-sub.down,
+  .ao-metric-card:hover .ao-metric-sub.flat,
+  .ao-metric-card:hover .ao-metric-sub.normal {
+    color: rgba(255, 255, 255, 0.92) !important;
+  }
+  .ao-metric-card:hover .ao-metric-inner span.text-muted {
+    color: rgba(255, 255, 255, 0.78) !important;
+  }
+  .ao-metric-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    flex-shrink: 0;
+    align-self: center;
+    margin-right: 4px;
+    position: relative;
+    z-index: 1;
+    transition: background 0.4s ease 0.05s, color 0.4s ease 0.05s;
+  }
+  .ao-metric-card:hover .ao-metric-icon {
+    background: rgba(255, 255, 255, 0.22) !important;
+    color: #fff !important;
+  }
+  .ao-icon-blue { background: #d1fae5; color: #166534; }
+  .ao-icon-green { background: #dcfce7; color: #16a34a; }
+  .ao-icon-orange { background: #ffedd5; color: #ea580c; }
+  .ao-icon-teal { background: #d1fae5; color: #166534; }
+  @media (prefers-reduced-motion: reduce) {
+    .ao-metric-card::after { transition-duration: 0.01ms; }
+    .ao-metric-title, .ao-metric-value, .ao-metric-sub, .ao-metric-icon,
+    .ao-profile-card-title { transition-duration: 0.01ms; }
+  }
+
+  /* Profile breakdown cards: same metric shell + rows (sits in .ao-kpi-grid row 3) */
+  .ao-metric-card.ao-profile-card {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0;
+    padding: 0;
+    min-height: 108px;
+  }
+  .ao-profile-card-head {
+    padding: 16px 14px 12px 18px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+    transition: border-color 0.35s ease;
+  }
+  .ao-profile-card-title {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #64748b;
+    transition: color 0.4s ease 0.05s;
+  }
+  .ao-profile-card-head .ao-metric-icon {
+    margin-right: 0;
+    flex-shrink: 0;
+  }
+  .ao-metric-card:hover .ao-profile-card-head {
+    border-bottom-color: rgba(255, 255, 255, 0.28);
+  }
+  .ao-metric-card:hover .ao-profile-card-title {
+    color: rgba(255, 255, 255, 0.92);
+  }
+  .ao-profile-card-body {
+    padding: 6px 6px 12px 10px;
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .ao-profile-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    transition: background 0.15s ease;
+  }
+  a.ao-profile-row {
+    text-decoration: none;
+    color: inherit;
+  }
+  /* Count opens modal: one GateEntry row per line in popup */
+  button.ao-profile-count-btn {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font: inherit;
+    padding: 2px 6px;
+    margin: -2px -6px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    transition: background 0.15s ease, color 0.35s ease;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(22, 163, 74, 0.15);
+  }
+  button.ao-profile-count-btn .ao-profile-val {
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: #0f172a;
+    min-width: 2rem;
+    display: inline-block;
+    transition: color 0.35s ease;
+  }
+  button.ao-profile-count-btn:hover {
+    background: rgba(15, 23, 42, 0.06);
+  }
+  a.ao-profile-row .ao-profile-val {
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: #0f172a;
+    flex-shrink: 0;
+    min-width: 2rem;
+    transition: color 0.35s ease;
+  }
+  .ao-profile-row .ao-profile-lbl {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #475569;
+    text-align: right;
+    flex: 1;
+    line-height: 1.25;
+    transition: color 0.35s ease;
+  }
+  a.ao-profile-row:hover { background: rgba(15, 23, 42, 0.06); }
+  .ao-metric-card:hover .ao-profile-row .ao-profile-lbl,
+  .ao-metric-card:hover button.ao-profile-count-btn .ao-profile-val {
+    color: #fff !important;
+  }
+  .ao-metric-card:hover a.ao-profile-row:hover { background: rgba(255, 255, 255, 0.14); }
+  .ao-metric-card:hover button.ao-profile-count-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+  }
+  .ao-profile-empty {
+    padding: 14px 14px 16px 18px;
+    position: relative;
+    z-index: 1;
+    font-size: 0.85rem;
+    margin: 0;
+  }
+  .ao-metric-card:hover .ao-profile-empty {
+    color: rgba(255, 255, 255, 0.9) !important;
+  }
+
+  /* Theme accent (matches dashboard / --monitor tokens) */
+  .btn-analytics-accent {
+    background: linear-gradient(135deg, var(--ok, #16a34a) 0%, #15803d 100%);
+    border: 1px solid #15803d;
+    color: #fff !important;
+    font-weight: 700;
+  }
+  .btn-analytics-accent:hover, .btn-analytics-accent:focus {
+    background: linear-gradient(135deg, #22c55e 0%, var(--ok, #16a34a) 100%);
+    border-color: #15803d;
+    color: #fff !important;
+  }
+  .btn-analytics-accent-outline {
+    background: #fff;
+    border: 1px solid var(--ok, #16a34a);
+    color: #15803d !important;
+    font-weight: 600;
+  }
+  .btn-analytics-accent-outline:hover, .btn-analytics-accent-outline:focus {
+    background: var(--ok-bg, #f0fdf4);
+    border-color: var(--ok, #16a34a);
+    color: var(--monitor-text, #14532d) !important;
+  }
+
+  .traffic-flow-card .traffic-flow-head {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--monitor-border, #e2e8f0);
+    background: #fff;
+  }
+  .traffic-flow-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--monitor-text, #1e293b);
+    letter-spacing: -0.02em;
+  }
+  .analytics-charts-row-wrap {
+    background: #f1f5f9;
+    border-radius: 16px;
+    padding: 16px;
+    margin-top: 8px;
+  }
+  .analytics-charts-row-wrap .section-card.traffic-flow-card {
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.05),
+      0 6px 22px rgba(15, 23, 42, 0.08),
+      0 18px 44px rgba(15, 23, 42, 0.07);
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    overflow: hidden;
+  }
+  /* Fixed height: Chart.js (maintainAspectRatio: false) + flex-grow caused unbounded canvas height */
+  .analytics-chart-fixed {
+    position: relative;
+    width: 100%;
+    height: 320px;
+    max-height: 320px;
+    overflow: hidden;
+  }
+  .entry-role-chart-wrap {
+    position: relative;
+    width: 100%;
+    height: 280px;
+    max-height: 280px;
+    overflow: hidden;
+  }
+  .analytics-bar-chart-fixed {
+    position: relative;
+    width: 100%;
+    height: 260px;
+    max-height: 260px;
+    overflow: hidden;
+  }
+  .entry-role-empty {
+    min-height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  /* Weekly peak heatmap — green / orange tiers */
+  .section-card.heatmap-card {
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.05),
+      0 6px 22px rgba(15, 23, 42, 0.08),
+      0 18px 44px rgba(15, 23, 42, 0.07);
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    overflow: hidden;
+  }
+  .heatmap-card .heatmap-head {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--monitor-border, #e2e8f0);
+    background: #fff;
+  }
+  .heatmap-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--monitor-text, #1e293b);
+    letter-spacing: -0.02em;
+  }
+  .heatmap-grid-wrap { overflow-x: auto; }
+  .heatmap-grid {
+    display: grid;
+    grid-template-columns: 7.5rem repeat(7, minmax(3.5rem, 1fr));
+    gap: 8px;
+    align-items: stretch;
+    min-width: min(100%, 520px);
+  }
+  .heatmap-corner { min-height: 1rem; }
+  .heatmap-dow {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-align: center;
+    color: var(--monitor-muted, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 4px 0;
+  }
+  .heatmap-row-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--monitor-text, #14532d);
+    display: flex;
+    align-items: center;
+    padding-right: 0.25rem;
+  }
+  .heatmap-cell {
+    border-radius: 10px;
+    text-align: center;
+    font-weight: 800;
+    font-size: 0.78rem;
+    padding: 10px 6px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+  }
+  .heatmap-cell.hm-low {
+    background: #ecfdf5;
+    color: #047857;
+    border-color: #a7f3d0;
+  }
+  .heatmap-cell.hm-medium {
+    background: #fffbeb;
+    color: #c2410c;
+    border-color: #fde68a;
+  }
+  .heatmap-cell.hm-high {
+    background: #ffedd5;
+    color: #9a3412;
+    border-color: #fdba74;
+  }
+  .heatmap-cell.hm-peak {
+    background: #15803d;
+    color: #fff;
+    border-color: #166534;
+  }
+  .heatmap-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 6px;
+  }
+  .heatmap-legend span {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--monitor-muted, #64748b);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .heatmap-legend i {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    display: inline-block;
+    border: 1px solid rgba(0,0,0,0.06);
+  }
+</style>
+
+<div class="monitor-wrap">
+<div class="analytics-hero">
+  <h2>Analytics</h2>
+  <p>Gate monitoring summary, visitor trends, and event participation.</p>
+</div>
+
+<div class="section-card dashboard-section" style="margin-top:0;">
+  <div class="section-head">Analytics overview</div>
+  <div class="section-body" style="padding-top: 8px;">
+    <form method="get" class="analytics-overview-bar js-analytics-ajax" action="{% url 'gate-analytics' %}" id="analyticsOverviewForm">
+      <input type="hidden" name="year" value="{{ selected_year }}">
+      <div>
+        <label for="overviewPreset">Date range</label>
+        <select class="custom-select overview-preset-select" id="overviewPreset" name="overview_preset" title="Main filter for analytics overview">
+          <option value="today" {% if overview_preset == 'today' %}selected{% endif %}>Today</option>
+          <option value="yesterday" {% if overview_preset == 'yesterday' %}selected{% endif %}>Yesterday</option>
+          <option value="last_7_days" {% if overview_preset == 'last_7_days' %}selected{% endif %}>Last 7 Days</option>
+          <option value="custom" {% if overview_preset == 'custom' %}selected{% endif %}>Custom filter</option>
+        </select>
+      </div>
+      <div id="overviewCustomFields" class="analytics-overview-custom-fields {% if overview_preset != 'custom' %}d-none{% endif %}">
+        <div>
+          <label for="overviewFrom">Start date</label>
+          <input type="date" class="form-control" id="overviewFrom" name="overview_from" value="{{ overview_from_iso }}" max="{{ today_iso }}">
+        </div>
+        <div>
+          <label for="overviewTo">End date</label>
+          <input type="date" class="form-control" id="overviewTo" name="overview_to" value="{{ overview_to_iso }}" max="{{ today_iso }}">
+        </div>
+      </div>
+      <div class="pb-1 d-flex flex-wrap align-items-center" style="gap:8px;">
+        <button type="submit" class="btn btn-analytics-accent" style="border-radius:10px;">
+          <i class="fas fa-filter mr-1"></i> Apply filter
+        </button>
+        <button type="button" class="btn btn-analytics-accent-outline js-analytics-clear-filters d-none" style="border-radius:10px;" data-clear-year="{{ selected_year }}">
+          <i class="fas fa-times mr-1"></i> Clear filters
+        </button>
+      </div>
+    </form>
+
+    <p class="text-muted small mb-3" style="margin-top:-4px;">
+      Student gate scans (IN+OUT) for the selected range vs the prior period of equal length.
+      <span class="d-block mt-1">By profile: {{ student_bar_subtitle }}</span>
+    </p>
+
+    <div class="ao-kpi-grid">
+      <div class="ao-metric-card ao-metric-accent-total">
+        <div class="ao-metric-inner">
+          <p class="ao-metric-title">Total scans</p>
+          <div class="ao-metric-value">{{ overview_total_scans|default:0 }}</div>
+          {% if overview_total_pct is not None %}
+            {% if overview_total_trend == 'up' %}
+              <div class="ao-metric-sub up"><i class="fas fa-arrow-up"></i> {{ overview_total_pct|floatformat:0 }}% vs prior period</div>
+            {% elif overview_total_trend == 'down' %}
+              <div class="ao-metric-sub down"><i class="fas fa-arrow-down"></i> {{ overview_total_pct|floatformat:0 }}% vs prior period</div>
+            {% else %}
+              <div class="ao-metric-sub flat">Flat vs prior period</div>
+            {% endif %}
+          {% else %}
+            <div class="ao-metric-sub flat">No prior period to compare</div>
+          {% endif %}
+        </div>
+        <div class="ao-metric-icon ao-icon-blue"><i class="fas fa-door-open"></i></div>
+      </div>
+
+      <div class="ao-metric-card ao-metric-accent-avg">
+        <div class="ao-metric-inner">
+          <p class="ao-metric-title">Average daily</p>
+          <div class="ao-metric-value">{{ overview_avg_daily|floatformat:0 }}</div>
+          {% if overview_avg_status == 'normal' %}
+            <div class="ao-metric-sub normal"><i class="fas fa-check-circle"></i> Normal vs prior period</div>
+          {% elif overview_avg_status == 'above' %}
+            <div class="ao-metric-sub up">Above prior period average</div>
+          {% else %}
+            <div class="ao-metric-sub down">Below prior period average</div>
+          {% endif %}
+        </div>
+        <div class="ao-metric-icon ao-icon-green"><i class="fas fa-chart-line"></i></div>
+      </div>
+
+      <div class="ao-metric-card ao-metric-accent-visitors">
+        <div class="ao-metric-inner">
+          <p class="ao-metric-title">Visitors</p>
+          <div class="ao-metric-value">{{ overview_visitors|default:0 }}</div>
+          {% if overview_visitors_pct is not None %}
+            {% if overview_visitors_trend == 'up' %}
+              <div class="ao-metric-sub up"><i class="fas fa-arrow-up"></i> {{ overview_visitors_pct|floatformat:0 }}% vs prior period</div>
+            {% elif overview_visitors_trend == 'down' %}
+              <div class="ao-metric-sub down"><i class="fas fa-arrow-down"></i> {{ overview_visitors_pct|floatformat:0 }}% vs prior period</div>
+            {% else %}
+              <div class="ao-metric-sub flat">Flat vs prior period</div>
+            {% endif %}
+          {% else %}
+            <div class="ao-metric-sub flat">In selected date range</div>
+          {% endif %}
+          <span class="text-muted" style="font-size:0.72rem;">Manual log + pass check-ins.</span>
+        </div>
+        <div class="ao-metric-icon ao-icon-orange"><i class="fas fa-id-badge"></i></div>
+      </div>
+
+      <div class="ao-metric-card ao-metric-accent-peak">
+        <div class="ao-metric-inner">
+          <p class="ao-metric-title">Peak hour</p>
+          <div class="ao-metric-value" style="font-size:1.35rem;">{{ overview_peak_display }}</div>
+          <div class="ao-metric-sub flat" style="color:#64748b;font-weight:600;">{{ overview_peak_rush }}</div>
+        </div>
+        <div class="ao-metric-icon ao-icon-teal"><i class="fas fa-clock"></i></div>
+      </div>
+
+      <div class="ao-metric-card ao-profile-card ao-metric-accent-total">
+        <div class="ao-profile-card-head">
+          <p class="ao-profile-card-title">By program</p>
+          <div class="ao-metric-icon ao-icon-blue"><i class="fas fa-graduation-cap"></i></div>
+        </div>
+        <div class="ao-profile-card-body">
+          {% if student_bar_any_data %}
+            {% for row in profile_kpi_by_program %}
+            <div class="ao-profile-row">
+              <button type="button" class="ao-profile-count-btn js-ao-profile-entries" data-dimension="course" data-value="{{ row.key|default:''|escape }}" data-label="{{ row.label|escape }}" title="View gate entry records (IN/OUT) for this program">
+                <span class="ao-profile-val">{{ row.count }}</span>
+              </button>
+              <span class="ao-profile-lbl">{{ row.label }}</span>
+            </div>
+            {% empty %}
+            <p class="ao-profile-empty text-muted mb-0">No program breakdown in this range.</p>
+            {% endfor %}
+          {% else %}
+            <p class="ao-profile-empty text-muted mb-0">No student gate scans in this date range for these breakdowns.</p>
+          {% endif %}
+        </div>
+      </div>
+      <div class="ao-metric-card ao-profile-card ao-metric-accent-avg">
+        <div class="ao-profile-card-head">
+          <p class="ao-profile-card-title">By year level</p>
+          <div class="ao-metric-icon ao-icon-green"><i class="fas fa-layer-group"></i></div>
+        </div>
+        <div class="ao-profile-card-body">
+          {% if student_bar_any_data %}
+            {% for row in profile_kpi_by_year %}
+            <div class="ao-profile-row">
+              <button type="button" class="ao-profile-count-btn js-ao-profile-entries" data-dimension="year_level" data-value="{{ row.key|default:''|escape }}" data-label="{{ row.label|escape }}" title="View gate entry records (IN/OUT) for this year level">
+                <span class="ao-profile-val">{{ row.count }}</span>
+              </button>
+              <span class="ao-profile-lbl">{{ row.label }}</span>
+            </div>
+            {% empty %}
+            <p class="ao-profile-empty text-muted mb-0">No year level breakdown in this range.</p>
+            {% endfor %}
+          {% else %}
+            <p class="ao-profile-empty text-muted mb-0">No student gate scans in this date range for these breakdowns.</p>
+          {% endif %}
+        </div>
+      </div>
+      <div class="ao-metric-card ao-profile-card ao-metric-accent-visitors">
+        <div class="ao-profile-card-head">
+          <p class="ao-profile-card-title">By gender</p>
+          <div class="ao-metric-icon ao-icon-orange"><i class="fas fa-venus-mars"></i></div>
+        </div>
+        <div class="ao-profile-card-body">
+          {% if student_bar_any_data %}
+            {% for row in profile_kpi_by_sex %}
+            <div class="ao-profile-row">
+              <button type="button" class="ao-profile-count-btn js-ao-profile-entries" data-dimension="sex" data-value="{{ row.key|default:''|escape }}" data-label="{{ row.label|escape }}" title="View gate entry records (IN/OUT) for this gender">
+                <span class="ao-profile-val">{{ row.count }}</span>
+              </button>
+              <span class="ao-profile-lbl">{{ row.label }}</span>
+            </div>
+            {% empty %}
+            <p class="ao-profile-empty text-muted mb-0">No gender breakdown in this range.</p>
+            {% endfor %}
+          {% else %}
+            <p class="ao-profile-empty text-muted mb-0">No student gate scans in this date range for these breakdowns.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="analytics-charts-row-wrap">
+  <div class="row align-items-start">
+    <div class="col-lg-8 mb-3 mb-lg-0">
+      <div class="section-card traffic-flow-card">
+        <div class="traffic-flow-head">
+          <div>
+            <h5 class="traffic-flow-title m-0">{{ traffic_flow_title|default:"Hourly Traffic Flow" }}</h5>
+            <span class="text-muted small">{{ traffic_flow_subtitle }}</span>
+          </div>
+        </div>
+        <div class="section-body pt-3">
+          <p class="text-muted small mb-2">Student gate scans, 6 AM–5 PM. <strong>Entries</strong> = IN · <strong>Exits</strong> = OUT.</p>
+          <div class="analytics-chart-fixed">
+            <canvas id="chartTrafficFlow"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="section-card traffic-flow-card">
+        <div class="traffic-flow-head">
+          <h5 class="traffic-flow-title m-0">Entry by Role</h5>
+          <span class="text-muted small">IN scans · {{ entry_role_range_note }}</span>
+        </div>
+        <div class="section-body pt-3">
+          {% if entry_role_total %}
+          <div class="entry-role-chart-wrap">
+            <canvas id="chartEntryByRole"></canvas>
+          </div>
+          <p class="text-muted small text-center mb-0 mt-1">{{ entry_role_total }} total IN</p>
+          {% else %}
+          <div class="entry-role-empty">No IN scans in this date range.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row" style="margin-top:8px;">
+  <div class="col-12">
+    <div class="section-card heatmap-card">
+      <div class="heatmap-head">
+        <h5 class="heatmap-title m-0">Weekly peak hours (heatmap)</h5>
+        <span class="text-muted small">{{ heatmap_subtitle }}</span>
+      </div>
+      <div class="section-body pt-3">
+        <div class="heatmap-grid-wrap">
+          <div class="heatmap-grid">
+            <div class="heatmap-corner"></div>
+            {% for d in heatmap_weekday_labels %}
+            <div class="heatmap-dow">{{ d }}</div>
+            {% endfor %}
+            {% for row in heatmap_rows %}
+            <div class="heatmap-row-label">{{ row.label }}</div>
+            {% for cell in row.cells %}
+            <div class="heatmap-cell hm-{{ cell.tier }}" title="{{ row.label }} · {{ cell.value }} scans">{{ cell.value }}</div>
+            {% endfor %}
+            {% endfor %}
+          </div>
+        </div>
+        <div class="heatmap-legend">
+          <span><i style="background:#ecfdf5;border-color:#a7f3d0;"></i> Low</span>
+          <span><i style="background:#fffbeb;border-color:#fde68a;"></i> Medium</span>
+          <span><i style="background:#ffedd5;border-color:#fdba74;"></i> High</span>
+          <span><i style="background:#15803d;border-color:#166534;"></i> Peak</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Visitors & departments -->
+<div class="ca-card" style="margin-bottom:16px;">
+  <div class="ca-card-head">
+    <div class="ca-card-icon blue"><i class="fas fa-id-badge"></i></div>
+    <div>
+      <h6 class="ca-card-title">Visitors &amp; Departments</h6>
+      <span class="ca-card-sub">Top departments visited</span>
+    </div>
+    <a href="{% url 'gate-visitor-list' %}" class="ca-card-action">View all <i class="fas fa-arrow-right"></i></a>
+  </div>
+  <div class="ca-card-body p-0">
+    <div class="row no-gutters">
+      <div class="col-md-6" style="border-right:1px solid #e2e8f0;">
+        <div class="p-3">
+          <div class="ca-sub-title"><i class="fas fa-calendar-day" style="color:#16a34a;"></i> This Month</div>
+          <table class="table table-sm mb-0 ca-table">
+            <thead><tr><th>Department / Office</th><th class="text-right">Visits</th></tr></thead>
+            <tbody>
+              {% for row in top_departments_monthly|slice:":5" %}
+              <tr>
+                <td>{{ row.who_to_visit|default:"—" }}</td>
+                <td class="text-right"><span class="ca-count-pill">{{ row.count }}</span></td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="2" class="text-muted text-center py-3">No visitor data this month.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="p-3">
+          <div class="ca-sub-title"><i class="fas fa-calendar" style="color:#2563eb;"></i> Year {{ selected_year }}</div>
+          <table class="table table-sm mb-0 ca-table">
+            <thead><tr><th>Department / Office</th><th class="text-right">Visits</th></tr></thead>
+            <tbody>
+              {% for row in top_departments_annually|slice:":5" %}
+              <tr>
+                <td>{{ row.who_to_visit|default:"—" }}</td>
+                <td class="text-right"><span class="ca-count-pill">{{ row.count }}</span></td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="2" class="text-muted text-center py-3">No visitor data this year.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Event participation -->
+<div class="ca-card" style="margin-bottom:16px;">
+  <div class="ca-card-head">
+    <div class="ca-card-icon teal"><i class="fas fa-users"></i></div>
+    <div>
+      <h6 class="ca-card-title">Event Participation</h6>
+      <span class="ca-card-sub">Event participation</span>
+    </div>
+  </div>
+  <div class="ca-card-body p-0">
+    <table class="table table-sm mb-0 ca-table">
+      <thead><tr><th>Event</th><th class="text-center">Total Tracked</th><th class="text-center">Participated</th><th class="text-center">Non-participant</th></tr></thead>
+      <tbody>
+        {% for s in participation_stats|slice:":5" %}
+        <tr>
+          <td style="font-weight:600;color:#14532d;">{{ s.event__name|default:"—" }}</td>
+          <td class="text-center"><span class="ca-count-pill">{{ s.total }}</span></td>
+          <td class="text-center"><span class="ca-count-pill" style="background:#dcfce7;color:#166534;">{{ s.participated_count }}</span></td>
+          <td class="text-center"><span class="ca-count-pill" style="background:#fee2e2;color:#991b1b;">{{ s.non_participant_count }}</span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-muted text-center py-4">No event participation data yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Event results (past events) -->
+<div class="ca-card" style="margin-bottom:16px;">
+  <div class="ca-card-head">
+    <div class="ca-card-icon amber"><i class="fas fa-trophy"></i></div>
+    <div>
+      <h6 class="ca-card-title">Event Results</h6>
+      <span class="ca-card-sub">Past events — view results and export</span>
+    </div>
+    <a href="{% url 'report-compare-events' %}" class="ca-card-action"><i class="fas fa-balance-scale mr-1"></i> Compare <i class="fas fa-arrow-right"></i></a>
+  </div>
+  <div class="ca-card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 ca-table">
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>Dates</th>
+            <th class="text-center">Tracked</th>
+            <th class="text-center">Participated</th>
+            <th class="text-center">Checked In</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in past_events_with_stats|slice:":5" %}
+          <tr>
+            <td style="font-weight:600;color:#14532d;">{{ row.event.name }}</td>
+            <td class="ca-time" style="white-space:nowrap;">{{ row.event.start_date|date:"M d" }} – {{ row.event.end_date|date:"M d, Y" }}</td>
+            <td class="text-center"><span class="ca-count-pill">{{ row.total_tracked }}</span></td>
+            <td class="text-center"><span class="ca-count-pill" style="background:#dcfce7;color:#166534;">{{ row.participated }}</span></td>
+            <td class="text-center"><span class="ca-count-pill" style="background:#dbeafe;color:#1e40af;">{{ row.checked_in }}</span></td>
+            <td>
+              <div class="d-flex" style="gap:4px;">
+                <a href="{% url 'event-attendance-report' row.event.pk %}" class="ca-action-btn" title="View report"><i class="fas fa-chart-bar"></i></a>
+                <a href="{% url 'event-attendance-report-export-csv' row.event.pk %}" class="ca-action-btn" title="CSV"><i class="fas fa-file-csv"></i></a>
+                <a href="{% url 'event-attendance-report-export-xlsx' row.event.pk %}" class="ca-action-btn" title="Excel"><i class="fas fa-file-excel"></i></a>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-muted text-center py-4">No past events yet. Events appear here after their end date.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Active events -->
+<div class="ca-card" style="margin-bottom:16px;">
+  <div class="ca-card-head">
+    <div class="ca-card-icon green"><i class="fas fa-bolt"></i></div>
+    <div>
+      <h6 class="ca-card-title">Active Events Today</h6>
+      <span class="ca-card-sub">Events currently running</span>
+    </div>
+  </div>
+  <div class="ca-card-body">
+    {% if active_events %}
+    <div class="ca-event-list">
+      {% for e in active_events|slice:":5" %}
+      <div class="ca-event-item">
+        <div class="ca-event-dot"></div>
+        <div>
+          <div style="font-weight:700;color:#14532d;font-size:0.88rem;">{{ e.name }}</div>
+          <div style="font-size:0.78rem;color:#4d7c5e;">{{ e.start_date|date:"M d" }} – {{ e.end_date|date:"M d, Y" }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted mb-0 text-center py-3">No active events today.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Overview modal (opened from Today Overview cards) -->
+<div class="modal fade" id="overviewEmbedModal" tabindex="-1" role="dialog" aria-labelledby="overviewEmbedModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 1200px;">
+    <div class="modal-content" style="border-radius: 12px; overflow: hidden;">
+      <div class="modal-header py-2" style="background: #f8fcfa; border-bottom: 1px solid var(--monitor-border);">
+        <h5 class="modal-title" id="overviewEmbedModalTitle">Overview details</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body p-0" style="min-height: 70vh;">
+        <iframe id="overviewEmbedIframe" src="about:blank" style="width:100%; height:70vh; border:0;" title="Overview details"></iframe>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+{{ traffic_flow_labels|json_script:"analytics-traffic-labels" }}
+{{ traffic_flow_in|json_script:"analytics-traffic-in" }}
+{{ traffic_flow_out|json_script:"analytics-traffic-out" }}
+{{ entry_role_labels|json_script:"analytics-role-labels" }}
+{{ entry_role_values|json_script:"analytics-role-values" }}
+{{ chart_meta|json_script:"analytics-chart-meta" }}

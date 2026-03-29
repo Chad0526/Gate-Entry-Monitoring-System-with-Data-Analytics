@@ -32,15 +32,21 @@ GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY = 'gate_staff_scanner_heartbeat_v2'
 
 
 def _can_use_gate_tools(user):
-    """Staff/faculty/supervisor/admin may use gate APIs (no separate Guard role)."""
+    """Staff/faculty/admin may use gate APIs (no separate Guard role)."""
     role = get_user_role(user)
-    return role in ('admin', 'staff', 'faculty', 'supervisor')
+    return role in ('admin', 'staff', 'faculty')
 
 
-def _is_supervisor_or_admin(user):
-    """Check if user is supervisor, staff, or admin."""
+def _can_post_scanner_heartbeat(user):
+    """Dashboard + /gate/ scanner session ping; includes Student Affairs (same as main dashboard access)."""
     role = get_user_role(user)
-    return role in ('admin', 'supervisor', 'staff')
+    return role in ('admin', 'staff', 'faculty', 'student affairs')
+
+
+def _can_send_gate_broadcast(user):
+    """Admin or staff may send in-app notifications to gate staff/faculty."""
+    role = get_user_role(user)
+    return role in ('admin', 'staff')
 
 
 @login_required
@@ -210,7 +216,7 @@ def scanner_heartbeat_view(request):
     without the camera running.
     """
     ttl = getattr(settings, 'GATE_SCANNER_HEARTBEAT_TTL', 90)
-    if not request.user.is_authenticated or not _can_use_gate_tools(request.user):
+    if not request.user.is_authenticated or not _can_post_scanner_heartbeat(request.user):
         return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
     camera_running = None
@@ -295,8 +301,8 @@ def admin_send_gate_notification_view(request):
     """
     from django.contrib.auth.models import User
 
-    if not _is_supervisor_or_admin(request.user):
-        messages.error(request, "Access denied. Admin or supervisor role required.")
+    if not _can_send_gate_broadcast(request.user):
+        messages.error(request, "Access denied. Admin or staff role required.")
         return redirect('dashboard')
 
     if request.method == 'POST':
@@ -372,7 +378,7 @@ def admin_send_gate_notification_view(request):
 
 
 def _guard_incident_request_authorized(request):
-    """Valid GATE_GUARD_DISPLAY_TOKEN or logged-in staff/faculty/supervisor/admin (gate tools)."""
+    """Valid GATE_GUARD_DISPLAY_TOKEN or logged-in staff/faculty/admin (gate tools)."""
     token = (request.POST.get('guard_token') or request.headers.get('X-Gate-Guard-Token') or '').strip()
     expected = getattr(settings, 'GATE_GUARD_DISPLAY_TOKEN', '') or ''
     if expected and token == expected:

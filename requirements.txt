@@ -1,9 +1,11 @@
 # Production Dependencies
 Django>=3.0,<4.0
-django-crispy-forms>=1.9.2
+# Pin 1.14.x: Crispy 2+ moved Bootstrap 4 templates out of core; 1.14 still bundles bootstrap4/ (needed for create/edit event, etc.).
+django-crispy-forms==1.14.0
 django-mapbox-location-field>=1.4.0
 django-ckeditor>=5.9.0
 django-betterforms>=1.2
+six>=1.16.0  # django-betterforms 1.2 still imports django.utils.six (removed in Django 3+); we alias to this
 
 # Production database drivers
 psycopg2-binary>=2.8.5  # PostgreSQL
@@ -14,6 +16,9 @@ gunicorn>=20.0.4
 
 # Environment variables
 python-dotenv>=0.19.0
+
+# CAPTCHA (password reset & other forms). Use 0.5.x with Django 3; upgrade to 0.6+ when on Django 4.2+.
+django-simple-captcha>=0.5.20,<0.6.0
 
 # i18n: compile .po to .mo without gettext (Windows)
 polib>=1.2.0

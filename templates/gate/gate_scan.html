@@ -1349,24 +1349,6 @@ h1{ font-size:20px; font-weight:700; letter-spacing:.02em; }
   font-weight:800; color:#1e7e34;
   font-variant-numeric:tabular-nums;
 }
-.ssb-mode-toggle{
-  display:inline-flex; align-items:center; gap:0;
-  border-radius:8px; overflow:hidden;
-  border:1px solid rgba(40,167,69,0.25);
-  cursor:pointer; user-select:none;
-}
-.ssb-mode-toggle .smt-option{
-  padding:5px 14px; font-size:12px; font-weight:700;
-  letter-spacing:.04em; text-transform:uppercase;
-  transition:all .2s ease; cursor:pointer;
-  border:none; background:#fff; color:#6c757d;
-}
-.ssb-mode-toggle .smt-option.active-in{
-  background:#28a745; color:#fff;
-}
-.ssb-mode-toggle .smt-option.active-out{
-  background:#dc3545; color:#fff;
-}
 /* Guard: scanner frame wrapper — matches #reader width */
 .guard-embed-mode .guard-scanner-frame-wrap{
   flex:0 0 auto;
@@ -1945,6 +1927,15 @@ body.guard-embed-mode{
   transition:all .15s ease;
 }
 #gateSwitchCameraBtn:hover{ border-color:#28a745; color:#1e7e34; background:#f0faf3; }
+/* Guard wall (/gate/guard-display/): camera switch only (no Start — staff session drives preview) */
+.camera-control-row--guard-wall{
+  margin-top:10px;
+  margin-bottom:4px;
+}
+.guard-wall-mode .camera-control-row--guard-wall .camera-controls{
+  flex-wrap:wrap;
+  justify-content:flex-start;
+}
 
 /* ── 6. Better Manual Entry ── */
 .manual-input{
@@ -1968,7 +1959,47 @@ body.guard-embed-mode{
 }
 .manual-input .input-group select{
   background:#f6faf7; border:1px solid #d0ddd5;
-  border-radius:8px; font-size:14px;
+  border-radius:10px; font-size:13px;
+  min-height:42px;
+  line-height:1.2;
+  padding:10px 34px 10px 12px;
+  font-weight:600;
+  color:#1f2937;
+  appearance:none;
+  -webkit-appearance:none;
+  -moz-appearance:none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #6b7280 50%),
+    linear-gradient(135deg, #6b7280 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) calc(50% - 3px),
+    calc(100% - 11px) calc(50% - 3px);
+  background-size:5px 5px, 5px 5px;
+  background-repeat:no-repeat;
+  transition:border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+.manual-input .input-group select#manualReason:hover{
+  border-color:#22a255;
+  background-color:#ffffff;
+}
+.manual-input .input-group select#manualReason:focus{
+  border-color:#28a745;
+  box-shadow:0 0 0 3px rgba(40,167,69,0.12);
+  background-color:#ffffff;
+  outline:none;
+}
+/* Placeholder look when no reason selected (check-out uses empty value) */
+.manual-input .input-group select#manualReason.is-placeholder{
+  color:#9aa9b8;
+  font-style:normal;
+  font-weight:500;
+}
+.manual-input .input-group select#manualReason option{
+  color:#1e293b;
+  font-style:normal;
+}
+.manual-input .input-group select#manualReason option[value=""]{
+  color:#6b7280;
 }
 .manual-input .input-group button{
   background: linear-gradient(135deg, #28a745, #1e7e34);
@@ -2011,7 +2042,6 @@ body.guard-embed-mode{
 @media (max-width:768px){
   .scan-stats-bar{ padding:8px 14px; gap:8px; }
   .scan-stats-bar .ssb-item{ padding:4px 8px; font-size:12px; }
-  .ssb-mode-toggle .smt-option{ padding:4px 10px; font-size:11px; }
 }
 @media (max-width:480px){
   .scan-stats-bar{ flex-direction:column; align-items:stretch; }
@@ -2351,23 +2381,18 @@ body.guard-wall-mode .camera-control-row{
                         <li>Point the camera at the student's QR code</li>
                         <li>Wait for the beep and scan result</li>
                         <li>Check the notification for scan status</li>
-                        <li>Use the IN/OUT toggle to switch scan modes</li>
+                        <li>Check-in and check-out are chosen automatically from the student’s last scan (daily gate and events)</li>
                     </ol>
                 </div>
 
-                <!-- Scan Modes -->
+                <!-- Scan direction -->
                 <div style="margin-bottom: 24px;">
                     <h6 style="color: #17a2b8; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-exchange-alt"></i> Scan Modes
+                        <i class="fas fa-exchange-alt"></i> Check-in / check-out
                     </h6>
-                    <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #28a745; margin-bottom: 8px;">
-                        <strong style="color: #28a745;"><i class="fas fa-sign-in-alt"></i> IN Mode (Green)</strong><br>
-                        <small style="color: #6c757d;">Records student entry to campus or event</small>
-                    </div>
-                    <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #dc3545;">
-                        <strong style="color: #dc3545;"><i class="fas fa-sign-out-alt"></i> OUT Mode (Red)</strong><br>
-                        <small style="color: #6c757d;">Records student exit from campus or event</small>
-                    </div>
+                    <p style="margin: 0; line-height: 1.7; color: #495057;">
+                        The system records <strong>entry</strong> or <strong>exit</strong> automatically from whether the student is already checked in for the day or event. Use <strong>manual entry</strong> when you need to force check-in (with a reason) or check-out without a scan.
+                    </p>
                 </div>
 
                 <!-- Offline Mode -->
@@ -2417,7 +2442,6 @@ body.guard-wall-mode .camera-control-row{
                         <small style="color: #6c757d;">
                             • Student already scanned (same mode)<br>
                             • Wait 3 seconds before re-scanning<br>
-                            • Toggle IN/OUT if needed<br>
                             • Check recent entries list
                         </small>
                     </div>
@@ -2429,14 +2453,6 @@ body.guard-wall-mode .camera-control-row{
                         <i class="fas fa-keyboard"></i> Keyboard Shortcuts
                     </h6>
                     <table style="width: 100%; border-collapse: collapse;">
-                        <tr style="border-bottom: 1px solid #dee2e6;">
-                            <td style="padding: 8px; font-weight: 600; color: #495057;">Ctrl + I</td>
-                            <td style="padding: 8px; color: #6c757d;">Switch to IN mode</td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid #dee2e6;">
-                            <td style="padding: 8px; font-weight: 600; color: #495057;">Ctrl + O</td>
-                            <td style="padding: 8px; color: #6c757d;">Switch to OUT mode</td>
-                        </tr>
                         <tr style="border-bottom: 1px solid #dee2e6;">
                             <td style="padding: 8px; font-weight: 600; color: #495057;">Ctrl + M</td>
                             <td style="padding: 8px; color: #6c757d;">Focus manual entry field</td>
@@ -2465,7 +2481,7 @@ body.guard-wall-mode .camera-control-row{
             </div>
             <div class="visitor-modal-footer" style="padding: 12px 16px; background: #f8f9fa; border-top: 1px solid #dee2e6; text-align: center;">
                 <small style="color: #6c757d;">
-                    <i class="fas fa-info-circle"></i> Need more help? Contact your supervisor or IT support.
+                    <i class="fas fa-info-circle"></i> Need more help? Contact your administrator or IT support.
                 </small>
             </div>
         </div>
@@ -2509,7 +2525,7 @@ body.guard-wall-mode .camera-control-row{
                         <div class="header-user-dropdown-menu" id="headerUserDropdownMenu" role="menu">
                             <a href="{% url 'dashboard' %}" role="menuitem"><i class="fas fa-th-large"></i> {% trans "Dashboard" %}</a>
                             <a href="{% url 'profile-edit' %}" role="menuitem"><i class="fas fa-user-edit"></i> {% trans "My profile" %}</a>
-                            {% if user_role == 'staff' or user_role == 'faculty' or user_role == 'supervisor' %}
+                            {% if user_role == 'staff' or user_role == 'faculty' %}
                             <a href="{% url 'account-settings' %}" role="menuitem"><i class="fas fa-cog"></i> {% trans "Account" %}</a>
                             <a href="{% url 'preferences' %}" role="menuitem"><i class="fas fa-sliders-h"></i> {% trans "Preferences" %}</a>
                             {% endif %}
@@ -2536,14 +2552,6 @@ body.guard-wall-mode .camera-control-row{
                     <i class="fas fa-clock"></i> <span class="ssb-clock" id="scanBarClock"></span>
                 </div>
             </div>
-            {% if not guard_wall %}
-            <div class="ssb-group">
-                <div class="ssb-mode-toggle" title="Click to toggle scan mode">
-                    <button type="button" class="smt-option active-in" id="smtIn" onclick="if(typeof toggleScanMode==='function'){if(document.getElementById('smtOut').classList.contains('active-out')){toggleScanMode();}};updateModeToggleUI();">IN</button>
-                    <button type="button" class="smt-option" id="smtOut" onclick="if(typeof toggleScanMode==='function'){if(document.getElementById('smtIn').classList.contains('active-in')){toggleScanMode();}};updateModeToggleUI();">OUT</button>
-                </div>
-            </div>
-            {% endif %}
         </div>
         {% endif %}
 
@@ -2564,12 +2572,8 @@ body.guard-wall-mode .camera-control-row{
                 <i class="fas fa-flag"></i>
                 <span id="currentEventName"></span>
             </div>
-            <button type="button" id="eventAttendeesBtn" class="event-attendees-btn" style="display:none;" title="View event attendees">
+            <button type="button" id="eventAttendeesBtn" class="event-attendees-btn" style="display:none; margin-left:auto;" title="View event attendees">
                 <i class="fas fa-users"></i> Event attendees
-            </button>
-            <button id="scanModeBtn" class="btn btn-success" onclick="toggleScanMode()" style="margin-left:auto; font-weight:600;">
-                <i class="fas fa-sign-in-alt"></i>
-                <span id="scanModeLabel">IN</span>
             </button>
         </div>
         {% endif %}
@@ -2589,16 +2593,31 @@ body.guard-wall-mode .camera-control-row{
                     <div class="guard-scanner-instruction" aria-live="polite">
                         <p class="guard-scanner-instruction__text">{% trans "Ensure the QR code is clearly visible within the scanner frame" %}</p>
                     </div>
+                    {% if guard_wall %}
+                    <div class="camera-control-row camera-control-row--guard-wall">
+                        <div class="camera-controls">
+                            <select id="gateCameraPreference" class="camera-select" title="{% trans 'Camera: default or last-used; Back/Front forces a lens' %}">
+                                <option value="auto" selected>{% trans "Default / auto (recommended)" %}</option>
+                                <option value="back">{% trans "Back camera (environment)" %}</option>
+                                <option value="front">{% trans "Front camera (selfie)" %}</option>
+                            </select>
+                            <button type="button" id="gateSwitchCameraBtn" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-sync-alt"></i> {% trans "Switch camera" %}
+                            </button>
+                        </div>
+                        <p class="small text-muted mb-0 mt-1">{% trans "Use Switch if the wrong camera shows or you plug in another webcam. Staff Start/Stop for the gate session is only on the logged-in gate scanner page, not on this display." %}</p>
+                    </div>
+                    {% endif %}
                     {% else %}
                     <div id="reader"></div>
                     {% endif %}
                     {% if not guard_wall %}
                     <div class="camera-control-row">
                         <div class="camera-controls">
-                            <select id="gateCameraPreference" class="camera-select" title="Choose camera">
-                                <option value="back" selected>Back camera (recommended)</option>
-                                <option value="front">Front camera</option>
-                                <option value="auto">Auto camera</option>
+                            <select id="gateCameraPreference" class="camera-select" title="{% trans 'Camera: uses the current or last-used camera; pick Back/Front to force a lens' %}">
+                                <option value="auto" selected>{% trans "Default / auto (recommended)" %}</option>
+                                <option value="back">{% trans "Back camera (environment)" %}</option>
+                                <option value="front">{% trans "Front camera (selfie)" %}</option>
                             </select>
                             {% if not guard_embed %}
                             <button type="button" id="gateStartCameraBtn" class="btn btn-primary btn-sm">
@@ -2613,6 +2632,7 @@ body.guard-wall-mode .camera-control-row{
                             </button>
                         </div>
                         <div id="gateCameraHelp" class="camera-help-note"></div>
+                        <p class="small text-muted mb-0 mt-1">{% trans "Default / auto uses this device’s current camera (last used or system default). Use Switch to pick another camera if needed." %}</p>
                     </div>
                     {% if not guard_embed %}
                     <p class="scanner-text">{% trans "Position the QR code within the frame" %}</p>
@@ -2627,19 +2647,14 @@ body.guard-wall-mode .camera-control-row{
                 <div class="manual-input">
                     <h3><i class="fas fa-keyboard"></i> Manual Entry (Student)</h3>
                     <p id="manualEntryEventHint" class="small text-muted mb-2" style="display:none;"></p>
-                    <p class="small text-muted mb-2">{% trans "Check out: enter name or student ID only, leave reason blank, then Enter or Submit—no reason required. Check in: pick a reason, then Enter or Submit." %}</p>
+                    <p class="small text-muted mb-2">{% trans "Check out: enter name or student ID only, leave office routing blank, then Enter or Submit. Check in with concern: choose office routing (ID concern -> Student Affairs), then Enter or Submit." %}</p>
                     <div class="input-group">
                         <input type="text" id="manualInput" placeholder="{% trans 'Name or student ID' %}" autocomplete="off">
                         <span id="manualStatusWrap">
-                        <select id="manualReason" title="{% trans 'Reason when checking in without scanning ID' %}">
-                            <option value="">{% trans "— No reason (check-out) or pick for check-in —" %}</option>
-                            <option value="{% trans 'ID missing or not with student' %}">{% trans 'ID missing or not with student' %}</option>
-                            <option value="{% trans 'ID damaged or unreadable' %}">{% trans 'ID damaged or unreadable' %}</option>
-                            <option value="{% trans 'ID lost or stolen (reported)' %}">{% trans 'ID lost or stolen (reported)' %}</option>
-                            <option value="{% trans 'QR code not scanning' %}">{% trans 'QR code not scanning' %}</option>
-                            <option value="{% trans 'Phone dead / no digital ID' %}">{% trans 'Phone dead / no digital ID' %}</option>
-                            <option value="{% trans 'Late; rushing to class' %}">{% trans 'Late; rushing to class' %}</option>
-                            <option value="{% trans 'Other (verified at gate)' %}">{% trans 'Other (verified at gate)' %}</option>
+                        <select id="manualReason" class="is-placeholder" title="{% trans 'Office routing for manual concern handling' %}">
+                            <option value="">{% trans "Office routing (optional for check-out)" %}</option>
+                            <option value="SAS_ID_CONCERN">{% trans "Student Affairs (SAS) - ID concern" %}</option>
+                            <option value="GATE_RESOLVED_OFFICE_ENDORSEMENT">{% trans "Resolved at gate / Endorse to proper office" %}</option>
                         </select>
                         </span>
                         <button type="button" id="manualSubmit"><i class="fas fa-paper-plane"></i> {% trans "Submit" %}</button>
@@ -2735,18 +2750,7 @@ function guardTokenPayload() {
     setTimeout(scanBarClock, 1000);
   })();
 
-  window.updateModeToggleUI = function() {
-    setTimeout(function() {
-      var mode = localStorage.getItem('event_scan_mode') || 'IN';
-      var btnIn = document.getElementById('smtIn');
-      var btnOut = document.getElementById('smtOut');
-      if (btnIn && btnOut) {
-        btnIn.className = 'smt-option' + (mode === 'IN' ? ' active-in' : '');
-        btnOut.className = 'smt-option' + (mode === 'OUT' ? ' active-out' : '');
-      }
-    }, 50);
-  };
-  window.updateModeToggleUI();
+  window.updateModeToggleUI = function() { /* IN/OUT toggle removed; kept for callers */ };
 
   // -------------------------
   // Device ID Management (stable UUID for tracking)
@@ -2831,43 +2835,6 @@ function guardTokenPayload() {
   }
 
   // -------------------------
-  // Scan mode toggle (IN/OUT)
-  // -------------------------
-  var currentScanMode = localStorage.getItem('event_scan_mode') || 'IN';
-  
-  function setScanMode(mode) {
-    currentScanMode = (mode === 'OUT') ? 'OUT' : 'IN';
-    localStorage.setItem('event_scan_mode', currentScanMode);
-    
-    // Reset scan cooldown when mode changes (allow immediate scan after toggle)
-    lastScannedCode = null;
-    lastScannedTime = 0;
-    
-    var label = document.getElementById('scanModeLabel');
-    var btn = document.getElementById('scanModeBtn');
-    if (label) label.textContent = currentScanMode;
-    if (btn) {
-      btn.className = currentScanMode === 'IN' ? 'btn btn-success' : 'btn btn-danger';
-      var icon = btn.querySelector('i');
-      if (icon) {
-        icon.className = currentScanMode === 'IN' ? 'fas fa-sign-in-alt' : 'fas fa-sign-out-alt';
-      }
-    }
-    if (typeof window.updateModeToggleUI === 'function') window.updateModeToggleUI();
-  }
-  
-  window.toggleScanMode = function() {
-    setScanMode(currentScanMode === 'IN' ? 'OUT' : 'IN');
-  };
-  
-  // Initialize scan mode button
-  setScanMode(currentScanMode);
-  /* Guard embed / wall: no IN/OUT control on display; backend applies auto IN/OUT */
-  if (window.GATE_GUARD_EMBED || window.GATE_GUARD_WALL) {
-    setScanMode('IN');
-  }
-
-  // -------------------------
   // Keyboard Shortcuts
   // -------------------------
   document.addEventListener('keydown', function(e) {
@@ -2875,22 +2842,6 @@ function guardTokenPayload() {
     var target = e.target;
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
       return;
-    }
-    
-    // Ctrl + I / O: scan mode (staff scanner only — guard embed/wall have no IN/OUT toggle)
-    if (window.GATE_GUARD_EMBED || window.GATE_GUARD_WALL) {
-      /* skip mode shortcuts */
-    } else {
-    if (e.ctrlKey && e.key === 'i') {
-      e.preventDefault();
-      setScanMode('IN');
-      showNotification('Switched to IN mode', 'info');
-    }
-    if (e.ctrlKey && e.key === 'o') {
-      e.preventDefault();
-      setScanMode('OUT');
-      showNotification('Switched to OUT mode', 'info');
-    }
     }
     
     // Ctrl + M: Focus manual entry field
@@ -2930,7 +2881,6 @@ function guardTokenPayload() {
   var eventSelector = document.getElementById('eventSelector');
   var eventBadge = document.getElementById('currentEventBadge');
   var eventBadgeName = document.getElementById('currentEventName');
-  var scanModeBtn = document.getElementById('scanModeBtn');
   
   var eventAttendeesBtn = document.getElementById('eventAttendeesBtn');
   var eventAttendeesPopupOverlay = document.getElementById('eventAttendeesPopupOverlay');
@@ -2946,7 +2896,6 @@ function guardTokenPayload() {
     if (selectedEventId) {
       eventBadge.style.display = 'inline-flex';
       eventBadgeName.textContent = selectedEventName.split('(')[0].trim();
-      if (scanModeBtn) scanModeBtn.style.display = 'inline-flex';
       if (eventAttendeesBtn) eventAttendeesBtn.style.display = 'inline-flex';
       if (manualEntryEventHint) {
         manualEntryEventHint.textContent = 'Records to event: ' + selectedEventName.split('(')[0].trim();
@@ -2955,7 +2904,6 @@ function guardTokenPayload() {
     } else {
       eventBadge.style.display = 'none';
       eventBadgeName.textContent = '';
-      if (scanModeBtn) scanModeBtn.style.display = 'none';
       if (eventAttendeesBtn) eventAttendeesBtn.style.display = 'none';
       if (eventAttendeesPopupOverlay) eventAttendeesPopupOverlay.classList.remove('show');
       if (eventAttendeesIframe) eventAttendeesIframe.src = 'about:blank';
@@ -3057,10 +3005,40 @@ function guardTokenPayload() {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
+  function offlineEventLastKey(eventId, qr) {
+    return 'ev_offline_last:' + String(eventId) + ':' + String(qr);
+  }
+  function getNextOfflineEventScanType(eventId, qr) {
+    var last = (localStorage.getItem(offlineEventLastKey(eventId, qr)) || '').toUpperCase();
+    if (last === 'IN') return 'OUT';
+    if (last === 'OUT') return 'OUT';
+    return 'IN';
+  }
+  function offlineDailyLastKey(qr) {
+    return 'dg_offline_last:' + getTodayDateString() + ':' + String(qr);
+  }
+  function getNextOfflineDailyGateScanType(qr) {
+    var today = getTodayDateString();
+    var forStudent = _offlineQueueCache.filter(function(r) {
+      if (r.event_id) return false;
+      var sid = r.qr || r.student_id;
+      return sid === qr && getLocalDateString(r.client_ts) === today;
+    });
+    forStudent.sort(function(a, b) { return (b.client_ts || '').localeCompare(a.client_ts || ''); });
+    var latest = forStudent[0];
+    var st = latest ? (latest.status || latest.manual_status || 'IN').toUpperCase() : '';
+    if (!st) st = (localStorage.getItem(offlineDailyLastKey(qr)) || '').toUpperCase();
+    if (!st) return 'IN';
+    if (st === 'IN') return 'OUT';
+    return 'OUT';
+  }
+
   function isOfflineDuplicate(student_id) {
     var today = getTodayDateString();
     var forStudent = _offlineQueueCache.filter(function(r) {
-      return r.student_id === student_id && getLocalDateString(r.client_ts) === today;
+      if (r.event_id) return false;
+      var sid = r.qr || r.student_id;
+      return sid === student_id && getLocalDateString(r.client_ts) === today;
     });
     forStudent.sort(function(a, b) { return (b.client_ts || '').localeCompare(a.client_ts || ''); });
     var latest = forStudent[0];
@@ -3828,7 +3806,8 @@ function guardTokenPayload() {
       clearTimeout(_studentPopupAutoCloseTimer);
       _studentPopupAutoCloseTimer = null;
     }
-    /* Auto-dismiss after 5s when no staff action is required (note form, duplicate, denied, etc.) */
+    // Auto-dismiss after a few seconds for simple success scans only (checked in/out OK).
+    // Activation required, notes, denied, duplicate, etc. stay open until the user closes them.
     if (!response.already_scanned && !response.require_note && !response.denied && !response.not_registered && !response.inactive) {
       _studentPopupAutoCloseTimer = setTimeout(function() {
         _studentPopupAutoCloseTimer = null;
@@ -4510,7 +4489,8 @@ function guardTokenPayload() {
     }
     
     // Daily gate (no event_id) = college-style IN/OUT. With event_id = event attendance path.
-    showNotification('Processing student ID: ' + qr_or_student_id, 'info');
+    // Do not toast "Processing…" here — it lingers until the server responds and delays the *feel* of the
+    // final result. Status line already shows "Processing QR code..." in onScanSuccess.
 
     var postData = {
       student_id: qr_or_student_id,
@@ -4626,6 +4606,8 @@ function guardTokenPayload() {
         showNotification(response.message, response.color === 'warning' ? 'warning' : 'error', 'Error', response.time || currentTime);
       }
 
+      // Unlock scanner state immediately after the server responds.
+      // This prevents any perceived delay before "Activation Required" / inactive modal appears fully.
       setTimeout(function() {
         statusIndicator.classList.remove('scanning');
         statusIndicator.querySelector('span').textContent = 'Scanner ready';
@@ -4633,7 +4615,7 @@ function guardTokenPayload() {
           isProcessingScan = false;
           scanProcessingStartedAt = 0;
         }
-      }, response.require_note ? 0 : (response.already_scanned ? 800 : 2000));
+      }, 0);
       if (response.success) {
         refreshLiveEntriesPanel(true, 'entries');
       } else {
@@ -4686,9 +4668,43 @@ function guardTokenPayload() {
   }
   function getCameraPreference() {
     var sel = document.getElementById('gateCameraPreference');
-    var v = (sel && sel.value) ? String(sel.value).trim().toLowerCase() : 'back';
-    if (v !== 'front' && v !== 'back' && v !== 'auto') v = 'back';
+    var v = (sel && sel.value) ? String(sel.value).trim().toLowerCase() : 'auto';
+    if (v !== 'front' && v !== 'back' && v !== 'auto') v = 'auto';
     return v;
+  }
+  /** Prefer last successful camera, then browser default (getUserMedia without deviceId). */
+  function pickPreferredDeviceIdForAuto(cameras, cb) {
+    var ids = (cameras || []).map(function(c) { return c.id; });
+    if (activeCameraId && ids.indexOf(activeCameraId) >= 0) {
+      cb();
+      return;
+    }
+    var last = null;
+    try { last = localStorage.getItem('gate_scan_last_camera_id'); } catch (e) {}
+    if (last && ids.indexOf(last) >= 0) {
+      activeCameraId = last;
+      cb();
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      activeCameraId = null;
+      cb();
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) {
+      var t = stream.getVideoTracks()[0];
+      var did = (t && t.getSettings && t.getSettings().deviceId) ? t.getSettings().deviceId : null;
+      try { stream.getTracks().forEach(function(x) { x.stop(); }); } catch (e) {}
+      if (did && ids.indexOf(did) >= 0) {
+        activeCameraId = did;
+      } else {
+        activeCameraId = null;
+      }
+      cb();
+    }).catch(function() {
+      activeCameraId = null;
+      cb();
+    });
   }
   function setCameraPreference(v) {
     try { localStorage.setItem('gate_scan_camera_pref', v); } catch (e) {}
@@ -4944,39 +4960,51 @@ function guardTokenPayload() {
         if (typeof done === 'function') done(false);
         return;
       }
-      var candidates = getCameraCandidates(pref, availableCameras);
-      var idx = 0;
-      function tryNext() {
-        if (idx >= candidates.length) {
-          scannerStarting = false;
-          updateExternalCameraButtonState();
-          showNotification('Could not start the selected camera. Try another browser (Chrome/Safari).', 'warning');
-          if (typeof done === 'function') done(false);
-          return;
-        }
-        var candidate = candidates[idx++];
-        var launch = function() {
-          if (!html5QrcodeInstance) html5QrcodeInstance = new Html5Qrcode('reader');
-          html5QrcodeInstance.start(
-            candidate,
-            { fps: 10, qrbox: qrBoxByViewport, disableFlip: false },
-            onScanSuccess,
-            function() {}
-          ).then(function() {
-            scannerRunning = true;
+      function runCandidates(candidates) {
+        var idx = 0;
+        function tryNext() {
+          if (idx >= candidates.length) {
             scannerStarting = false;
-            activeCameraId = (typeof candidate === 'string') ? candidate : null;
-            setStaffScannerHeartbeatActive(true);
-            scheduleFitScanRegionToReader();
             updateExternalCameraButtonState();
-            if (typeof done === 'function') done(true);
-          }).catch(function() {
-            tryNext();
-          });
-        };
-        stopScanner(launch);
+            showNotification('Could not start the selected camera. Try another browser (Chrome/Safari).', 'warning');
+            if (typeof done === 'function') done(false);
+            return;
+          }
+          var candidate = candidates[idx++];
+          var launch = function() {
+            if (!html5QrcodeInstance) html5QrcodeInstance = new Html5Qrcode('reader');
+            html5QrcodeInstance.start(
+              candidate,
+              { fps: 10, qrbox: qrBoxByViewport, disableFlip: false },
+              onScanSuccess,
+              function() {}
+            ).then(function() {
+              scannerRunning = true;
+              scannerStarting = false;
+              activeCameraId = (typeof candidate === 'string') ? candidate : null;
+              try {
+                if (activeCameraId) localStorage.setItem('gate_scan_last_camera_id', activeCameraId);
+              } catch (e) {}
+              setStaffScannerHeartbeatActive(true);
+              scheduleFitScanRegionToReader();
+              updateExternalCameraButtonState();
+              if (typeof done === 'function') done(true);
+            }).catch(function() {
+              tryNext();
+            });
+          };
+          stopScanner(launch);
+        }
+        tryNext();
       }
-      tryNext();
+      if (pref === 'auto') {
+        pickPreferredDeviceIdForAuto(availableCameras, function() {
+          runCandidates(getCameraCandidates(pref, availableCameras));
+        });
+      } else {
+        activeCameraId = null;
+        runCandidates(getCameraCandidates(pref, availableCameras));
+      }
     });
   }
   function showScannerLoadError(readerEl) {
@@ -5070,6 +5098,7 @@ function guardTokenPayload() {
         var nextIdx = (currentIdx + 1) % cams.length;
         var nextCam = cams[nextIdx];
         activeCameraId = nextCam.id;
+        try { localStorage.setItem('gate_scan_last_camera_id', nextCam.id); } catch (e) {}
         var prefSel = document.getElementById('gateCameraPreference');
         if (prefSel) {
           prefSel.value = inferPreferenceFromCameraLabel(nextCam.label || '');
@@ -5098,6 +5127,11 @@ function guardTokenPayload() {
     if (!readerEl) return;
     function afterLibraryReady() {
       updateExternalCameraButtonState();
+      if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+        navigator.mediaDevices.addEventListener('devicechange', function() {
+          listCameras(function(cams) { availableCameras = cams || []; });
+        });
+      }
       if (window.GATE_GUARD_EMBED || window.GATE_GUARD_WALL) {
         guardEmbedStaffScannerPoll();
       }
@@ -5142,6 +5176,8 @@ function guardTokenPayload() {
       var savedPref = localStorage.getItem('gate_scan_camera_pref');
       if (savedPref && (savedPref === 'front' || savedPref === 'back' || savedPref === 'auto')) {
         cameraPrefSelect.value = savedPref;
+      } else if (!savedPref) {
+        cameraPrefSelect.value = 'auto';
       }
     } catch (e) {}
     cameraPrefSelect.addEventListener('change', function() {
@@ -5178,6 +5214,16 @@ function guardTokenPayload() {
     var manualReasonEl = document.getElementById('manualReason');
     if (!manualSubmitEl || !manualInputEl || !manualReasonEl) return;
 
+    function manualReasonPlaceholderSync() {
+      if ((manualReasonEl.value || '').trim() === '') {
+        manualReasonEl.classList.add('is-placeholder');
+      } else {
+        manualReasonEl.classList.remove('is-placeholder');
+      }
+    }
+    manualReasonEl.addEventListener('change', manualReasonPlaceholderSync);
+    manualReasonPlaceholderSync();
+
     function manualEntryLocalDateTime() {
       var d = new Date();
       var y = d.getFullYear();
@@ -5188,7 +5234,7 @@ function guardTokenPayload() {
       return y + '-' + mo + '-' + day + 'T' + h + ':' + mi + ':00';
     }
 
-    function doManualSubmit(studentInput, gateKind, reasonText, skipConfirm) {
+    function doManualSubmit(studentInput, gateKind, reasonText, reasonLabelText, skipConfirm) {
       if (isProcessingScan) {
         showNotification('Please wait while the current scan is being processed', 'warning');
         return;
@@ -5231,6 +5277,7 @@ function guardTokenPayload() {
             isProcessingScan = false;
             manualInputEl.value = '';
             manualReasonEl.value = '';
+            manualReasonPlaceholderSync();
           });
           return;
         }
@@ -5306,6 +5353,7 @@ function guardTokenPayload() {
         showStudentPopup(response);
         manualInputEl.value = '';
         manualReasonEl.value = '';
+        manualReasonPlaceholderSync();
         if (response.status === 'IN') {
           /* Same toast pattern as visitor check-in success (upper-right .notification.success) */
           showNotification(
@@ -5356,11 +5404,12 @@ function guardTokenPayload() {
         showNotification(response.message, response.color === 'warning' ? 'warning' : 'error', 'Error', response.time || currentTime);
       }
 
+      // Unlock scanner state immediately after the server responds.
       setTimeout(function() {
         statusIndicator.classList.remove('scanning');
         statusIndicator.querySelector('span').textContent = 'Scanner ready';
         if (!response.require_note) isProcessingScan = false;
-      }, response.require_note ? 0 : (response.already_scanned ? 800 : 2000));
+      }, 0);
       if (response.success && typeof refreshEventAttendeesIframe === 'function') refreshEventAttendeesIframe();
       if (response.success) {
         refreshLiveEntriesPanel(true, 'entries');
@@ -5381,7 +5430,7 @@ function guardTokenPayload() {
       if (skipConfirm) {
         runPost();
       } else {
-        var reasonLabel = gateKind === 'in' ? (reasonText || 'check-in') : 'check-out (no ID scan)';
+        var reasonLabel = gateKind === 'in' ? (reasonLabelText || reasonText || 'check-in') : 'check-out (no ID scan)';
         themeConfirm(
           'Submit manual entry for "' + studentInput + '" as ' + reasonLabel + '?',
           function() { runPost(); }
@@ -5397,10 +5446,11 @@ function guardTokenPayload() {
         showNotification('Enter a registered name or student ID.', 'warning');
         return;
       }
+      var reasonLabel = reason ? ((manualReasonEl.options[manualReasonEl.selectedIndex] || {}).text || reason) : '';
       if (reason) {
-        doManualSubmit(raw, 'in', reason, false);
+        doManualSubmit(raw, 'in', reason, reasonLabel, false);
       } else {
-        doManualSubmit(raw, 'out', '', true);
+        doManualSubmit(raw, 'out', '', '', true);
       }
     });
 
@@ -5413,10 +5463,11 @@ function guardTokenPayload() {
         showNotification('Enter a registered name or student ID.', 'warning');
         return;
       }
+      var reasonLabel = reason ? ((manualReasonEl.options[manualReasonEl.selectedIndex] || {}).text || reason) : '';
       if (reason) {
-        doManualSubmit(raw, 'in', reason, false);
+        doManualSubmit(raw, 'in', reason, reasonLabel, false);
       } else {
-        doManualSubmit(raw, 'out', '', true);
+        doManualSubmit(raw, 'out', '', '', true);
       }
     });
   })();

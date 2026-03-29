@@ -1646,7 +1646,7 @@
             {% if reg_form.last_name.errors %}<div class="error-message">{{ reg_form.last_name.errors.0 }}</div>{% endif %}
           </div>
           <div class="form-group">
-            <label for="id_middle_name">{% trans 'Middle name' %}</label>
+            <label for="id_middle_name">{% trans 'Middle Initial' %}</label>
             {{ reg_form.middle_name }}
             {% if reg_form.middle_name.errors %}<div class="error-message">{{ reg_form.middle_name.errors.0 }}</div>{% endif %}
           </div>
@@ -1686,7 +1686,7 @@
             {% if reg_form.email.errors %}<div class="error-message">{{ reg_form.email.errors.0 }}</div>{% endif %}
           </div>
           <div class="form-group">
-            <label for="id_course">{% trans 'Course / Program' %} *</label>
+            <label for="id_course">{% trans 'Program' %} *</label>
             {{ reg_form.course }}
             {% if reg_form.course.errors %}<div class="error-message">{{ reg_form.course.errors.0 }}</div>{% endif %}
           </div>
@@ -1709,7 +1709,7 @@
             {% if reg_form.contact_number.errors %}<div class="error-message">{{ reg_form.contact_number.errors.0 }}</div>{% endif %}
           </div>
           <div class="form-group">
-            <label for="id_guardian_contact">{% trans 'Guardian contact number' %} *</label>
+            <label for="id_guardian_contact">{% trans 'Contact number' %} *</label>
             {{ reg_form.guardian_contact }}
             {% if reg_form.guardian_contact.errors %}<div class="error-message">{{ reg_form.guardian_contact.errors.0 }}</div>{% endif %}
           </div>
@@ -1793,9 +1793,9 @@
     </form>
       </div>
 
-      <!-- Staff / Faculty registration: account details only. Other details required after approval on first login. -->
+      <!-- Staff / Faculty / Student Affairs registration: account details only. Staff & faculty complete profile after approval on first login. -->
       <div id="reg-staff-guard-wrap" class="reg-form-wrap" data-reg-type="staff_personnel" style="display: none;">
-        <h2 class="reg-subtitle">{% trans 'Staff / Faculty / Personnel registration' %}</h2>
+       
         <p class="reg-subtitle-desc">{% trans 'Account details only. After approval you will sign in and complete your profile to access the dashboard.' %}</p>
         <form method="post" action="{% url 'register' %}" id="register-staff-guard-form">
           {% csrf_token %}
@@ -1830,7 +1830,7 @@
               {% if staff_personnel_form.first_name.errors %}<div class="error-message">{{ staff_personnel_form.first_name.errors.0 }}</div>{% endif %}
             </div>
             <div class="form-group">
-              <label for="{{ staff_personnel_form.middle_name.id_for_label }}">{% trans 'Middle name' %}</label>
+              <label for="{{ staff_personnel_form.middle_name.id_for_label }}">{% trans 'Middle Initial' %}</label>
               {{ staff_personnel_form.middle_name }}
               {% if staff_personnel_form.middle_name.errors %}<div class="error-message">{{ staff_personnel_form.middle_name.errors.0 }}</div>{% endif %}
             </div>
@@ -1926,7 +1926,7 @@
     var toggleLabel = document.getElementById('reg-type-toggle-label');
     var registrationTypeInput = document.getElementById('registration_type');
     var labelStudent = '{% trans "Student" %}';
-    var labelStaffGuard = '{% trans "Staff / Faculty / Personnel" %}';
+    var labelStaffGuard = '{% trans "Staff / Faculty / Student Affairs" %}';
 
     function showStudent() {
       if (studentWrap) studentWrap.style.display = '';

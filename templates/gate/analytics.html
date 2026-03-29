@@ -1,763 +1,394 @@
 {% extends 'base/base.html' %}
 {% load static %}
 {% block title %}Analytics - {{ site_name }}{% endblock title %}
-{% block breadcrumb %}Analytics{% endblock breadcrumb %}
+{% block page_heading %}Analytics{% endblock page_heading %}
 {% block extrahead %}
 <link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
 {% endblock extrahead %}
 
 {% block content %}
-<style>
-  .analytics-hero {
-    position: relative;
-    overflow: hidden;
-    background-image:
-      linear-gradient(135deg, rgba(22,163,74,0.82), rgba(21,128,61,0.75)),
-      url('/media/event_image/background.jpg'),
-      url('/media/background.jpg');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    color: #fff;
-    border-radius: 16px;
-    padding: 28px 24px;
-    min-height: 120px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    margin-bottom: 16px;
-    box-shadow: 0 8px 24px rgba(22,163,74,0.18);
-  }
-  .analytics-hero h2 {
-    margin: 0;
-    font-size: 1.55rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.25);
-  }
-  .analytics-hero p {
-    margin: 4px 0 0;
-    font-size: 0.9rem;
-    color: #d1fae5; font-weight: 600; text-shadow: 0 1px 6px rgba(0,0,0,0.3);
-  }
-  .metrics-grid .metric-card {
-    background: #fff;
-    border: 1px solid var(--monitor-border, #e2e8f0);
-    border-radius: 14px;
-    padding: 18px;
-    min-height: 92px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 12px;
-    transition: all 0.2s ease;
-  }
-  .metrics-grid .metric-card:hover {
-    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-    transform: translateY(-2px);
-  }
-  .metric-label {
-    font-size: 0.78rem;
-    color: var(--monitor-muted, #4d7c5e);
-    font-weight: 600;
-    line-height: 1.2;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  .metric-value {
-    margin-top: 4px;
-    font-size: 1.72rem;
-    font-weight: 800;
-    line-height: 1;
-  }
-  .metric-success .metric-value { color: var(--ok); }
-  .metric-success .stat-icon { background: var(--ok); }
-  .metric-info .metric-value { color: var(--info); }
-  .metric-info .stat-icon { background: var(--info); }
-  .metric-warn .metric-value { color: var(--warn); }
-  .metric-warn .stat-icon { background: var(--warn); }
-  .metric-danger .metric-value { color: var(--danger); }
-  .metric-danger .stat-icon { background: var(--danger); }
-  .metric-neutral .metric-value { color: var(--neutral); }
-  .metric-neutral .stat-icon { background: var(--neutral); }
-  .metric-teal .metric-value { color: #0f9d8f; }
-  .metric-teal .stat-icon { background: #0f9d8f; }
-  .metric-link {
-    display: inline-block;
-    margin-top: 6px;
-    font-size: 0.78rem;
-    font-weight: 700;
-  }
-  .metric-link a {
-    color: #1f6a49;
-  }
-  .metric-link a:hover {
-    color: #0f5132;
-    text-decoration: none;
-  }
-  .analytics-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 14px;
-  }
-  .report-sections-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(180px, 1fr));
-    gap: 6px 12px;
-  }
-  .subcard {
-    box-shadow: none;
-    border: 1px solid rgba(0,0,0,0.06);
-    border-radius: 12px;
-  }
-  .subcard .card-header {
-    background: #f8fafc;
-    border-bottom: 1px solid #e9eef3;
-    border-radius: 12px 12px 0 0;
-  }
-  .table thead th {
-    color: #60706a;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-size: 0.74rem;
-  }
-  /* ---- Enhanced analytics cards ---- */
-  .ca-card {
-    background: #fff;
-    border-radius: 14px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-    overflow: hidden;
-  }
-  .ca-card-head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 16px 20px;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
-  }
-  .ca-card-icon {
-    width: 38px; height: 38px;
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.95rem; flex-shrink: 0;
-  }
-  .ca-card-icon.green { background: linear-gradient(135deg,#dcfce7,#bbf7d0); color: #16a34a; }
-  .ca-card-icon.blue { background: linear-gradient(135deg,#dbeafe,#bfdbfe); color: #2563eb; }
-  .ca-card-icon.red { background: linear-gradient(135deg,#fee2e2,#fecaca); color: #dc2626; }
-  .ca-card-icon.amber { background: linear-gradient(135deg,#fef3c7,#fde68a); color: #d97706; }
-  .ca-card-icon.teal { background: linear-gradient(135deg,#cffafe,#a5f3fc); color: #0891b2; }
-  .ca-card-title { margin: 0; font-size: 0.92rem; font-weight: 800; color: #14532d; }
-  .ca-card-sub { font-size: 0.74rem; color: #4d7c5e; font-weight: 500; }
-  .ca-card-action {
-    margin-left: auto;
-    font-size: 0.78rem; font-weight: 700; color: #16a34a;
-    text-decoration: none;
-    display: flex; align-items: center; gap: 4px;
-    white-space: nowrap;
-    transition: color 0.15s;
-  }
-  .ca-card-action:hover { color: #15803d; text-decoration: none; }
-  .ca-card-body { padding: 16px 20px; }
-
-  .ca-table thead th {
-    background: #f1f5f9;
-    color: #2d6a42;
-    font-weight: 700;
-    font-size: 0.74rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    border-bottom: 2px solid #e2e8f0;
-    padding: 10px 16px;
-  }
-  .ca-table tbody td {
-    padding: 10px 16px;
-    font-size: 0.84rem;
-    color: #1a5c35;
-    vertical-align: middle;
-    border-bottom: 1px solid #f1f5f9;
-  }
-  .ca-table tbody tr:hover { background: #f0fdf4; }
-
-  .ca-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 3px 10px; border-radius: 6px;
-    font-size: 0.74rem; font-weight: 700;
-  }
-  .ca-badge i { font-size: 0.65rem; }
-  .ca-badge-green { background: #dcfce7; color: #166534; }
-  .ca-badge-red { background: #fee2e2; color: #991b1b; }
-
-  .ca-time { font-size: 0.8rem; color: #4d7c5e; font-variant-numeric: tabular-nums; }
-
-  .ca-count-pill {
-    display: inline-block;
-    background: #f1f5f9;
-    color: #1a5c35;
-    padding: 3px 10px;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    min-width: 32px;
-    text-align: center;
-  }
-
-  .ca-sub-title {
-    font-size: 0.78rem; font-weight: 700; color: #2d6a42;
-    margin-bottom: 10px;
-    display: flex; align-items: center; gap: 6px;
-  }
-
-  .ca-action-btn {
-    width: 30px; height: 30px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    background: #fff;
-    display: inline-flex; align-items: center; justify-content: center;
-    color: #4d7c5e; font-size: 0.78rem;
-    transition: all 0.15s;
-    text-decoration: none;
-  }
-  .ca-action-btn:hover {
-    background: #16a34a; color: #fff; border-color: #16a34a;
-    text-decoration: none;
-  }
-
-  .ca-event-list { display: flex; flex-direction: column; gap: 10px; }
-  .ca-event-item {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 16px;
-    border-radius: 10px;
-    border: 1px solid #e2e8f0;
-    background: #f8fafc;
-    transition: all 0.15s;
-  }
-  .ca-event-item:hover { border-color: #16a34a; background: #f0fdf4; }
-  .ca-event-dot {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    background: #16a34a;
-    flex-shrink: 0;
-    box-shadow: 0 0 0 3px rgba(22,163,74,0.2);
-    animation: ca-pulse 2s ease-in-out infinite;
-  }
-  @keyframes ca-pulse {
-    0%, 100% { box-shadow: 0 0 0 3px rgba(22,163,74,0.2); }
-    50% { box-shadow: 0 0 0 6px rgba(22,163,74,0.1); }
-  }
-
-  @media (max-width: 767px) {
-    .analytics-hero {
-      min-height: 120px;
-      padding: 18px 14px;
-    }
-    .analytics-hero h2 {
-      font-size: 1.35rem;
-    }
-    .ca-card-head { flex-wrap: wrap; gap: 8px; }
-    .ca-card-action { margin-left: 0; }
-  }
-</style>
-
-<div class="monitor-wrap">
-<div class="analytics-hero">
-  <h2>Analytics</h2>
-  <p>Gate monitoring summary, visitor trends, and event participation.</p>
+<div id="gate-analytics-root">
+{% include 'gate/analytics_inner.html' %}
 </div>
 
-<div class="section-card dashboard-section" style="margin-top:0;">
-  <div class="section-head">Today Overview</div>
-  <div class="section-body metrics-grid">
-  <div class="row">
-    <div class="col-lg-3 col-md-6">
-      <div class="metric-card metric-success">
-        <div class="stat-icon"><i class="fas fa-door-open"></i></div>
-        <div>
-          <div class="metric-label">Entries Granted Today</div>
-          <div class="metric-value">{{ granted_today|default:0 }}</div>
-          <div class="metric-link"><a href="{% url 'gate-entry-list' %}?from_date={{ today_iso|default:'' }}" class="open-overview-modal" data-overview-title="Gate entries" data-overview-url="{% url 'gate-entry-list' %}?embed=1&from_date={{ today_iso|default:'' }}">View entries <i class="fas fa-arrow-circle-right"></i></a></div>
-        </div>
-      </div>
-    </div>
-    <div class="col-lg-3 col-md-6">
-      <div class="metric-card metric-info">
-        <div class="stat-icon"><i class="fas fa-user-friends"></i></div>
-        <div>
-          <div class="metric-label">Currently Inside</div>
-          <div class="metric-value">{{ inside_now|default:0 }}</div>
-          <div class="metric-link"><a href="{% url 'gate-entry-list' %}?from_date={{ today_iso|default:'' }}&filter=in" class="open-overview-modal" data-overview-title="Students currently inside" data-overview-url="{% url 'gate-entry-list' %}?embed=1&from_date={{ today_iso|default:'' }}&filter=in">View entries <i class="fas fa-arrow-circle-right"></i></a></div>
-        </div>
-      </div>
-    </div>
-    <div class="col-lg-3 col-md-6">
-      <div class="metric-card metric-success">
-        <div class="stat-icon"><i class="fas fa-users"></i></div>
-        <div>
-          <div class="metric-label">Registered Students</div>
-          <div class="metric-value">{{ total_students|default:0 }}</div>
-          <div class="metric-link"><a href="{% url 'gate-student-list' %}" class="open-overview-modal" data-overview-title="Registered students" data-overview-url="{% url 'gate-student-list' %}?embed=1">View students <i class="fas fa-arrow-circle-right"></i></a></div>
-        </div>
-      </div>
-    </div>
-    <div class="col-lg-3 col-md-6">
-      <div class="metric-card metric-neutral">
-        <div class="stat-icon"><i class="fas fa-user-friends"></i></div>
-        <div>
-          <div class="metric-label">Visitors This Month</div>
-          <div class="metric-value">{{ visitors_this_month|default:0 }}</div>
-          <div class="metric-link"><a href="{% url 'gate-visitor-list' %}" class="open-overview-modal" data-overview-title="Visitor log" data-overview-url="{% url 'gate-visitor-list' %}?embed=1">View visitor log <i class="fas fa-arrow-circle-right"></i></a></div>
-        </div>
-      </div>
-    </div>
-    <div class="col-lg-3 col-md-6">
-      <div class="metric-card metric-teal">
-        <div class="stat-icon"><i class="fas fa-building"></i></div>
-        <div>
-          <div class="metric-label">Visitors This Year</div>
-          <div class="metric-value">{{ visitors_this_year|default:0 }}</div>
-          <div class="metric-link"><a href="{% url 'gate-visitor-yearly' %}" class="open-overview-modal" data-overview-title="Visitor yearly summary" data-overview-url="{% url 'gate-visitor-yearly' %}?embed=1">View yearly summary <i class="fas fa-arrow-circle-right"></i></a></div>
-        </div>
-      </div>
-    </div>
-    <div class="col-lg-3 col-md-6">
-      <div class="metric-card metric-warn">
-        <div class="stat-icon"><i class="fas fa-exchange-alt"></i></div>
-        <div>
-          <div class="metric-label">Student Entries This Month</div>
-          <div class="metric-value">{{ student_entries_this_month|default:0 }}</div>
-          <div class="metric-link"><a href="{% url 'gate-entry-list' %}?from_date={{ student_entries_month_from }}&amp;to_date={{ student_entries_month_to }}&amp;filter=granted&amp;student_gate_only=1" class="open-overview-modal" data-overview-title="Student gate entries (this month)" data-overview-url="{% url 'gate-entry-list' %}?embed=1&amp;from_date={{ student_entries_month_from }}&amp;to_date={{ student_entries_month_to }}&amp;filter=granted&amp;student_gate_only=1">View student entries <i class="fas fa-arrow-circle-right"></i></a></div>
-        </div>
-      </div>
-    </div>
-    <div class="col-lg-3 col-md-6">
-      <div class="metric-card metric-neutral">
-        <div class="stat-icon"><i class="fas fa-calendar-alt"></i></div>
-        <div>
-          <div class="metric-label">Student Entries This Year</div>
-          <div class="metric-value">{{ student_entries_this_year|default:0 }}</div>
-          <div class="metric-link"><a href="{% url 'gate-student-entries-yearly' %}?year={{ selected_year }}" class="open-overview-modal" data-overview-title="Student yearly summary" data-overview-url="{% url 'gate-student-entries-yearly' %}?embed=1&amp;year={{ selected_year }}">View yearly summary <i class="fas fa-arrow-circle-right"></i></a></div>
-        </div>
-      </div>
-    </div>
-  </div>
-  </div>
-</div>
-</div>
-
-<div class="row">
-  <div class="col-12">
-    <div class="section-card">
-      <div class="section-head">
-        <div class="d-flex flex-wrap align-items-center justify-content-between" style="gap:10px;">
-          <h5 class="m-0">Important analytics</h5>
-          <form method="get" class="form-inline" style="gap:8px; display:flex; flex-wrap:wrap; align-items:center;">
-            <input type="hidden" name="year" value="{{ selected_year }}">
-            <label class="mb-0 text-muted" for="analyticsStudentPeriod" style="font-weight:500;">View</label>
-            <select id="analyticsStudentPeriod" name="student_period" class="form-control form-control-sm" onchange="this.form.submit()" style="min-width:130px;" title="How to group student gate entries on the main chart">
-              <option value="daily" {% if student_period == 'daily' %}selected{% endif %}>Daily</option>
-              <option value="weekly" {% if student_period == 'weekly' %}selected{% endif %}>Weekly</option>
-              <option value="monthly" {% if student_period == 'monthly' %}selected{% endif %}>Monthly</option>
-              <option value="yearly" {% if student_period == 'yearly' %}selected{% endif %}>Yearly</option>
-            </select>
-            {% if student_period == 'weekly' %}
-            <label class="mb-0 text-muted" for="analyticsStudentMonth" style="font-weight:500;">Month</label>
-            <select id="analyticsStudentMonth" name="student_month" class="form-control form-control-sm" onchange="this.form.submit()" style="min-width:132px;" title="Calendar month for Monday–Sunday weeks">
-              {% for num, mname in analytics_month_choices %}
-                <option value="{{ num }}" {% if student_weekly_month == num %}selected{% endif %}>{{ mname }}</option>
-              {% endfor %}
-            </select>
-            {% endif %}
-            <label class="mb-0 text-muted" for="analyticsStudentIO" style="font-weight:500;">Student</label>
-            <select id="analyticsStudentIO" name="student_io" class="form-control form-control-sm" onchange="this.form.submit()" style="min-width:140px;">
-              <option value="all" {% if student_io == 'all' %}selected{% endif %}>All (IN+OUT)</option>
-              <option value="in" {% if student_io == 'in' %}selected{% endif %}>IN only</option>
-              <option value="out" {% if student_io == 'out' %}selected{% endif %}>OUT only</option>
-            </select>
-          </form>
-        </div>
-      </div>
-      <div class="section-body">
-        <div class="row">
-          <div class="col-lg-12">
-            <div class="row">
-              <div class="col-12">
-                <div class="card subcard">
-                  <div class="card-header"><strong>{{ student_chart_title_line }}</strong> <span class="text-muted small">({{ student_io_label }})</span></div>
-                  <div class="card-body">
-                    <div style="position:relative; height:280px;">
-                      <canvas id="chartMonthlyEntries"></canvas>
-                    </div>
-                    {% if student_stat_high_label %}
-                      <div class="text-muted small mt-2">
-                        Highest: <strong>{{ student_stat_high_label }}</strong> ({{ student_stat_high_count }})
-                        &nbsp;·&nbsp;
-                        Lowest: <strong>{{ student_stat_low_label }}</strong> ({{ student_stat_low_count }})
-                      </div>
-                    {% else %}
-                      <div class="text-muted small mt-2">No student data for this filter.</div>
-                    {% endif %}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Recent gate entries -->
-<div class="row" style="margin-top:16px;">
-  <div class="col-md-6 mb-3">
-    <div class="ca-card">
-      <div class="ca-card-head">
-        <div class="ca-card-icon green"><i class="fas fa-door-open"></i></div>
-        <div>
-          <h6 class="ca-card-title">Recent Gate Entries</h6>
-          <span class="ca-card-sub">Latest 5 scans today</span>
-        </div>
-        <a href="{% url 'gate-entry-list' %}" class="ca-card-action">View all <i class="fas fa-arrow-right"></i></a>
-      </div>
-      <div class="ca-card-body p-0">
-        <table class="table table-sm mb-0 ca-table">
-          <thead><tr><th>Student ID</th><th>Result</th><th>Time</th></tr></thead>
-          <tbody>
-            {% for e in recent_entries|slice:":5" %}
-            <tr>
-              <td><code style="font-size:0.82rem;color:#14532d;background:#f1f5f9;padding:2px 8px;border-radius:4px;">{% if e.student %}{{ e.student.student_id }}{% else %}{{ e.notes|default:"—" }}{% endif %}</code></td>
-              <td>{% if e.granted %}<span class="ca-badge ca-badge-green"><i class="fas fa-check"></i> Granted</span>{% else %}<span class="ca-badge ca-badge-red"><i class="fas fa-times"></i> Denied</span>{% endif %}</td>
-              <td class="ca-time">{{ e.timestamp|date:"h:i A" }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="3" class="text-muted text-center py-4">No entries yet today.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Visitors & departments -->
-<div class="ca-card" style="margin-bottom:16px;">
-  <div class="ca-card-head">
-    <div class="ca-card-icon blue"><i class="fas fa-id-badge"></i></div>
-    <div>
-      <h6 class="ca-card-title">Visitors &amp; Departments</h6>
-      <span class="ca-card-sub">Top departments visited</span>
-    </div>
-    <a href="{% url 'gate-visitor-list' %}" class="ca-card-action">View all <i class="fas fa-arrow-right"></i></a>
-  </div>
-  <div class="ca-card-body p-0">
-    <div class="row no-gutters">
-      <div class="col-md-6" style="border-right:1px solid #e2e8f0;">
-        <div class="p-3">
-          <div class="ca-sub-title"><i class="fas fa-calendar-day" style="color:#16a34a;"></i> This Month</div>
-          <table class="table table-sm mb-0 ca-table">
-            <thead><tr><th>Department / Office</th><th class="text-right">Visits</th></tr></thead>
-            <tbody>
-              {% for row in top_departments_monthly|slice:":5" %}
-              <tr>
-                <td>{{ row.who_to_visit|default:"—" }}</td>
-                <td class="text-right"><span class="ca-count-pill">{{ row.count }}</span></td>
-              </tr>
-              {% empty %}
-              <tr><td colspan="2" class="text-muted text-center py-3">No visitor data this month.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="p-3">
-          <div class="ca-sub-title"><i class="fas fa-calendar" style="color:#2563eb;"></i> Year {{ selected_year }}</div>
-          <table class="table table-sm mb-0 ca-table">
-            <thead><tr><th>Department / Office</th><th class="text-right">Visits</th></tr></thead>
-            <tbody>
-              {% for row in top_departments_annually|slice:":5" %}
-              <tr>
-                <td>{{ row.who_to_visit|default:"—" }}</td>
-                <td class="text-right"><span class="ca-count-pill">{{ row.count }}</span></td>
-              </tr>
-              {% empty %}
-              <tr><td colspan="2" class="text-muted text-center py-3">No visitor data this year.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Event participation -->
-<div class="ca-card" style="margin-bottom:16px;">
-  <div class="ca-card-head">
-    <div class="ca-card-icon teal"><i class="fas fa-users"></i></div>
-    <div>
-      <h6 class="ca-card-title">Event Participation</h6>
-      <span class="ca-card-sub">Event participation</span>
-    </div>
-  </div>
-  <div class="ca-card-body p-0">
-    <table class="table table-sm mb-0 ca-table">
-      <thead><tr><th>Event</th><th class="text-center">Total Tracked</th><th class="text-center">Participated</th><th class="text-center">Non-participant</th></tr></thead>
-      <tbody>
-        {% for s in participation_stats|slice:":5" %}
-        <tr>
-          <td style="font-weight:600;color:#14532d;">{{ s.event__name|default:"—" }}</td>
-          <td class="text-center"><span class="ca-count-pill">{{ s.total }}</span></td>
-          <td class="text-center"><span class="ca-count-pill" style="background:#dcfce7;color:#166534;">{{ s.participated_count }}</span></td>
-          <td class="text-center"><span class="ca-count-pill" style="background:#fee2e2;color:#991b1b;">{{ s.non_participant_count }}</span></td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="4" class="text-muted text-center py-4">No event participation data yet.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- Event results (past events) -->
-<div class="ca-card" style="margin-bottom:16px;">
-  <div class="ca-card-head">
-    <div class="ca-card-icon amber"><i class="fas fa-trophy"></i></div>
-    <div>
-      <h6 class="ca-card-title">Event Results</h6>
-      <span class="ca-card-sub">Past events — view results and export</span>
-    </div>
-    <a href="{% url 'report-compare-events' %}" class="ca-card-action"><i class="fas fa-balance-scale mr-1"></i> Compare <i class="fas fa-arrow-right"></i></a>
-  </div>
-  <div class="ca-card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-sm mb-0 ca-table">
-        <thead>
-          <tr>
-            <th>Event</th>
-            <th>Dates</th>
-            <th class="text-center">Tracked</th>
-            <th class="text-center">Participated</th>
-            <th class="text-center">Checked In</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in past_events_with_stats|slice:":5" %}
-          <tr>
-            <td style="font-weight:600;color:#14532d;">{{ row.event.name }}</td>
-            <td class="ca-time" style="white-space:nowrap;">{{ row.event.start_date|date:"M d" }} – {{ row.event.end_date|date:"M d, Y" }}</td>
-            <td class="text-center"><span class="ca-count-pill">{{ row.total_tracked }}</span></td>
-            <td class="text-center"><span class="ca-count-pill" style="background:#dcfce7;color:#166534;">{{ row.participated }}</span></td>
-            <td class="text-center"><span class="ca-count-pill" style="background:#dbeafe;color:#1e40af;">{{ row.checked_in }}</span></td>
-            <td>
-              <div class="d-flex" style="gap:4px;">
-                <a href="{% url 'event-attendance-report' row.event.pk %}" class="ca-action-btn" title="View report"><i class="fas fa-chart-bar"></i></a>
-                <a href="{% url 'event-attendance-report-export-csv' row.event.pk %}" class="ca-action-btn" title="CSV"><i class="fas fa-file-csv"></i></a>
-                <a href="{% url 'event-attendance-report-export-xlsx' row.event.pk %}" class="ca-action-btn" title="Excel"><i class="fas fa-file-excel"></i></a>
-              </div>
-            </td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="6" class="text-muted text-center py-4">No past events yet. Events appear here after their end date.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- Active events -->
-<div class="ca-card" style="margin-bottom:16px;">
-  <div class="ca-card-head">
-    <div class="ca-card-icon green"><i class="fas fa-bolt"></i></div>
-    <div>
-      <h6 class="ca-card-title">Active Events Today</h6>
-      <span class="ca-card-sub">Events currently running</span>
-    </div>
-  </div>
-  <div class="ca-card-body">
-    {% if active_events %}
-    <div class="ca-event-list">
-      {% for e in active_events|slice:":5" %}
-      <div class="ca-event-item">
-        <div class="ca-event-dot"></div>
-        <div>
-          <div style="font-weight:700;color:#14532d;font-size:0.88rem;">{{ e.name }}</div>
-          <div style="font-size:0.78rem;color:#4d7c5e;">{{ e.start_date|date:"M d" }} – {{ e.end_date|date:"M d, Y" }}</div>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="text-muted mb-0 text-center py-3">No active events today.</p>
-    {% endif %}
-  </div>
-</div>
-
-<!-- Overview modal (opened from Today Overview cards) -->
-<div class="modal fade" id="overviewEmbedModal" tabindex="-1" role="dialog" aria-labelledby="overviewEmbedModalTitle" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 1200px;">
+<!-- Profile gate scans modal (outside #gate-analytics-root so AJAX partial reloads do not remove it) -->
+<div class="modal fade" id="aoProfileEntriesModal" tabindex="-1" role="dialog" aria-labelledby="aoProfileEntriesModalTitle" aria-hidden="true" data-api-url="{% url 'gate-analytics-profile-entries' %}">
+  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 1020px;">
     <div class="modal-content" style="border-radius: 12px; overflow: hidden;">
-      <div class="modal-header py-2" style="background: #f8fcfa; border-bottom: 1px solid var(--monitor-border);">
-        <h5 class="modal-title" id="overviewEmbedModalTitle">Overview details</h5>
+      <div class="modal-header py-2" style="background: #f8fcfa; border-bottom: 1px solid var(--monitor-border, #e2e8f0);">
+        <div class="pr-2">
+          <h5 class="modal-title mb-0" id="aoProfileEntriesModalTitle">Gate entry records</h5>
+          <p class="text-muted small mb-0 mt-1" id="aoProfileEntriesModalSubtitle"></p>
+          <p class="text-muted small mb-0" style="font-size:0.72rem;">Each row is one <strong>gate entry</strong> (daily gate IN/OUT scan). Totals match the number on the card.</p>
+        </div>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
-      <div class="modal-body p-0" style="min-height: 70vh;">
-        <iframe id="overviewEmbedIframe" src="about:blank" style="width:100%; height:70vh; border:0;" title="Overview details"></iframe>
+      <div class="modal-body p-0" style="max-height: 70vh; overflow: auto;">
+        <div id="aoProfileEntriesLoading" class="p-4 text-center text-muted d-none">Loading…</div>
+        <div id="aoProfileEntriesError" class="p-4 text-center text-danger d-none"></div>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0" id="aoProfileEntriesTable">
+            <thead class="thead-light">
+              <tr>
+                <th>Entry #</th>
+                <th>Time</th>
+                <th>IN / OUT</th>
+                <th>Student ID</th>
+                <th>Name</th>
+                <th>Gender</th>
+                <th>Program</th>
+                <th>Year level</th>
+                <th>Section</th>
+                <th>OUT note</th>
+              </tr>
+            </thead>
+            <tbody id="aoProfileEntriesTbody"></tbody>
+          </table>
+        </div>
       </div>
-      <div class="modal-footer py-2">
+      <div class="modal-footer py-2 d-flex justify-content-between align-items-center flex-wrap" style="gap:8px;">
+        <div>
+          <a id="aoProfileEntriesGateLogLink" class="btn btn-sm btn-outline-primary d-none" href="#" target="_blank" rel="noopener">Open gate entry log (same date range)</a>
+        </div>
         <button type="button" class="btn btn-sm btn-outline-secondary" data-dismiss="modal">Close</button>
       </div>
     </div>
   </div>
 </div>
-
-</div>
- 
 {% endblock content %}
 
-{% block extrascript %}
-{{ student_chart_labels|json_script:"analytics-student-labels" }}
-{{ student_chart_data|json_script:"analytics-student-data" }}
-{{ student_chart_tooltip_lines|json_script:"analytics-student-tooltips" }}
+{% block extrascript_inner %}
+<script src="{% static 'js/gate-analytics.js' %}"></script>
 <script>
 (function() {
-  var overviewModal = document.getElementById('overviewEmbedModal');
-  var overviewIframe = document.getElementById('overviewEmbedIframe');
-  var overviewTitle = document.getElementById('overviewEmbedModalTitle');
-
-  function normalizeIframeView(frame) {
-    if (!frame || !frame.contentDocument) return;
-    var doc = frame.contentDocument;
-    try {
-      var style = doc.createElement('style');
-      style.setAttribute('data-embed-cleanup', '1');
-      style.textContent = [
-        '.main-sidebar, .main-header, .content-header, .main-footer, .control-sidebar { display:none !important; }',
-        '.wrapper { margin:0 !important; padding:0 !important; }',
-        '.content-wrapper { margin-left:0 !important; min-height:auto !important; }',
-        '.content-wrapper > .content { padding: 8px 10px !important; }',
-        '.btn-outline-secondary .fa-arrow-left, a[href*="gate-analytics"] { }',
-        'a.btn.btn-outline-secondary.btn-sm, a.btn.btn-outline-secondary { display:none !important; }'
-      ].join('\\n');
-      (doc.head || doc.documentElement).appendChild(style);
-    } catch (e) {}
+  /**
+   * Modals must not sit under transformed/overflow ancestors (Bootstrap + iOS).
+   * SPA nav replaces .content-wrapper — re-append when Analytics markup is (re)injected.
+   */
+  function attachAoProfileModalToBody() {
+    var m = document.getElementById('aoProfileEntriesModal');
+    if (m && m.parentNode && m.parentNode !== document.body) {
+      document.body.appendChild(m);
+    }
   }
 
-  if (overviewIframe) {
-    overviewIframe.addEventListener('load', function() {
-      normalizeIframeView(overviewIframe);
-    });
-  }
-
-  document.querySelectorAll('.open-overview-modal').forEach(function(link) {
-    link.addEventListener('click', function(e) {
+  function wireProfileEntriesModalOnce() {
+    if (window.__aoProfileEntriesModalWired) return;
+    window.__aoProfileEntriesModalWired = true;
+    /* document delegation: survives SPA (sidebar-nav-ajax replaces content-wrapper) and filter partials */
+    document.addEventListener('click', function(e) {
+      var btn = e.target.closest('.js-ao-profile-entries');
+      if (!btn) return;
+      var root = document.getElementById('gate-analytics-root');
+      if (!root || !root.contains(btn)) return;
       e.preventDefault();
-      var url = this.getAttribute('data-overview-url') || '';
-      var title = this.getAttribute('data-overview-title') || 'Overview details';
-      if (!url) return;
-      if (overviewTitle) overviewTitle.textContent = title;
-      overviewIframe.src = url;
-      $('#overviewEmbedModal').modal('show');
-    });
-  });
-  if (overviewModal && overviewIframe) {
-    $('#overviewEmbedModal').on('hidden.bs.modal', function() {
-      overviewIframe.src = 'about:blank';
-    });
-  }
+      var modal = document.getElementById('aoProfileEntriesModal');
+      if (!modal || !window.jQuery) return;
+      var apiUrl = modal.getAttribute('data-api-url') || '';
+      if (!apiUrl) return;
+      var dimension = btn.getAttribute('data-dimension') || '';
+      var value = btn.getAttribute('data-value') || '';
+      var label = btn.getAttribute('data-label') || '';
 
-  if (typeof Chart === 'undefined') return;
+      var q = new URLSearchParams(window.location.search);
+      var form = document.getElementById('analyticsOverviewForm');
+      if (form) {
+        var fd = new FormData(form);
+        fd.forEach(function(v, k) {
+          if (v !== '') q.set(k, v);
+        });
+      }
+      q.set('dimension', dimension);
+      q.set('value', value);
 
-  function _readJsonScript(id) {
-    var el = document.getElementById(id);
-    if (!el || !el.textContent) return [];
-    try {
-      return JSON.parse(el.textContent);
-    } catch (e) {
-      return [];
-    }
-  }
-  var studentChartLabels = _readJsonScript('analytics-student-labels');
-  var studentChartData = _readJsonScript('analytics-student-data');
-  var studentChartTooltipLines = _readJsonScript('analytics-student-tooltips');
-  var studentChartType = '{{ student_chart_type|default:"bar"|escapejs }}';
-  var studentChartWeeklyFlatX = {% if student_period == 'weekly' %}true{% else %}false{% endif %};
+      var titleEl = document.getElementById('aoProfileEntriesModalTitle');
+      var subEl = document.getElementById('aoProfileEntriesModalSubtitle');
+      var tbody = document.getElementById('aoProfileEntriesTbody');
+      var loading = document.getElementById('aoProfileEntriesLoading');
+      var errEl = document.getElementById('aoProfileEntriesError');
 
-  Chart.defaults.global.defaultFontFamily = "'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial";
-  Chart.defaults.global.defaultFontColor = '#1a5c35';
+      if (titleEl) titleEl.textContent = 'Gate entry records — ' + label;
+      if (subEl) subEl.textContent = '';
+      if (tbody) tbody.innerHTML = '';
+      if (errEl) { errEl.classList.add('d-none'); errEl.textContent = ''; }
+      var logLink = document.getElementById('aoProfileEntriesGateLogLink');
+      if (logLink) { logLink.classList.add('d-none'); logLink.removeAttribute('href'); }
+      if (loading) loading.classList.remove('d-none');
 
-  var ctxEntries = document.getElementById('chartMonthlyEntries');
-  if (ctxEntries) {
-    var dense = !studentChartWeeklyFlatX && studentChartLabels.length > 36;
-    var xTickOpts = {};
-    if (studentChartWeeklyFlatX) {
-      xTickOpts = { maxRotation: 0, minRotation: 0, autoSkip: false };
-    } else if (dense) {
-      xTickOpts = { maxRotation: 65, minRotation: 45, autoSkip: true, maxTicksLimit: 20 };
-    }
-    var barDataset = {
-      label: '{{ student_chart_dataset_label|escapejs }}',
-      data: studentChartData,
-      backgroundColor: 'rgba(34, 197, 94, 0.75)',
-      borderColor: 'rgba(34, 197, 94, 1)',
-      borderWidth: 1
-    };
-    var lineDataset = {
-      label: '{{ student_chart_dataset_label|escapejs }}',
-      data: studentChartData,
-      borderColor: 'rgba(34, 197, 94, 1)',
-      backgroundColor: 'rgba(34, 197, 94, 0.12)',
-      fill: true,
-      lineTension: 0.25,
-      pointRadius: 3
-    };
-    var tooltipOpts = {
-      mode: 'index',
-      intersect: false,
-      callbacks: {
-        title: function(tooltipItems, data) {
-          if (!tooltipItems || !tooltipItems.length) return '';
-          var idx = tooltipItems[0].index;
-          if (studentChartTooltipLines && studentChartTooltipLines.length > idx && studentChartTooltipLines[idx]) {
-            return studentChartTooltipLines[idx];
-          }
-          return tooltipItems[0].xLabel || '';
+      window.jQuery('#aoProfileEntriesModal').modal('show');
+
+      var fetchUrl = apiUrl.indexOf('http') === 0 ? apiUrl : new URL(apiUrl, window.location.origin).href;
+      fetch(fetchUrl + '?' + q.toString(), {
+        credentials: 'same-origin',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          Accept: 'application/json',
         },
-        label: function(item, data) {
-          var ds = data.datasets[item.datasetIndex];
-          var v = ds.data[item.index];
-          return ds.label + ': ' + v;
-        }
-      }
-    };
-    new Chart(ctxEntries.getContext('2d'), {
-      type: studentChartType,
-      data: {
-        labels: studentChartLabels,
-        datasets: [studentChartType === 'line' ? lineDataset : barDataset]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        legend: { position: 'bottom' },
-        tooltips: tooltipOpts,
-        scales: {
-          xAxes: [{
-            gridLines: { display: false },
-            ticks: xTickOpts
-          }],
-          yAxes: [{ ticks: { beginAtZero: true, precision: 0 } }]
-        }
-      }
+      })
+        .then(function(r) {
+          return r.text().then(function(text) {
+            var data = null;
+            try {
+              data = text ? JSON.parse(text) : null;
+            } catch (e) {
+              data = null;
+            }
+            return { ok: r.ok, status: r.status, data: data, raw: text };
+          });
+        })
+        .then(function(res) {
+          if (loading) loading.classList.add('d-none');
+          if (!res.ok) {
+            if (errEl) {
+              errEl.classList.remove('d-none');
+              var msg = res.data && res.data.error ? res.data.error : null;
+              if (!msg && res.raw && res.raw.indexOf('<!') === 0) {
+                msg = 'Server returned a login or error page (HTTP ' + res.status + '). Try refreshing.';
+              } else if (!msg) {
+                msg = 'Could not load scans (HTTP ' + res.status + ').';
+              }
+              errEl.textContent = msg;
+            }
+            return;
+          }
+          var d = res.data;
+          if (!d || typeof d !== 'object') {
+            if (errEl) {
+              errEl.classList.remove('d-none');
+              errEl.textContent = 'Invalid response from server.';
+            }
+            return;
+          }
+          if (subEl) {
+            subEl.textContent = d.range_label + ' · ' + d.total + ' gate ' + (d.total === 1 ? 'entry' : 'entries') + ' (IN ' + d.in_count + ' · OUT ' + d.out_count + ')' + (d.truncated ? ' · list shows first 500' : '');
+          }
+          var logLink2 = document.getElementById('aoProfileEntriesGateLogLink');
+          if (logLink2 && d.gate_log_url) {
+            logLink2.href = d.gate_log_url;
+            logLink2.classList.remove('d-none');
+          }
+          if (tbody && d.entries) {
+            d.entries.forEach(function(row) {
+              var tr = document.createElement('tr');
+              function tdText(t) {
+                var x = document.createElement('td');
+                x.textContent = t;
+                return x;
+              }
+              tr.appendChild(tdText(row.entry_id != null ? String(row.entry_id) : ''));
+              tr.appendChild(tdText(row.local_time || ''));
+              tr.appendChild(tdText(row.scan_type || ''));
+              tr.appendChild(tdText(row.student_id || ''));
+              tr.appendChild(tdText(row.student_name || ''));
+              tr.appendChild(tdText(row.gender || ''));
+              tr.appendChild(tdText(row.course || ''));
+              tr.appendChild(tdText(row.year_level || ''));
+              tr.appendChild(tdText(row.section || ''));
+              tr.appendChild(tdText(row.out_note || ''));
+              tbody.appendChild(tr);
+            });
+          }
+        })
+        .catch(function() {
+          if (loading) loading.classList.add('d-none');
+          if (errEl) {
+            errEl.classList.remove('d-none');
+            errEl.textContent = 'Could not load scans.';
+          }
+        });
     });
+  }
+
+  function wireOverviewModal() {
+    function normalizeIframeView(frame) {
+      if (!frame || !frame.contentDocument) return;
+      var doc = frame.contentDocument;
+      try {
+        var style = doc.createElement('style');
+        style.setAttribute('data-embed-cleanup', '1');
+        style.textContent = [
+          '.main-sidebar, .main-header, .content-header, .main-footer, .control-sidebar { display:none !important; }',
+          '.wrapper { margin:0 !important; padding:0 !important; }',
+          '.content-wrapper { margin-left:0 !important; min-height:auto !important; }',
+          '.content-wrapper > .content { padding: 8px 10px !important; }',
+          'a.btn.btn-outline-secondary.btn-sm, a.btn.btn-outline-secondary { display:none !important; }'
+        ].join('\\n');
+        (doc.head || doc.documentElement).appendChild(style);
+      } catch (e) {}
+    }
+
+    if (!window.__aoOverviewModalDelegated) {
+      window.__aoOverviewModalDelegated = true;
+      document.addEventListener('click', function(e) {
+        var link = e.target.closest('.open-overview-modal');
+        if (!link) return;
+        var root = document.getElementById('gate-analytics-root');
+        if (!root || !root.contains(link)) return;
+        e.preventDefault();
+        var url = link.getAttribute('data-overview-url') || '';
+        var title = link.getAttribute('data-overview-title') || 'Overview details';
+        if (!url) return;
+        var overviewTitle = document.getElementById('overviewEmbedModalTitle');
+        var overviewIframe = document.getElementById('overviewEmbedIframe');
+        if (overviewTitle) overviewTitle.textContent = title;
+        if (overviewIframe) overviewIframe.src = url;
+        if (window.jQuery) window.jQuery('#overviewEmbedModal').modal('show');
+      });
+      if (window.jQuery) {
+        window.jQuery(document).off('hidden.bs.modal.ccbao', '#overviewEmbedModal').on('hidden.bs.modal.ccbao', '#overviewEmbedModal', function() {
+          var iframe = document.getElementById('overviewEmbedIframe');
+          if (iframe) iframe.src = 'about:blank';
+        });
+      }
+    }
+
+    var overviewIframe = document.getElementById('overviewEmbedIframe');
+    if (overviewIframe) {
+      overviewIframe.addEventListener('load', function() {
+        normalizeIframeView(overviewIframe);
+      });
+    }
+  }
+
+  function syncClearFiltersButton() {
+    var btn = document.querySelector('.js-analytics-clear-filters');
+    if (!btn) return;
+    var p = new URLSearchParams(window.location.search);
+    var preset = (p.get('overview_preset') || 'today').toLowerCase();
+    var customApplied = sessionStorage.getItem('gateAnalyticsFiltersApplied') === '1';
+    var nonDefault = preset !== 'today';
+    /* Preset filters (yesterday, last 7) apply on change; custom needs Apply — then customApplied */
+    var show = nonDefault && (preset !== 'custom' || customApplied);
+    btn.classList.toggle('d-none', !show);
+  }
+
+  function gateAnalyticsAfterPartialLoad(urlBeforePartial) {
+    if (window.history && window.history.replaceState && urlBeforePartial) {
+      var u = new URL(urlBeforePartial.toString());
+      u.searchParams.delete('partial');
+      window.history.replaceState({}, '', u.pathname + u.search);
+    }
+    if (typeof window.gateAnalyticsDestroyCharts === 'function') {
+      window.gateAnalyticsDestroyCharts();
+    }
+    if (typeof window.gateAnalyticsInitCharts === 'function') {
+      window.gateAnalyticsInitCharts();
+    }
+    attachAoProfileModalToBody();
+    wireOverviewModal();
+    wireProfileEntriesModalOnce();
+    syncOverviewCustomFields();
+    syncClearFiltersButton();
+  }
+
+  /**
+   * Load analytics inner HTML via AJAX (same as Apply filter). url must be gate-analytics path + query; partial=1 is added for the request.
+   */
+  function gateAnalyticsLoadPartial(url) {
+    var fetchUrl = new URL(url.href || url.toString(), window.location.origin);
+    fetchUrl.searchParams.set('partial', '1');
+    var root = document.getElementById('gate-analytics-root');
+    if (!root) return;
+    root.style.opacity = '0.65';
+    root.style.pointerEvents = 'none';
+    fetch(fetchUrl.toString(), { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        root.innerHTML = html;
+        root.style.opacity = '';
+        root.style.pointerEvents = '';
+        gateAnalyticsAfterPartialLoad(fetchUrl);
+      })
+      .catch(function() {
+        root.style.opacity = '';
+        root.style.pointerEvents = '';
+        var u = new URL(fetchUrl.toString());
+        u.searchParams.delete('partial');
+        window.location.href = u.pathname + u.search;
+      });
+  }
+
+  function wireGateAnalyticsClearOnce() {
+    if (window.__gateAnalyticsClearWired) return;
+    window.__gateAnalyticsClearWired = true;
+    document.addEventListener('click', function(e) {
+      var btn = e.target.closest('.js-analytics-clear-filters');
+      if (!btn) return;
+      e.preventDefault();
+      sessionStorage.removeItem('gateAnalyticsFiltersApplied');
+      var y = btn.getAttribute('data-clear-year') || '';
+      var clearUrl = new URL('{% url "gate-analytics" %}', window.location.origin);
+      clearUrl.search = '';
+      if (y) clearUrl.searchParams.set('year', y);
+      gateAnalyticsLoadPartial(clearUrl);
+    });
+  }
+
+  function gateAnalyticsFetchPartial(form) {
+    var url = new URL(form.getAttribute('action') || window.location.pathname, window.location.origin);
+    var fd = new FormData(form);
+    fd.forEach(function(v, k) { url.searchParams.set(k, v); });
+    gateAnalyticsLoadPartial(url);
+  }
+
+  function syncOverviewCustomFields() {
+    var preset = document.getElementById('overviewPreset');
+    var wrap = document.getElementById('overviewCustomFields');
+    if (!preset || !wrap) return;
+    var custom = preset.value === 'custom';
+    wrap.classList.toggle('d-none', !custom);
+    wrap.querySelectorAll('input, select').forEach(function(field) {
+      field.disabled = !custom;
+    });
+  }
+
+  function wireGateAnalyticsAjax() {
+    var root = document.getElementById('gate-analytics-root');
+    if (!root) return;
+    root.addEventListener('submit', function(e) {
+      var form = e.target;
+      if (!form || form.tagName !== 'FORM' || !form.classList.contains('js-analytics-ajax')) return;
+      e.preventDefault();
+      if (form.id === 'analyticsOverviewForm') {
+        sessionStorage.setItem('gateAnalyticsFiltersApplied', '1');
+      }
+      gateAnalyticsFetchPartial(form);
+    });
+    root.addEventListener('change', function(e) {
+      var el = e.target;
+      if (!el || el.tagName !== 'SELECT') return;
+      var form = el.form;
+      if (!form || !form.classList.contains('js-analytics-ajax')) return;
+      if (el.id === 'overviewPreset') {
+        syncOverviewCustomFields();
+        if (el.value === 'custom') {
+          return;
+        }
+      }
+      e.preventDefault();
+      gateAnalyticsFetchPartial(form);
+    });
+  }
+
+  function boot() {
+    attachAoProfileModalToBody();
+    wireOverviewModal();
+    wireProfileEntriesModalOnce();
+    wireGateAnalyticsAjax();
+    wireGateAnalyticsClearOnce();
+    syncOverviewCustomFields();
+    syncClearFiltersButton();
+    if (typeof window.gateAnalyticsInitCharts === 'function') {
+      window.gateAnalyticsInitCharts();
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
   }
 })();
 </script>
-{% endblock extrascript %}
+{% endblock extrascript_inner %}

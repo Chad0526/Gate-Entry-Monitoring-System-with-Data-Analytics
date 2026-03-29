@@ -38,6 +38,7 @@ from .models import (
 )
 from .admin_mixins import PerPageListMixin
 from .audit import log_action
+from .forms import StudentAdminForm
 from .notifications import notify_student_status_change
 
 
@@ -86,6 +87,7 @@ class StaffPersonnelProfileAdmin(PerPageListMixin, admin.ModelAdmin):
 
 @admin.register(Student)
 class StudentAdmin(PerPageListMixin, admin.ModelAdmin):
+    form = StudentAdminForm
     list_per_page = 10
     list_display = ('student_id', 'get_full_name', 'sex', 'email', 'has_signature', 'is_active', 'created_at')
     search_fields = ('student_id', 'first_name', 'middle_name', 'last_name', 'email')

@@ -11,7 +11,7 @@ Gate entry monitoring with data analytics. Students are identified via **QR code
 ## System Flow (High Level)
 
 ```
-Accounts: Admin / Faculty / Staff / Supervisor (e.g. SAS for IDs & QR)
+Accounts: Admin / Faculty / Staff / Student Affairs (SAS for IDs & QR)
         ↓
 Login & Role Check  (physical security staff do not use separate gate-only accounts)
         ↓
@@ -27,7 +27,7 @@ Reports & Analytics
 ### Daily gate operations (recommended)
 
 1. **Assigned staff** (e.g. SAS or rotating duty) opens the **gate PC** each morning and **logs in** with their account.
-2. After login, **Staff / Faculty / Supervisor** are sent to **`/gate/`** (gate scanner) by default so the scan screen is ready immediately. **Admins** default to the dashboard (configurable in `gate_analytics/settings.py`: `LOGIN_REDIRECT_*`).
+2. After login, **Staff / Faculty** are sent to **`/gate/`** (gate scanner) by default so the scan screen is ready immediately. **Admins** default to the dashboard (configurable in `gate_analytics/settings.py`: `LOGIN_REDIRECT_*`).
 3. **Physical security** assists with crowd and safety only; they **do not use system accounts** (no separate “guard login”).
 4. For a **full-screen, single-tab experience**, use **browser kiosk mode** (e.g. Chrome “Open as window” / `--kiosk`), **F11** fullscreen, or open **`/gate/?kiosk=1`** and use the **Fullscreen** button.
 
@@ -37,15 +37,15 @@ Reports & Analytics
 
 ## Role Access Table
 
-| Area | Admin | Faculty | Staff / Supervisor |
-|------|:-----:|:-------:|:------------------:|
-| Dashboard | ✓ | ✓ | ✓ |
-| Events (create, list, categories, members) | ✓ | ✓ | ✓ |
-| Gate scan, entries, incidents, analytics | ✓ | ✓ | ✓ |
-| Students (list, create, edit, import CSV) | ✓ | — | ✓ |
-| Django admin site | ✓ | — | — |
+| Area | Admin | Faculty | Staff | Student Affairs |
+|------|:-----:|:-------:|:-----:|:---------------:|
+| Dashboard | ✓ | ✓ | ✓ | ✓ |
+| Events (create, list, categories, members) | ✓ | ✓ | ✓ | — |
+| Gate scan, entries, analytics | ✓ | ✓ | ✓ | — |
+| Students (list, create, edit, import CSV) | ✓ | ✓ | ✓ | ✓ |
+| Django admin site | ✓ | — | — | — |
 
-Roles are enforced via Django Groups (see `gate_analytics/roles.py`): **Admin**, **Faculty**, **Staff**, **Supervisor**. A legacy **Personnel** group may still appear in the database for older accounts; **only staff/faculty accounts log in** at the gate PC.
+Roles are enforced via Django Groups (see `gate_analytics/roles.py`): **Admin**, **Faculty**, **Staff**, **Student**, **Student Affairs**. A legacy **Personnel** group may still appear in the database for older accounts; **staff/faculty** typically log in at the gate PC.
 
 ---
 
@@ -97,7 +97,7 @@ Then open from another device using this PC’s **LAN IP** (e.g. `http://192.168
 |-----|-------------|
 | `/` | **Login page** (root) |
 | `/login/` | Login (same as `/`) |
-| `/dashboard/` | Dashboard (Admin defaults here; Staff/Faculty/Supervisor default to `/gate/` after login unless `?next=` is set) |
+| `/dashboard/` | Dashboard (Admin defaults here; Staff/Faculty default to `/gate/` after login unless `?next=` is set) |
 | `/gate/` | **Gate scan** – scan QR or enter student ID; add `?kiosk=1` for kiosk bar + fullscreen button |
 | `/gate/?kiosk=1` | Same as above with kiosk helpers (still use OS/browser kiosk for true “no tabs”) |
 | `/gate/save-scan/` | POST scan result (from scanner or manual entry) |

@@ -37,6 +37,7 @@ from .views import (
     health_check,
 )
 from . import settings
+from .forms import PasswordResetFormEmailMustExist
 
 admin.site.site_header = "Gate Entry Monitoring & Data Analytics - Admin"
 admin.site.site_title = "CCB Gate & Attendance Analytics"
@@ -64,9 +65,14 @@ urlpatterns = [
     path('gate/', include('gate.gate_urls')),
     path('gate/', include('gate.urls')),
     path('ckeditor/', include('ckeditor_uploader.urls')),
+    path('captcha/', include('captcha.urls')),
     # Password reset / change (do not include django.contrib.auth.urls — it duplicates login/logout
     # and overwrites the 'login' name with Django's LoginView, which breaks our custom login page)
-    path('password_reset/', auth_views.PasswordResetView.as_view(), name='password_reset'),
+    path(
+        'password_reset/',
+        auth_views.PasswordResetView.as_view(form_class=PasswordResetFormEmailMustExist),
+        name='password_reset',
+    ),
     path('password_reset/done/', auth_views.PasswordResetDoneView.as_view(), name='password_reset_done'),
     path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('reset/done/', auth_views.PasswordResetCompleteView.as_view(), name='password_reset_complete'),

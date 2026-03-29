@@ -435,8 +435,8 @@ msgstr "Pangalan"
 msgid "Last name"
 msgstr "Apelyido"
 
-msgid "Middle name"
-msgstr "Gitnang pangalan"
+msgid "Middle Initial"
+msgstr "Gitnang inicial"
 
 msgid "Guardians / Parents"
 msgstr "Mga guardian / magulang"
@@ -447,8 +447,8 @@ msgstr "Susunod: Akademiko"
 msgid "Academic Details"
 msgstr "Mga detalye sa akademiko"
 
-msgid "Course / Program"
-msgstr "Kurso / Programa"
+msgid "Program"
+msgstr "Programa"
 
 msgid "Year level"
 msgstr "Taon"
@@ -461,9 +461,6 @@ msgstr "Impormasyon sa contact"
 
 msgid "Your contact number"
 msgstr "Iyong numero ng contact"
-
-msgid "Guardian contact number"
-msgstr "Numero ng contact ng guardian"
 
 msgid "Back"
 msgstr "Bumalik"

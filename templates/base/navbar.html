@@ -145,6 +145,18 @@
     color: var(--ccb-primary-darker, #166534);
     background: transparent;
   }
+  #notifications-dropdown .notif-item .notif-time {
+    display: block;
+    clear: both;
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: var(--ccb-muted, #64748b);
+    margin-top: 4px;
+    padding-left: 44px;
+  }
+  #notifications-dropdown .notif-item.notification-read .notif-time {
+    color: #94a3b8;
+  }
   #notifications-dropdown .notif-item.notif-item-row-only {
     cursor: default;
     pointer-events: auto;
@@ -249,7 +261,7 @@
       </li>
     </ul>
 
-    <span class="navbar-text ml-3 font-weight-bold">CCB - Gate Entry</span>
+    <span class="navbar-text ml-3 font-weight-bold">Gate Entry Monitoring System with Data Analytics</span>
 
     <!-- Right navbar links -->
     <ul class="navbar-nav ml-auto">
@@ -277,6 +289,7 @@
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
               <i class="fas {{ item.icon }} notif-icon"></i>
               <strong>{{ item.label }}</strong>
+              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
               {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
             </a>
             {% elif item.type == 'events_summary' %}
@@ -284,6 +297,7 @@
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
               <i class="fas {{ item.icon }} notif-icon"></i>
               <strong>{{ item.label }}</strong>
+              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
               {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
             </a>
             {% elif item.type == 'pending_staff_personnel_summary' %}
@@ -291,12 +305,60 @@
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
               <i class="fas {{ item.icon }} notif-icon"></i>
               <strong>{{ item.label }}</strong>
+              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
+              {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+            </a>
+            {% elif item.type == 'admin_sas_activation_student' %}
+            {% if item.show_sas_section %}
+            <div class="notif-section-title">{% trans "Students — ready for activation" %}</div>
+            {% endif %}
+            <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
+              <i class="fas {{ item.icon }} notif-icon"></i>
+              <strong>{{ item.label }}</strong>
+              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
+              {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+            </a>
+            {% elif item.type == 'admin_student_reg_item' %}
+            {% if item.show_student_reg_section %}
+            <div class="notif-section-title">{% trans "Student registrations" %}</div>
+            {% endif %}
+            <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
+              <i class="fas {{ item.icon }} notif-icon"></i>
+              <strong>{{ item.label }}</strong>
+              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
+              {% if item.label_right %}<span class="notif-label-right notif-label-right-link">{{ item.label_right }}</span>{% endif %}
+            </a>
+            {% elif item.type == 'admin_staff_reg_summary' %}
+            <div class="notif-section-title">{% trans "Staff / faculty registrations" %}</div>
+            <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
+              <i class="fas {{ item.icon }} notif-icon"></i>
+              <strong>{{ item.label }}</strong>
+              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
+              {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+            </a>
+            {% elif item.type == 'admin_incident_item' %}
+            {% if item.show_incident_section %}
+            <div class="notif-section-title">{% trans "Gate incidents" %}</div>
+            {% endif %}
+            <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
+              <i class="fas {{ item.icon }} notif-icon"></i>
+              <strong>{{ item.label }}</strong>
+              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
+              {% if item.label_right %}<span class="notif-label-right notif-label-right-link">{{ item.label_right }}</span>{% endif %}
+            </a>
+            {% elif item.type == 'admin_incident_summary' %}
+            <div class="notif-section-title">{% trans "Gate incidents" %}</div>
+            <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
+              <i class="fas {{ item.icon }} notif-icon"></i>
+              <strong>{{ item.label }}</strong>
+              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
               {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
             </a>
             {% else %}
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
               <i class="fas {{ item.icon }} notif-icon"></i>
-              {{ item.label }}
+              <strong>{{ item.label }}</strong>
+              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
               {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
             </a>
             {% endif %}
@@ -417,7 +479,7 @@
             <i class="fas fa-user-edit user-dropdown-icon"></i>
             {% trans "My profile" %}
           </a>
-          {% if user_role == 'staff' or user_role == 'faculty' or user_role == 'supervisor' %}
+          {% if user_role == 'staff' or user_role == 'faculty' %}
           <a href="{% url 'account-settings' %}" class="dropdown-item user-dropdown-item">
             <i class="fas fa-cog user-dropdown-icon"></i>
             {% trans "Account" %}

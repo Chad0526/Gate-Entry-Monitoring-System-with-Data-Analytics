@@ -1,7 +1,7 @@
 {% extends 'base/base.html' %}
 {% load static %}
 {% block title %}Visitor QR codes - {{ site_name }}{% endblock %}
-{% block breadcrumb %}Visitor QR codes{% endblock %}
+{% block page_heading %}Visitor QR codes{% endblock %}
 
 {% block extrahead %}
 <link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
@@ -497,7 +497,8 @@
 </div>
 {% endblock %}
 
-{% block extrascript %}
+{% block extrascript_inner %}
+{% include 'snippets/eid_iframe_url_script.html' %}
 <script>
 (function() {
   var modal = document.getElementById('eidCardModal');
@@ -507,7 +508,9 @@
   if (!modal || !iframe) return;
   document.querySelectorAll('.e-id-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      var url = this.getAttribute('data-card-url');
+      var url = typeof normalizeGateEidUrl === 'function'
+        ? normalizeGateEidUrl(this.getAttribute('data-card-url'))
+        : this.getAttribute('data-card-url');
       if (!url) return;
       iframe.src = url;
       openNewTabLink.href = url;
@@ -526,4 +529,4 @@
   $(modal).on('hidden.bs.modal', function() { iframe.src = 'about:blank'; });
 })();
 </script>
-{% endblock %}
+{% endblock extrascript_inner %}

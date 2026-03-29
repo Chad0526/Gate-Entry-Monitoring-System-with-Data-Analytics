@@ -1,6 +1,6 @@
 {% load static %}
 {% load i18n %}
-{# Gate roles: personnel (scan, entry history, performance) | supervisor/staff (+ reports, export, audit) | admin (full). #}
+{# Gate roles: staff/faculty (scan, reports) | Student Affairs (registry) | admin (full). #}
 <style>.main-sidebar a.user-panel:hover { background: rgba(255,255,255,0.08); }</style>
 <aside class="main-sidebar sidebar-dark-primary elevation-4">
     <a href="{% url 'dashboard' %}" class="brand-link" style="display:flex;align-items:center;justify-content:center;padding:14px 16px;">
@@ -31,7 +31,27 @@
               <p>{% trans "Dashboard" %}</p>
             </a>
           </li>
-          {% if user_role == 'admin' or user_role == 'staff' or user_role == 'supervisor' or user_role == 'faculty' %}
+          {% if user_role == 'student affairs' %}
+          <li class="nav-header">{% trans "Student services" %}</li>
+          <li class="nav-item">
+            <a href="{% url 'gate-student-list' %}" class="nav-link {% if current == 'gate-student-list' or current == 'gate-student-edit' or current == 'gate-student-create' or current == 'gate-student-import' %}active{% endif %}">
+              <i class="nav-icon fas fa-id-card"></i>
+              <p>{% trans "Students & e-ID" %}</p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{% url 'visitor-pass-create' %}" class="nav-link {% if current == 'visitor-pass-create' or current == 'visitor-pass-print-all' %}active{% endif %}">
+              <i class="nav-icon fas fa-qrcode"></i>
+              <p>{% trans "Visitor QR codes" %}</p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{% url 'gate-incident-list' %}" class="nav-link {% if current == 'gate-incident-list' %}active{% endif %}">
+              <i class="nav-icon fas fa-exclamation-triangle"></i>
+              <p>{% trans "Gate incidents" %}</p>
+            </a>
+          </li>
+          {% elif user_role == 'admin' or user_role == 'staff' or user_role == 'faculty' %}
           <li class="nav-header">{% trans "GATE & ATTENDANCE" %}</li>
           <li class="nav-item">
             <a href="{% url 'gate-analytics' %}" class="nav-link {% if current == 'gate-analytics' %}active{% endif %}">
@@ -39,7 +59,7 @@
               <p>{% trans "Analytics" %}</p>
             </a>
           </li>
-          {% if user_role == 'admin' or user_role == 'staff' or user_role == 'faculty' or user_role == 'supervisor' %}
+          {% if user_role == 'admin' or user_role == 'staff' or user_role == 'faculty' %}
           <li class="nav-item">
             <a href="{% url 'gate-student-list' %}" class="nav-link {% if current == 'gate-student-list' or current == 'gate-student-edit' or current == 'gate-student-create' or current == 'gate-student-import' %}active{% endif %}">
               <i class="nav-icon fas fa-id-card"></i>
@@ -59,7 +79,7 @@
               <p>{% trans "Reports" %}</p>
             </a>
           </li>
-          {% if user_role == 'admin' or user_role == 'staff' or user_role == 'supervisor' or user_role == 'faculty' %}
+          {% if user_role == 'admin' or user_role == 'staff' or user_role == 'faculty' %}
           <li class="nav-item">
             <a href="{% url 'visitor-pass-create' %}" class="nav-link {% if current == 'visitor-pass-create' %}active{% endif %}">
               <i class="nav-icon fas fa-qrcode"></i>
@@ -91,7 +111,7 @@
               <p>{% trans "View logs" %}</p>
             </a>
           </li>
-          {% elif user_role == 'staff' or user_role == 'supervisor' or user_role == 'faculty' %}
+          {% elif user_role == 'staff' or user_role == 'faculty' %}
           {# Non-admin users must not see Staff/Faculty administration in the sidebar. #}
           {% endif %}
           {% if user_role == 'admin' or user_role == 'faculty' or user_role == 'staff' %}

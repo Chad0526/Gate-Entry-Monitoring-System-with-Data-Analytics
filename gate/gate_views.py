@@ -21,6 +21,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
 from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils import timezone
 from django.contrib import messages
 from django.db.models import Count, Q, Case, When, IntegerField, Sum, F
@@ -29,7 +30,7 @@ from django.db import transaction
 from django.core.files.storage import default_storage
 from django.contrib.staticfiles import finders
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from .notifications import notify_student_status_change
 
@@ -55,7 +56,7 @@ from .models import (
     AdminNotification,
     BlockedIP,
 )
-from .forms import StudentForm, StaffPersonnelCreateForm
+from .forms import StudentForm, StudentModalForm, StudentStudentAffairsForm, StaffPersonnelCreateForm
 from .policy import (
     get_student_current_state,
     evaluate_scan,
@@ -135,6 +136,109 @@ def _resolve_student_from_gate_input(raw: str):
     return None, 'none'
 
 
+MANUAL_OFFICE_REASON_LABELS = {
+    'SAS_ID_CONCERN': 'Student Affairs (SAS) - ID concern',
+    'GATE_RESOLVED_OFFICE_ENDORSEMENT': 'Resolved at gate / Endorse to proper office',
+}
+
+
+def _normalize_manual_office_reason(raw_reason):
+    code = (raw_reason or '').strip().upper()
+    if not code:
+        return '', ''
+    if code in MANUAL_OFFICE_REASON_LABELS:
+        return code, MANUAL_OFFICE_REASON_LABELS[code]
+    # Backward compatibility: keep legacy free-text reasons as-is.
+    return '', (raw_reason or '').strip()[:200]
+
+
+def _notify_sas_manual_office_referral(student, actor, entry, office_code, selected_event=None):
+    """Notify Student Affairs dashboard for manual ID-related office referrals from gate."""
+    if office_code != 'SAS_ID_CONCERN':
+        return
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        sas_users = User.objects.filter(
+            is_active=True,
+            groups__name__iexact='Student Affairs',
+        ).distinct()
+        actor_name = (actor.get_full_name() if actor else '') or (actor.username if actor else 'Gate staff')
+        event_label = f' | Event: {selected_event.name}' if selected_event else ''
+        msg = (
+            f'Manual gate referral to SAS for ID concern.\n'
+            f'Student: {student.get_full_name()} ({student.student_id})\n'
+            f'Recorded by: {actor_name}{event_label}'
+        )
+        for u in sas_users:
+            AdminNotification.objects.create(
+                notification_type='incident',
+                priority='high',
+                title='Gate office referral: SAS',
+                message=msg[:1000],
+                target_user=u,
+                broadcast=False,
+                related_student=student,
+                related_entry=entry,
+                related_event=selected_event,
+            )
+        try:
+            from .notifications import send_announcement_emails
+            send_announcement_emails(
+                list(sas_users),
+                'Gate office referral: SAS',
+                msg[:2000],
+            )
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
+def _apply_student_office_hold(student, note):
+    if not student:
+        return
+    try:
+        update_fields = []
+        if not student.office_clearance_hold:
+            student.office_clearance_hold = True
+            update_fields.append('office_clearance_hold')
+        if note:
+            student.office_clearance_note = (note or '')[:255]
+            update_fields.append('office_clearance_note')
+        if update_fields:
+            student.save(update_fields=update_fields)
+    except Exception:
+        pass
+
+
+def _clear_student_office_hold_if_no_pending(student):
+    if not student:
+        return
+    pending_exists = GateIncident.objects.filter(
+        student=student,
+        sas_review_status='to_check',
+    ).exists()
+    if not pending_exists and student.office_clearance_hold:
+        student.office_clearance_hold = False
+        student.office_clearance_note = ''
+        student.save(update_fields=['office_clearance_hold', 'office_clearance_note'])
+
+
+def _get_unresolved_office_incident(student):
+    """Latest unresolved incident that should block IN until office resolution."""
+    if not student:
+        return None
+    return (
+        GateIncident.objects.filter(
+            student=student,
+            sas_review_status='to_check',
+        )
+        .order_by('-timestamp')
+        .first()
+    )
+
+
 def _audit_kwargs_for_gate_entry(request, device_id=None):
     """Return device_id and ip_address for GateEntry audit trail. Pass device_id if already in scope (e.g. save_scan)."""
     if device_id is None:
@@ -180,7 +284,7 @@ def _resolve_save_scan_actor(request):
         return None
     if request.user.is_authenticated:
         role = get_user_role(request.user)
-        if role in ('admin', 'staff', 'faculty', 'supervisor'):
+        if role in ('admin', 'staff', 'faculty'):
             return request.user
     return False
 
@@ -205,6 +309,16 @@ def _fmt_student_name(student):
     if lname:
         return f"{lname}, {full}".strip(', ')
     return full
+
+
+def _student_sex_display(student):
+    """Human-readable sex/gender from Student.sex. Empty field → 'Not set' (data not captured on student profile)."""
+    if not student:
+        return '—'
+    raw = (getattr(student, 'sex', None) or '').strip()
+    if not raw:
+        return 'Not set'
+    return student.get_sex_display()
 
 
 PER_PAGE_OPTIONS = [10, 20, 30, 40, 50, 100]
@@ -904,7 +1018,7 @@ def _is_within_event_window(event, now=None, grace_minutes=30):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty', 'supervisor')
+@role_required('admin', 'staff', 'faculty')
 @ensure_csrf_cookie
 def gate_scan(request):
     """Gate kiosk: assigned staff logs in and scans; physical security may assist (no separate login)."""
@@ -1039,7 +1153,7 @@ def lookup_student(request):
 
 @require_POST
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty', 'supervisor')
+@role_required('admin', 'staff', 'faculty')
 @transaction.atomic
 def record_entry(request):
     """Record gate entry: grant or deny. Creates GateEntry, optionally GateIncident and EventAttendance."""
@@ -1054,6 +1168,7 @@ def record_entry(request):
             student = Student.objects.get(pk=student_pk, student_id=student_id, is_active=True)
         except Student.DoesNotExist:
             return JsonResponse({'ok': False, 'error': 'Student not found'}, status=400)
+        # Access control uses account_status/is_active only: APPROVED=active, INACTIVE=frozen.
         # Grant gate entry only. Event attendance is recorded separately via Events → Attendance Scanner (instructor).
         GateEntry.objects.create(
             student=student, granted=True, notes=notes, recorded_by=request.user,
@@ -1063,7 +1178,10 @@ def record_entry(request):
             return JsonResponse({'ok': True, 'message': 'Entry granted'})
         return redirect('gate-scan')
     elif not granted:
-        # Deny: record GateEntry(denied) only (incidents feature removed)
+        valid_incident_reasons = {c[0] for c in GateIncident.REASON_CHOICES}
+        inc_reason = (reason or 'identity_mismatch').strip()
+        if inc_reason not in valid_incident_reasons:
+            inc_reason = 'identity_mismatch'
         student = None
         if student_pk:
             try:
@@ -1071,15 +1189,80 @@ def record_entry(request):
             except Student.DoesNotExist:
                 pass
         if student:
+            incident = GateIncident.objects.create(
+                student=student,
+                reason=inc_reason,
+                details=(notes or '')[:2000],
+                scanned_id=(student.student_id or '')[:100],
+                staff_alerted=True,
+            )
+            _apply_student_office_hold(student, 'Blocked: unresolved gate incident. Resolve at office first.')
             GateEntry.objects.create(
-                student=student, granted=False, incident=None, notes=notes, recorded_by=request.user,
+                student=student,
+                granted=False,
+                incident=incident,
+                notes=notes,
+                recorded_by=request.user,
+                result='DENIED',
                 **_audit_kwargs_for_gate_entry(request),
             )
+            try:
+                from .admin_notification_service import AdminNotificationService
+                AdminNotificationService.notify_incident(incident)
+            except Exception:
+                pass
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({'ok': True, 'message': 'Entry denied'})
         return redirect('gate-scan')
 
     return JsonResponse({'ok': False, 'error': 'Invalid request'}, status=400)
+
+
+def _save_scan_incident_and_entry(
+    *,
+    student,
+    result,
+    notes,
+    incident_reason,
+    incident_detail,
+    scanned_id,
+    actor,
+    request,
+    device_id,
+    event=None,
+):
+    """Log a denied scan with GateIncident + GateEntry and notify admins / Student Affairs (same as record_entry denies)."""
+    valid_incident_reasons = {c[0] for c in GateIncident.REASON_CHOICES}
+    inc_reason = (incident_reason or 'other').strip()
+    if inc_reason not in valid_incident_reasons:
+        inc_reason = 'other'
+    incident = GateIncident.objects.create(
+        student=student,
+        reason=inc_reason,
+        details=(incident_detail or '')[:2000],
+        scanned_id=(scanned_id or '')[:100],
+        staff_alerted=True,
+    )
+    if student is not None:
+        _apply_student_office_hold(student, incident_detail or 'Blocked: unresolved gate incident. Resolve at office first.')
+    kwargs = {
+        'student': student,
+        'granted': False,
+        'incident': incident,
+        'notes': notes,
+        'result': result,
+        'recorded_by': actor,
+        **_audit_kwargs_for_gate_entry(request, device_id=device_id),
+    }
+    if event is not None:
+        kwargs['event'] = event
+    GateEntry.objects.create(**kwargs)
+    try:
+        from .admin_notification_service import AdminNotificationService
+
+        AdminNotificationService.notify_incident(incident)
+    except Exception:
+        pass
 
 
 @require_POST
@@ -1097,6 +1280,7 @@ def save_scan(request):
     manual_status = (request.POST.get('manual_status') or '').strip().upper()  # IN or OUT
     gate_manual_entry = (request.POST.get('gate_manual_entry') or '').strip().lower()  # 'in' | 'out' | ''
     manual_entry_reason = (request.POST.get('manual_entry_reason') or '').strip()[:200]
+    manual_reason_code, manual_reason_label = _normalize_manual_office_reason(manual_entry_reason)
     local_time = request.POST.get('local_time', '').strip()
     event_id = request.POST.get('event_id', '').strip()
     device_id = (request.POST.get('device_id') or '').strip()
@@ -1224,20 +1408,33 @@ def save_scan(request):
     lookup_raw = student_id
     student, resolve_err = _resolve_student_from_gate_input(student_id)
     if resolve_err == 'multiple':
+        _save_scan_incident_and_entry(
+            student=None,
+            result='NOT_FOUND',
+            notes='Ambiguous lookup (multiple matches)',
+            incident_reason='other',
+            incident_detail='Several students match that name or ID; full student ID required.',
+            scanned_id=lookup_raw,
+            actor=actor,
+            request=request,
+            device_id=device_id,
+        )
         return JsonResponse({
             'success': False,
             'message': 'Several students match that name or ID. Enter the full student ID.',
             'color': 'warning',
         })
     if not student:
-        GateEntry.objects.create(
+        _save_scan_incident_and_entry(
             student=None,
-            granted=False,
-            incident=None,
-            notes='Not registered',
             result='NOT_FOUND',
-            recorded_by=actor,
-            **_audit_kwargs_for_gate_entry(request, device_id=device_id),
+            notes='Not registered',
+            incident_reason='not_registered',
+            incident_detail='Scan at gate: no matching student record.',
+            scanned_id=lookup_raw,
+            actor=actor,
+            request=request,
+            device_id=device_id,
         )
         return JsonResponse({
             'success': False,
@@ -1247,15 +1444,17 @@ def save_scan(request):
             'color': 'warning',
         })
     student_id = student.student_id
-    if not student.is_active:
-        GateEntry.objects.create(
+    if not student.is_active or student.account_status != Student.ACCOUNT_STATUS_APPROVED:
+        _save_scan_incident_and_entry(
             student=student,
-            granted=False,
-            incident=None,
-            notes='Not active (pending approval)',
             result='NOT_APPROVED',
-            recorded_by=actor,
-            **_audit_kwargs_for_gate_entry(request, device_id=device_id),
+            notes='Account inactive',
+            incident_reason='other',
+            incident_detail='Student account is inactive; QR / gate scan not allowed until active again.',
+            scanned_id=student_id,
+            actor=actor,
+            request=request,
+            device_id=device_id,
         )
         photo_url = None
         if student.photo:
@@ -1267,7 +1466,7 @@ def save_scan(request):
             'success': False,
             'inactive': True,
             'student_id': student_id,
-            'message': 'Student is registered but not active (pending approval).',
+            'message': 'This student account is inactive. The QR code cannot be used until the account is active again.',
             'color': 'warning',
             'student': {
                 'student_id': student.student_id,
@@ -1285,6 +1484,17 @@ def save_scan(request):
     from .models import StudentBlock
     blocking = StudentBlock.objects.filter(student=student, block_from__lte=today_block, block_until__gte=today_block)
     if blocking.filter(is_allowlist=False).exists():
+        _save_scan_incident_and_entry(
+            student=student,
+            result='BLOCKED',
+            notes='StudentBlock: access temporarily blocked',
+            incident_reason='other',
+            incident_detail='Access temporarily blocked (StudentBlock). Contact admin.',
+            scanned_id=student_id,
+            actor=actor,
+            request=request,
+            device_id=device_id,
+        )
         return JsonResponse({
             'success': False,
             'student_id': student_id,
@@ -1294,6 +1504,17 @@ def save_scan(request):
     if blocking.filter(is_allowlist=True).exists():
         pass  # explicit allow in this window
     elif StudentBlock.objects.filter(student=student, is_allowlist=True).exists():
+        _save_scan_incident_and_entry(
+            student=student,
+            result='BLOCKED',
+            notes='Allowlist: outside allowed date window',
+            incident_reason='other',
+            incident_detail='Access allowed only in a specific date window. Today is outside that window.',
+            scanned_id=student_id,
+            actor=actor,
+            request=request,
+            device_id=device_id,
+        )
         return JsonResponse({
             'success': False,
             'student_id': student_id,
@@ -1315,12 +1536,13 @@ def save_scan(request):
     if gate_manual_entry == 'in' and not manual_entry_reason:
         return JsonResponse({
             'success': False,
-            'message': 'Select a reason for manual check-in (for example ID missing or not scanning).',
+            'message': 'Select an office routing for manual check-in (for ID concern, choose Student Affairs).',
             'color': 'warning',
         })
 
     today = timezone.localdate()
     gate_eval_result = None  # set in daily-gate path for schedule_hint / out_reason_code
+
 
     # Event tracking: separate from daily gate. Only check event-specific attendance.
     if selected_event:
@@ -1334,6 +1556,21 @@ def save_scan(request):
             status = manual_status if manual_status in ('IN', 'OUT') else suggested
         day_start, day_end = _local_day_bounds(today)
         if not _is_student_allowed_for_event(selected_event, student):
+            aud = selected_event.audience_summary()
+            _save_scan_incident_and_entry(
+                student=student,
+                result='DENIED',
+                notes=f'Event audience: {aud}',
+                incident_reason='other',
+                incident_detail=(
+                    f'{student.get_full_name()} is not included in this event audience ({aud}).'
+                ),
+                scanned_id=student_id,
+                actor=actor,
+                request=request,
+                device_id=device_id,
+                event=selected_event,
+            )
             photo_url = None
             if student.photo:
                 try:
@@ -1593,7 +1830,7 @@ def save_scan(request):
 
     notes = status
     if gate_manual_entry == 'in' and manual_entry_reason:
-        notes = f'{status} | Manual: {manual_entry_reason}'
+        notes = f'{status} | Manual office: {manual_reason_label or manual_entry_reason}'
     elif gate_manual_entry == 'out':
         notes = f'{status} | Manual (no ID scan)'
     out_reason_code = (gate_eval_result.get('out_reason_code') or '') if gate_eval_result else ''
@@ -1611,9 +1848,17 @@ def save_scan(request):
         recorded_by=actor,
         **_audit_kwargs_for_gate_entry(request, device_id=device_id),
     )
+    if gate_manual_entry == 'in' and (manual_reason_code or manual_entry_reason):
+        _notify_sas_manual_office_referral(
+            student=student,
+            actor=actor,
+            entry=entry,
+            office_code=manual_reason_code,
+            selected_event=selected_event,
+        )
     
-    # Log gate activity for scan (staff/faculty/supervisor/admin)
-    if actor is not None and get_user_role(actor) in ('admin', 'staff', 'faculty', 'supervisor'):
+    # Log gate activity for scan (staff/faculty/admin)
+    if actor is not None and get_user_role(actor) in ('admin', 'staff', 'faculty'):
         from .gate_personnel_services import GateActivityLogger
         GateActivityLogger.log_scan(
             guard=actor,
@@ -1708,18 +1953,10 @@ def scan_event_qr(request):
     
     event_id = request.POST.get('event_id', '').strip()
     qr = (request.POST.get('qr') or '').strip()
+    # Client may send scan_type; we replace it below from registration/attendance state.
     scan_type = request.POST.get('scan_type', 'IN').strip().upper()
     device_id = request.POST.get('device_id', '').strip()
     client_scan_time_str = request.POST.get('client_scan_time', '').strip()
-    
-    # Validate scan_type strictly
-    if scan_type not in ('IN', 'OUT'):
-        return JsonResponse({
-            'ok': False,
-            'result': 'INVALID',
-            'message': 'Invalid scan_type. Must be IN or OUT.',
-            'color': 'error',
-        }, status=400)
     
     # Parse client scan time if provided (for offline scans)
     client_scan_time = None
@@ -1892,6 +2129,30 @@ def scan_event_qr(request):
         
         reg = None  # No token registration for student ID scans
 
+    # Inactive accounts cannot use event QR. Student-ID branch already filters is_active=True;
+    # token-based flow must reject registrations tied to a frozen/inactive student.
+    if not student.is_active or student.account_status != Student.ACCOUNT_STATUS_APPROVED:
+        AttendanceLog.objects.create(
+            event=event,
+            student=student,
+            registration=reg,
+            scan_type=scan_type,
+            result='INVALID',
+            token=reg.token if (is_token_based and reg) else '',
+            device_id=device_id,
+            recorded_by=recorded_by,
+            client_scan_time=client_scan_time,
+            remarks='Student account inactive; event QR not allowed.',
+        )
+        return JsonResponse({
+            'ok': False,
+            'result': 'INVALID',
+            'message': 'This student account is inactive. The QR code cannot be used until the account is active again.',
+            'color': 'error',
+            'inactive': True,
+            'student_id': student.student_id,
+        }, status=400)
+
     # Audience eligibility validation (applies to token + student ID scans)
     if not _is_student_allowed_for_event(event, student):
         audience_summary = event.audience_summary() if hasattr(event, 'audience_summary') else event.get_audience_scope_display()
@@ -1945,6 +2206,20 @@ def scan_event_qr(request):
         student=student,
         defaults={'participated': False}
     )
+    
+    # Auto IN/OUT from registration/attendance (no IN/OUT toggle on scanner UI).
+    if is_token_based and reg:
+        if reg.checked_in_at is None:
+            scan_type = 'IN'
+        elif reg.checked_out_at is None:
+            scan_type = 'OUT'
+        else:
+            scan_type = 'OUT'
+    else:
+        if attendance.checked_in_at is None:
+            scan_type = 'IN'
+        else:
+            scan_type = 'OUT'
     
     now = timezone.now()
     
@@ -2614,7 +2889,7 @@ def visitor_force_checkout(request):
 
 @require_POST
 @login_required(login_url='/login/')
-@role_required('admin', 'staff')
+@role_required('admin', 'staff', 'faculty')
 def visitor_disable_pass(request):
     """Disable a reusable pass (e.g. lost). If IN_USE, force checkout first."""
     pass_code = (request.POST.get('pass_code') or '').strip()
@@ -2640,7 +2915,7 @@ def visitor_disable_pass(request):
 
 @require_POST
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty', 'supervisor')
+@role_required('admin', 'staff', 'faculty')
 def mark_participation(request):
     """Mark student as participated or non-participant for an event."""
     student_pk = request.POST.get('student_pk')
@@ -2657,7 +2932,7 @@ def mark_participation(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'supervisor', 'faculty')
+@role_required('admin', 'staff', 'faculty')
 def analytics_dashboard(request):
     """Analytics: gate stats, event participation (incidents feature removed)."""
     today = timezone.localdate()
@@ -2665,38 +2940,6 @@ def analytics_dashboard(request):
 
     selected_year_raw = (request.GET.get('report_year') or request.GET.get('year') or '').strip()
     selected_year = int(selected_year_raw) if selected_year_raw.isdigit() else today.year
-
-    student_io_raw = (request.GET.get('student_io') or '').strip().lower()
-    student_io = student_io_raw if student_io_raw in ('in', 'out', 'all') else 'all'
-    scan_type_filter = None
-    if student_io == 'in':
-        scan_type_filter = 'IN'
-    elif student_io == 'out':
-        scan_type_filter = 'OUT'
-    student_io_label = {
-        'all': 'All (IN + OUT)',
-        'in': 'IN only',
-        'out': 'OUT only',
-    }.get(student_io, 'All (IN + OUT)')
-    student_chart_dataset_label = f'Student entries ({student_io_label})'
-
-    student_period_raw = (request.GET.get('student_period') or '').strip().lower()
-    student_period = student_period_raw if student_period_raw in ('daily', 'weekly', 'monthly', 'yearly') else 'monthly'
-    student_period_label = {
-        'daily': 'Daily',
-        'weekly': 'Weekly',
-        'monthly': 'Monthly',
-        'yearly': 'Yearly',
-    }.get(student_period, 'Monthly')
-
-    student_weekly_month = None
-    _sm_raw = (request.GET.get('student_month') or '').strip()
-    if _sm_raw.isdigit():
-        _sm = int(_sm_raw)
-        if 1 <= _sm <= 12:
-            student_weekly_month = _sm
-    if student_period == 'weekly' and student_weekly_month is None:
-        student_weekly_month = today.month if selected_year == today.year else 1
 
     entries_today = GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end)
     # Student gate visits only (daily gate, no event/visitor) so count matches Gate entry list
@@ -2708,7 +2951,6 @@ def analytics_dashboard(request):
     active_events = _get_active_events()
     report_event_choices = Event.objects.order_by('-start_date', 'name')[:150]
     past_events_with_stats = _get_past_events_with_stats(limit=20)
-    recent_entries = GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end).select_related('student').order_by('-timestamp')[:10]
     recent_incidents = []
     participation_stats = EventAttendance.objects.values('event__name').annotate(
         total=Count('id'),
@@ -2721,44 +2963,6 @@ def analytics_dashboard(request):
 
     default_years = {today.year - i for i in range(0, 6)}
     available_years = sorted(data_years.union(default_years).union({selected_year}))
-
-    month_labels = [calendar.month_abbr[m] for m in range(1, 13)]
-    monthly_granted = [0] * 12
-    monthly_denied = [0] * 12
-    monthly_incidents = [0] * 12
-
-    # Use local timezone year bounds so charts reflect campus records correctly (no UTC/month boundary issues)
-    year_start, year_end = _local_year_bounds(selected_year)
-    entries_for_year_qs = GateEntry.objects.filter(
-        timestamp__gte=year_start,
-        timestamp__lt=year_end,
-        granted=True,
-        student_id__isnull=False,
-        event__isnull=True,
-        visitor_visit__isnull=True,
-    )
-    if scan_type_filter:
-        entries_for_year_qs = entries_for_year_qs.filter(scan_type__iexact=scan_type_filter)
-    entry_timestamps = list(entries_for_year_qs.values_list('timestamp', flat=True))
-    for ts in entry_timestamps:
-        local_ts = timezone.localtime(ts)
-        m = local_ts.month
-        if 1 <= m <= 12:
-            monthly_granted[m - 1] += 1
-
-    non_zero_months = [(i + 1, c) for i, c in enumerate(monthly_granted) if c > 0]
-    if non_zero_months:
-        hi_month_num, hi_count = max(non_zero_months, key=lambda x: x[1])
-        lo_month_num, lo_count = min(non_zero_months, key=lambda x: x[1])
-        student_monthly_highest_month = calendar.month_name[hi_month_num]
-        student_monthly_highest_count = hi_count
-        student_monthly_lowest_month = calendar.month_name[lo_month_num]
-        student_monthly_lowest_count = lo_count
-    else:
-        student_monthly_highest_month = None
-        student_monthly_highest_count = 0
-        student_monthly_lowest_month = None
-        student_monthly_lowest_count = 0
 
     reason_labels = []
     reason_counts = []
@@ -2792,8 +2996,6 @@ def analytics_dashboard(request):
         event__isnull=True,
         visitor_visit__isnull=True,
     )
-    if scan_type_filter:
-        student_entries_this_month = student_entries_this_month.filter(scan_type__iexact=scan_type_filter)
     student_entries_this_month = student_entries_this_month.count()
     ys, ye = _local_year_bounds(selected_year)
     student_entries_this_year = GateEntry.objects.filter(
@@ -2804,136 +3006,11 @@ def analytics_dashboard(request):
         event__isnull=True,
         visitor_visit__isnull=True,
     )
-    if scan_type_filter:
-        student_entries_this_year = student_entries_this_year.filter(scan_type__iexact=scan_type_filter)
     student_entries_this_year = student_entries_this_year.count()
     year_end_for_link = min(datetime.date(selected_year, 12, 31), today)
 
     # Top departments/offices visited (who_to_visit) – monthly and annually; include VisitorEntry + VisitorVisit to match visitor list
     top_departments_monthly, top_departments_annually = _top_departments_visitors(month_start, day_end, selected_year)
-
-    annual_years = available_years[-6:] if len(available_years) > 6 else available_years
-    annual_granted = []
-    annual_denied = []
-    annual_inc = [0] * len(annual_years)
-    for y in annual_years:
-        y_start, y_end = _local_year_bounds(int(y))
-        qs = GateEntry.objects.filter(
-            timestamp__gte=y_start,
-            timestamp__lt=y_end,
-            granted=True,
-            student_id__isnull=False,
-            event__isnull=True,
-            visitor_visit__isnull=True,
-        )
-        if scan_type_filter:
-            qs = qs.filter(scan_type__iexact=scan_type_filter)
-        annual_granted.append(qs.count())
-        annual_denied.append(0)
-
-    # Main "Important analytics" student chart: daily / weekly / monthly / yearly (same IN/OUT filter as above)
-    student_chart_labels = []
-    student_chart_data = []
-    student_chart_type = 'bar'
-    student_stat_high_label = None
-    student_stat_high_count = 0
-    student_stat_low_label = None
-    student_stat_low_count = 0
-    student_chart_tooltip_lines = []
-
-    if student_period == 'monthly':
-        student_chart_labels = month_labels
-        student_chart_data = monthly_granted
-        student_chart_type = 'bar'
-        if student_monthly_highest_month:
-            student_stat_high_label = student_monthly_highest_month
-            student_stat_high_count = student_monthly_highest_count
-            student_stat_low_label = student_monthly_lowest_month
-            student_stat_low_count = student_monthly_lowest_count
-    elif student_period == 'yearly':
-        student_chart_labels = [str(y) for y in annual_years]
-        student_chart_data = annual_granted
-        student_chart_type = 'line'
-        year_pairs = [(y, c) for y, c in zip(annual_years, annual_granted) if c > 0]
-        if year_pairs:
-            hi_y, hi_c = max(year_pairs, key=lambda x: x[1])
-            lo_y, lo_c = min(year_pairs, key=lambda x: x[1])
-            student_stat_high_label = str(hi_y)
-            student_stat_high_count = hi_c
-            student_stat_low_label = str(lo_y)
-            student_stat_low_count = lo_c
-    elif student_period == 'daily':
-        daily_counts = {}
-        for ts in entry_timestamps:
-            local_d = timezone.localtime(ts).date()
-            if local_d.year != selected_year:
-                continue
-            daily_counts[local_d] = daily_counts.get(local_d, 0) + 1
-        year_end_date = datetime.date(selected_year, 12, 31)
-        if selected_year <= today.year:
-            end_d = min(today, year_end_date) if selected_year == today.year else year_end_date
-            cur = datetime.date(selected_year, 1, 1)
-            while cur <= end_d:
-                student_chart_labels.append(cur.strftime('%b %d'))
-                student_chart_data.append(daily_counts.get(cur, 0))
-                cur += datetime.timedelta(days=1)
-        non_zero = [(d, c) for d, c in daily_counts.items() if c > 0]
-        if non_zero:
-            hi_d, hi_c = max(non_zero, key=lambda x: x[1])
-            lo_d, lo_c = min(non_zero, key=lambda x: x[1])
-            student_stat_high_label = hi_d.strftime('%b %d, %Y')
-            student_stat_high_count = hi_c
-            student_stat_low_label = lo_d.strftime('%b %d, %Y')
-            student_stat_low_count = lo_c
-    else:
-        # Weekly: Mon–Sun weeks overlapping the month; count only days in that month (sums match yearly summary).
-        # "Fully inside month" weeks omitted boundary days (e.g. Feb 1; Feb 23–28 in a Feb/Mar week) — do not use.
-        day_counts_month = defaultdict(int)
-        for ts in entry_timestamps:
-            local_d = timezone.localtime(ts).date()
-            if local_d.year != selected_year or local_d.month != student_weekly_month:
-                continue
-            day_counts_month[local_d] += 1
-        week_rows = _calendar_weeks_overlapping_month(selected_year, student_weekly_month)
-        week_label_for_stat = []
-        for week_index, monday, sunday, clip_start, clip_end in week_rows:
-            cnt = 0
-            d = clip_start
-            while d <= clip_end:
-                cnt += day_counts_month.get(d, 0)
-                d += datetime.timedelta(days=1)
-            student_chart_labels.append('Wk %d' % week_index)
-            student_chart_data.append(cnt)
-            student_chart_tooltip_lines.append(
-                '%s %d, %d – %s %d, %d'
-                % (
-                    calendar.month_name[monday.month],
-                    monday.day,
-                    monday.year,
-                    calendar.month_name[sunday.month],
-                    sunday.day,
-                    sunday.year,
-                )
-            )
-            week_label_for_stat.append((cnt, 'Week %d' % week_index))
-        non_zero = [(t[1], t[0]) for t in week_label_for_stat if t[0] > 0]
-        if non_zero:
-            hi_label, hi_c = max(non_zero, key=lambda x: x[1])
-            lo_label, lo_c = min(non_zero, key=lambda x: x[1])
-            student_stat_high_label = hi_label
-            student_stat_high_count = hi_c
-            student_stat_low_label = lo_label
-            student_stat_low_count = lo_c
-
-    if student_period == 'yearly':
-        student_chart_title_line = 'Yearly student entries (by year)'
-    elif student_period == 'weekly':
-        student_chart_title_line = 'Weekly student entries — %s %s' % (
-            calendar.month_name[student_weekly_month],
-            selected_year,
-        )
-    else:
-        student_chart_title_line = '%s student entries (%s)' % (student_period_label, selected_year)
 
     theme = SiteTheme.objects.first()
     default_first_signatory_name = (getattr(theme, 'default_first_signatory_name', '') or '').strip()
@@ -2948,7 +3025,401 @@ def analytics_dashboard(request):
     ]
     visitor_department_choices = [(code, label) for code, label in CAMPUS_DEPARTMENT_CHOICES if code]
 
-    return render(request, 'gate/analytics.html', {
+    # --- Analytics overview (date range + optional gate / scanner) ---
+    from django.utils.dateparse import parse_date
+
+    def _overview_student_gate_qs(start_d, end_d, gate_device_id):
+        rs, _ = _local_day_bounds(start_d)
+        _, re_excl = _local_day_bounds(end_d)
+        qs = GateEntry.objects.filter(
+            timestamp__gte=rs,
+            timestamp__lt=re_excl,
+            granted=True,
+            student_id__isnull=False,
+            event__isnull=True,
+            visitor_visit__isnull=True,
+        )
+        if gate_device_id:
+            qs = qs.filter(device_id=gate_device_id)
+        return qs
+
+    def _overview_visitor_count(start_d, end_d, gate_device_id):
+        rs, _ = _local_day_bounds(start_d)
+        _, re_excl = _local_day_bounds(end_d)
+        if not gate_device_id:
+            return (
+                VisitorEntry.objects.filter(timestamp__gte=rs, timestamp__lt=re_excl).count()
+                + VisitorVisit.objects.filter(checked_in_at__gte=rs, checked_in_at__lt=re_excl).count()
+            )
+        return GateEntry.objects.filter(
+            timestamp__gte=rs,
+            timestamp__lt=re_excl,
+            granted=True,
+            visitor_visit__isnull=False,
+            device_id=gate_device_id,
+        ).count()
+
+    def _overview_peak_rush_label(hour):
+        if hour is None:
+            return '—'
+        if 5 <= hour < 12:
+            return 'Morning Rush'
+        if 12 <= hour < 14:
+            return 'Lunch'
+        if 14 <= hour < 18:
+            return 'Afternoon'
+        if 18 <= hour < 22:
+            return 'Evening'
+        return 'Off-peak'
+
+    def _pct_change(curr, prev):
+        if prev is None:
+            return None, None
+        if prev == 0:
+            if curr == 0:
+                return 0.0, 'flat'
+            return 100.0, 'up'
+        delta = ((curr - prev) / prev) * 100.0
+        if delta > 0.5:
+            return delta, 'up'
+        if delta < -0.5:
+            return delta, 'down'
+        return delta, 'flat'
+
+    overview_preset = (request.GET.get('overview_preset') or '').strip().lower()
+    _preset_allowed = ('today', 'yesterday', 'last_7_days', 'custom')
+    if overview_preset not in _preset_allowed:
+        overview_preset = ''
+
+    overview_from_raw = (request.GET.get('overview_from') or '').strip()
+    overview_to_raw = (request.GET.get('overview_to') or '').strip()
+    overview_from_parsed = parse_date(overview_from_raw) if overview_from_raw else None
+    overview_to_parsed = parse_date(overview_to_raw) if overview_to_raw else None
+
+    # Legacy URLs: both dates set without overview_preset → custom range
+    if not overview_preset:
+        if overview_from_parsed and overview_to_parsed:
+            overview_preset = 'custom'
+        else:
+            overview_preset = 'today'
+
+    if overview_preset == 'custom':
+        if overview_from_parsed and overview_to_parsed:
+            overview_start = overview_from_parsed
+            overview_end = overview_to_parsed
+            if overview_start > overview_end:
+                overview_start, overview_end = overview_end, overview_start
+        else:
+            overview_start = overview_end = today
+    else:
+        if overview_preset == 'today':
+            overview_start = overview_end = today
+        elif overview_preset == 'yesterday':
+            _yd = today - datetime.timedelta(days=1)
+            overview_start = overview_end = _yd
+        elif overview_preset == 'last_7_days':
+            overview_start = today - datetime.timedelta(days=6)
+            overview_end = today
+        else:
+            overview_start = overview_end = today
+
+    # Do not allow future end date past today for consistency with operational data
+    if overview_end > today:
+        overview_end = today
+    if overview_start > overview_end:
+        overview_start = overview_end
+
+    overview_gate = ''
+
+    overview_num_days = (overview_end - overview_start).days + 1
+    span_days = overview_num_days
+    prev_overview_end = overview_start - datetime.timedelta(days=1)
+    prev_overview_start = prev_overview_end - datetime.timedelta(days=span_days - 1)
+
+    ov_qs = _overview_student_gate_qs(overview_start, overview_end, overview_gate)
+    overview_total_scans = ov_qs.count()
+    prev_total_scans = _overview_student_gate_qs(prev_overview_start, prev_overview_end, overview_gate).count()
+
+    overview_total_pct, overview_total_trend = _pct_change(overview_total_scans, prev_total_scans)
+
+    overview_avg_daily = (overview_total_scans / overview_num_days) if overview_num_days else 0
+    prev_avg_den = overview_num_days if overview_num_days else 1
+    prev_avg_daily = (prev_total_scans / prev_avg_den) if prev_avg_den else 0
+    if prev_avg_daily == 0:
+        overview_avg_status = 'normal' if overview_avg_daily == 0 else 'above'
+    else:
+        rel_avg = (overview_avg_daily - prev_avg_daily) / prev_avg_daily
+        if abs(rel_avg) < 0.12:
+            overview_avg_status = 'normal'
+        elif overview_avg_daily > prev_avg_daily:
+            overview_avg_status = 'above'
+        else:
+            overview_avg_status = 'below'
+
+    overview_visitors = _overview_visitor_count(overview_start, overview_end, overview_gate)
+    prev_visitors = _overview_visitor_count(prev_overview_start, prev_overview_end, overview_gate)
+    overview_visitors_pct, overview_visitors_trend = _pct_change(overview_visitors, prev_visitors)
+
+    hour_counts = Counter()
+    for ts in ov_qs.values_list('timestamp', flat=True):
+        hour_counts[timezone.localtime(ts).hour] += 1
+    if hour_counts:
+        peak_hour = max(hour_counts.keys(), key=lambda h: hour_counts[h])
+        peak_ampm = datetime.datetime(2000, 1, 1, peak_hour, 0).strftime('%I:%M %p').lstrip('0')
+        overview_peak_display = peak_ampm.replace(' 0', ' ')
+        overview_peak_rush = _overview_peak_rush_label(peak_hour)
+    else:
+        peak_hour = None
+        overview_peak_display = '—'
+        overview_peak_rush = 'No data'
+
+    # Hourly traffic + entry-by-role: single calendar day vs full overview range (no separate UI control).
+    traffic_hour_scope = 'range' if overview_start < overview_end else 'today'
+
+    def _traffic_flow_student_gate_qs(range_start, range_end_exclusive, gate_device_id):
+        qs = GateEntry.objects.filter(
+            timestamp__gte=range_start,
+            timestamp__lt=range_end_exclusive,
+            granted=True,
+            student_id__isnull=False,
+            event__isnull=True,
+            visitor_visit__isnull=True,
+        )
+        if gate_device_id:
+            qs = qs.filter(device_id=gate_device_id)
+        return qs
+
+    def _fmt_hour_ampm(h):
+        if h == 0:
+            return '12 AM'
+        if h < 12:
+            return '%d AM' % h
+        if h == 12:
+            return '12 PM'
+        return '%d PM' % (h - 12)
+
+    tf_range_start, _ = _local_day_bounds(overview_start)
+    _, tf_range_end_excl = _local_day_bounds(overview_end)
+
+    # Campus hours: 6 AM – 5 PM (hours 6–17), line/area chart
+    traffic_flow_labels = [_fmt_hour_ampm(h) for h in range(6, 18)]
+
+    if traffic_hour_scope == 'today':
+        day_start, day_end = _local_day_bounds(overview_end)
+        qs_tf = _traffic_flow_student_gate_qs(day_start, day_end, overview_gate)
+        traffic_flow_subtitle = overview_end.strftime('%b %d, %Y')
+    else:
+        qs_tf = _traffic_flow_student_gate_qs(tf_range_start, tf_range_end_excl, overview_gate)
+        traffic_flow_subtitle = (
+            f'{overview_start.strftime("%b %d, %Y")} – {overview_end.strftime("%b %d, %Y")}'
+        )
+
+    tf_rows = list(qs_tf.values_list('timestamp', 'scan_type'))
+    in_counts = Counter()
+    out_counts = Counter()
+    for ts, st in tf_rows:
+        h = timezone.localtime(ts).hour
+        if h < 6 or h > 17:
+            continue
+        stu = (st or '').upper()
+        if stu == 'IN':
+            in_counts[h] += 1
+        elif stu == 'OUT':
+            out_counts[h] += 1
+    traffic_flow_in = [in_counts[h] for h in range(6, 18)]
+    traffic_flow_out = [out_counts[h] for h in range(6, 18)]
+    traffic_flow_title = 'Hourly Traffic Flow'
+
+    # Entry by role (IN scans, same time window + gate as hourly chart above) — donut chart
+    # Students vs visitors only (no separate staff/contractor slices — not tracked in this deployment).
+    if traffic_hour_scope == 'today':
+        _role_start, _role_end_excl = _local_day_bounds(overview_end)
+        entry_role_range_note = overview_end.strftime('%b %d, %Y')
+    else:
+        _role_start, _role_end_excl = tf_range_start, tf_range_end_excl
+        entry_role_range_note = (
+            f'{overview_start.strftime("%b %d")} – {overview_end.strftime("%b %d, %Y")}'
+        )
+    role_qs = GateEntry.objects.filter(
+        timestamp__gte=_role_start,
+        timestamp__lt=_role_end_excl,
+        granted=True,
+        scan_type='IN',
+    ).select_related('student')
+
+    entry_role_counts = {'students': 0, 'visitors': 0}
+    for e in role_qs.iterator(chunk_size=500):
+        if e.visitor_visit_id:
+            entry_role_counts['visitors'] += 1
+            continue
+        st = e.student
+        if not st:
+            entry_role_counts['visitors'] += 1
+            continue
+        sid_u = (st.student_id or '').strip().upper()
+        if sid_u == 'GUEST':
+            entry_role_counts['visitors'] += 1
+            continue
+        entry_role_counts['students'] += 1
+
+    entry_role_labels = ['Students', 'Visitors']
+    entry_role_values = [
+        entry_role_counts['students'],
+        entry_role_counts['visitors'],
+    ]
+    entry_role_total = sum(entry_role_values)
+
+    # Weekly peak hours heatmap (3 time bands × Mon–Sun), full overview range
+    hm_qs = _traffic_flow_student_gate_qs(tf_range_start, tf_range_end_excl, overview_gate)
+    hm_matrix = [[0] * 7 for _ in range(3)]
+
+    def _heatmap_band(h):
+        if 6 <= h <= 10:
+            return 0
+        if 11 <= h <= 14:
+            return 1
+        if 15 <= h <= 17:
+            return 2
+        return None
+
+    for ts in hm_qs.values_list('timestamp', flat=True):
+        lt = timezone.localtime(ts)
+        b = _heatmap_band(lt.hour)
+        if b is None:
+            continue
+        hm_matrix[b][lt.weekday()] += 1
+
+    hm_flat = [hm_matrix[r][c] for r in range(3) for c in range(7)]
+    hm_min = min(hm_flat) if hm_flat else 0
+    hm_max = max(hm_flat) if hm_flat else 0
+
+    def _heatmap_tier(v):
+        if hm_max == hm_min:
+            return 'low' if v == 0 else 'peak'
+        ratio = (v - hm_min) / (hm_max - hm_min)
+        if ratio < 0.25:
+            return 'low'
+        if ratio < 0.5:
+            return 'medium'
+        if ratio < 0.75:
+            return 'high'
+        return 'peak'
+
+    heatmap_row_labels = ['6–10 AM', '11 AM–2 PM', '3–5 PM']
+    heatmap_weekday_labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    heatmap_rows = []
+    for r in range(3):
+        cells = [{'value': hm_matrix[r][c], 'tier': _heatmap_tier(hm_matrix[r][c])} for c in range(7)]
+        heatmap_rows.append({'label': heatmap_row_labels[r], 'cells': cells})
+    heatmap_subtitle = (
+        f'{overview_start.strftime("%b %d, %Y")} – {overview_end.strftime("%b %d, %Y")} · IN+OUT scans'
+    )
+
+    # Bar charts: student daily gate scans by program, year level, gender (same window as overview / heatmap)
+    _bar_student_qs = GateEntry.objects.filter(
+        timestamp__gte=tf_range_start,
+        timestamp__lt=tf_range_end_excl,
+        granted=True,
+        student_id__isnull=False,
+        event__isnull=True,
+        visitor_visit__isnull=True,
+    )
+    _course_lbl = dict(Student.COURSE_CHOICES)
+    _year_lbl = dict(Student.YEAR_LEVEL_CHOICES)
+    _sex_lbl = dict(Student.SEX_CHOICES)
+
+    def _bar_course_label(code):
+        code = (code or '').strip()
+        return _course_lbl.get(code, code) if code else 'Unspecified'
+
+    def _bar_year_label(code):
+        code = (code or '').strip()
+        return _year_lbl.get(code, code) if code else 'Unspecified'
+
+    def _bar_sex_label(code):
+        code = (code or '').strip()
+        return _sex_lbl.get(code, code) if code else ''
+
+    # Clear Model.Meta.ordering so GROUP BY is only student__course (otherwise -timestamp splits every row).
+    _by_course = list(
+        _bar_student_qs.order_by().values('student__course').annotate(c=Count('id'))
+    )
+
+    def _course_sort_key(row):
+        v = row.get('student__course') or ''
+        return ({'BST': 0, 'BSE': 1}.get(v, 2), v)
+
+    _by_course.sort(key=_course_sort_key)
+
+    _by_year = list(
+        _bar_student_qs.order_by().values('student__year_level').annotate(c=Count('id'))
+    )
+
+    def _year_sort_key(row):
+        v = row.get('student__year_level') or ''
+        if v in ('1', '2', '3', '4'):
+            return (0, int(v))
+        return (1, v)
+
+    _by_year.sort(key=_year_sort_key)
+
+    _by_sex = list(
+        _bar_student_qs.filter(student__sex__in=[Student.SEX_MALE, Student.SEX_FEMALE])
+        .order_by()
+        .values('student__sex')
+        .annotate(c=Count('id'))
+    )
+    _sex_order = {'MALE': 0, 'FEMALE': 1}
+
+    def _sex_sort_key(row):
+        v = row.get('student__sex') or ''
+        return (_sex_order.get(v, 99), v)
+
+    _by_sex.sort(key=_sex_sort_key)
+
+    student_bar_subtitle = (
+        f'{overview_start.strftime("%b %d, %Y")} – {overview_end.strftime("%b %d, %Y")} · daily gate IN+OUT scans'
+    )
+    student_bar_any_data = _bar_student_qs.exists()
+
+    def _gate_student_list_url(**kwargs):
+        from urllib.parse import urlencode
+        q = {k: v for k, v in kwargs.items() if v is not None and str(v).strip() != ''}
+        base = reverse('gate-student-list')
+        return base + ('?' + urlencode(q) if q else '')
+
+    profile_kpi_by_program = []
+    for r in _by_course[:10]:
+        code = (r.get('student__course') or '').strip()
+        profile_kpi_by_program.append({
+            'label': _bar_course_label(code),
+            'count': r['c'],
+            'key': code,
+            'link': _gate_student_list_url(course=code) if code else reverse('gate-student-list'),
+        })
+    profile_kpi_by_year = []
+    for r in _by_year[:10]:
+        yl = (r.get('student__year_level') or '').strip()
+        profile_kpi_by_year.append({
+            'label': _bar_year_label(yl),
+            'count': r['c'],
+            'key': yl,
+            'link': _gate_student_list_url(year_level=yl) if yl else reverse('gate-student-list'),
+        })
+    profile_kpi_by_sex = []
+    for r in _by_sex[:6]:
+        sx = (r.get('student__sex') or '').strip()
+        profile_kpi_by_sex.append({
+            'label': _bar_sex_label(sx) or '—',
+            'count': r['c'],
+            'key': sx,
+            'link': _gate_student_list_url(sex=sx) if sx else reverse('gate-student-list'),
+        })
+
+    # Legacy key: empty dict (student chart + meta removed). Keeps partials/templates safe if still referenced.
+    chart_meta = {}
+
+    ctx = {
         'site_name': 'City College of Bayawan',
         'today_iso': today.isoformat(),
         'granted_today': granted_today,
@@ -2957,7 +3428,6 @@ def analytics_dashboard(request):
         'total_students': total_students,
         'inside_now': inside_now,
         'active_events': active_events,
-        'recent_entries': recent_entries,
         'recent_incidents': recent_incidents,
         'participation_stats': participation_stats,
         'past_events_with_stats': past_events_with_stats,
@@ -2967,48 +3437,15 @@ def analytics_dashboard(request):
         'visitors_this_year': visitors_this_year,
         'student_entries_this_month': student_entries_this_month,
         'student_entries_this_year': student_entries_this_year,
-        'student_io': student_io,
-        'student_io_label': student_io_label,
-        'student_period': student_period,
-        'student_period_label': student_period_label,
-        'student_weekly_month': student_weekly_month,
-        'analytics_month_choices': [(i, calendar.month_name[i]) for i in range(1, 13)],
-        'student_chart_title_line': student_chart_title_line,
-        'student_chart_labels_json': json.dumps(student_chart_labels),
-        'student_chart_data_json': json.dumps(student_chart_data),
-        # Raw lists for templates/gate/analytics.html json_script (escapejs breaks JSON.parse)
-        'student_chart_labels': student_chart_labels,
-        'student_chart_data': student_chart_data,
-        'student_chart_tooltip_lines': student_chart_tooltip_lines,
-        'analytics_annual_years': [str(y) for y in annual_years],
-        'analytics_annual_granted': annual_granted,
-        'student_chart_type': student_chart_type,
-        'student_stat_high_label': student_stat_high_label,
-        'student_stat_high_count': student_stat_high_count,
-        'student_stat_low_label': student_stat_low_label,
-        'student_stat_low_count': student_stat_low_count,
-        'student_chart_dataset_label': student_chart_dataset_label,
-        'student_monthly_highest_month': student_monthly_highest_month,
-        'student_monthly_highest_count': student_monthly_highest_count,
-        'student_monthly_lowest_month': student_monthly_lowest_month,
-        'student_monthly_lowest_count': student_monthly_lowest_count,
         'student_entries_month_from': first_of_month.isoformat(),
         'student_entries_month_to': today.isoformat(),
         'student_entries_year_from': datetime.date(selected_year, 1, 1).isoformat(),
         'student_entries_year_to': year_end_for_link.isoformat(),
         'top_departments_monthly': top_departments_monthly,
         'top_departments_annually': top_departments_annually,
-        'chart_month_labels_json': json.dumps(month_labels),
-        'chart_monthly_granted_json': json.dumps(monthly_granted),
-        'chart_monthly_denied_json': json.dumps(monthly_denied),
-        'chart_monthly_incidents_json': json.dumps(monthly_incidents),
         'chart_reason_labels_json': json.dumps(reason_labels),
         'chart_reason_counts_json': json.dumps(reason_counts),
         'chart_reason_colors_json': json.dumps(reason_colors),
-        'chart_annual_years_json': json.dumps([str(y) for y in annual_years]),
-        'chart_annual_granted_json': json.dumps(annual_granted),
-        'chart_annual_denied_json': json.dumps(annual_denied),
-        'chart_annual_incidents_json': json.dumps(annual_inc),
         'default_first_signatory_name': default_first_signatory_name,
         'default_first_signatory_title': default_first_signatory_title,
         'default_second_signatory_name': default_second_signatory_name,
@@ -3018,12 +3455,228 @@ def analytics_dashboard(request):
         'student_reason_choices': student_reason_choices,
         'visitor_department_choices': visitor_department_choices,
         'report_event_choices': report_event_choices,
-    })
+        'overview_start': overview_start,
+        'overview_end': overview_end,
+        'overview_from_iso': overview_start.isoformat(),
+        'overview_to_iso': overview_end.isoformat(),
+        'overview_preset': overview_preset,
+        'overview_total_scans': overview_total_scans,
+        'overview_total_pct': overview_total_pct,
+        'overview_total_trend': overview_total_trend,
+        'overview_avg_daily': round(overview_avg_daily, 1),
+        'overview_avg_status': overview_avg_status,
+        'overview_visitors': overview_visitors,
+        'overview_visitors_pct': overview_visitors_pct,
+        'overview_visitors_trend': overview_visitors_trend,
+        'overview_peak_display': overview_peak_display,
+        'overview_peak_rush': overview_peak_rush,
+        'overview_num_days': overview_num_days,
+        'traffic_hour_scope': traffic_hour_scope,
+        'traffic_flow_title': traffic_flow_title,
+        'traffic_flow_subtitle': traffic_flow_subtitle,
+        'traffic_flow_labels': traffic_flow_labels,
+        'traffic_flow_in': traffic_flow_in,
+        'traffic_flow_out': traffic_flow_out,
+        'entry_role_labels': entry_role_labels,
+        'entry_role_values': entry_role_values,
+        'entry_role_total': entry_role_total,
+        'entry_role_range_note': entry_role_range_note,
+        'heatmap_rows': heatmap_rows,
+        'heatmap_weekday_labels': heatmap_weekday_labels,
+        'heatmap_subtitle': heatmap_subtitle,
+        'student_bar_subtitle': student_bar_subtitle,
+        'student_bar_any_data': student_bar_any_data,
+        'profile_kpi_by_program': profile_kpi_by_program,
+        'profile_kpi_by_year': profile_kpi_by_year,
+        'profile_kpi_by_sex': profile_kpi_by_sex,
+        'chart_meta': chart_meta,
+    }
+    if request.GET.get('partial') == '1':
+        return render(request, 'gate/analytics_inner.html', ctx)
+    return render(request, 'gate/analytics.html', ctx)
+
+
+def _parse_analytics_overview_gate_date_range(request):
+    """Same overview date range as analytics_dashboard; returns (tf_start, tf_end_exclusive, overview_start, overview_end)."""
+    from django.utils.dateparse import parse_date
+
+    today = timezone.localdate()
+    overview_preset = (request.GET.get('overview_preset') or '').strip().lower()
+    _preset_allowed = ('today', 'yesterday', 'last_7_days', 'custom')
+    if overview_preset not in _preset_allowed:
+        overview_preset = ''
+    overview_from_raw = (request.GET.get('overview_from') or '').strip()
+    overview_to_raw = (request.GET.get('overview_to') or '').strip()
+    overview_from_parsed = parse_date(overview_from_raw) if overview_from_raw else None
+    overview_to_parsed = parse_date(overview_to_raw) if overview_to_raw else None
+    if not overview_preset:
+        if overview_from_parsed and overview_to_parsed:
+            overview_preset = 'custom'
+        else:
+            overview_preset = 'today'
+    if overview_preset == 'custom':
+        if overview_from_parsed and overview_to_parsed:
+            overview_start = overview_from_parsed
+            overview_end = overview_to_parsed
+            if overview_start > overview_end:
+                overview_start, overview_end = overview_end, overview_start
+        else:
+            overview_start = overview_end = today
+    else:
+        if overview_preset == 'today':
+            overview_start = overview_end = today
+        elif overview_preset == 'yesterday':
+            _yd = today - datetime.timedelta(days=1)
+            overview_start = overview_end = _yd
+        elif overview_preset == 'last_7_days':
+            overview_start = today - datetime.timedelta(days=6)
+            overview_end = today
+        else:
+            overview_start = overview_end = today
+    if overview_end > today:
+        overview_end = today
+    if overview_start > overview_end:
+        overview_start = overview_end
+    tf_range_start, _ = _local_day_bounds(overview_start)
+    _, tf_range_end_excl = _local_day_bounds(overview_end)
+    return tf_range_start, tf_range_end_excl, overview_start, overview_end
+
+
+@require_GET
+def analytics_profile_entries_json(request):
+    """JSON list of student daily gate IN/OUT scans for a profile slice (program, year level, gender).
+
+    Always returns JSON (including auth errors) so fetch() can parse the body — HTML 403/redirect
+    from decorators would break r.json() in the browser and show a generic error.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Sign in required. Refresh the page and try again.'}, status=401)
+    role = get_user_role(request.user)
+    if role is None:
+        return JsonResponse({'error': 'Your account has no role. Contact an administrator.'}, status=403)
+    if role not in ('admin', 'staff', 'faculty'):
+        return JsonResponse({'error': 'You do not have permission to load gate entries.'}, status=403)
+
+    dim = (request.GET.get('dimension') or '').strip().lower()
+    raw_val = request.GET.get('value')
+    val = (raw_val or '').strip() if raw_val is not None else ''
+
+    if dim not in ('course', 'year_level', 'sex'):
+        return JsonResponse({'error': 'Invalid dimension'}, status=400)
+
+    try:
+        tf_start, tf_end_excl, overview_start, overview_end = _parse_analytics_overview_gate_date_range(request)
+
+        qs = GateEntry.objects.filter(
+            timestamp__gte=tf_start,
+            timestamp__lt=tf_end_excl,
+            granted=True,
+            student_id__isnull=False,
+            event__isnull=True,
+            visitor_visit__isnull=True,
+        ).select_related('student')
+
+        if dim == 'course':
+            qs = qs.filter(student__course=val)
+        elif dim == 'year_level':
+            qs = qs.filter(student__year_level=val)
+        elif dim == 'sex':
+            if not val:
+                return JsonResponse({'error': 'Missing value'}, status=400)
+            qs = qs.filter(student__sex=val)
+
+        agg = qs.aggregate(
+            total=Count('id'),
+            in_count=Count('id', filter=Q(scan_type='IN')),
+            out_count=Count('id', filter=Q(scan_type='OUT')),
+        )
+        total = agg['total'] or 0
+        in_count = agg['in_count'] or 0
+        out_count = agg['out_count'] or 0
+
+        LIMIT = 500
+        out_code_lbl = dict(GateEntry.OUT_REASON_CODE_CHOICES)
+        rows = []
+        for e in qs.order_by('-timestamp')[:LIMIT]:
+            st = e.student
+            sid = (st.student_id or '').strip() if st else ''
+            fn = (getattr(st, 'first_name', None) or '') if st else ''
+            ln = (getattr(st, 'last_name', None) or '') if st else ''
+            name = (fn + ' ' + ln).strip() or '—'
+            sex_disp = _student_sex_display(st)
+            yl_disp = '—'
+            if st and getattr(st, 'year_level', None):
+                yl_disp = st.get_year_level_display()
+            sec_disp = '—'
+            if st and (st.section or '').strip():
+                sec_disp = (st.section or '').strip()
+            lt = timezone.localtime(e.timestamp)
+            local_time = lt.strftime('%b %d, %Y %I:%M %p').replace(' 0', ' ')
+            code = (e.out_reason_code or '').strip()
+            note = (e.out_reason or '').strip()
+            if code and note:
+                out_disp = f'{out_code_lbl.get(code, code)} · {note}'
+            elif note:
+                out_disp = note
+            elif code:
+                out_disp = out_code_lbl.get(code, code)
+            else:
+                out_disp = ''
+            if len(out_disp) > 120:
+                out_disp = out_disp[:117] + '…'
+            rows.append(
+                {
+                    'entry_id': e.pk,
+                    'timestamp': e.timestamp.isoformat(),
+                    'local_time': local_time,
+                    'scan_type': (e.scan_type or '').upper(),
+                    'student_id': sid,
+                    'student_name': name,
+                    'gender': sex_disp,
+                    'course': (st.course or '') if st else '',
+                    'year_level': yl_disp,
+                    'section': sec_disp,
+                    'out_note': out_disp,
+                }
+            )
+
+        range_label = (
+            f'{overview_start.strftime("%b %d, %Y")} – {overview_end.strftime("%b %d, %Y")}'
+            if overview_start != overview_end
+            else overview_start.strftime('%b %d, %Y')
+        )
+
+        gate_log_q = urlencode(
+            {
+                'from_date': overview_start.isoformat(),
+                'to_date': overview_end.isoformat(),
+                'student_gate_only': '1',
+            }
+        )
+        gate_log_url = reverse('gate-entry-list') + '?' + gate_log_q
+
+        return JsonResponse(
+            {
+                'dimension': dim,
+                'value': val,
+                'range_label': range_label,
+                'total': total,
+                'in_count': in_count,
+                'out_count': out_count,
+                'entries': rows,
+                'truncated': total > LIMIT,
+                'source': 'gate_entries',
+                'gate_log_url': gate_log_url,
+            }
+        )
+    except Exception as e:
+        logging.getLogger(__name__).exception('analytics_profile_entries_json failed: %s', e)
+        return JsonResponse({'error': 'Server error while loading gate entries.'}, status=500)
 
 
 @require_GET
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'supervisor', 'faculty')
+@role_required('admin', 'staff', 'faculty')
 def analytics_report(request):
     """Redirect: analytics is view-only per panel; print report removed."""
     return redirect('gate-analytics')
@@ -3031,7 +3684,7 @@ def analytics_report(request):
 
 @require_GET
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty')
+@role_required('admin', 'staff', 'faculty', 'student affairs')
 def student_qr_image(request, pk):
     """Generate QR code image for student (encodes student_id for gate scan). On-demand, no DB change."""
     student = get_object_or_404(Student, pk=pk)
@@ -3067,7 +3720,7 @@ def student_qr_image(request, pk):
 
 @require_GET
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty')
+@role_required('admin', 'staff', 'faculty', 'student affairs')
 def student_eid_card(request, pk):
     """Printable student e-ID card (front + back) with permanent QR. View in modal or print/download."""
     student = get_object_or_404(Student, pk=pk)
@@ -3135,7 +3788,7 @@ def _student_qr_png_bytes(student):
 
 @require_GET
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty', 'supervisor')
+@role_required('admin', 'staff', 'faculty', 'student affairs')
 def student_eid_print_all(request):
     """Printable page with all (filtered) student e-ID cards. Uses same filters as student list. download=1 → ZIP of PDFs."""
     from django.db.models import Q
@@ -3355,7 +4008,7 @@ def student_eid_print_all(request):
 
 @require_GET
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'supervisor')
+@role_required('admin', 'staff', 'student affairs')
 def visitor_pass_qr_image(request, code):
     """Generate QR code image for a visitor pass code (e.g. VIS-001). Used for printing."""
     pass_obj = get_object_or_404(VisitorPass, code=code)
@@ -3376,7 +4029,7 @@ def visitor_pass_qr_image(request, code):
 
 @require_GET
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'supervisor')
+@role_required('admin', 'staff', 'student affairs')
 def visitor_pass_card(request, code):
     """Printable electronic ID card for a visitor pass (QR + code + branding)."""
     pass_obj = get_object_or_404(VisitorPass, code=code)
@@ -3610,7 +4263,7 @@ def _render_visitor_eid_card_png(pass_obj, site_name='City College of Bayawan'):
 
 @require_GET
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'supervisor')
+@role_required('admin', 'staff', 'student affairs')
 def visitor_pass_print_all(request):
     """Printable page with all e-ID cards, or ZIP of PDFs (one per pass, exact card layout) when download=1."""
     passes = list(_visitor_pass_list_for_user(request))
@@ -3753,12 +4406,12 @@ def visitor_pass_print_all(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty', 'supervisor')
+@role_required('admin', 'staff', 'faculty', 'student affairs')
 def student_list(request):
-    """List students. Staff/faculty/supervisor get same registry actions as admin (import, export, e-ID, edit)."""
+    """List students. Staff/faculty/student affairs get same registry actions as admin (import, export, e-ID, edit)."""
     from gate_analytics.roles import get_user_role
     role = get_user_role(request.user)
-    can_edit_students = role in ('admin', 'staff', 'faculty', 'supervisor')
+    can_edit_students = role in ('admin', 'staff', 'faculty', 'student affairs')
 
     embed = (request.GET.get('embed') or '').strip().lower() in ('1', 'true', 'yes')
     filter_course = (request.GET.get('course') or '').strip()
@@ -3766,6 +4419,10 @@ def student_list(request):
     filter_section = (request.GET.get('section') or '').strip()
     filter_sex = (request.GET.get('sex') or '').strip()
     search_q = (request.GET.get('q') or '').strip()
+    highlight_raw = (request.GET.get('highlight') or '').strip()
+    highlight_pk = None
+    if highlight_raw.isdigit():
+        highlight_pk = int(highlight_raw)
 
     students = Student.objects.all().order_by('last_name', 'first_name')
 
@@ -3803,15 +4460,59 @@ def student_list(request):
     clear_search_url = reverse('gate-student-list') + ('?' + urlencode(clear_params) if clear_params else '')
 
     per_page, query_extra, query_extra_base = _get_per_page_and_query(request)
+
+    def _strip_qs_param(qs, param):
+        if not qs:
+            return qs
+        from urllib.parse import parse_qsl, urlencode
+        return urlencode([(k, v) for k, v in parse_qsl(qs, keep_blank_values=True) if k != param])
+
+    query_extra = _strip_qs_param(query_extra, 'partial')
+    query_extra_base = _strip_qs_param(query_extra_base, 'partial')
+
+    # Notification deep-link: ensure the student is visible and jump to their page.
+    if highlight_pk:
+        st_hi = Student.objects.filter(pk=highlight_pk).first()
+        if st_hi:
+            if not students.filter(pk=highlight_pk).exists():
+                qparams = [
+                    ('q', str(st_hi.student_id).strip()),
+                    ('highlight', str(highlight_pk)),
+                ]
+                if embed:
+                    qparams.insert(0, ('embed', '1'))
+                return redirect(reverse('gate-student-list') + '?' + urlencode(qparams))
+            pks = list(students.values_list('pk', flat=True))
+            try:
+                idx = pks.index(highlight_pk)
+                need_page = idx // per_page + 1
+            except ValueError:
+                need_page = 1
+            try:
+                cur_page = int(request.GET.get('page') or 1)
+            except (TypeError, ValueError):
+                cur_page = 1
+            if need_page != cur_page:
+                qp = request.GET.copy()
+                qp['page'] = str(need_page)
+                return redirect(reverse('gate-student-list') + '?' + qp.urlencode())
+
     paginator = Paginator(students, per_page)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
 
-    # Student list sex filter: only show the two explicit options staff asked for.
-    # (Still keeps DB/exports supporting OTHER/PREFER_NOT internally.)
-    sex_choices = [c for c in Student.SEX_CHOICES if c[0] in (Student.SEX_MALE, Student.SEX_FEMALE)]
+    if highlight_pk:
+        AdminNotification.objects.filter(
+            target_user=request.user,
+            notification_type='student_registration',
+            related_student_id=highlight_pk,
+            is_read=False,
+        ).update(is_read=True, read_at=timezone.now())
 
-    return render(request, 'gate/student_list.html', {
+    # Student list sex filter: only show the two explicit options staff asked for.
+    sex_choices = list(Student.SEX_CHOICES)
+
+    list_ctx = {
         'site_name': 'City College of Bayawan',
         'can_edit_students': can_edit_students,
         'embed': embed,
@@ -3830,7 +4531,14 @@ def student_list(request):
         'course_choices': Student.COURSE_CHOICES,
         'year_level_choices': Student.YEAR_LEVEL_CHOICES,
         'sex_choices': sex_choices,
-    })
+        'highlight_student_pk': highlight_pk,
+    }
+
+    partial_table = (request.GET.get('partial') or '').strip().lower() in ('1', 'table', 'true')
+    if partial_table:
+        return render(request, 'gate/student_list_table_partial.html', list_ctx)
+
+    return render(request, 'gate/student_list.html', list_ctx)
 
 
 def _staff_personnel_registry_redirect_response(request):
@@ -3839,34 +4547,6 @@ def _staff_personnel_registry_redirect_response(request):
     if next_path.startswith('/') and not next_path.startswith('//'):
         return redirect(next_path)
     return redirect('pending-staff-personnel-list')
-
-
-def _staff_personnel_qr_payload(user):
-    """QR encodes employee ID when set; otherwise username (for printed e-ID)."""
-    try:
-        p = user.staff_personnel_profile
-        eid = (p.employee_id or '').strip()
-    except Exception:
-        eid = ''
-    return eid or (user.username or '').strip() or str(user.pk)
-
-
-def _staff_personnel_qr_png_bytes(user):
-    payload = _staff_personnel_qr_payload(user)
-    if not payload:
-        return None
-    try:
-        import qrcode
-        qr = qrcode.QRCode(version=1, box_size=8, border=3)
-        qr.add_data(payload)
-        qr.make(fit=True)
-        img = qr.make_image()
-        buf = io.BytesIO()
-        img.save(buf, format='PNG')
-        buf.seek(0)
-        return buf.getvalue()
-    except Exception:
-        return None
 
 
 def _query_staff_registry_users(request):
@@ -3882,14 +4562,15 @@ def _query_staff_registry_users(request):
         filter_status = 'all'
 
     filter_role = (request.GET.get('role') or '').strip().lower()
-    if filter_role not in ('', 'staff', 'faculty'):
+    if filter_role not in ('', 'staff', 'faculty', 'student_affairs'):
         filter_role = ''
 
     search_q = (request.GET.get('q') or '').strip()
 
     id_qs = User.objects.filter(
         Q(groups__name__iexact='staff') |
-        Q(groups__name__iexact='faculty')
+        Q(groups__name__iexact='faculty') |
+        Q(groups__name__iexact='Student Affairs')
     ).distinct().values_list('id', flat=True)
     qs = User.objects.filter(id__in=id_qs).select_related('staff_personnel_profile')
 
@@ -3902,6 +4583,8 @@ def _query_staff_registry_users(request):
         qs = qs.filter(groups__name__iexact='staff')
     elif filter_role == 'faculty':
         qs = qs.filter(groups__name__iexact='faculty')
+    elif filter_role == 'student_affairs':
+        qs = qs.filter(groups__name__iexact='Student Affairs')
 
     if search_q:
         qs = qs.filter(
@@ -3915,11 +4598,22 @@ def _query_staff_registry_users(request):
     return qs
 
 
+def _user_is_staff_registry_account(u):
+    """Staff, faculty, or Student Affairs (self-service registration targets)."""
+    if not u:
+        return False
+    return (
+        u.groups.filter(name__iexact='staff').exists()
+        or u.groups.filter(name__iexact='faculty').exists()
+        or u.groups.filter(name__iexact='Student Affairs').exists()
+    )
+
+
 @login_required(login_url='/login/')
 @role_required('admin')
 def pending_staff_personnel_list(request):
     """
-    Staff/Faculty registry (same UX as Students): filters, search, QR, e-ID, import/export, add.
+    Staff/Faculty registry: filters, search, import/export, add.
     """
     from django.contrib.auth import get_user_model
     from django.contrib.auth.models import Group
@@ -3934,7 +4628,7 @@ def pending_staff_personnel_list(request):
         filter_status = 'all'
 
     filter_role = (request.GET.get('role') or '').strip().lower()
-    if filter_role not in ('', 'staff', 'faculty'):
+    if filter_role not in ('', 'staff', 'faculty', 'student_affairs'):
         filter_role = ''
 
     search_q = (request.GET.get('q') or '').strip()
@@ -3961,8 +4655,8 @@ def pending_staff_personnel_list(request):
         if action == 'edit_user' and user_id:
             try:
                 u = User.objects.get(pk=user_id)
-                if not (u.groups.filter(name__iexact='staff').exists() or u.groups.filter(name__iexact='faculty').exists()):
-                    messages.error(request, 'User is not a staff or faculty account.')
+                if not _user_is_staff_registry_account(u):
+                    messages.error(request, 'User is not a staff, faculty, or Student Affairs account.')
                     return _staff_personnel_registry_redirect_response(request)
                 new_username = (request.POST.get('username') or '').strip()
                 if new_username and User.objects.filter(username__iexact=new_username).exclude(pk=u.pk).exists():
@@ -3975,23 +4669,29 @@ def pending_staff_personnel_list(request):
                     u.username = new_username
                 u.save(update_fields=['first_name', 'last_name', 'email', 'username'])
                 role = (request.POST.get('role') or '').strip().lower()
-                if role in ('staff', 'faculty'):
+                if role in ('staff', 'faculty', 'student_affairs'):
                     role_groups = Group.objects.filter(
-                        Q(name__iexact='staff') | Q(name__iexact='faculty')
+                        Q(name__iexact='staff')
+                        | Q(name__iexact='faculty')
+                        | Q(name__iexact='Student Affairs')
                     )
                     for g in role_groups:
                         u.groups.remove(g)
-                    grp = Group.objects.filter(name__iexact=role).first()
+                    if role == 'student_affairs':
+                        grp = Group.objects.filter(name__iexact='Student Affairs').first()
+                    else:
+                        grp = Group.objects.filter(name__iexact=role).first()
                     if grp:
                         u.groups.add(grp)
-                profile, _ = StaffPersonnelProfile.objects.get_or_create(user=u, defaults={})
-                profile.middle_name = (request.POST.get('middle_name') or '')[:100]
-                profile.contact_number = (request.POST.get('contact_number') or '')[:20]
-                profile.department = (request.POST.get('department') or '')[:150]
-                profile.position = (request.POST.get('position') or '')[:150]
-                profile.employee_id = (request.POST.get('employee_id') or '')[:50]
-                profile.address = (request.POST.get('address') or '')[:500]
-                profile.save(update_fields=['middle_name', 'contact_number', 'department', 'position', 'employee_id', 'address'])
+                if u.groups.filter(name__iexact='staff').exists() or u.groups.filter(name__iexact='faculty').exists():
+                    profile, _ = StaffPersonnelProfile.objects.get_or_create(user=u, defaults={})
+                    profile.middle_name = (request.POST.get('middle_name') or '')[:100]
+                    profile.contact_number = (request.POST.get('contact_number') or '')[:20]
+                    profile.department = (request.POST.get('department') or '')[:150]
+                    profile.position = (request.POST.get('position') or '')[:150]
+                    profile.employee_id = (request.POST.get('employee_id') or '')[:50]
+                    profile.address = (request.POST.get('address') or '')[:500]
+                    profile.save(update_fields=['middle_name', 'contact_number', 'department', 'position', 'employee_id', 'address'])
                 messages.success(request, f'Account for {u.get_full_name() or u.username} has been updated.')
             except User.DoesNotExist:
                 messages.error(request, 'User not found.')
@@ -4000,7 +4700,7 @@ def pending_staff_personnel_list(request):
         if action and user_id:
             try:
                 u = User.objects.get(pk=user_id)
-                if u.groups.filter(name__iexact='staff').exists() or u.groups.filter(name__iexact='faculty').exists():
+                if _user_is_staff_registry_account(u):
                     if action == 'approve':
                         u.is_active = True
                         u.save(update_fields=['is_active'])
@@ -4027,7 +4727,7 @@ def pending_staff_personnel_list(request):
     def get_role(u):
         for g in u.groups.all():
             n = (g.name or '').lower()
-            if n in ('staff', 'faculty'):
+            if n in ('staff', 'faculty', 'student affairs'):
                 return g.name or n.title()
         return '—'
 
@@ -4056,11 +4756,12 @@ def pending_staff_personnel_list(request):
         is_active=False,
         id__in=User.objects.filter(
             Q(groups__name__iexact='staff') |
-            Q(groups__name__iexact='faculty')
+            Q(groups__name__iexact='faculty') |
+            Q(groups__name__iexact='Student Affairs')
         ).distinct().values_list('id', flat=True)
     ).count()
 
-    can_edit_staff_registry = get_user_role(request.user) in ('admin', 'staff', 'faculty', 'supervisor')
+    can_edit_staff_registry = get_user_role(request.user) in ('admin', 'staff', 'faculty')
 
     return render(request, 'gate/pending_staff_guard.html', {
         'site_name': 'City College of Bayawan',
@@ -4084,45 +4785,6 @@ def pending_staff_personnel_list(request):
 @require_GET
 @login_required(login_url='/login/')
 @role_required('admin')
-def staff_personnel_qr_image(request, user_id):
-    """PNG QR for staff/faculty e-ID (employee ID or username)."""
-    from django.contrib.auth import get_user_model
-
-    User = get_user_model()
-    user = get_object_or_404(User, pk=user_id)
-    if not (user.groups.filter(name__iexact='staff').exists() or user.groups.filter(name__iexact='faculty').exists()):
-        return HttpResponseForbidden('Not a staff/faculty account.')
-    payload = _staff_personnel_qr_payload(user)
-    try:
-        import qrcode
-        qr = qrcode.QRCode(version=1, box_size=8, border=3)
-        qr.add_data(payload)
-        qr.make(fit=True)
-        img = qr.make_image()
-        buffer = io.BytesIO()
-        img.save(buffer, format='PNG')
-        buffer.seek(0)
-        return HttpResponse(buffer.getvalue(), content_type='image/png')
-    except Exception:
-        import logging
-        logging.getLogger(__name__).warning('staff_personnel_qr_image failed for user_id=%s', user_id)
-        try:
-            from PIL import Image
-            buf = io.BytesIO()
-            placeholder = Image.new('RGB', (56, 56), color=(240, 240, 240))
-            placeholder.save(buf, format='PNG')
-            buf.seek(0)
-            return HttpResponse(buf.getvalue(), content_type='image/png')
-        except Exception:
-            return HttpResponse(
-                b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82',
-                content_type='image/png',
-            )
-
-
-@require_GET
-@login_required(login_url='/login/')
-@role_required('admin')
 def staff_personnel_eid_card(request, user_id):
     """Printable staff/faculty e-ID (same layout family as student e-ID)."""
     from django.contrib.auth import get_user_model
@@ -4132,7 +4794,6 @@ def staff_personnel_eid_card(request, user_id):
     if not (user.groups.filter(name__iexact='staff').exists() or user.groups.filter(name__iexact='faculty').exists()):
         return HttpResponseForbidden('Not a staff/faculty account.')
     profile, _ = StaffPersonnelProfile.objects.get_or_create(user=user, defaults={})
-    qr_url = request.build_absolute_uri(reverse('gate-staff-personnel-qr', kwargs={'user_id': user.pk}))
     site_name = getattr(settings, 'SITE_NAME', 'City College of Bayawan')
     logo_url = None
     try:
@@ -4160,7 +4821,7 @@ def staff_personnel_eid_card(request, user_id):
         'user': user,
         'profile': profile,
         'role_label': role_label,
-        'qr_url': qr_url,
+        'qr_url': None,
         'site_name': site_name,
         'logo_url': logo_url,
         'photo_url': photo_url,
@@ -4188,7 +4849,6 @@ def staff_personnel_eid_print_all(request):
     staff_cards = []
     for u in users:
         profile, _ = StaffPersonnelProfile.objects.get_or_create(user=u, defaults={})
-        qr_url = request.build_absolute_uri(reverse('gate-staff-personnel-qr', kwargs={'user_id': u.pk}))
         photo_url = None
         try:
             up = getattr(u, 'user_profile', None)
@@ -4203,7 +4863,7 @@ def staff_personnel_eid_print_all(request):
             'user': u,
             'profile': profile,
             'role_label': role_label,
-            'qr_url': qr_url,
+            'qr_url': None,
             'photo_url': photo_url,
             'id_display': id_display,
         })
@@ -4234,7 +4894,7 @@ def staff_personnel_export_csv(request):
     writer = csv.writer(response)
     writer.writerow([
         'Username', 'Email', 'First name', 'Last name', 'Role', 'Employee ID',
-        'Department', 'Position', 'Contact number', 'Middle name', 'Address',
+        'Department', 'Position', 'Contact number', 'Middle Initial', 'Address',
         'Is active', 'Date joined',
     ])
     for u in users:
@@ -4298,7 +4958,7 @@ def import_staff_personnel_csv(request):
         'email': 'email',
         'first_name': 'first_name', 'first name': 'first_name',
         'last_name': 'last_name', 'last name': 'last_name',
-        'middle_name': 'middle_name', 'middle name': 'middle_name',
+        'middle_name': 'middle_name', 'middle name': 'middle_name', 'middle initial': 'middle_name',
         'role': 'role', 'type': 'role',
         'employee_id': 'employee_id', 'employee id': 'employee_id', 'id': 'employee_id',
         'department': 'department',
@@ -4426,6 +5086,7 @@ def staff_personnel_create(request):
     from django.contrib.auth.models import Group
 
     User = get_user_model()
+    form_modal = (request.GET.get('modal') == '1') or (request.POST.get('from_modal') == '1')
     form = StaffPersonnelCreateForm(request.POST or None)
     if form.is_valid():
         d = form.cleaned_data
@@ -4449,17 +5110,31 @@ def staff_personnel_create(request):
             profile.contact_number = (d.get('contact_number') or '')[:20]
             profile.save()
         messages.success(request, f'Created account for {user.get_full_name() or user.username}.')
+        if request.POST.get('from_modal') == '1':
+            return redirect('gate-staff-personnel-create-modal-done')
         return redirect('pending-staff-personnel-list')
     return render(request, 'gate/staff_personnel_form.html', {
         'site_name': 'City College of Bayawan',
         'form': form,
         'title': 'Add staff / faculty',
+        'form_modal': form_modal,
+        'layout_template': 'gate/staff_personnel_form_modal_shell.html' if form_modal else 'base/base.html',
+    })
+
+
+@require_GET
+@login_required(login_url='/login/')
+@role_required('admin')
+def staff_personnel_create_modal_done(request):
+    """Minimal page loaded in iframe after create; tells parent window to close modal and refresh."""
+    return render(request, 'gate/staff_personnel_create_modal_done.html', {
+        'site_name': 'City College of Bayawan',
     })
 
 
 @require_POST
 @login_required(login_url='/login/')
-@role_required('admin')
+@role_required('admin', 'student affairs')
 def approve_all_pending_students(request):
     """Legacy URL: there are no pending student statuses; redirect to student list."""
     return redirect('gate-student-list')
@@ -4467,12 +5142,40 @@ def approve_all_pending_students(request):
 
 @require_GET
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty', 'supervisor')
+@role_required('admin', 'staff', 'faculty', 'student affairs')
 def student_list_export_csv(request):
-    """Export all student information to CSV (all fields)."""
+    """Export student information to CSV (all fields). Honors GET filters: status, course, year_level, section, sex, q (same as e-ID print-all).
+    If `status` is omitted from the query string (legacy direct link), all students are included; the export modal always sends `status`."""
     import time
+    from django.db.models import Q
     started_at = time.monotonic()
-    students = Student.objects.all().order_by('last_name', 'first_name')
+    status_filter = (request.GET.get('status') or '').strip()
+    if 'status' not in request.GET:
+        students = Student.objects.all().order_by('last_name', 'first_name')
+    elif status_filter == 'all':
+        students = Student.objects.all().order_by('last_name', 'first_name')
+    else:
+        students = Student.objects.filter(account_status=Student.ACCOUNT_STATUS_APPROVED).order_by('last_name', 'first_name')
+    filter_course = (request.GET.get('course') or '').strip()
+    filter_year = (request.GET.get('year_level') or '').strip()
+    filter_section = (request.GET.get('section') or '').strip()
+    filter_sex = (request.GET.get('sex') or '').strip()
+    search_q = (request.GET.get('q') or '').strip()
+    if filter_course:
+        students = students.filter(course=filter_course)
+    if filter_year:
+        students = students.filter(year_level=filter_year)
+    if filter_section:
+        students = students.filter(section__iexact=filter_section)
+    if filter_sex:
+        students = students.filter(sex=filter_sex)
+    if search_q:
+        students = students.filter(
+            Q(first_name__icontains=search_q) |
+            Q(last_name__icontains=search_q) |
+            Q(middle_name__icontains=search_q) |
+            Q(student_id__icontains=search_q)
+        )
     # Build CSV fully first to make downloads reliable (some clients error on
     # chunked/streamed responses). Use UTF-8-SIG so Excel opens it correctly.
     buffer = io.StringIO()
@@ -4488,9 +5191,9 @@ def student_list_export_csv(request):
         return '\t' + s
 
     writer.writerow([
-        'Student ID', 'First name', 'Middle name', 'Last name', 'Email', 'Address',
-        'Birthdate', 'Sex/Gender', 'Guardians / Parents', 'Guardian contact', 'Course', 'Year level', 'Section', 'Course or section (legacy)',
-        'Contact number', 'Account status', 'Is active', 'Approved by', 'Approved at', 'Rejection reason',
+        'Student ID', 'First name', 'Middle Initial', 'Last name', 'Email', 'Address',
+        'Birthdate', 'Sex/Gender', 'Guardians / Parents', 'Guardian contact', 'Program', 'Year level', 'Section', 'Program or section (legacy)',
+        'Your contact number', 'Account status', 'Is active', 'Approved by', 'Approved at',
         'Created at', 'Updated at',
     ])
     student_count = 0
@@ -4516,7 +5219,6 @@ def student_list_export_csv(request):
             'Yes' if s.is_active else 'No',
             s.approved_by.username if s.approved_by_id else '',
             timezone.localtime(s.approved_at).strftime('%Y-%m-%d %H:%M:%S') if s.approved_at else '',
-            (s.rejection_reason or '').replace('\r\n', ' ').replace('\n', ' '),
             timezone.localtime(s.created_at).strftime('%Y-%m-%d %H:%M:%S') if s.created_at else '',
             timezone.localtime(s.updated_at).strftime('%Y-%m-%d %H:%M:%S') if s.updated_at else '',
         ])
@@ -4547,12 +5249,31 @@ def student_list_export_csv(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty', 'supervisor')
+@role_required('admin', 'staff', 'faculty', 'student affairs')
 def student_create(request):
-    """Create student. Syncs is_active with account_status when APPROVED."""
-    form = StudentForm(request.POST or None, request.FILES or None)
+    """Create student. account_status drives gate access (APPROVED=active, INACTIVE=frozen)."""
+    form_modal = (request.GET.get('modal') == '1') or (request.POST.get('from_modal') == '1')
+    role = get_user_role(request.user)
+    if form_modal:
+        FormClass = StudentModalForm
+    elif role == 'student affairs':
+        FormClass = StudentStudentAffairsForm
+    else:
+        FormClass = StudentForm
+    form = FormClass(request.POST or None, request.FILES or None)
     if form.is_valid():
         student = form.save()
+        try:
+            from .audit import log_action
+            log_action(
+                request,
+                'student_created',
+                'Student',
+                object_id=student.pk,
+                description=f'Student {student.student_id} created/updated by {get_user_role(request.user) or "user"}',
+            )
+        except Exception:
+            pass
         # Sync is_active with status
         if student.account_status == Student.ACCOUNT_STATUS_APPROVED:
             student.is_active = True
@@ -4560,36 +5281,67 @@ def student_create(request):
                 student.approved_by = request.user
                 student.approved_at = timezone.now()
             student.save(update_fields=['is_active', 'approved_by', 'approved_at'])
+        else:
+            student.is_active = False
+            student.save(update_fields=['is_active'])
         # Always notify student about current status on creation (pending, approved, etc.).
         try:
             notify_student_status_change(student, new_status=student.account_status)
         except Exception:
             pass
-            from .audit import log_action
-            log_action(request, 'student_created_approved', 'Student', object_id=student.pk, description=f'Student {student.student_id} created (approved)')
-        else:
-            student.is_active = False
-            student.save(update_fields=['is_active'])
+        if student.account_status == Student.ACCOUNT_STATUS_APPROVED:
+            try:
+                from .audit import log_action
+                log_action(request, 'student_created_approved', 'Student', object_id=student.pk, description=f'Student {student.student_id} created (approved)')
+            except Exception:
+                pass
+        if request.POST.get('from_modal') == '1':
+            return redirect('gate-student-create-modal-done')
         return redirect('gate-student-list')
     return render(request, 'gate/student_form.html', {
         'site_name': 'City College of Bayawan',
         'form': form,
         'title': 'Add Student',
+        'form_modal': form_modal,
+        'layout_template': 'gate/student_form_modal_shell.html' if form_modal else 'base/base.html',
+    })
+
+
+@require_GET
+@login_required(login_url='/login/')
+@role_required('admin', 'staff', 'faculty', 'student affairs')
+def student_create_modal_done(request):
+    """Minimal page loaded in iframe after create; tells parent window to close modal and refresh."""
+    return render(request, 'gate/student_create_modal_done.html', {
+        'site_name': 'City College of Bayawan',
     })
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty', 'supervisor')
+@role_required('admin', 'staff', 'faculty', 'student affairs')
 def student_edit(request, pk):
-    """Edit student. When approving (account_status=APPROVED), set approved_by/approved_at and is_active=True."""
+    """Edit student. account_status controls active/frozen access."""
     student = get_object_or_404(Student, pk=pk)
-    form = StudentForm(request.POST or None, request.FILES or None, instance=student)
+    role = get_user_role(request.user)
+    FormClass = StudentStudentAffairsForm if role == 'student affairs' else StudentForm
+    form = FormClass(request.POST or None, request.FILES or None, instance=student)
     if form.is_valid():
         old_photo_name = None
         if request.POST.get('photo-clear') and getattr(student, 'photo', None) and student.photo:
             old_photo_name = student.photo.name
         old_status = student.account_status
         form.save()
+        try:
+            from .audit import log_action
+            log_action(
+                request,
+                'student_updated',
+                'Student',
+                object_id=student.pk,
+                description=f'Student {student.student_id} profile fields updated',
+            )
+        except Exception:
+            pass
         if old_photo_name:
             try:
                 if default_storage.exists(old_photo_name):
@@ -4597,6 +5349,8 @@ def student_edit(request, pk):
             except Exception:
                 pass
         new_status = form.cleaned_data.get('account_status')
+        if new_status is None:
+            new_status = old_status
         if new_status == Student.ACCOUNT_STATUS_APPROVED and old_status != Student.ACCOUNT_STATUS_APPROVED:
             student.refresh_from_db()
             if not student.approved_at:
@@ -4617,18 +5371,24 @@ def student_edit(request, pk):
                 notify_student_status_change(student, new_status=new_status)
             except Exception:
                 pass
+        display_name = student.get_full_name() or student.student_id or str(student.pk)
+        messages.success(
+            request,
+            f'Student "{display_name}" (ID {student.student_id}) has been updated successfully.',
+        )
         return redirect('gate-student-list')
     return render(request, 'gate/student_form.html', {
         'site_name': 'City College of Bayawan',
         'form': form,
         'student': student,
         'title': 'Edit Student',
+        'layout_template': 'base/base.html',
     })
 
 
 @require_GET
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty', 'supervisor')
+@role_required('admin', 'staff', 'faculty', 'student affairs')
 def student_sample_csv(request):
     """Download sample students CSV: 50 students (20240001–20240050) with full details."""
     sample_path = os.path.join(os.path.dirname(__file__), 'sample_students_50.csv')
@@ -4645,7 +5405,7 @@ def student_sample_csv(request):
 @require_GET
 @ensure_csrf_cookie
 def entry_list(request):
-    """List gate entries. Staff/Admin/Supervisor can filter by date. Embed + guard_token for guard monitor iframe."""
+    """List gate entries. Staff/Admin/Faculty can filter by date. Embed + guard_token for guard monitor iframe."""
     from django.contrib.auth.views import redirect_to_login
     from gate_analytics.roles import get_user_role
     if _guard_embed_query_token_ok(request):
@@ -4654,7 +5414,7 @@ def entry_list(request):
         if not request.user.is_authenticated:
             return redirect_to_login(next=request.get_full_path())
         user_role = get_user_role(request.user)
-        if user_role not in ('admin', 'staff', 'supervisor', 'faculty'):
+        if user_role not in ('admin', 'staff', 'faculty'):
             return HttpResponseForbidden('Access denied')
 
     q = (request.GET.get('q') or '').strip()
@@ -4841,7 +5601,7 @@ def event_attendees_embed(request):
     if not _guard_embed_get_token_ok(request):
         if not request.user.is_authenticated:
             return redirect_to_login(next=request.get_full_path())
-        if get_user_role(request.user) not in ('admin', 'staff', 'faculty', 'supervisor'):
+        if get_user_role(request.user) not in ('admin', 'staff', 'faculty'):
             return HttpResponseForbidden('Access denied')
     event_id = (request.GET.get('event_id') or '').strip()
     if not event_id:
@@ -4874,7 +5634,7 @@ def event_attendees_embed(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty', 'supervisor')
+@role_required('admin', 'staff', 'faculty')
 def visitor_entry_list(request):
     """List visitor entries (manual log + reusable pass check-ins). Default to today. Supports from_date only (single day) or from_date+to_date (range), and search by name."""
     from_date = (request.GET.get('from_date') or '').strip()
@@ -4969,7 +5729,7 @@ def visitor_entry_list(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty', 'supervisor')
+@role_required('admin', 'staff', 'faculty')
 def visitor_yearly_summary(request):
     """Yearly visitor summary: visitors per month for a selected year. Uses local time bounds (no DB __year)."""
     embed = (request.GET.get('embed') or '').strip().lower() in ('1', 'true', 'yes')
@@ -5041,7 +5801,7 @@ def visitor_yearly_summary(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty', 'supervisor')
+@role_required('admin', 'staff', 'faculty')
 def student_entries_yearly_summary(request):
     """Yearly student gate summary: granted daily-gate scans per month (same rules as analytics student entry counts)."""
     embed = (request.GET.get('embed') or '').strip().lower() in ('1', 'true', 'yes')
@@ -5104,10 +5864,144 @@ def student_entries_yearly_summary(request):
     return render(request, 'gate/student_entries_yearly.html', context)
 
 
+@ensure_csrf_cookie
 @login_required(login_url='/login/')
-def incident_list_redirect(request):
-    """Redirect to analytics (incidents feature removed)."""
-    return redirect('gate-analytics')
+@role_required('admin', 'student affairs')
+def incident_list(request):
+    """List gate incidents (ID mismatch, proxy, etc.) — Student Affairs follow-up and admin oversight."""
+    highlight_raw = (request.GET.get('highlight') or '').strip()
+    highlight_pk = int(highlight_raw) if highlight_raw.isdigit() else None
+
+    qs = GateIncident.objects.select_related('student', 'sas_checked_by').order_by('-timestamp')
+    sas_check_filter = (request.GET.get('sas_check') or '').strip()
+    if sas_check_filter in ('to_check', 'verified'):
+        qs = qs.filter(sas_review_status=sas_check_filter)
+    reason_filter = (request.GET.get('reason') or '').strip()
+    if reason_filter and reason_filter in dict(GateIncident.REASON_CHOICES):
+        qs = qs.filter(reason=reason_filter)
+    search_q = (request.GET.get('q') or '').strip()
+    if search_q:
+        qs = qs.filter(
+            Q(details__icontains=search_q)
+            | Q(scanned_id__icontains=search_q)
+            | Q(student__first_name__icontains=search_q)
+            | Q(student__last_name__icontains=search_q)
+            | Q(student__student_id__icontains=search_q)
+        ).distinct()
+
+    per_page, query_extra, query_extra_base = _get_per_page_and_query(request)
+
+    if highlight_pk:
+        inc_hi = GateIncident.objects.filter(pk=highlight_pk).first()
+        if inc_hi:
+            if not qs.filter(pk=highlight_pk).exists():
+                return redirect(f'{reverse("gate-incident-list")}?highlight={highlight_pk}')
+            pks = list(qs.values_list('pk', flat=True))
+            try:
+                idx = pks.index(highlight_pk)
+                need_page = idx // per_page + 1
+            except ValueError:
+                need_page = 1
+            try:
+                cur_page = int(request.GET.get('page') or 1)
+            except (TypeError, ValueError):
+                cur_page = 1
+            if need_page != cur_page:
+                qp = request.GET.copy()
+                qp['page'] = str(need_page)
+                return redirect(reverse('gate-incident-list') + '?' + qp.urlencode())
+
+    from django.core.paginator import Paginator
+    paginator = Paginator(qs, per_page)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+
+    if highlight_pk:
+        AdminNotification.objects.filter(
+            target_user=request.user,
+            notification_type='incident',
+            related_incident_id=highlight_pk,
+            is_read=False,
+        ).update(is_read=True, read_at=timezone.now())
+    incidents = list(page_obj.object_list)
+    # Backward compatibility: older incidents may have null student even when scanned_id is a real student ID.
+    missing_student_ids = {
+        (inc.scanned_id or '').strip()
+        for inc in incidents
+        if not inc.student and (inc.scanned_id or '').strip()
+    }
+    resolved_students = {}
+    if missing_student_ids:
+        sid_q = Q()
+        for sid in missing_student_ids:
+            sid_q |= Q(student_id__iexact=sid)
+        resolved_students = {
+            s.student_id.upper(): s
+            for s in Student.objects.filter(sid_q)
+        }
+    for inc in incidents:
+        inc.display_student = inc.student
+        if not inc.display_student:
+            sid = (inc.scanned_id or '').strip().upper()
+            if sid:
+                inc.display_student = resolved_students.get(sid)
+    role = get_user_role(request.user)
+    can_sas_review = role in ('student affairs', 'admin')
+    return render(request, 'gate/incident_list.html', {
+        'site_name': 'City College of Bayawan',
+        'page_obj': page_obj,
+        'incidents': incidents,
+        'can_sas_review': can_sas_review,
+        'query_extra': query_extra,
+        'query_extra_base': query_extra_base,
+        'per_page': per_page,
+        'per_page_options': PER_PAGE_OPTIONS,
+        'sas_check_filter': sas_check_filter,
+        'reason_filter': reason_filter,
+        'reason_choices': GateIncident.REASON_CHOICES,
+        'search_q': search_q,
+        'highlight_incident_pk': highlight_pk,
+    })
+
+
+def _gate_incident_resolved_student(incident):
+    """Student linked on the incident, or matched by scanned_id (same logic as incident list display)."""
+    if incident.student_id:
+        return incident.student
+    sid = (incident.scanned_id or '').strip()
+    if not sid:
+        return None
+    return Student.objects.filter(student_id__iexact=sid).first()
+
+
+@require_POST
+@login_required(login_url='/login/')
+@role_required('admin', 'student affairs')
+def incident_sas_verify(request, incident_id):
+    """SAS/Admin marks an incident as verified/checked."""
+    incident = get_object_or_404(GateIncident, pk=incident_id)
+    if incident.sas_review_status == 'verified':
+        messages.info(request, 'Incident already verified.')
+    else:
+        incident.sas_review_status = 'verified'
+        incident.sas_checked_by = request.user
+        incident.sas_checked_at = timezone.now()
+        if not incident.sas_check_notes:
+            incident.sas_check_notes = 'Verified by Student Affairs.'
+        incident.save(update_fields=['sas_review_status', 'sas_checked_by', 'sas_checked_at', 'sas_check_notes'])
+        if incident.student_id:
+            _clear_student_office_hold_if_no_pending(incident.student)
+        # Inform admins when SAS (not admin acting alone) clears an inactive student for activation
+        if get_user_role(request.user) == 'student affairs':
+            st = _gate_incident_resolved_student(incident)
+            if st and (
+                st.account_status == Student.ACCOUNT_STATUS_INACTIVE or not st.is_active
+            ):
+                from .admin_notification_service import AdminNotificationService
+                AdminNotificationService.notify_admins_inactive_student_sas_verified(
+                    incident, st, request.user
+                )
+        messages.success(request, 'Incident marked as verified.')
+    return redirect(request.META.get('HTTP_REFERER') or 'gate-incident-list')
 
 
 @login_required(login_url='/login/')
@@ -5116,31 +6010,46 @@ def reports_incidents_overrides_redirect(request):
     return redirect('reports-hub')
 
 
+def _allocate_next_import_student_id():
+    """Next unique numeric student_id (8 digits) for CSV import when the file has no ID column."""
+    max_n = 0
+    for sid in Student.objects.values_list('student_id', flat=True):
+        if not sid:
+            continue
+        s = str(sid).strip()
+        if s.isdigit() and len(s) <= 8:
+            max_n = max(max_n, int(s))
+    nxt = max_n + 1
+    if max_n == 0:
+        nxt = 10000001
+    while nxt <= 99999999:
+        cand = str(nxt).zfill(8)
+        if not Student.objects.filter(student_id=cand).exists():
+            return cand
+        nxt += 1
+    return 'IMP' + str(int(timezone.now().timestamp()))[-12:]
+
+
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty', 'supervisor')
+@role_required('admin', 'staff', 'faculty', 'student affairs')
 def import_students_csv(request):
     """Import students from CSV (from registrar).
-    Supports two formats:
-    (1) Full CSV with header: student_id, first_name, middle_name, last_name, email, address, birthdate,
-        sex, contact_number, guardians_parents, guardian_contact, course, year_level, section.
-    (2) Legacy (no header or simple header): columns 0=student_id, 1=first_name, 2=last_name, 3=email;
-        batch course/year/section from form applied to all.
+    student_id is optional: omit the column or leave cells blank — IDs are assigned automatically (8-digit).
+    Full header row must include sex/gender (column sex, gender, or sex/gender) with MALE or FEMALE per row.
+    Other columns may include: first_name, last_name, email, address, birthdate,
+    contact_number, guardians_parents, guardian_contact, course, year_level, section, and optionally student_id.
+    Legacy rows without a header: optional sex as last column (after email): student_id, first, last, email, sex
+    or first, last, email, sex — sex is required for every imported row.
     """
     if request.method != 'POST':
         return render(request, 'gate/import_students_csv.html', {
             'site_name': 'City College of Bayawan',
-            'course_choices': Student.COURSE_CHOICES,
-            'year_level_choices': Student.YEAR_LEVEL_CHOICES,
-            'sex_choices': Student.SEX_CHOICES,
         })
+    sas_import = get_user_role(request.user) == 'student affairs'
     csv_file = request.FILES.get('csv_file')
     if not csv_file or not csv_file.name.lower().endswith(('.csv', '.txt')):
         messages.warning(request, 'Please upload a CSV file.')
         return redirect('gate-student-import')
-    batch_course = (request.POST.get('batch_course') or '').strip()
-    batch_year_level = (request.POST.get('batch_year_level') or '').strip()
-    batch_section = (request.POST.get('batch_section') or '').strip()
-    batch_sex_raw = (request.POST.get('batch_sex') or '').strip()
     try:
         content = csv_file.read().decode('utf-8-sig').strip()
         reader = csv.reader(io.StringIO(content))
@@ -5197,18 +6106,13 @@ def import_students_csv(request):
             return Student.SEX_MALE
         if s in ('f', 'female'):
             return Student.SEX_FEMALE
-        if s in ('other', 'o'):
-            return Student.SEX_OTHER
-        if s in ('prefer not to say', 'prefer_not', 'na', 'n/a'):
-            return Student.SEX_PREFER_NOT
         return ''
-    batch_sex = _normalize_sex(batch_sex_raw)
 
     # Column name -> index (case-insensitive); used when first row is a header
     HEADER_ALIASES = {
         'student_id': 'student_id', 'student id': 'student_id', 'id': 'student_id',
         'first_name': 'first_name', 'first name': 'first_name',
-        'middle_name': 'middle_name', 'middle name': 'middle_name',
+        'middle_name': 'middle_name', 'middle name': 'middle_name', 'middle initial': 'middle_name',
         'last_name': 'last_name', 'last name': 'last_name',
         'email': 'email',
         'address': 'address',
@@ -5218,6 +6122,7 @@ def import_students_csv(request):
         'guardians_parents': 'guardians_parents', 'guardians parents': 'guardians_parents', 'guardian': 'guardians_parents',
         'guardian_contact': 'guardian_contact', 'guardian contact': 'guardian_contact',
         'course': 'course',
+        'program': 'course',
         'year_level': 'year_level', 'year level': 'year_level',
         'section': 'section',
     }
@@ -5229,9 +6134,10 @@ def import_students_csv(request):
 
     first = rows[0]
     first_lower = [str(c or '').strip().lower() for c in first]
-    has_sid = any(c in ('student_id', 'student id') for c in first_lower)
+    has_sid = any(c in ('student_id', 'student id', 'id') for c in first_lower)
     has_first = any(c in ('first_name', 'first name') for c in first_lower)
-    if has_sid and has_first:
+    has_last = any(c in ('last_name', 'last name') for c in first_lower)
+    if (has_first and has_last) or (has_sid and has_first):
         # Build column map from header
         col_map = {}
         for idx, cell in enumerate(first):
@@ -5247,6 +6153,13 @@ def import_students_csv(request):
             data_rows = rows[1:]
         else:
             data_rows = rows
+
+    if col_map is not None and 'sex' not in col_map:
+        messages.error(
+            request,
+            'CSV must include a sex/gender column (header: sex, gender, or sex/gender).',
+        )
+        return redirect('gate-student-import')
 
     created = 0
     skipped = 0
@@ -5269,34 +6182,52 @@ def import_students_csv(request):
             email = _get('email')
             address = _get('address')
             birthdate = _parse_birthdate(_get('birthdate'))
-            sex = _normalize_sex(_get('sex')) or batch_sex
+            sex = _normalize_sex(_get('sex'))
             contact_number = _get('contact_number')
             guardians_parents = _get('guardians_parents')
             guardian_contact = _get('guardian_contact')
-            course = _get('course') or batch_course
-            year_level = _normalize_year_level(_get('year_level') or batch_year_level)
-            section = _get('section') or batch_section
+            course = _get('course')
+            year_level = _normalize_year_level(_get('year_level'))
+            section = _get('section')
         else:
-            if len(row) < 3:
+            fc = (row[0] or '').strip()
+            fc_digits = fc.isdigit() and len(fc) <= 8
+            if fc_digits and len(row) >= 3:
+                student_id = _normalize_student_id(fc)
+                first_name = (row[1] or '').strip()
+                last_name = (row[2] or '').strip()
+                email = (row[3] or '').strip() if len(row) > 3 else ''
+                sex = _normalize_sex(row[4]) if len(row) > 4 else ''
+            elif len(row) >= 2:
+                student_id = ''
+                first_name = fc
+                last_name = (row[1] or '').strip()
+                email = (row[2] or '').strip() if len(row) > 2 else ''
+                sex = _normalize_sex(row[3]) if len(row) > 3 else ''
+            else:
                 continue
-            student_id = _normalize_student_id((row[0] or '').strip())
-            first_name = (row[1] or '').strip()
-            last_name = (row[2] or '').strip()
-            email = (row[3] or '').strip() if len(row) > 3 else ''
             middle_name = ''
             address = ''
             birthdate = None
-            sex = batch_sex
             contact_number = ''
             guardians_parents = ''
             guardian_contact = ''
-            course = batch_course
-            year_level = batch_year_level
-            section = batch_section
+            course = ''
+            year_level = ''
+            section = ''
 
-        if not student_id or not first_name or not last_name:
+        if not first_name or not last_name:
             continue
-        if Student.objects.filter(student_id=student_id).exists():
+        if not sex:
+            skipped += 1
+            _file_row = i + 2 if col_map is not None else i + 1
+            errors.append(
+                'Row %s: sex/gender is required (MALE/FEMALE or M/F).' % _file_row
+            )
+            continue
+        if not student_id:
+            student_id = _allocate_next_import_student_id()
+        elif Student.objects.filter(student_id=student_id).exists():
             skipped += 1
             continue
         try:
@@ -5320,13 +6251,17 @@ def import_students_csv(request):
             )
             created += 1
         except Exception as e:
-            errors.append('Row %s: %s' % (i + 1, str(e)))
+            _file_row = i + 2 if col_map is not None else i + 1
+            errors.append('Row %s: %s' % (_file_row, str(e)))
     if created:
         from .audit import log_action
         log_action(request, 'bulk_import', 'Student', object_id='', description=f'CSV import: {created} student(s) created')
         messages.success(request, 'Imported %s student(s). QR codes are available in the student list.' % created)
     if skipped:
-        messages.info(request, 'Skipped %s row(s) (student_id already exists).' % skipped)
+        messages.info(
+            request,
+            'Skipped %s row(s) (duplicate student_id, or missing sex/gender).' % skipped,
+        )
     if errors:
         for err in errors[:5]:
             messages.error(request, err)
@@ -5337,7 +6272,7 @@ def import_students_csv(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff')
+@role_required('admin', 'staff', 'faculty')
 def gate_today_report(request):
     """Today's report at the gate: today's entries and visitors. Staff at gate use this. HTML or CSV export."""
     today = timezone.localdate()
@@ -5657,7 +6592,7 @@ def event_attendance_report_export_csv(request, event_id):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = f'attachment; filename="attendance_report_{event.id}_{event.name[:30].replace(" ", "_")}.csv"'
     writer = csv.writer(response)
-    writer.writerow(['Student ID', 'Name', 'Course/Section/Year', 'Checked In', 'Checked Out', 'Recorded At'])
+    writer.writerow(['Student ID', 'Name', 'Program/Section/Year', 'Checked In', 'Checked Out', 'Recorded At'])
     for a in attendances:
         # Use 12-hour format; prefix with apostrophe so Excel displays as text (not military time)
         checked_in = _format_event_time_12h(a.checked_in_at)
@@ -5741,7 +6676,7 @@ def event_attendance_report_export_xlsx(request, event_id):
     wb = Workbook()
     ws = wb.active
     ws.title = 'Attendance'
-    headers = ['Student ID', 'Name', 'Course/Section/Year', 'Checked In', 'Checked Out', 'Recorded At']
+    headers = ['Student ID', 'Name', 'Program/Section/Year', 'Checked In', 'Checked Out', 'Recorded At']
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=h)
         cell.font = Font(bold=True)
@@ -5821,7 +6756,7 @@ def event_attendance_report_export_pdf(request, event_id):
     elements.append(Spacer(1, 12))
     elements.append(Paragraph(f'Event dates: {event.start_date} to {event.end_date}', styles['Normal']))
     elements.append(Spacer(1, 16))
-    data = [['Student ID', 'Name', 'Course/Section/Year', 'Checked In', 'Checked Out', 'Recorded At']]
+    data = [['Student ID', 'Name', 'Program/Section/Year', 'Checked In', 'Checked Out', 'Recorded At']]
     for a in attendances:
         checked_in = _format_event_time_12h(a.checked_in_at)
         checked_out = _format_event_time_12h(a.checked_out_at)
@@ -5994,7 +6929,7 @@ def student_portal(request):
 # ----- New Reports Menu (Overview, Daily Gate, Event Attendance, Incidents & Overrides, Exports) -----
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty', 'supervisor')
+@role_required('admin', 'staff', 'faculty')
 def reports_overview(request):
     """Reports Overview.
 
@@ -6123,7 +7058,7 @@ def reports_overview(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty', 'supervisor')
+@role_required('admin', 'staff', 'faculty')
 def reports_daily_gate(request):
     """Daily Gate: Visits, Inside Now, Trends. Sub-tab via ?tab=visits|inside_now|trends."""
     filter_date, day_start, day_end, from_time, to_time, search_q, event_id, date_range_label, from_date_str, to_date_str, time_error, report_timestamp_q, report_checked_in_at_q, report_checked_out_at_q, report_recorded_at_q = _report_filter_from_request(request)
@@ -6218,7 +7153,7 @@ def reports_daily_gate(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff')
+@role_required('admin', 'staff', 'faculty')
 def reports_event_attendance(request):
     """Event Attendance: Summary, Attendees, Timeline. Requires event_id in filter."""
     filter_date, day_start, day_end, from_time, to_time, search_q, event_id, date_range_label, from_date_str, to_date_str, time_error, report_timestamp_q, report_checked_in_at_q, report_checked_out_at_q, report_recorded_at_q = _report_filter_from_request(request)
@@ -6338,14 +7273,14 @@ def reports_event_attendance(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty', 'supervisor')
+@role_required('admin', 'staff', 'faculty')
 def reports_incidents_overrides(request):
     """Redirect to reports hub (incidents feature removed)."""
     return redirect('reports-hub')
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'supervisor')
+@role_required('admin', 'staff', 'faculty')
 def reports_exports(request):
     """Exports: all report types in one menu; choose one specific export or Export all (ZIP)."""
     filter_date, day_start, day_end, from_time, to_time, search_q, event_id, date_range_label, from_date_str, to_date_str, time_error, report_timestamp_q, report_checked_in_at_q, report_checked_out_at_q, report_recorded_at_q = _report_filter_from_request(request)
@@ -6408,7 +7343,7 @@ def reports_exports(request):
     section_choices = list(
         Student.objects.exclude(section='').values_list('section', flat=True).distinct().order_by('section')
     )
-    return render(request, 'gate/reports/exports.html', {
+    ctx = {
         'site_name': 'City College of Bayawan',
         'filter_date': filter_date,
         'date_range_label': date_range_label,
@@ -6431,7 +7366,15 @@ def reports_exports(request):
         'applied_filter_chips': _report_applied_filter_chips(request, date_range_label, from_time, to_time, search_q, event_id, active_events=active_events),
         'year_level_choices': year_level_choices,
         'section_choices': section_choices,
-    })
+    }
+    if request.GET.get('partial') == '1':
+        if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+            q = request.GET.copy()
+            q.pop('partial', None)
+            next_url = request.path + ('?' + q.urlencode() if q else '')
+            return redirect(next_url)
+        return render(request, 'gate/reports/exports_inner.html', ctx)
+    return render(request, 'gate/reports/exports.html', ctx)
 
 
 def _reports_export_visitor_preview(day_start, day_end, report_timestamp_q=None, report_checked_in_at_q=None):
@@ -6497,7 +7440,7 @@ def _reports_export_preview(
                 'ID': e.student.student_id if e.student else '',
                 'Name': _fmt_student_name(e.student) if e.student else '',
                 'Gender': gender,
-                'Course/Section': cs,
+                'Program/Section': cs,
                 'In time': in_e.timestamp if in_e else None,
                 'Out time': out_e.timestamp if out_e else None,
             })
@@ -6581,7 +7524,7 @@ def _reports_export_preview(
                 'event': a.event.name if a.event else '',
                 'student_id': a.student.student_id if a.student else '',
                 'name': _fmt_student_name(a.student) if a.student else '',
-                'Course/Section': cs,
+                'Program/Section': cs,
                 'checked_in_at': a.checked_in_at,
                 'checked_out_at': getattr(a, 'checked_out_at', None),
             })
@@ -6679,7 +7622,7 @@ def _reports_export_build_data(
             )]
         if audience_filter != 'visitors':
             visits = _gate_entries_to_visits(entries)
-            headers = ['Student ID', 'Name', 'Gender', 'Course/Section', 'IN time', 'OUT time', 'Duration (min)', 'Status']
+            headers = ['Student ID', 'Name', 'Gender', 'Program/Section', 'IN time', 'OUT time', 'Duration (min)', 'Status']
             for in_e, out_e in visits:
                 e = in_e or out_e
                 sid = e.student.student_id if e.student else ''
@@ -6896,7 +7839,7 @@ def _reports_export_build_data(
                 Q(student__last_name__icontains=search_q)
             )
         att = list(qs[:5000])
-        headers = ['Event', 'Student ID', 'Name', 'Course/Section/Year', 'Checked in', 'Checked out']
+        headers = ['Event', 'Student ID', 'Name', 'Program/Section/Year', 'Checked in', 'Checked out']
         for a in att:
             sid = a.student.student_id if a.student else ''
             name = _fmt_student_name(a.student) if a.student else ''
@@ -6924,7 +7867,7 @@ def _reports_export_build_data(
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'supervisor')
+@role_required('admin', 'staff', 'faculty')
 def reports_export_download(request):
     """Download export as CSV, Excel, or PDF. GET: format=csv|xlsx|pdf|zip, same filter/template params. template=export_all → ZIP of all report types."""
     fmt = (request.GET.get('format') or 'csv').strip().lower()
@@ -7056,7 +7999,7 @@ def reports_export_download(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'supervisor')
+@role_required('admin', 'staff', 'faculty')
 def reports_hub(request):
     """Real-time: live occupancy, today's entries, gate status."""
     today = timezone.localdate()
@@ -7110,16 +8053,21 @@ def api_notification_count(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty')
+@role_required('admin', 'staff', 'faculty', 'student affairs')
 @require_POST
 def notifications_mark_all_read(request):
-    """AJAX endpoint: mark all navbar notifications as read for admin/staff/faculty."""
+    """AJAX endpoint: mark all navbar notifications as read for admin/staff/faculty/SAS."""
     from gate.models import NotificationRead, Student, Event
     from gate_analytics.roles import get_user_role
     from datetime import timedelta
 
     role = get_user_role(request.user)
     keys = []
+
+    AdminNotification.objects.filter(
+        target_user=request.user,
+        is_read=False,
+    ).update(is_read=True, read_at=timezone.now())
 
     if role == 'admin':
         keys.append('notif_pending_students')
@@ -7128,7 +8076,7 @@ def notifications_mark_all_read(request):
         ).values_list('pk', flat=True)[:50]:
             keys.append(f'notif_student_{pk}')
 
-    if role in ('admin', 'staff', 'supervisor'):
+    if role in ('admin', 'staff'):
         from django.contrib.auth import get_user_model
         from django.db.models import Q
         User = get_user_model()
@@ -7171,7 +8119,7 @@ def notifications_mark_all_read(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'supervisor')
+@role_required('admin', 'staff', 'faculty', 'student affairs')
 def check_new_admin_notifications_api_view(request):
     """
     AJAX endpoint to check for new admin notifications since a given timestamp.
@@ -7198,8 +8146,16 @@ def check_new_admin_notifications_api_view(request):
         created_at__gt=since
     ).filter(
         Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
-    ).order_by('-created_at')[:5]
-    
+    )
+    _api_role = get_user_role(request.user)
+    if _api_role in ('staff', 'faculty'):
+        notifications = notifications.exclude(notification_type='incident')
+    if _api_role != 'admin':
+        notifications = notifications.exclude(notification_type='sas_inactive_ready_activation')
+    if _api_role == 'student affairs':
+        notifications = notifications.exclude(notification_type='staff_personnel_registration')
+    notifications = notifications.order_by('-created_at')[:5]
+
     # Format notifications for JSON
     notification_list = []
     for notif in notifications:
@@ -7219,7 +8175,7 @@ def check_new_admin_notifications_api_view(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'supervisor')
+@role_required('admin', 'staff', 'faculty')
 def report_list(request):
     """List generated reports (daily/weekly/monthly) with download."""
     reports_qs = GeneratedReport.objects.select_related('generated_by').order_by('-generated_at')
@@ -7240,7 +8196,7 @@ def report_list(request):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'supervisor')
+@role_required('admin', 'staff', 'faculty')
 def report_download(request, pk):
     """Download a generated report file."""
     report = get_object_or_404(GeneratedReport, pk=pk)
@@ -7265,7 +8221,7 @@ def report_download(request, pk):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff')
+@role_required('admin', 'staff', 'faculty')
 def report_on_demand_view(request, pk):
     """Re-display an on-demand report that has no file (was viewed as HTML)."""
     import json
@@ -7318,7 +8274,7 @@ def _build_on_demand_data(date_from, date_to, group_by, request):
         for s in students:
             scan_count = logs.filter(student=s).count()
             entry_count = entries.filter(student=s).count()
-            # Course/Section: use course_or_section if set, else derive from course + section
+            # Program/Section: use course_or_section if set, else derive from course + section
             course_section = (s.course_or_section or '').strip()
             if not course_section:
                 parts = []
@@ -7336,7 +8292,7 @@ def _build_on_demand_data(date_from, date_to, group_by, request):
                 'scan_count': scan_count,
                 'entry_count': entry_count,
             })
-        return {'group_by': 'student', 'rows': rows, 'headers': ['Student ID', 'Name', 'Sex/Gender', 'Year Level', 'Course/Section', 'Event scans', 'Gate entries'],
+        return {'group_by': 'student', 'rows': rows, 'headers': ['Student ID', 'Name', 'Sex/Gender', 'Year Level', 'Program/Section', 'Event scans', 'Gate entries'],
                 'row_keys': ['student_id', 'name', 'sex', 'year_level', 'course_or_section', 'scan_count', 'entry_count']}
     if group_by == 'gate':
         # By device_id
@@ -7374,12 +8330,12 @@ def _build_on_demand_data(date_from, date_to, group_by, request):
             key = (course_section, s.year_level or '—')
             section_counts[key] = section_counts.get(key, 0) + 1
         rows = [{'course_section': k[0], 'year_level': k[1], 'count': v} for k, v in sorted(section_counts.items())]
-        return {'group_by': 'course_section', 'rows': rows, 'headers': ['Course/Section', 'Year Level', 'Scan count'], 'row_keys': ['course_section', 'year_level', 'count']}
+        return {'group_by': 'course_section', 'rows': rows, 'headers': ['Program/Section', 'Year Level', 'Scan count'], 'row_keys': ['course_section', 'year_level', 'count']}
     return {'group_by': None, 'rows': [], 'headers': [], 'row_keys': []}
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff')
+@role_required('admin', 'staff', 'faculty')
 def report_on_demand(request):
     """On-demand report: admin chooses date range and group by (student, gate, time window, course/section)."""
     if request.method == 'POST':
@@ -7397,7 +8353,7 @@ def report_on_demand(request):
         row_keys = data.get('row_keys') or []
         rows = data.get('rows', [])
         # Create GeneratedReport so it appears in Generated Reports list
-        group_by_label = {'student': 'student', 'gate': 'gate', 'time_window': 'time window', 'course_section': 'course/section'}.get(group_by, group_by)
+        group_by_label = {'student': 'student', 'gate': 'gate', 'time_window': 'time window', 'course_section': 'program/section'}.get(group_by, group_by)
         title = f"On-demand: {date_from.strftime('%b %d, %Y')} – {date_to.strftime('%b %d, %Y')} (by {group_by_label})"
         summary_dict = {'group_by': group_by, 'row_count': len(rows)}
         report = None
@@ -7770,7 +8726,7 @@ def field_trip_event_scan(request, event_id):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff')
+@role_required('admin', 'staff', 'faculty')
 def report_compare_events(request):
     """Compare two events side-by-side (attendance, check-in count, etc.)."""
     event_a_id = request.GET.get('event_a')
@@ -7937,7 +8893,7 @@ def _department_label(value):
 
 
 @login_required(login_url='/login/')
-@role_required('admin', 'staff', 'supervisor')
+@role_required('admin', 'staff', 'student affairs')
 def visitor_pass_create(request):
     """Create a one-time visitor pass or generate bulk reusable slots (VIS-001...VIS-N)."""
     if request.method == 'POST':

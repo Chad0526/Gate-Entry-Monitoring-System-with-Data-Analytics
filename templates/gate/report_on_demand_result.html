@@ -1,12 +1,12 @@
 {% extends 'base/base.html' %}
 {% block title %}Report result - {{ site_name }}{% endblock title %}
-{% block breadcrumb %}Report result{% endblock breadcrumb %}
+{% block page_heading %}Report result{% endblock page_heading %}
 
 {% block content %}
 <div class="row mb-3">
   <div class="col-12">
-    <a href="{% url 'report-on-demand' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left mr-1"></i> New report</a>
-    <a href="{% url 'reports-hub' %}" class="btn btn-outline-primary ml-2">Reports hub</a>
+    <a href="{% url 'report-on-demand' %}" class="btn btn-outline-secondary ccb-spa-nav"><i class="fas fa-arrow-left mr-1"></i> New report</a>
+    <a href="{% url 'reports-hub' %}" class="btn btn-outline-primary ml-2 ccb-spa-nav">Reports hub</a>
   </div>
 </div>
 

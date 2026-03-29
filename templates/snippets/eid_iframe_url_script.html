@@ -1,0 +1,17 @@
+{# Reusable: e-ID modals must load same-origin (avoids stale ngrok / old tunnel URLs in cached HTML). #}
+<script>
+(function() {
+  window.normalizeGateEidUrl = function(raw) {
+    if (!raw || typeof raw !== 'string') return raw;
+    raw = raw.trim();
+    if (!raw || raw === 'about:blank') return raw;
+    if (raw.charAt(0) === '/') return window.location.origin + raw;
+    try {
+      var u = new URL(raw);
+      return window.location.origin + u.pathname + u.search + u.hash;
+    } catch (e) {
+      return raw;
+    }
+  };
+})();
+</script>

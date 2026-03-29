@@ -43,6 +43,7 @@
   {% endif %}
   </div>
 </div>
+{% if include_assets|default:True %}
 <style>
   .ccb-pagination-wrap { padding: 14px 0; border-top: 1px solid #e2e8f0; margin-top: 8px; }
   .ccb-pagination-wrap.ccb-pagination-top { border-top: none; border-bottom: 1px solid #e2e8f0; margin-top: 0; margin-bottom: 8px; }
@@ -115,4 +116,5 @@
   });
 })();
 </script>
+{% endif %}
 {% endif %}

@@ -1,7 +1,7 @@
 {% extends 'base/base.html' %}
 {% load static %}
 {% block title %}Create Event – {{ site_name|default:"CCB" }}{% endblock title %}
-{% block breadcrumb %}Create Event{% endblock breadcrumb %}
+{% block page_heading %}Create Event{% endblock page_heading %}
 {% load crispy_forms_tags %}
 
 {% block extrahead %}
@@ -55,17 +55,6 @@
   .ce-section-body .asteriskField { color: #dc2626; }
   .ce-section-body .form-text, .ce-section-body .help-block { font-size: 0.76rem; color: #4d7c5e; }
 
-  .ce-adv-toggle {
-    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
-    padding: 10px 16px; display: flex; align-items: center; gap: 8px;
-    cursor: pointer; font-size: 0.82rem; font-weight: 600; color: #4d7c5e;
-    transition: all .15s ease; margin-bottom: 18px; width: 100%;
-    text-align: left;
-  }
-  .ce-adv-toggle:hover { border-color: #16a34a; color: #16a34a; background: #f0fdf4; }
-  .ce-adv-toggle i.fa-chevron-down { transition: transform .2s ease; margin-left: auto; }
-  .ce-adv-toggle[aria-expanded="true"] i.fa-chevron-down { transform: rotate(180deg); }
-
   .ce-footer {
     display: flex; align-items: center; gap: 12px; padding: 20px 0 4px;
   }
@@ -90,6 +79,119 @@
   .ce-alert strong { color: #7f1d1d; }
   .ce-alert ul { margin: 6px 0 0; padding-left: 18px; }
 
+  /* One combined “where” block: on/off campus + place name */
+  .ce-where-wrap {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-top: 4px;
+  }
+  .ce-where-wrap .form-group:last-child { margin-bottom: 0; }
+  .ce-location-radios ul {
+    list-style: none;
+    padding: 0;
+    margin: 6px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+  }
+  .ce-location-radios ul li { margin: 0; }
+  .ce-location-radios label { font-weight: 500; }
+
+  /* Description + when/where side by side (CKEditor must stay inside its column) */
+  .ce-desc-when-row {
+    align-items: flex-start;
+  }
+  /* Same top edge for both columns (labels line up); Bootstrap flex row + nested row can skew vertically */
+  @media (min-width: 992px) {
+    .ce-desc-when-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      column-gap: 1.5rem;
+      align-items: start;
+    }
+    .ce-desc-when-row > .col-lg-6 {
+      flex: none;
+      max-width: none;
+      width: auto;
+      padding-left: 0;
+      padding-right: 0;
+    }
+  }
+  /* Flex/grid children need min-width:0 or CKEditor’s intrinsic width spills into the next column */
+  .ce-desc-when-row > [class*="col-"],
+  .ce-desc-col,
+  .ce-when-col {
+    min-width: 0;
+  }
+  .ce-desc-col {
+    overflow: hidden;
+  }
+  .ce-when-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .ce-desc-col .form-group { margin-bottom: 0; margin-top: 0; }
+  .ce-when-col > .row:first-child {
+    margin-top: 0;
+  }
+  .ce-when-col > .row:first-child .form-group {
+    margin-top: 0;
+  }
+  .ce-desc-when-row .ce-desc-col > .form-group > label,
+  .ce-desc-when-row .ce-when-col > .row:first-child .form-group > label {
+    margin-top: 0;
+    padding-top: 0;
+    line-height: 1.35;
+  }
+  .ce-desc-col .django-ckeditor-widget {
+    width: 100% !important;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .ce-desc-col .cke_chrome,
+  .ce-desc-col .cke {
+    max-width: 100% !important;
+    box-sizing: border-box;
+  }
+  .ce-desc-col .cke_inner {
+    max-width: 100% !important;
+  }
+  .ce-desc-col .cke_contents,
+  .ce-desc-col .cke_wysiwyg_div {
+    max-width: 100% !important;
+  }
+  /* Shorter editor next to “when / where” so columns feel balanced; scroll inside the editor */
+  .ce-desc-col .cke_contents {
+    max-height: 200px !important;
+  }
+  .ce-desc-col iframe.cke_wysiwyg_frame {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+  }
+  @media (min-width: 992px) {
+    .ce-desc-col iframe.cke_wysiwyg_frame {
+      height: 200px !important;
+      min-height: 160px !important;
+      max-height: 260px !important;
+    }
+  }
+  @media (max-width: 991px) {
+    .ce-desc-col iframe.cke_wysiwyg_frame {
+      min-height: 180px !important;
+      height: 220px !important;
+      max-height: 360px !important;
+    }
+  }
+  .ce-when-col .ce-where-wrap { flex: 0 0 auto; }
+
+  @media (max-width: 991px) {
+    .ce-desc-when-row .ce-desc-col { margin-bottom: 18px; }
+  }
+
   @media (max-width: 767px) {
     .ce-hero { padding: 22px 18px 16px; flex-direction: column; align-items: flex-start; }
     .ce-hero h2 { font-size: 1.3rem; }
@@ -105,7 +207,7 @@
   <div class="ce-hero">
     <div>
       <h2><i class="fas fa-calendar-plus mr-2" style="opacity:0.8;"></i>Create Event</h2>
-      <p>Set up a new event for {{ site_name|default:"City College of Bayawan" }}</p>
+      <p>Name it, set dates and place, then who can attend—advanced options stay tucked away.</p>
     </div>
     <div class="ce-hero-actions">
       <a href="{% url 'event-list' %}" class="btn"><i class="fas fa-arrow-left mr-1"></i> Event List</a>
@@ -114,6 +216,8 @@
 
   <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
+    {# uid, job_category, attendance_mode, points: hidden defaults (see EventForm) #}
+    {{ form.event.uid }}{{ form.event.job_category }}{{ form.event.attendance_mode }}{{ form.event.points }}
 
     {% if form.non_field_errors %}
     <div class="ce-alert">{{ form.non_field_errors }}</div>
@@ -137,48 +241,58 @@
         <div class="ce-section-icon green"><i class="fas fa-info-circle"></i></div>
         <div>
           <div class="ce-section-title">Basic Information</div>
-          <div class="ce-section-sub">Event name, category, and description</div>
+          <div class="ce-section-sub">Event name and category</div>
         </div>
       </div>
       <div class="ce-section-body">
         <div class="row">
           <div class="col-md-8">{{ form.event.name|as_crispy_field }}</div>
           <div class="col-md-4">{{ form.event.category|as_crispy_field }}</div>
-          <div class="col-12">{{ form.event.description|as_crispy_field }}</div>
         </div>
       </div>
     </div>
 
-    <!-- 2. Schedule & Venue -->
+    <!-- 2. Description + when & where (two columns on md+) -->
     <div class="ce-section">
       <div class="ce-section-head">
-        <div class="ce-section-icon blue"><i class="fas fa-calendar-alt"></i></div>
+        <div class="ce-section-icon blue"><i class="fas fa-align-left"></i></div>
         <div>
-          <div class="ce-section-title">Schedule & Venue</div>
-          <div class="ce-section-sub">When and where the event takes place</div>
+          <div class="ce-section-title">Description &amp; when / where</div>
+          <div class="ce-section-sub">What it’s about, and when and where it happens</div>
         </div>
       </div>
       <div class="ce-section-body">
-        <div class="row">
-          <div class="col-md-4">{{ form.event.start_date|as_crispy_field }}</div>
-          <div class="col-md-4">{{ form.event.end_date|as_crispy_field }}</div>
-          <div class="col-md-4">{{ form.event.venue|as_crispy_field }}</div>
+        <div class="row ce-desc-when-row">
+          <div class="col-lg-6 ce-desc-col">
+            {{ form.event.description|as_crispy_field }}
+          </div>
+          <div class="col-lg-6 ce-when-col">
+            <div class="row">
+              <div class="col-md-6">{{ form.event.start_date|as_crispy_field }}</div>
+              <div class="col-md-6">{{ form.event.end_date|as_crispy_field }}</div>
+            </div>
+            <div class="ce-where-wrap">
+              <div class="row align-items-start">
+                <div class="col-12 ce-location-radios">{{ form.event.event_location|as_crispy_field }}</div>
+                <div class="col-12">{{ form.event.venue|as_crispy_field }}</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- 3. Attendance Settings -->
+    <!-- 3. Who can attend -->
     <div class="ce-section">
       <div class="ce-section-head">
         <div class="ce-section-icon amber"><i class="fas fa-users"></i></div>
         <div>
-          <div class="ce-section-title">Attendance Settings</div>
-          <div class="ce-section-sub">Who can attend and location type</div>
+          <div class="ce-section-title">Who can attend</div>
+          <div class="ce-section-sub">Open to all students, or limit by program, year, or section</div>
         </div>
       </div>
       <div class="ce-section-body">
         <div class="row">
-          <div class="col-md-4">{{ form.event.event_location|as_crispy_field }}</div>
           <div class="col-md-4">{{ form.event.audience_scope|as_crispy_field }}</div>
           <div class="col-md-4" id="audience-course-wrap">{{ form.event.audience_course|as_crispy_field }}</div>
           <div class="col-md-4" id="audience-year-wrap">{{ form.event.audience_year_level|as_crispy_field }}</div>
@@ -229,24 +343,6 @@
       </div>
     </div>
 
-    <!-- Advanced (collapsed) -->
-    <button class="ce-adv-toggle" type="button" data-toggle="collapse" data-target="#advancedFields" aria-expanded="false" aria-controls="advancedFields">
-      <i class="fas fa-sliders-h"></i> Advanced Settings
-      <i class="fas fa-chevron-down"></i>
-    </button>
-    <div class="collapse" id="advancedFields">
-      <div class="ce-section">
-        <div class="ce-section-body">
-          <div class="row">
-            <div class="col-md-3">{{ form.event.uid|as_crispy_field }}</div>
-            <div class="col-md-3">{{ form.event.job_category|as_crispy_field }}</div>
-            <div class="col-md-3">{{ form.event.attendance_mode|as_crispy_field }}</div>
-            <div class="col-md-3">{{ form.event.points|as_crispy_field }}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Submit -->
     <div class="ce-footer">
       <button type="submit" class="ce-btn-submit"><i class="fas fa-check mr-1"></i> Create Event</button>
@@ -255,7 +351,9 @@
   </form>
   {{ form.media }}
 </div>
+{% endblock content %}
 
+{% block extrascript_inner %}
 <script>
 (function() {
   function toggleAudienceFields() {
@@ -277,11 +375,27 @@
     if (specificWrap) specificWrap.style.display = showSpecific ? '' : 'none';
   }
 
-  document.addEventListener('DOMContentLoaded', function() {
-    var scopeSelect = document.querySelector('select[name$="audience_scope"]');
-    if (scopeSelect) scopeSelect.addEventListener('change', toggleAudienceFields);
+  function init() {
+    if (!document.querySelector('select[name$="audience_scope"]')) return;
     toggleAudienceFields();
-  });
+  }
+
+  if (!window.__eventAudienceScopeDelegate) {
+    window.__eventAudienceScopeDelegate = true;
+    document.addEventListener('change', function(e) {
+      var t = e.target;
+      if (!t || !t.matches || !t.matches('select[name$="audience_scope"]')) return;
+      toggleAudienceFields();
+    });
+  }
+
+  if (window.ccbRunWhenDocumentReady) {
+    window.ccbRunWhenDocumentReady(init);
+  } else if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();
 </script>
-{% endblock content %}
+{% endblock extrascript_inner %}

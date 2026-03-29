@@ -50,7 +50,7 @@ def create_guard_incident_and_notify(category, details='', scanned_id='', ip_add
 
     category: 'id_issue' | 'not_registered' | 'other'
     """
-    from gate.models import GateIncident, AuditLog, AdminNotification
+    from gate.models import GateIncident, AuditLog, AdminNotification, Student
     from gate.admin_notification_service import AdminNotificationService
 
     reason_map = {
@@ -62,11 +62,43 @@ def create_guard_incident_and_notify(category, details='', scanned_id='', ip_add
     details = (details or '').strip()[:2000]
     scanned_id = (scanned_id or '').strip()[:100]
 
+    student = None
+    if scanned_id:
+        student = Student.objects.filter(student_id__iexact=scanned_id).first()
+
+    auto_verified = False
+    auto_verified_note = ''
+    auto_verified_by = None
+    if reason == 'identity_mismatch' and student is not None:
+        last_verified = (
+            GateIncident.objects.filter(
+                student=student,
+                reason='identity_mismatch',
+                sas_review_status='verified',
+            )
+            .exclude(sas_checked_at__isnull=True)
+            .select_related('sas_checked_by')
+            .order_by('-sas_checked_at')
+            .first()
+        )
+        if last_verified is not None:
+            auto_verified = True
+            auto_verified_by = last_verified.sas_checked_by
+            auto_verified_note = (
+                f'Auto-checked: student previously verified by SAS'
+                f' on {timezone.localtime(last_verified.sas_checked_at).strftime("%Y-%m-%d %H:%M")}.'
+            )
+
     incident = GateIncident.objects.create(
+        student=student,
         reason=reason,
         details=details or f'Guard report ({category}).',
         scanned_id=scanned_id,
         staff_alerted=True,
+        sas_review_status='verified' if auto_verified else 'to_check',
+        sas_checked_by=auto_verified_by,
+        sas_checked_at=timezone.now() if auto_verified else None,
+        sas_check_notes=auto_verified_note,
     )
 
     sas_groups = getattr(settings, 'GATE_GUARD_INCIDENT_GROUPS_SAS', '') or ''
@@ -120,7 +152,7 @@ def create_guard_incident_and_notify(category, details='', scanned_id='', ip_add
             AdminNotificationService.create_notification(
                 notification_type='incident',
                 title=title,
-                message=body + '\n\n(No users found in configured office groups — broadcast to staff.)',
+                message=body + '\n\n(No users found in configured office groups — broadcast to Admin and Student Affairs.)',
                 priority='urgent',
                 broadcast=True,
                 related_incident=incident,

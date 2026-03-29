@@ -1,14 +1,18 @@
 from django import forms
 from django.contrib.auth import get_user_model
+from django.contrib.auth.forms import PasswordResetForm
 from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
+from captcha.fields import CaptchaField, CaptchaTextInput
 
 
 User = get_user_model()
 
-# Roles allowed for self-registration (Staff, Faculty). Guard removed: only staff log in at the gate.
+# Roles allowed for self-registration (Staff, Faculty, Student Affairs). SAS uses the same pending-approval flow as staff/faculty.
 STAFF_PERSONNEL_ROLE_CHOICES = [
     ('staff', 'Staff'),
     ('faculty', 'Faculty'),
+    ('student_affairs', 'Student Affairs'),
 ]
 
 
@@ -26,8 +30,8 @@ class LoginForm(forms.Form):
 
 
 class StaffPersonnelRegistrationForm(forms.Form):
-    """Self-registration for Staff and Faculty. Account details only; account inactive until admin approves.
-    After approval, user must complete profile (sex, birthdate, address, etc.) before full dashboard access."""
+    """Self-registration for Staff, Faculty, and Student Affairs. Account inactive until admin approves.
+    After approval, staff/faculty must complete StaffPersonnelProfile; Student Affairs goes straight to the app."""
     role = forms.ChoiceField(
         choices=STAFF_PERSONNEL_ROLE_CHOICES,
         widget=forms.Select(attrs={'class': 'form-control reg-role-select', 'aria-label': 'Role'}),
@@ -54,7 +58,8 @@ class StaffPersonnelRegistrationForm(forms.Form):
     middle_name = forms.CharField(
         max_length=100,
         required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Middle name'})
+        label='Middle Initial',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Middle Initial'})
     )
     password = forms.CharField(
         widget=forms.PasswordInput(attrs={
@@ -302,7 +307,8 @@ class UserProfileEditForm(forms.Form):
     middle_name = forms.CharField(
         max_length=100,
         required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Middle name'})
+        label='Middle Initial',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Middle Initial'})
     )
     SEX_CHOICES = [
         ('', 'Select sex/gender'),
@@ -343,6 +349,37 @@ class UserProfileEditForm(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Position / Title'})
     )
+
+
+class PasswordResetFormEmailMustExist(PasswordResetForm):
+    """
+    Same as Django's PasswordResetForm, but rejects unknown emails on the form
+    so users get a clear error instead of the generic 'check your email' page.
+    Includes a CAPTCHA to limit automated abuse.
+    """
+
+    captcha = CaptchaField(
+        label='',
+        widget=CaptchaTextInput(
+            attrs={
+                'class': 'form-control captcha-input',
+                'placeholder': _('Enter the code shown'),
+                'autocomplete': 'off',
+            }
+        ),
+    )
+
+    # Validate CAPTCHA before email so bots cannot probe addresses without solving it.
+    field_order = ('captcha', 'email')
+
+    def clean_email(self):
+        email = self.cleaned_data['email']
+        if not any(self.get_users(email)):
+            raise ValidationError(
+                _('No account is registered with this email address. Please check and try again.'),
+                code='unknown_email',
+            )
+        return email
 
 
 class PasswordResetFormEmailOrUsername(forms.Form):

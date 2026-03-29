@@ -1,0 +1,40 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <title>{% block title %}{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'plugins/fontawesome-free/css/all.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/adminlte.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/ccb-theme.css' %}">
+  {% block extrahead %}{% endblock %}
+  <style>
+    body.student-modal-iframe-body {
+      margin: 0;
+      min-height: 100%;
+      background: #f4f6f9;
+    }
+  </style>
+</head>
+<body class="student-modal-iframe-body">
+  {# content_header_title: empty here; student_form uses block.super in modal branch. #}
+  {% block content_header_title %}{% endblock %}
+  {% if messages %}
+  <div class="container-fluid pt-2 px-3 pb-0">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show py-2 mb-2" role="alert">
+      {{ message }}
+      <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="container-fluid px-3 pb-3">
+  {% block content %}{% endblock %}
+  </div>
+  <script src="{% static 'plugins/jquery/jquery.min.js' %}"></script>
+  <script src="{% static 'plugins/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>

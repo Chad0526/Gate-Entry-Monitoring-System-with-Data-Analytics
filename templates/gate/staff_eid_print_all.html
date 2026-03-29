@@ -268,12 +268,14 @@
               <p class="signatory-name">1ST SIGNATORY NAME</p>
               <p class="signatory-title">Designation</p>
             </div>
+            {% if card.qr_url %}
             <div class="qr-block">
               <div class="qr-wrap">
                 <img src="{{ card.qr_url }}" alt="QR {{ card.id_display }}">
               </div>
               <p class="qr-hint">Scan at gate for IN / OUT</p>
             </div>
+            {% endif %}
             <div class="signatory-block">
               <div class="signatory-space"></div>
               <div class="signatory-line"></div>

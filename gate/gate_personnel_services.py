@@ -500,7 +500,7 @@ class GateActivityLogger:
 class GateHistoryManager:
     """
     Service for managing guard access to historical data with 7-day restriction.
-    Guards can only access last 7 days; admin/supervisor have unlimited access.
+    Guards can only access last 7 days; admin/staff/faculty have unlimited access.
     """
     
     @staticmethod
@@ -519,8 +519,8 @@ class GateHistoryManager:
         
         role = get_user_role(guard)
         
-        # Admin and supervisor have unlimited access
-        if role in ('admin', 'supervisor'):
+        # Admin, staff, faculty have unlimited access
+        if role in ('admin', 'staff', 'faculty'):
             return True
         
         # Guards: last 7 days only
@@ -536,7 +536,7 @@ class GateHistoryManager:
     @staticmethod
     def get_entries_last_7_days(guard, filters=None):
         """
-        Get gate entries within last 7 days for guards (unlimited for admin/supervisor).
+        Get gate entries within last 7 days for guards (unlimited for admin/staff/faculty).
         
         Args:
             guard: User object

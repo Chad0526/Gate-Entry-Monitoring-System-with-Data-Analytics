@@ -1,7 +1,7 @@
 {% extends 'base/base.html' %}
 {% load static %}
 {% block title %}Reports – Daily Gate – {{ site_name }}{% endblock title %}
-{% block breadcrumb %}Reports{% endblock breadcrumb %}
+{% block page_heading %}Reports{% endblock page_heading %}
 {% block extrahead %}
 <link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
 {% endblock extrahead %}
@@ -106,3 +106,21 @@
 {% endif %}
 </div>
 {% endblock content %}
+
+{% block extrascript_inner %}
+<script src="{% static 'js/reports-filter-bar.js' %}"></script>
+<script>
+(function() {
+  function run() {
+    if (window.initReportsFilterBar) initReportsFilterBar();
+  }
+  if (window.ccbRunWhenDocumentReady) {
+    window.ccbRunWhenDocumentReady(run);
+  } else if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run);
+  } else {
+    run();
+  }
+})();
+</script>
+{% endblock extrascript_inner %}

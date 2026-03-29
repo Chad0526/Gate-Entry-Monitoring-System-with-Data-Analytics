@@ -1,0 +1,128 @@
+{% include 'gate/reports/_reports_tabs.html' %}
+
+{% include 'gate/reports/_filter_bar.html' %}
+
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+    <h6 class="m-0">Preview</h6>
+    <span class="small text-muted">Report: <strong id="preview-report-label">{% if template_type == 'export_all' %}All reports (ZIP){% elif template_type == 'daily_gate_visits' %}Gate entries{% elif template_type == 'overview_summary' %}Summary{% elif template_type == 'recent_activity' %}Recent activity{% elif template_type == 'inside_now' %}Inside now{% elif template_type == 'raw_entries' %}Raw entries{% elif template_type == 'event_attendance' %}Events{% elif template_type == 'by_personnel' %}By recorder{% else %}{{ template_type }}{% endif %}</strong></span>
+  </div>
+  <div class="card-body p-0">
+    {% if template_type == 'export_all' %}
+    <p class="text-muted p-3 mb-0">ZIP includes all report types. Use <strong>Download ZIP</strong> below.</p>
+    {% elif template_type == 'daily_gate_visits' %}
+      {% if preview_rows or visitor_preview_rows %}
+      {% if audience_filter != 'visitors' %}
+      <h6 class="px-3 pt-3 mb-2" style="font-weight:700;color:#14532d;"><i class="fas fa-user-graduate mr-1" style="color:#16a34a;"></i> Students</h6>
+      {% if preview_rows %}
+      <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0">
+          <thead>
+            <tr>
+              {% for key in preview_rows.0.keys %}
+              <th>{{ key }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in preview_rows %}
+            <tr>
+              {% for key, val in row.items %}
+              <td>{% if val != None and val != '' %}{{ val }}{% else %}—{% endif %}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted small px-3 mb-2">No student visits in the selected period.</p>
+      {% endif %}
+      {% endif %}
+
+      {% if audience_filter != 'students' %}
+      <h6 class="px-3 pt-3 mb-2" style="font-weight:700;color:#14532d;border-top:2px solid #e2e8f0;padding-top:16px !important;"><i class="fas fa-id-badge mr-1" style="color:#0284c7;"></i> Visitors</h6>
+      {% if visitor_preview_rows %}
+      <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0">
+          <thead>
+            <tr>
+              {% for key in visitor_preview_rows.0.keys %}
+              <th>{{ key }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in visitor_preview_rows %}
+            <tr>
+              {% for key, val in row.items %}
+              <td>{% if val != None and val != '' %}{{ val }}{% else %}—{% endif %}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted small px-3 mb-3">No visitor entries in the selected period.</p>
+      {% endif %}
+      {% endif %}
+      {% else %}
+      <p class="text-muted p-3 mb-0">No data for this filter.</p>
+      {% endif %}
+    {% elif preview_rows %}
+      {% if template_type == 'event_attendance' %}
+      <p class="text-muted p-3 mb-0">Preview shows up to 50 attendees and covers anyone whose check‑in, check‑out, or record creation occurred in the window; use export for full data.</p>
+      {% endif %}
+    <div class="table-responsive">
+      <table class="table table-sm table-striped mb-0">
+        <thead>
+          <tr>
+            {% for key in preview_rows.0.keys %}
+            <th>{{ key }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in preview_rows %}
+          <tr>
+            {% for key, val in row.items %}
+            <td>{% if val != None and val != '' %}{{ val }}{% else %}—{% endif %}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted p-3 mb-0">No data for this filter.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap" style="gap:10px;">
+    <h6 class="m-0">Export</h6>
+    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print();">
+      <i class="fas fa-print mr-1"></i> Print
+    </button>
+  </div>
+  <div class="card-body">
+    <p class="small text-muted mb-2">Downloads use the filters applied above.</p>
+    {% if template_type == 'export_all' %}
+    <p class="mb-0">
+      <a href="{% url 'reports-export-download' %}?{{ request.GET.urlencode }}&template=export_all" class="btn btn-sm btn-primary"><i class="fas fa-file-archive mr-1"></i> Download ZIP</a>
+    </p>
+    {% else %}
+    <div class="form-inline align-items-center">
+      <label class="mr-2 mb-0">Format:</label>
+      <select id="export-format-select" class="form-control form-control-sm mr-2" style="width:120px;">
+        <option value="csv">CSV</option>
+        <option value="xlsx">Excel</option>
+        <option value="pdf">PDF</option>
+      </select>
+      <button type="button" id="export-download-btn" class="btn btn-sm btn-primary" data-export-base="{% url 'reports-export-download' %}?{{ request.GET.urlencode }}">Export</button>
+    </div>
+    {% endif %}
+  </div>
+</div>

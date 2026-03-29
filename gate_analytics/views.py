@@ -13,7 +13,8 @@ from django.contrib.auth.models import Group
 
 User = get_user_model()
 from gate.models import EventCategory, Event, Student, GateEntry, GateIncident, AuditLog, GateShift, StaffPersonnelProfile
-from gate.gate_views import _granted_visits_count_for_date, _local_day_bounds, _local_year_bounds
+from gate.gate_views import _local_day_bounds, _local_year_bounds
+from gate.gate_personnel_services import RealtimeDashboardService
 from .forms import (
     LoginForm,
     StaffPersonnelRegistrationForm,
@@ -28,6 +29,58 @@ from .forms import (
     _normalize_phone,
 )
 from .roles import get_user_role, role_required
+
+
+def _normalize_student_program_code(raw):
+    """Map DB course string to canonical BST / BSE (handles case/whitespace quirks)."""
+    if raw is None:
+        return None
+    s = str(raw).strip().upper()
+    if not s:
+        return None
+    if s in (Student.COURSE_BST, 'BST'):
+        return Student.COURSE_BST
+    if s in (Student.COURSE_BSE, 'BSE'):
+        return Student.COURSE_BSE
+    return None
+
+
+def _dashboard_program_entries_today():
+    """
+    Daily student gate scans (no event/visitor rows), aggregated into exactly two programs:
+    BST (Tourism) and BSE (Entrepreneurship). Counts are total scans today per program, not one card per scan.
+    """
+    today = timezone.localdate()
+    day_start, day_end = _local_day_bounds(today)
+    base = GateEntry.objects.filter(
+        timestamp__gte=day_start,
+        timestamp__lt=day_end,
+        granted=True,
+        student_id__isnull=False,
+        event__isnull=True,
+        visitor_visit__isnull=True,
+    )
+    # Single query: course values only; aggregate in Python so inconsistent casing/NULLs don't split groups.
+    tallies = {Student.COURSE_BST: 0, Student.COURSE_BSE: 0}
+    for course in base.values_list('student__course', flat=True):
+        key = _normalize_student_program_code(course)
+        if key:
+            tallies[key] += 1
+
+    return [
+        {
+            'program': Student.COURSE_BST,
+            'label': 'BST',
+            'subtitle': 'Tourism',
+            'count': tallies[Student.COURSE_BST],
+        },
+        {
+            'program': Student.COURSE_BSE,
+            'label': 'BSE',
+            'subtitle': 'Entrepreneurship',
+            'count': tallies[Student.COURSE_BSE],
+        },
+    ]
 
 
 @require_GET
@@ -234,6 +287,47 @@ def _get_per_page_and_query(request):
     return per_page, query_extra, query_extra_base
 
 
+def _dashboard_scanner_and_activity(today):
+    """
+    Last scan label, scanner ACTIVE/IDLE, and recent_activity rows (same rules as dashboard-stats-api).
+    """
+    from gate.gate_personnel_views import GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY
+
+    day_start, day_end = _local_day_bounds(today)
+    last_entry = GateEntry.objects.filter(
+        timestamp__gte=day_start,
+        timestamp__lt=day_end,
+    ).order_by('-timestamp').first()
+    if last_entry:
+        last_scan_label = timezone.localtime(last_entry.timestamp).strftime('%Y-%m-%d %H:%M')
+    else:
+        last_scan_label = 'No scans yet today'
+    scanner_status = 'ACTIVE' if cache.get(GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY) else 'IDLE'
+
+    recent_qs = GateEntry.objects.filter(
+        timestamp__gte=day_start,
+        timestamp__lt=day_end,
+    ).select_related('student', 'visitor_visit').order_by('-timestamp')[:12]
+    recent_activity = []
+    for e in recent_qs:
+        if e.student_id:
+            who = e.student.get_full_name()
+        elif e.visitor_visit_id:
+            who = e.visitor_visit.full_name
+        else:
+            who = (e.notes or 'Unknown')[:120]
+        recent_activity.append({
+            'student_name': who,
+            'action': (e.scan_type or 'IN').upper(),
+            'time': timezone.localtime(e.timestamp).strftime('%Y-%m-%d %H:%M'),
+        })
+    return {
+        'last_scan_label': last_scan_label,
+        'scanner_status': scanner_status,
+        'recent_activity': recent_activity,
+    }
+
+
 @login_required(login_url='login')
 @role_required('admin')
 def user_list(request):
@@ -256,45 +350,46 @@ def user_list(request):
     })
 
 @login_required(login_url='login')
-@role_required('admin', 'faculty', 'staff', 'supervisor')
+@role_required('admin', 'faculty', 'staff', 'student affairs')
 def dashboard(request):
     today = timezone.localdate()
     cache_seconds = getattr(django_settings, 'CACHE_DASHBOARD_SECONDS', 120)
-    cache_key = f'dashboard_counts_{today.isoformat()}'
+    cache_key = f'dashboard_counts_v5_{today.isoformat()}'
     counts = cache.get(cache_key)
     if counts is None:
         day_start, day_end = _local_day_bounds(today)
-        granted_today = _granted_visits_count_for_date(today, daily_gate_only=True)
+        # Match dashboard_stats_api: all granted scans today (students + visitors + events)
+        granted_today = GateEntry.objects.filter(
+            timestamp__gte=day_start,
+            timestamp__lt=day_end,
+            granted=True,
+        ).count()
+        visitors_today = GateEntry.objects.filter(
+            timestamp__gte=day_start,
+            timestamp__lt=day_end,
+            visitor_visit_id__isnull=False,
+            granted=True,
+        ).count()
         denied_entries_count = GateEntry.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end, granted=False).count()
         incidents_today = GateIncident.objects.filter(timestamp__gte=day_start, timestamp__lt=day_end).count()
         denied_today = max(denied_entries_count, incidents_today)
         total_students = Student.objects.filter(is_active=True).count()
-        first_of_month = today.replace(day=1)
-        month_start_bounds, _ = _local_day_bounds(first_of_month)
-        student_entries_this_month = GateEntry.objects.filter(
-            timestamp__gte=month_start_bounds,
-            timestamp__lt=day_end,
-            granted=True,
-            student_id__isnull=False,
-            event__isnull=True,
-            visitor_visit__isnull=True,
+        semester_hold_students = Student.objects.filter(
+            semester_transition_status=Student.SEMESTER_TRANSITION_PENDING_SECOND_SEM
         ).count()
-        ys, ye = _local_year_bounds(today.year)
-        student_entries_this_year = GateEntry.objects.filter(
-            timestamp__gte=ys,
-            timestamp__lt=ye,
-            granted=True,
-            student_id__isnull=False,
-            event__isnull=True,
-            visitor_visit__isnull=True,
-        ).count()
+        students_male = Student.objects.filter(is_active=True, sex=Student.SEX_MALE).count()
+        students_female = Student.objects.filter(is_active=True, sex=Student.SEX_FEMALE).count()
+        program_entries_today = _dashboard_program_entries_today()
         counts = {
             'granted_today': granted_today,
+            'visitors_today': visitors_today,
             'denied_today': denied_today,
             'incidents_today': incidents_today,
             'total_students': total_students,
-            'student_entries_this_month': student_entries_this_month,
-            'student_entries_this_year': student_entries_this_year,
+            'semester_hold_students': semester_hold_students,
+            'students_male': students_male,
+            'students_female': students_female,
+            'program_entries_today': program_entries_today,
         }
         cache.set(cache_key, counts, cache_seconds)
     else:
@@ -302,8 +397,20 @@ def dashboard(request):
         denied_today = counts['denied_today']
         incidents_today = counts['incidents_today']
         total_students = counts['total_students']
-        student_entries_this_month = counts.get('student_entries_this_month', 0)
-        student_entries_this_year = counts.get('student_entries_this_year', 0)
+        semester_hold_students = counts.get('semester_hold_students', 0)
+        students_male = counts.get('students_male', 0)
+        students_female = counts.get('students_female', 0)
+        program_entries_today = counts.get('program_entries_today') or []
+    inside_now = RealtimeDashboardService.get_current_stats()['currently_inside']
+    visitors_today = counts.get('visitors_today')
+    if visitors_today is None:
+        day_start, day_end = _local_day_bounds(today)
+        visitors_today = GateEntry.objects.filter(
+            timestamp__gte=day_start,
+            timestamp__lt=day_end,
+            visitor_visit_id__isnull=False,
+            granted=True,
+        ).count()
     user = User.objects.count()
     event_ctg = EventCategory.objects.count()
     event = Event.objects.count()
@@ -311,7 +418,7 @@ def dashboard(request):
     events = Event.objects.all()
     # Staff currently on duty (clocked in via shift / gate dashboard)
     personnel_on_duty_list = list(GateShift.objects.filter(shift_end__isnull=True).select_related('personnel').order_by('-shift_start'))
-    year_end_for_link = min(datetime.date(today.year, 12, 31), today)
+    live = _dashboard_scanner_and_activity(today)
     context = {
         'user': user,
         'event_ctg': event_ctg,
@@ -321,24 +428,24 @@ def dashboard(request):
         'today': today,
         'site_name': 'City College of Bayawan',
         'granted_today': granted_today,
+        'visitors_today': visitors_today,
+        'inside_now': inside_now,
         'denied_today': denied_today,
         'incidents_today': incidents_today,
         'total_students': total_students,
-        'student_entries_this_month': student_entries_this_month,
-        'student_entries_this_year': student_entries_this_year,
-        'student_entries_month_from': today.replace(day=1).isoformat(),
-        'student_entries_month_to': today.isoformat(),
-        'student_entries_year_from': datetime.date(today.year, 1, 1).isoformat(),
-        'student_entries_year_to': year_end_for_link.isoformat(),
-        'dashboard_student_year': today.year,
+        'semester_hold_students': semester_hold_students,
+        'students_male': students_male,
+        'students_female': students_female,
+        'program_entries_today': program_entries_today,
         'personnel_on_duty_list': personnel_on_duty_list,
         'personnel_on_duty_count': len(personnel_on_duty_list),
+        **live,
     }
     return render(request, 'dashboard/dashboard.html', context)
 
 
 @login_required(login_url='login')
-@role_required('admin', 'faculty', 'staff', 'supervisor')
+@role_required('admin', 'faculty', 'staff', 'student affairs')
 def dashboard_stats_api(request):
     """
     API endpoint for real-time dashboard stats updates.
@@ -356,7 +463,13 @@ def dashboard_stats_api(request):
         timestamp__lt=day_end, 
         granted=True
     ).count()
-    
+    visitors_today = GateEntry.objects.filter(
+        timestamp__gte=day_start,
+        timestamp__lt=day_end,
+        visitor_visit_id__isnull=False,
+        granted=True,
+    ).count()
+
     denied_entries_count = GateEntry.objects.filter(
         timestamp__gte=day_start, 
         timestamp__lt=day_end, 
@@ -368,74 +481,37 @@ def dashboard_stats_api(request):
     ).count()
     denied_today = max(denied_entries_count, incidents_today)
     total_students = Student.objects.filter(is_active=True).count()
+    semester_hold_students = Student.objects.filter(
+        semester_transition_status=Student.SEMESTER_TRANSITION_PENDING_SECOND_SEM
+    ).count()
     
     # Staff on duty count
     personnel_on_duty_count = GateShift.objects.filter(shift_end__isnull=True).count()
 
-    first_of_month = today.replace(day=1)
-    month_start_bounds, _ = _local_day_bounds(first_of_month)
-    student_entries_this_month = GateEntry.objects.filter(
-        timestamp__gte=month_start_bounds,
-        timestamp__lt=day_end,
-        granted=True,
-        student_id__isnull=False,
-        event__isnull=True,
-        visitor_visit__isnull=True,
-    ).count()
-    ys, ye = _local_year_bounds(today.year)
-    student_entries_this_year = GateEntry.objects.filter(
-        timestamp__gte=ys,
-        timestamp__lt=ye,
-        granted=True,
-        student_id__isnull=False,
-        event__isnull=True,
-        visitor_visit__isnull=True,
-    ).count()
-
-    from gate.gate_personnel_services import RealtimeDashboardService
-    from gate.gate_personnel_views import GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY
+    students_male = Student.objects.filter(is_active=True, sex=Student.SEX_MALE).count()
+    students_female = Student.objects.filter(is_active=True, sex=Student.SEX_FEMALE).count()
+    program_entries_today = _dashboard_program_entries_today()
 
     stats = RealtimeDashboardService.get_current_stats()
     inside_now = stats['currently_inside']
 
-    last_entry = GateEntry.objects.filter(
-        timestamp__gte=day_start,
-        timestamp__lt=day_end,
-    ).order_by('-timestamp').first()
-    if last_entry:
-        last_scan_label = timezone.localtime(last_entry.timestamp).strftime('%Y-%m-%d %H:%M')
-    else:
-        last_scan_label = 'No scans yet today'
-
-    scanner_status = 'ACTIVE' if cache.get(GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY) else 'IDLE'
-
-    recent_qs = GateEntry.objects.filter(
-        timestamp__gte=day_start,
-        timestamp__lt=day_end,
-    ).select_related('student', 'visitor_visit').order_by('-timestamp')[:12]
-    recent_activity = []
-    for e in recent_qs:
-        if e.student_id:
-            who = e.student.get_full_name()
-        elif e.visitor_visit_id:
-            who = e.visitor_visit.full_name
-        else:
-            who = (e.notes or 'Unknown')[:120]
-        recent_activity.append({
-            'student_name': who,
-            'action': (e.scan_type or 'IN').upper(),
-            'time': timezone.localtime(e.timestamp).strftime('%Y-%m-%d %H:%M'),
-        })
+    live = _dashboard_scanner_and_activity(today)
+    last_scan_label = live['last_scan_label']
+    scanner_status = live['scanner_status']
+    recent_activity = live['recent_activity']
 
     return JsonResponse({
         'success': True,
         'granted_today': granted_today,
+        'visitors_today': visitors_today,
         'denied_today': denied_today,
         'incidents_today': incidents_today,
         'total_students': total_students,
+        'semester_hold_students': semester_hold_students,
         'personnel_on_duty_count': personnel_on_duty_count,
-        'student_entries_this_month': student_entries_this_month,
-        'student_entries_this_year': student_entries_this_year,
+        'students_male': students_male,
+        'students_female': students_female,
+        'program_entries_today': program_entries_today,
         'inside_now': inside_now,
         'last_scan_label': last_scan_label,
         'scanner_status': scanner_status,
@@ -461,7 +537,7 @@ def login_page(request):
                 else:
                     role = get_user_role(user)
                     if role is None:
-                        messages.error(request, 'Your account has no role (Admin, Staff, Faculty, or Supervisor). Contact the administrator.')
+                        messages.error(request, 'Your account has no role (Admin, Staff, Faculty, or Student Affairs). Contact the administrator.')
                         return render(request, 'auth/login.html', {
                             'form': forms, 'next': next_url, 'reg_form': reg_form,
                             'staff_personnel_form': StaffPersonnelRegistrationForm(),
@@ -489,7 +565,7 @@ def login_page(request):
                     redirect_to = (request.POST.get('next') or request.GET.get('next') or '').strip()
                     if not redirect_to:
                         role_after = get_user_role(user)
-                        gate_first = getattr(django_settings, 'LOGIN_REDIRECT_GATE_FIRST_ROLES', ('staff', 'faculty', 'supervisor'))
+                        gate_first = getattr(django_settings, 'LOGIN_REDIRECT_GATE_FIRST_ROLES', ('staff', 'faculty'))
                         if role_after in gate_first:
                             redirect_to = getattr(django_settings, 'LOGIN_REDIRECT_DEFAULT_GATE_STAFF', 'gate-scan')
                         else:
@@ -600,7 +676,7 @@ def staff_personnel_complete_profile(request):
     profile, _ = StaffPersonnelProfile.objects.get_or_create(user=request.user, defaults={})
     if profile.profile_complete:
         role_done = get_user_role(request.user)
-        gate_first = getattr(django_settings, 'LOGIN_REDIRECT_GATE_FIRST_ROLES', ('staff', 'faculty', 'supervisor'))
+        gate_first = getattr(django_settings, 'LOGIN_REDIRECT_GATE_FIRST_ROLES', ('staff', 'faculty'))
         if role_done in gate_first:
             return redirect(getattr(django_settings, 'LOGIN_REDIRECT_DEFAULT_GATE_STAFF', 'gate-scan'))
         return redirect('dashboard')
@@ -630,7 +706,7 @@ def staff_personnel_complete_profile(request):
                 user_profile.save(update_fields=['avatar'])
             messages.success(request, 'Your profile is complete.')
             role_after = get_user_role(request.user)
-            gate_first = getattr(django_settings, 'LOGIN_REDIRECT_GATE_FIRST_ROLES', ('staff', 'faculty', 'supervisor'))
+            gate_first = getattr(django_settings, 'LOGIN_REDIRECT_GATE_FIRST_ROLES', ('staff', 'faculty'))
             if role_after in gate_first:
                 return redirect(getattr(django_settings, 'LOGIN_REDIRECT_DEFAULT_GATE_STAFF', 'gate-scan'))
             return redirect('dashboard')
@@ -769,17 +845,30 @@ def register_page(request):
                     last_name=last_name,
                     is_active=False,
                 )
-                group, _ = Group.objects.get_or_create(name=role)
+                # Map form value → Django Group name (must match gate_analytics.roles.ROLE_NAMES for get_user_role).
+                group_name_by_role = {
+                    'staff': 'staff',
+                    'faculty': 'faculty',
+                    'student_affairs': 'Student Affairs',
+                }
+                group_name = group_name_by_role.get(role, role)
+                group, _ = Group.objects.get_or_create(name=group_name)
                 user.groups.add(group)
-                StaffPersonnelProfile.objects.update_or_create(
-                    user=user,
-                    defaults={
-                        'middle_name': middle_name,
-                        'profile_complete': False,
-                    },
-                )
+                # Staff/faculty complete a personnel profile after activation; SAS does not use StaffPersonnelProfile.
+                if role in ('staff', 'faculty'):
+                    StaffPersonnelProfile.objects.update_or_create(
+                        user=user,
+                        defaults={
+                            'middle_name': middle_name,
+                            'profile_complete': False,
+                        },
+                    )
                 from gate.admin_notification_service import AdminNotificationService
-                role_display = {'staff': 'Staff', 'faculty': 'Faculty'}.get(role, role.title())
+                role_display = {
+                    'staff': 'Staff',
+                    'faculty': 'Faculty',
+                    'student_affairs': 'Student Affairs',
+                }.get(role, role.replace('_', ' ').title())
                 AdminNotificationService.notify_staff_personnel_registration(user, role_display)
                 messages.success(
                     request,
@@ -922,7 +1011,7 @@ def register_page(request):
                 last_name = (reg_form.cleaned_data.get('last_name') or '').strip()
                 sex = (reg_form.cleaned_data.get('sex') or '').strip()
 
-                Student.objects.create(
+                student = Student.objects.create(
                     student_id=student_id,
                     first_name=first_name,
                     middle_name=middle_name,
@@ -934,7 +1023,7 @@ def register_page(request):
                     birthdate=reg_form.cleaned_data.get('birthdate'),
                     sex=sex or '',
                     guardians_parents=(reg_form.cleaned_data.get('guardians_parents') or '').strip(),
-                    account_status=Student.ACCOUNT_STATUS_PENDING,
+                    account_status=Student.ACCOUNT_STATUS_INACTIVE,
                     is_active=False,
                     course=(reg_form.cleaned_data.get('course') or '').strip() or None,
                     year_level=(reg_form.cleaned_data.get('year_level') or '').strip() or None,
@@ -942,6 +1031,11 @@ def register_page(request):
                     contact_number=(reg_form.cleaned_data.get('contact_number') or '').strip() or None,
                     guardian_contact=(reg_form.cleaned_data.get('guardian_contact') or '').strip() or None,
                 )
+                try:
+                    from gate.admin_notification_service import AdminNotificationService
+                    AdminNotificationService.notify_student_registration(student)
+                except Exception:
+                    pass
                 messages.success(
                     request,
                     f'Registration submitted. Pending administrator approval. (Ref: {student_id})'

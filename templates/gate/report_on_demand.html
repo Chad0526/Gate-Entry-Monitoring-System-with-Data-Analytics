@@ -1,12 +1,12 @@
 {% extends 'base/base.html' %}
 {% block title %}On-demand Report - {{ site_name }}{% endblock title %}
-{% block breadcrumb %}On-demand Report{% endblock breadcrumb %}
+{% block page_heading %}On-demand Report{% endblock page_heading %}
 
 {% block content %}
 <div class="row mb-3">
   <div class="col-12">
-    <a href="{% url 'reports-hub' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left mr-1"></i> Reports hub</a>
-    <a href="{% url 'report-list' %}" class="btn btn-outline-primary ml-2"><i class="fas fa-list mr-1"></i> Generated reports</a>
+    <a href="{% url 'reports-hub' %}" class="btn btn-outline-secondary ccb-spa-nav"><i class="fas fa-arrow-left mr-1"></i> Reports hub</a>
+    <a href="{% url 'report-list' %}" class="btn btn-outline-primary ml-2 ccb-spa-nav"><i class="fas fa-list mr-1"></i> Generated reports</a>
   </div>
 </div>
 
@@ -37,7 +37,7 @@
           <option value="student">By student</option>
           <option value="gate">By gate (device)</option>
           <option value="time_window">By time window (e.g. 6–10 AM)</option>
-          <option value="course_section">By course/section</option>
+          <option value="course_section">By program/section</option>
         </select>
       </div>
       <div class="form-group">

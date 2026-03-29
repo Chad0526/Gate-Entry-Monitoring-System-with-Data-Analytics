@@ -3,6 +3,11 @@ Django settings for Gate Entry Monitoring & Data Analytics (City College of Baya
 """
 import os
 
+# django-betterforms 1.2 imports django.utils.six and python_2_unicode_compatible (removed in Django 3+).
+from .django_betterforms_compat import apply_django_betterforms_compat
+
+apply_django_betterforms_compat()
+
 # Load .env from project root so it's found regardless of current working directory
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _env_path = os.path.join(BASE_DIR, '.env')
@@ -60,7 +65,6 @@ ALLOWED_HOSTS = [
         '192.168.254.125',
         '10.0.1.186',
         '192.168.180.135',
-        'unsurrendering-implacably-alfreda.ngrok-free.dev',
         '.ngrok-free.app',
         '.ngrok-free.dev',
         '.ngrok.io',
@@ -84,10 +88,14 @@ INSTALLED_APPS = [
     'ckeditor',
     'ckeditor_uploader',
     'betterforms',
+    'captcha',
 
     # Local apps
     'gate.apps.GateConfig',
 ]
+
+# Django 3.2+: explicit auto PK type for models that omit primary_key (silences W042).
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MIDDLEWARE = [
     'gate_analytics.middleware.BlockedIPMiddleware',
@@ -109,6 +117,11 @@ MIDDLEWARE = [
     # Optional: restrict /admin/ and /login/ by IP (set ALLOWED_ADMIN_IPS = ['1.2.3.4'] or ['10.0.0.0/8'])
     # 'gate_analytics.middleware.IPAllowlistMiddleware',
 ]
+
+# Django's default X-Frame-Options is DENY, which blocks *same-origin* iframes too.
+# Student/staff/visitor e-ID previews embed /gate/.../eid/ in an iframe; use SAMEORIGIN
+# so only our site can frame those pages (third-party sites still cannot).
+X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 ROOT_URLCONF = 'gate_analytics.urls'
 
@@ -267,7 +280,7 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# Crsipy forms
+# Crispy forms (bootstrap4 templates bundled in django-crispy-forms 1.14.x)
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
 # Mapbox key (set MAPBOX_KEY in .env; never commit a real token to git)
@@ -296,10 +309,10 @@ CACHES = {
 CACHE_DASHBOARD_SECONDS = 120  # 2 minutes
 
 # After login, if the user did not open /login/?next=...
-# — Staff / Faculty / Supervisor: default landing page (set to 'dashboard'; use 'gate-scan' to open scanner first).
+# — Staff / Faculty: default landing page (set to 'dashboard'; use 'gate-scan' to open scanner first).
 # — Admin default: LOGIN_REDIRECT_DEFAULT_ADMIN.
 # Physical guards do not log in; staff open /gate/ from the dashboard when needed.
-LOGIN_REDIRECT_GATE_FIRST_ROLES = ('staff', 'faculty', 'supervisor')
+LOGIN_REDIRECT_GATE_FIRST_ROLES = ('staff', 'faculty')
 LOGIN_REDIRECT_DEFAULT_GATE_STAFF = 'dashboard'
 LOGIN_REDIRECT_DEFAULT_ADMIN = 'dashboard'
 
@@ -367,3 +380,7 @@ _email_host_password = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_HOST_PASSWORD = _email_host_password.replace(' ', '') if _email_host_password else ''
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'noreply@example.com')
 SITE_NAME = os.environ.get('SITE_NAME', 'City College of Bayawan')
+
+# django-simple-captcha (password reset, etc.)
+CAPTCHA_LENGTH = 5
+CAPTCHA_TIMEOUT = 10  # minutes until image expires

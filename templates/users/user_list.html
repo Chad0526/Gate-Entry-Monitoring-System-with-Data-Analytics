@@ -1,7 +1,7 @@
 {% extends 'base/base.html' %}
 {% load static %}
 {% block title %}Users - {{ site_name }}{% endblock title %}
-{% block breadcrumb %}Users{% endblock breadcrumb %}
+{% block page_heading %}Users{% endblock page_heading %}
 
 {% block extrahead %}
 <link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
@@ -103,7 +103,6 @@
 .ul-role-admin { background: #fee2e2; color: #dc2626; }
 .ul-role-guard, .ul-role-personnel { background: #dbeafe; color: #2563eb; }
 .ul-role-staff { background: #dcfce7; color: #16a34a; }
-.ul-role-supervisor { background: #fef3c7; color: #d97706; }
 .ul-role-faculty { background: #cffafe; color: #0891b2; }
 .ul-pill-yes {
   display: inline-block;

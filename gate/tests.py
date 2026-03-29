@@ -8,7 +8,7 @@ from .policy import evaluate_scan, daily_gate_repeat_cooldown
 
 class GatePolicyTests(TestCase):
     def setUp(self):
-        # create an active student with course/section so previews include data
+        # create an active student with program/section so previews include data
         self.student = Student.objects.create(
             student_id="S1",
             first_name="Test",
@@ -31,6 +31,10 @@ class GatePolicyTests(TestCase):
         g2, _ = Group.objects.get_or_create(name='Staff')
         u2.groups.add(g2)
         self.assertEqual(get_user_role(u2), 'staff')
+        u3 = User.objects.create(username='sa1')
+        g3, _ = Group.objects.get_or_create(name='Student Affairs')
+        u3.groups.add(g3)
+        self.assertEqual(get_user_role(u3), 'student affairs')
 
     def test_evaluate_scan_in_allowed_when_outside(self):
         now = timezone.make_aware(datetime.datetime(2025, 9, 1, 8, 0))
@@ -148,11 +152,11 @@ class GatePolicyTests(TestCase):
             checked_out_at=timezone.now() + datetime.timedelta(hours=1),
         )
         headers, rows = _reports_export_build_data(today, day_start, day_end, 'daily_gate_visits', '', None)
-        # header should include new course/section column as well as student id
+        # header should include new program/section column as well as student id
         self.assertIn('Student ID', headers)
         self.assertIn('Gender', headers)
-        self.assertIn('Course/Section', headers)
-        # first student row should show the course/section value we set
+        self.assertIn('Program/Section', headers)
+        # first student row should show the program/section value we set
         self.assertTrue(any(isinstance(r, list) and r and r[3] == 'BST A' for r in rows))
         # gender from student.sex
         self.assertTrue(any(isinstance(r, list) and r and r[2] == 'Male' for r in rows))
@@ -171,10 +175,10 @@ class GatePolicyTests(TestCase):
             self.assertLessEqual(times[0], times[-1])
         # rows should contain at least one blank row and a visitor header row
         self.assertTrue(any(isinstance(r, list) and r and r[0] == 'Visitor Name' for r in rows))
-        # preview is student-only; it should include Course/Section and student rows
+        # preview is student-only; it should include Program/Section and student rows
         preview = _reports_export_preview(today, day_start, day_end, 'daily_gate_visits', '', None)
         self.assertTrue(any(r.get('Gender') == 'Male' for r in preview))
-        self.assertTrue(any(r.get('Course/Section') == 'BST A' for r in preview))
+        self.assertTrue(any(r.get('Program/Section') == 'BST A' for r in preview))
         # preview name ordering
         self.assertTrue(any(r.get('Name','').startswith('Student,') for r in preview))
         # oldest-first preview
@@ -202,8 +206,8 @@ class GatePolicyTests(TestCase):
         preview = _reports_export_preview(today, day_start, day_end, 'event_attendance', '', None)
         self.assertTrue(any(r.get('event') == 'Test' for r in preview))
         self.assertTrue(any(r.get('event') == 'Other' for r in preview))
-        # preview should also have course/section column with our value
-        self.assertTrue(any(r.get('Course/Section') == 'BST A' for r in preview))
+        # preview should also have program/section column with our value
+        self.assertTrue(any(r.get('Program/Section') == 'BST A' for r in preview))
         # student name order
         self.assertTrue(any(r.get('name','').startswith('Student,') for r in preview))
         # check ascending order by checked_in_at (preview should now be oldest first)
@@ -213,10 +217,10 @@ class GatePolicyTests(TestCase):
         # build_data without event_id returns both rows and includes event column
         headers, rows = _reports_export_build_data(today, day_start, day_end, 'event_attendance', '', None)
         self.assertIn('Event', headers)
-        self.assertIn('Course/Section/Year', headers)
+        self.assertIn('Program/Section/Year', headers)
         self.assertTrue(any(r[0] == 'Test' for r in rows))
         self.assertTrue(any(r[0] == 'Other' for r in rows))
-        # build_data should also include course/section/year column at index 3 (after event,id,name)
+        # build_data should also include program/section/year column at index 3 (after event,id,name)
         self.assertTrue(any(r[3] == 'BST A' for r in rows if len(r) > 3))
         # build_data should be in ascending time order as well
         times_build = [r[4] for r in rows if len(r) > 4 and r[4]]
@@ -262,11 +266,11 @@ class GatePolicyTests(TestCase):
         preview = _reports_export_preview(filter_date, day_start, day_end, 'event_attendance', '', None)
         self.assertTrue(any(r.get('checked_out_at') == out_in_window for r in preview))
         self.assertTrue(any(r.get('checked_out_at') == out2 for r in preview))
-        # preview should also include course/section
-        self.assertTrue(any(r.get('Course/Section') == 'BST A' for r in preview))
+        # preview should also include program/section
+        self.assertTrue(any(r.get('Program/Section') == 'BST A' for r in preview))
         # build_data should likewise include both rows with checkout strings
         headers, rows = _reports_export_build_data(filter_date, day_start, day_end, 'event_attendance', '', None)
-        self.assertIn('Course/Section/Year', headers)
+        self.assertIn('Program/Section/Year', headers)
         self.assertGreaterEqual(len(rows), 2)
         self.assertTrue(any(row[4] != '' for row in rows))
 
@@ -304,8 +308,8 @@ class GatePolicyTests(TestCase):
         self.assertTrue(preview, "Expected preview rows for event but got empty")
         # both attendances should be included
         self.assertEqual(len(preview), 2)
-        # at least one row should show our student's course/section
-        self.assertTrue(any(r.get('Course/Section') == 'BST A' for r in preview))
+        # at least one row should show our student's program/section
+        self.assertTrue(any(r.get('Program/Section') == 'BST A' for r in preview))
         # build data also
         headers2, rows2 = _reports_export_build_data(filter_date, day_start, day_end, 'event_attendance', '', ev.id)
         self.assertTrue(rows2)

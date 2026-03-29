@@ -1,7 +1,7 @@
 {% extends 'base/base.html' %}
 {% load static %}
 {% block title %}Event Detail - {{ event.name|truncatewords:6 }}{% endblock title %}
-{% block breadcrumb %}Event Detail{% endblock breadcrumb %}
+{% block page_heading %}Event Detail{% endblock page_heading %}
 
 {% block extrahead %}
 <link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
@@ -475,7 +475,7 @@
 </div>
 {% endblock content %}
 
-{% block extrascript %}
+{% block extrascript_inner %}
 <script>
 (function(){
   document.querySelectorAll('.ed-modal-btn').forEach(function(btn){
@@ -497,4 +497,4 @@
   });
 })();
 </script>
-{% endblock extrascript %}
+{% endblock extrascript_inner %}

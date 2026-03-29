@@ -1,6 +1,6 @@
 {% extends 'base/base.html' %}
 {% block title %}Reports Hub - {{ site_name }}{% endblock title %}
-{% block breadcrumb %}Reports Hub{% endblock breadcrumb %}
+{% block page_heading %}Reports Hub{% endblock page_heading %}
 
 {% block content %}
 {# ----- Intro: what Reports Hub is and how it connects to other menus ----- #}
@@ -8,11 +8,11 @@
   <h5 class="mb-2"><i class="fas fa-chart-pie mr-1"></i> What is Reports Hub?</h5>
   <p class="mb-2">Reports Hub is your <strong>control center</strong> for gate and attendance data. Everything here comes from other parts of the system:</p>
   <ul class="mb-0 small">
-    <li><strong>Gate entries</strong> — who was granted or denied at the gate (see sidebar: <a href="{% url 'gate-entry-list' %}">Gate entries</a>)</li>
-    <li><strong>Denied entries</strong> — entries denied at the gate (see sidebar: <a href="{% url 'gate-entry-list' %}">Gate entries</a>, filter by Denied)</li>
-    <li><strong>Events</strong> — event-based scans and live counts (see sidebar: <strong>Events</strong> and <a href="{% url 'report-compare-events' %}">Compare events</a>)</li>
+    <li><strong>Gate entries</strong> — who was granted or denied at the gate (see sidebar: <a href="{% url 'gate-entry-list' %}" class="ccb-spa-nav">Gate entries</a>)</li>
+    <li><strong>Denied entries</strong> — entries denied at the gate (see sidebar: <a href="{% url 'gate-entry-list' %}" class="ccb-spa-nav">Gate entries</a>, filter by Denied)</li>
+    <li><strong>Events</strong> — event-based scans and live counts (see sidebar: <strong>Events</strong> and <a href="{% url 'report-compare-events' %}" class="ccb-spa-nav">Compare events</a>)</li>
     <li><strong>Scanner devices</strong> — tablets/phones used at the gate; if they’re offline, new scans won’t show in Gate entries</li>
-    <li><strong>Audit log</strong> — who did what in the system (same as sidebar: <a href="{% url 'audit-log-viewer' %}">View logs</a>)</li>
+    <li><strong>Audit log</strong> — who did what in the system (same as sidebar: <a href="{% url 'audit-log-viewer' %}" class="ccb-spa-nav">View logs</a>)</li>
   </ul>
 </div>
 
@@ -24,10 +24,10 @@
   <div class="card-body">
     <p class="text-muted small mb-3">Choose how you want to see data: pre-built summaries, custom date ranges, or event comparisons.</p>
     <div class="d-flex flex-wrap align-items-center" style="gap: 0.5rem;">
-      <a href="{% url 'report-list' %}" class="btn btn-primary"><i class="fas fa-list mr-1"></i> Generated reports</a>
-      <a href="{% url 'report-on-demand' %}" class="btn btn-outline-success"><i class="fas fa-calendar-alt mr-1"></i> On-demand report</a>
-      <a href="{% url 'report-compare-events' %}" class="btn btn-outline-info"><i class="fas fa-balance-scale mr-1"></i> Compare events</a>
-      <a href="{% url 'audit-log-viewer' %}" class="btn btn-outline-secondary"><i class="fas fa-history mr-1"></i> Audit log</a>
+      <a href="{% url 'report-list' %}" class="btn btn-primary ccb-spa-nav"><i class="fas fa-list mr-1"></i> Generated reports</a>
+      <a href="{% url 'report-on-demand' %}" class="btn btn-outline-success ccb-spa-nav"><i class="fas fa-calendar-alt mr-1"></i> On-demand report</a>
+      <a href="{% url 'report-compare-events' %}" class="btn btn-outline-info ccb-spa-nav"><i class="fas fa-balance-scale mr-1"></i> Compare events</a>
+      <a href="{% url 'audit-log-viewer' %}" class="btn btn-outline-secondary ccb-spa-nav"><i class="fas fa-history mr-1"></i> Audit log</a>
     </div>
     <ul class="small text-muted mt-2 mb-0 pl-3">
       <li><strong>Generated reports</strong> — Pre-made daily/weekly/monthly summaries (from Gate entries).</li>
@@ -53,7 +53,7 @@
         <p>Gate entries granted today</p>
       </div>
       <div class="icon"><i class="fas fa-door-open"></i></div>
-      <a href="{% url 'gate-entry-list' %}" class="small-box-footer">View in Gate entries <i class="fas fa-arrow-circle-right"></i></a>
+      <a href="{% url 'gate-entry-list' %}" class="small-box-footer ccb-spa-nav">View in Gate entries <i class="fas fa-arrow-circle-right"></i></a>
     </div>
   </div>
   <div class="col-lg-3 col-6">
@@ -63,7 +63,7 @@
         <p>Gate entries denied today</p>
       </div>
       <div class="icon"><i class="fas fa-times-circle"></i></div>
-      <a href="{% url 'gate-entry-list' %}?filter=denied" class="small-box-footer">View denied entries <i class="fas fa-arrow-circle-right"></i></a>
+      <a href="{% url 'gate-entry-list' %}?filter=denied" class="small-box-footer ccb-spa-nav">View denied entries <i class="fas fa-arrow-circle-right"></i></a>
     </div>
   </div>
   <div class="col-lg-3 col-6">
@@ -101,7 +101,7 @@
           <tbody>
             {% for item in live_occupancy %}
             <tr>
-              <td><a href="{% url 'event-live-dashboard' item.event.id %}">{{ item.event.name }}</a></td>
+              <td><a href="{% url 'event-live-dashboard' item.event.id %}" class="ccb-spa-nav">{{ item.event.name }}</a></td>
               <td>{{ item.currently_inside }}</td>
             </tr>
             {% endfor %}
@@ -149,7 +149,7 @@
     <div class="card">
       <div class="card-header d-flex align-items-center justify-content-between flex-wrap">
         <h5 class="m-0">Latest generated reports</h5>
-        <a href="{% url 'report-list' %}" class="btn btn-sm btn-outline-primary">View all</a>
+        <a href="{% url 'report-list' %}" class="btn btn-sm btn-outline-primary ccb-spa-nav">View all</a>
       </div>
       <div class="card-body p-0">
         {% if reports %}
@@ -175,7 +175,7 @@
                   {% if r.file %}
                   <a href="{% url 'report-download' r.pk %}" class="btn btn-sm btn-outline-primary" target="_blank"><i class="fas fa-download"></i></a>
                   {% elif r.report_type == 'on_demand' %}
-                  <a href="{% url 'report-on-demand-view' r.pk %}" class="btn btn-sm btn-outline-secondary">View</a>
+                  <a href="{% url 'report-on-demand-view' r.pk %}" class="btn btn-sm btn-outline-secondary ccb-spa-nav">View</a>
                   {% else %}
                   <span class="text-muted small">—</span>
                   {% endif %}

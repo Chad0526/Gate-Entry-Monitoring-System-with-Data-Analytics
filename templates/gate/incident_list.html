@@ -1,0 +1,371 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+{% block title %}{% trans "Gate incidents" %} - {{ site_name }}{% endblock title %}
+{% block page_heading %}{% trans "Gate incidents" %}{% endblock page_heading %}
+
+{% block content %}
+<style>
+  .inc-card {
+    border: 1px solid #dbe7dc;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  }
+  .inc-card .card-header {
+    background: linear-gradient(135deg, #f4fbf5 0%, #ffffff 100%);
+    border-bottom: 1px solid #dfeee2;
+  }
+  .inc-filter-row .form-control,
+  .inc-filter-row .btn {
+    min-height: 34px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+  }
+  .inc-filter-row .form-control-sm {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
+  .inc-quick-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .inc-quick-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    border: 1px solid #d3e8d8;
+    background: #f5fbf6;
+    color: #2f6d44;
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 0.24rem 0.62rem;
+    text-decoration: none !important;
+    transition: all 0.15s ease;
+  }
+  .inc-quick-chip:hover {
+    border-color: #8bcc9c;
+    background: #ecf9ef;
+    color: #195c33;
+  }
+  .inc-quick-chip.is-active {
+    background: #198754;
+    border-color: #198754;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(25, 135, 84, 0.22);
+  }
+  .inc-table thead th {
+    font-size: 0.73rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #4b6b57;
+    border-top: 0;
+    white-space: nowrap;
+  }
+  .inc-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f7faf8;
+  }
+  .inc-table tbody td {
+    vertical-align: middle;
+    font-size: 0.9rem;
+    border-top: 1px solid #edf2ee;
+  }
+  /* Student column: avatar + text (BS4 has no gap-* utilities) */
+  .inc-student-cell {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    text-align: left;
+  }
+  .inc-student-avatar {
+    flex-shrink: 0;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #e2efe6;
+    background: #f8faf9;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+    display: block;
+  }
+  .inc-student-avatar--placeholder {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    color: #94a3ae;
+    line-height: 1;
+  }
+  .inc-student-meta {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+  }
+  .inc-student-name {
+    font-weight: 700;
+    color: #1f5130;
+    line-height: 1.25;
+    margin: 0;
+  }
+  .inc-student-id {
+    font-size: 0.72rem;
+    line-height: 1.2;
+    display: block;
+  }
+  .inc-code {
+    color: #d63384;
+    font-size: 0.8rem;
+    background: #fff7fb;
+    border: 1px solid #ffd8ea;
+    border-radius: 7px;
+    padding: 0.1rem 0.35rem;
+  }
+  .inc-status-pill {
+    font-size: 0.7rem;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 0.28rem 0.5rem;
+  }
+  .inc-status-to-check {
+    color: #5f6268;
+    background: #eef0f2;
+    border: 1px solid #dde1e5;
+  }
+  .inc-status-checked {
+    color: #0f5e2f;
+    background: #e8f8ee;
+    border: 1px solid #ccefd8;
+  }
+  .inc-check-btn {
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.15rem 0.55rem;
+  }
+  .inc-details {
+    color: #335f44;
+    line-height: 1.35;
+  }
+  tr.inc-row-highlight {
+    outline: 2px solid #16a34a;
+    outline-offset: -2px;
+    background-color: #ecfdf5 !important;
+    box-shadow: inset 0 0 0 1px rgba(22, 163, 74, 0.2);
+  }
+  @media (max-width: 991px) {
+    .inc-card .card-header {
+      gap: 6px;
+    }
+    .inc-card .card-header h5 {
+      font-size: 1.05rem;
+      margin-bottom: 0;
+    }
+    .inc-filter-row .form-group {
+      width: 100%;
+      margin-right: 0 !important;
+    }
+    .inc-filter-row .btn,
+    .inc-filter-row a.btn {
+      width: 100%;
+      margin-right: 0 !important;
+    }
+  }
+  @media (max-width: 768px) {
+    .inc-table thead {
+      display: none;
+    }
+    .inc-table,
+    .inc-table tbody,
+    .inc-table tr,
+    .inc-table td {
+      display: block;
+      width: 100%;
+    }
+    .inc-table tr {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e6efe8;
+      background: #fff;
+    }
+    .inc-table tr:last-child {
+      border-bottom: 0;
+    }
+    .inc-table tbody td {
+      border-top: 0;
+      padding: 6px 0;
+      font-size: 0.86rem;
+    }
+    .inc-table tbody td::before {
+      content: attr(data-label);
+      display: block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #5f7f69;
+      margin-bottom: 2px;
+    }
+    .inc-table tbody td:first-child::before {
+      margin-bottom: 4px;
+    }
+    .inc-table tbody td:first-child .inc-student-avatar,
+    .inc-table tbody td:first-child .inc-student-avatar--placeholder {
+      width: 48px !important;
+      height: 48px !important;
+    }
+    .inc-table tbody td:first-child .inc-student-cell {
+      gap: 12px;
+    }
+    .inc-status-pill {
+      display: inline-block;
+      margin-right: 6px;
+    }
+    .inc-check-btn {
+      margin-top: 4px;
+    }
+  }
+</style>
+<div class="card inc-card">
+  <div class="card-header d-flex flex-wrap align-items-center justify-content-between">
+    <h5 class="m-0">{% trans "Reported at gate" %}</h5>
+    <span class="text-muted small">{% trans "Includes ID mismatch and manual denials from gate verify." %}</span>
+  </div>
+  <div class="card-body border-bottom py-2">
+    <div class="inc-quick-filters">
+      <a
+        href="{% url 'gate-incident-list' %}{% if reason_filter or search_q %}?{% if reason_filter %}reason={{ reason_filter|urlencode }}{% endif %}{% if reason_filter and search_q %}&{% endif %}{% if search_q %}q={{ search_q|urlencode }}{% endif %}{% endif %}"
+        class="inc-quick-chip {% if not sas_check_filter %}is-active{% endif %}">
+        <i class="fas fa-list"></i> {% trans "All" %}
+      </a>
+      <a
+        href="{% url 'gate-incident-list' %}?sas_check=to_check{% if reason_filter %}&reason={{ reason_filter|urlencode }}{% endif %}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}"
+        class="inc-quick-chip {% if sas_check_filter == 'to_check' %}is-active{% endif %}">
+        <i class="fas fa-clock"></i> {% trans "To be checked" %}
+      </a>
+      <a
+        href="{% url 'gate-incident-list' %}?sas_check=verified{% if reason_filter %}&reason={{ reason_filter|urlencode }}{% endif %}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}"
+        class="inc-quick-chip {% if sas_check_filter == 'verified' %}is-active{% endif %}">
+        <i class="fas fa-check-circle"></i> {% trans "Checked" %}
+      </a>
+    </div>
+    <form method="get" class="form-inline flex-wrap align-items-end inc-filter-row">
+      <input type="hidden" name="sas_check" value="{{ sas_check_filter }}">
+      <div class="form-group mr-2 mb-2">
+        <label for="inc-reason" class="small text-muted d-block">{% trans "Reason" %}</label>
+        <select name="reason" id="inc-reason" class="form-control form-control-sm">
+          <option value="">{% trans "All" %}</option>
+          {% for val, label in reason_choices %}
+          <option value="{{ val }}" {% if reason_filter == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group mr-2 mb-2 flex-grow-1" style="min-width: 200px;">
+        <label for="inc-q" class="small text-muted d-block">{% trans "Search" %}</label>
+        <input type="text" name="q" id="inc-q" class="form-control form-control-sm" value="{{ search_q|default:'' }}" placeholder="{% trans 'Name, ID, details…' %}">
+      </div>
+      <button type="submit" class="btn btn-sm btn-success mb-2">{% trans "Apply" %}</button>
+      {% if reason_filter or search_q %}
+      <a href="{% url 'gate-incident-list' %}" class="btn btn-sm btn-link mb-2">{% trans "Clear" %}</a>
+      {% endif %}
+    </form>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 inc-table">
+      <thead class="thead-light">
+        <tr>
+          <th>{% trans "Student" %}</th>
+          <th>{% trans "Scanned ID" %}</th>
+          <th>{% trans "Time" %}</th>
+          <th>{% trans "Reason" %}</th>
+          <th>{% trans "SAS check" %}</th>
+          <th>{% trans "Details" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inc in incidents %}
+        <tr id="incident-row-{{ inc.pk }}" data-incident-pk="{{ inc.pk }}"{% if highlight_incident_pk and highlight_incident_pk == inc.pk %} class="inc-row-highlight"{% endif %}>
+          <td data-label="{% trans 'Student' %}">
+            {% if inc.display_student %}
+              <div class="inc-student-cell">
+                {% if inc.display_student.photo %}
+                  <img
+                    src="{{ inc.display_student.photo.url }}"
+                    alt="{{ inc.display_student.get_full_name }}"
+                    class="inc-student-avatar"
+                    loading="lazy"
+                  >
+                {% else %}
+                  <span class="inc-student-avatar inc-student-avatar--placeholder border" aria-hidden="true">—</span>
+                {% endif %}
+                <div class="inc-student-meta">
+                  <div class="inc-student-name">{{ inc.display_student.get_full_name }}</div>
+                  <span class="text-muted inc-student-id">({{ inc.display_student.student_id }})</span>
+                </div>
+              </div>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td data-label="{% trans 'Scanned ID' %}"><code class="inc-code">{{ inc.scanned_id|default:"—" }}</code></td>
+          <td data-label="{% trans 'Time' %}" class="text-nowrap">{{ inc.timestamp|date:"Y-m-d H:i" }}</td>
+          <td data-label="{% trans 'Reason' %}"><span class="badge badge-warning text-dark">{{ inc.get_reason_display }}</span></td>
+          <td data-label="{% trans 'SAS check' %}" class="text-nowrap">
+            {% if inc.sas_review_status == 'verified' %}
+              <span class="inc-status-pill inc-status-checked">{% trans "Checked" %}</span>
+              {% if inc.sas_checked_at %}
+                <div class="small text-muted mt-1">
+                  {{ inc.sas_checked_at|date:"Y-m-d H:i" }}
+                  {% if inc.sas_checked_by %}&middot; {{ inc.sas_checked_by.get_full_name|default:inc.sas_checked_by.username }}{% endif %}
+                </div>
+              {% endif %}
+            {% else %}
+              <span class="inc-status-pill inc-status-to-check">{% trans "To be checked" %}</span>
+              {% if can_sas_review %}
+                <form method="post" action="{% url 'gate-incident-sas-verify' inc.id %}" class="mt-1 mb-0">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-success inc-check-btn">{% trans "Mark checked" %}</button>
+                </form>
+              {% endif %}
+            {% endif %}
+          </td>
+          <td data-label="{% trans 'Details' %}" class="small inc-details">{{ inc.details|default:"—"|truncatechars:160 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">{% trans "No incidents match your filters." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="card-footer">
+    {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options %}
+  </div>
+  {% endif %}
+</div>
+<script>
+(function() {
+  function scrollToHighlight() {
+    var row = document.querySelector('tr.inc-row-highlight');
+    if (!row) return;
+    try {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (e) {
+      row.scrollIntoView(true);
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', scrollToHighlight);
+  } else {
+    scrollToHighlight();
+  }
+})();
+</script>
+{% endblock content %}

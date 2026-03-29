@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Staff saved — {{ site_name }}</title>
+</head>
+<body>
+<script>
+(function() {
+  if (window.parent && window.parent !== window) {
+    try {
+      window.parent.postMessage({ type: 'gate-staff-personnel-created' }, window.location.origin);
+    } catch (e) {}
+  } else {
+    window.location.replace("{% url 'pending-staff-personnel-list' %}");
+  }
+})();
+</script>
+<p style="font-family: system-ui, sans-serif; padding: 1rem; margin: 0;">Saved successfully. <a href="{% url 'pending-staff-personnel-list' %}">Return to list</a></p>
+</body>
+</html>
