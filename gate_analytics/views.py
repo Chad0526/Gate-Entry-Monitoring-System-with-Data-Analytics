@@ -1,6 +1,7 @@
 import datetime
 
 from django.shortcuts import render, redirect
+from django.urls import reverse
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
@@ -291,7 +292,10 @@ def _dashboard_scanner_and_activity(today):
     """
     Last scan label, scanner ACTIVE/IDLE, and recent_activity rows (same rules as dashboard-stats-api).
     """
-    from gate.gate_personnel_views import GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY
+    from gate.gate_personnel_views import (
+        GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY,
+        GATE_SESSION_ARMED_CACHE_KEY,
+    )
 
     day_start, day_end = _local_day_bounds(today)
     last_entry = GateEntry.objects.filter(
@@ -302,7 +306,12 @@ def _dashboard_scanner_and_activity(today):
         last_scan_label = timezone.localtime(last_entry.timestamp).strftime('%Y-%m-%d %H:%M')
     else:
         last_scan_label = 'No scans yet today'
-    scanner_status = 'ACTIVE' if cache.get(GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY) else 'IDLE'
+    scanner_status = (
+        'ACTIVE'
+        if cache.get(GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY)
+        or cache.get(GATE_SESSION_ARMED_CACHE_KEY)
+        else 'IDLE'
+    )
 
     recent_qs = GateEntry.objects.filter(
         timestamp__gte=day_start,
@@ -419,6 +428,25 @@ def dashboard(request):
     # Staff currently on duty (clocked in via shift / gate dashboard)
     personnel_on_duty_list = list(GateShift.objects.filter(shift_end__isnull=True).select_related('personnel').order_by('-shift_start'))
     live = _dashboard_scanner_and_activity(today)
+    # Guard wall URL (token auth, no login). Dashboard template uses it for
+    # Guard display URL for template link; Start gate session also opens it and pings localStorage for same-origin tabs.
+    guard_token = (getattr(django_settings, 'GATE_GUARD_DISPLAY_TOKEN', '') or '').strip()
+    print(f"[DEBUG Dashboard] GATE_GUARD_DISPLAY_TOKEN from settings: '{guard_token}'")
+    print(f"[DEBUG Dashboard] Token length: {len(guard_token)}")
+    print(f"[DEBUG Dashboard] Token is truthy: {bool(guard_token)}")
+    guard_display_url = ''
+    if guard_token:
+        try:
+            from django.urls import reverse
+            guard_display_url = reverse('gate-guard-display') + '?token=' + guard_token
+            print(f"[DEBUG Dashboard] guard_display_url constructed: '{guard_display_url}'")
+        except Exception as e:
+            print(f"[DEBUG Dashboard] Error constructing guard_display_url: {e}")
+            import traceback
+            traceback.print_exc()
+            guard_display_url = ''
+    else:
+        print("[DEBUG Dashboard] No guard_token found in settings - URL will be empty")
     context = {
         'user': user,
         'event_ctg': event_ctg,
@@ -440,7 +468,10 @@ def dashboard(request):
         'personnel_on_duty_list': personnel_on_duty_list,
         'personnel_on_duty_count': len(personnel_on_duty_list),
         **live,
+        'guard_display_url': guard_display_url,
     }
+    print(f"[DEBUG Dashboard] Context guard_display_url: '{context.get('guard_display_url')}'")
+    print(f"[DEBUG Dashboard] Context keys: {list(context.keys())}")
     return render(request, 'dashboard/dashboard.html', context)
 
 
@@ -499,6 +530,9 @@ def dashboard_stats_api(request):
     last_scan_label = live['last_scan_label']
     scanner_status = live['scanner_status']
     recent_activity = live['recent_activity']
+    from gate.gate_personnel_views import gate_scanner_session_armed
+
+    gate_session_armed = gate_scanner_session_armed()
 
     return JsonResponse({
         'success': True,
@@ -516,6 +550,7 @@ def dashboard_stats_api(request):
         'last_scan_label': last_scan_label,
         'scanner_status': scanner_status,
         'recent_activity': recent_activity,
+        'gate_session_armed': gate_session_armed,
     })
 
 
@@ -541,7 +576,7 @@ def login_page(request):
                         return render(request, 'auth/login.html', {
                             'form': forms, 'next': next_url, 'reg_form': reg_form,
                             'staff_personnel_form': StaffPersonnelRegistrationForm(),
-                            'site_name': 'City College of Bayawan'
+                            'site_name': 'City College of Bayawan',
                         })
                     login(request, user)
                     # Record login for admin "View logs"

@@ -6,6 +6,9 @@ Routing (configure Django Groups and/or direct emails in settings / .env):
 - not_registered → Registrar group + optional emails
 - other → both offices (union of SAS + Registrar targets)
 
+When office group users are matched, app admins (admin portal / superuser) also receive the same
+in-app incident row so they see ID mismatches immediately, not only after SAS marks checked.
+
 If no users match the configured groups, falls back to broadcast AdminNotification (staff/admin)
 when GATE_GUARD_INCIDENT_FALLBACK_BROADCAST is True, and emails NOTIFICATION_EMAILS.
 """
@@ -125,15 +128,17 @@ def create_guard_incident_and_notify(category, details='', scanned_id='', ip_add
     site = getattr(settings, 'SITE_NAME', 'Gate')
     ts = timezone.localtime(incident.timestamp).strftime('%Y-%m-%d %H:%M')
     title = f'Guard incident: {incident.get_reason_display()}'
+    det = (details or '—').strip() or '—'
+    if len(det) > 200:
+        det = det[:200] + '…'
     body = (
-        f'Guard monitor reported an incident at {ts}.\n'
-        f'Routing: {office_label}\n'
-        f'Scanned ID / code: {scanned_id or "—"}\n'
-        f'Details: {details or "—"}\n'
-        f'Record ID: {incident.id}\n'
-        f'Client IP: {ip_address or "—"}'
+        f'{ts} • {office_label}\n'
+        f'ID {scanned_id or "—"} • #{incident.id}\n'
+        f'{det}\n'
+        f'IP: {ip_address or "—"}'
     )
 
+    notified_user_ids = set()
     notified_count = 0
     for u in target_users:
         AdminNotification.objects.create(
@@ -145,14 +150,32 @@ def create_guard_incident_and_notify(category, details='', scanned_id='', ip_add
             broadcast=False,
             related_incident=incident,
         )
+        notified_user_ids.add(u.pk)
         notified_count += 1
+
+    if notified_count > 0:
+        try:
+            for admin_u in AdminNotificationService._users_app_admin_portal():
+                if admin_u.pk in notified_user_ids:
+                    continue
+                AdminNotification.objects.create(
+                    notification_type='incident',
+                    priority='urgent',
+                    title=title,
+                    message=body,
+                    target_user=admin_u,
+                    broadcast=False,
+                    related_incident=incident,
+                )
+        except Exception as e:
+            logger.warning('guard incident admin portal notify failed: %s', e)
 
     if notified_count == 0 and fallback_broadcast:
         try:
             AdminNotificationService.create_notification(
                 notification_type='incident',
                 title=title,
-                message=body + '\n\n(No users found in configured office groups — broadcast to Admin and Student Affairs.)',
+                message=body + '\n\n(No office group users — sent to Admin & SAS.)',
                 priority='urgent',
                 broadcast=True,
                 related_incident=incident,

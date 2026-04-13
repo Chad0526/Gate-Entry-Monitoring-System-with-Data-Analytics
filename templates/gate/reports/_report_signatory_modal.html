@@ -1,0 +1,45 @@
+{% comment %} Modal: single report signatory. Open from footer button (outside #reports-exports-root). {% endcomment %}
+<div class="modal fade" id="reportSignatoryModal" tabindex="-1" role="dialog" aria-labelledby="reportSignatoryModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 520px;">
+    <div class="modal-content" style="border-radius: 14px; overflow: hidden;">
+      <div class="modal-header py-2" style="background: #f8fcfa; border-bottom: 1px solid #e2e8f0;">
+        <h5 class="modal-title mb-0" id="reportSignatoryModalTitle" style="color: #14532d; font-weight: 700;">Report signatory</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-3">
+          Shown on <strong>exported</strong> reports (CSV, Excel, PDF) and <strong>browser print</strong>.
+          Not used for e-ID cards. You can also edit under Admin → Site theme → Reports.
+        </p>
+        <form method="post" action="{% url 'reports-exports' %}" enctype="multipart/form-data" id="report-signatories-form">
+          {% csrf_token %}
+          <input type="hidden" name="_save_report_signatories" value="1">
+          <input type="hidden" name="preserve_query" value="{{ preserve_query_string|default:'' }}">
+          <div class="form-group">
+            <label class="small font-weight-bold text-muted text-uppercase" style="font-size: 0.72rem;">Name</label>
+            {{ report_signatories_form.report_first_signatory_name }}
+          </div>
+          <div class="form-group">
+            <label class="small font-weight-bold text-muted text-uppercase" style="font-size: 0.72rem;">Title / position</label>
+            {{ report_signatories_form.report_first_signatory_title }}
+          </div>
+          <div class="form-group mb-0">
+            <label class="small font-weight-bold text-muted text-uppercase" style="font-size: 0.72rem;">Signature image (optional)</label>
+            {{ report_signatories_form.report_first_signatory_signature }}
+          </div>
+          {% if report_signatories_form.non_field_errors %}
+          <div class="alert alert-danger py-2 small mt-2 mb-0">{{ report_signatories_form.non_field_errors }}</div>
+          {% endif %}
+        </form>
+      </div>
+      <div class="modal-footer py-2" style="border-top: 1px solid #e2e8f0;">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-dismiss="modal">Cancel</button>
+        <button type="submit" form="report-signatories-form" class="btn btn-sm btn-success font-weight-bold">
+          <i class="fas fa-save mr-1"></i> Save
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

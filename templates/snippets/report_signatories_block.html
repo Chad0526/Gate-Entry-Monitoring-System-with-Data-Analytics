@@ -1,0 +1,17 @@
+{% comment %}
+  Reports exports: single signatory from SiteTheme report fields. Shown only when printing.
+{% endcomment %}
+{% if report_signatories.has_signatories %}
+<div class="reports-print-only report-signatories-wrap">
+  <div class="report-signatories-inner">
+    <p class="report-signatories-heading">Signatory</p>
+    <div class="report-sig-block">
+      {% if report_signatories.first_signature_url %}
+      <img src="{{ report_signatories.first_signature_url }}" alt="" class="report-sig-img">
+      {% endif %}
+      {% if report_signatories.first_name %}<div class="report-sig-name">{{ report_signatories.first_name }}</div>{% endif %}
+      {% if report_signatories.first_title %}<div class="report-sig-title">{{ report_signatories.first_title }}</div>{% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}

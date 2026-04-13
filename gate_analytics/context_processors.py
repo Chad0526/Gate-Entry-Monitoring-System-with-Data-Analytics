@@ -8,6 +8,30 @@ from django.urls import reverse
 from datetime import timedelta
 
 
+def _gate_manual_notification_issue_description(title, message=''):
+    """
+    Office routing label is stored in AdminNotification.title as:
+    'Guard manual entry — {label}' (e.g. SAS / ID concern).
+    Falls back to the 'routing:' line in the message body if needed.
+    """
+    s = (title or '').strip()
+    prefix = 'Guard manual entry'
+    if s.lower().startswith(prefix.lower()):
+        rest = s[len(prefix) :].strip()
+        while rest and rest[0] in '\u2014\u2013-–:':
+            rest = rest[1:].strip()
+        if rest:
+            return rest[:300]
+    for line in (message or '').split('\n'):
+        lower = line.lower()
+        if 'routing:' in lower:
+            idx = lower.index('routing:')
+            tail = line[idx + len('routing:') :].strip()
+            if tail:
+                return tail[:300]
+    return ''
+
+
 def notification_relative_time(created_at):
     """Short relative time for notification dropdown (seconds → days)."""
     if not created_at:
@@ -32,9 +56,14 @@ def notification_relative_time(created_at):
     return ngettext('%(n)d day ago', '%(n)d days ago', d) % {'n': d}
 
 
-def _append_unread_incident_nav_items(notification_all, user):
-    """One navbar row per unread incident AdminNotification (deep-link to incident list)."""
-    from gate.models import AdminNotification
+def _append_unread_incident_nav_items(notification_all, user, viewer_role=None):
+    """
+    One navbar row per unread incident AdminNotification.
+    Student Affairs: deep-link to Gate incidents (SAS workflow).
+    Admin: open student profile when the incident is tied to a student so status/inactive can be changed;
+    fall back to incident list when there is no matching student (e.g. not registered).
+    """
+    from gate.models import AdminNotification, Student
 
     items = list(
         AdminNotification.objects.filter(
@@ -57,18 +86,31 @@ def _append_unread_incident_nav_items(notification_all, user):
         who = ri.student.get_full_name() if ri.student else (ri.scanned_id or '—')
         label = f'{ri.get_reason_display()} — {who}'
         inc_url = f'{inc_base}?highlight={ri.pk}' if inc_base != '#' else '#'
-        notification_all.append(
-            {
-                'type': 'admin_incident_item',
-                'url': inc_url,
-                'label': label,
-                'label_right': _('View'),
-                'icon': 'fa-exclamation-triangle',
-                'is_read': False,
-                'time_ago': notification_relative_time(notif.created_at),
-                'show_incident_section': j == 0,
-            }
-        )
+        label_right = _('View')
+        if viewer_role == 'admin':
+            st = ri.student
+            if not st and (ri.scanned_id or '').strip():
+                st = Student.objects.filter(student_id__iexact=(ri.scanned_id or '').strip()).first()
+            if st:
+                try:
+                    inc_url = reverse('gate-student-edit', kwargs={'pk': st.pk})
+                except Exception:
+                    inc_url = f'{inc_base}?highlight={ri.pk}' if inc_base != '#' else '#'
+                else:
+                    label_right = _('Edit student')
+        row = {
+            'type': 'admin_incident_item',
+            'url': inc_url,
+            'label': label,
+            'label_right': label_right,
+            'icon': 'fa-exclamation-triangle',
+            'is_read': False,
+            'time_ago': notification_relative_time(notif.created_at),
+            'show_incident_section': j == 0,
+        }
+        if j == 0 and viewer_role == 'admin':
+            row['incident_nav_section_title'] = _('Gate alerts — student profile')
+        notification_all.append(row)
 
 
 def notifications_context(request):
@@ -135,6 +177,7 @@ def notifications_context(request):
 
     admin_incident_unread_count = 0
     admin_incident_only_count = 0
+    admin_gate_manual_referral_count = 0
     admin_student_reg_unread_count = 0
     admin_staff_reg_unread_count = 0
     admin_sas_unread_notifications = []
@@ -151,6 +194,11 @@ def notifications_context(request):
                         is_read=False,
                         notification_type='incident',
                     ).count()
+                    admin_gate_manual_referral_count = AdminNotification.objects.filter(
+                        target_user=request.user,
+                        is_read=False,
+                        notification_type='gate_manual_referral',
+                    ).count()
                     admin_student_reg_unread_count = AdminNotification.objects.filter(
                         target_user=request.user,
                         is_read=False,
@@ -165,13 +213,18 @@ def notifications_context(request):
                         AdminNotification.objects.filter(
                             target_user=request.user,
                             is_read=False,
-                            notification_type='sas_inactive_ready_activation',
+                            notification_type__in=(
+                                'sas_inactive_ready_activation',
+                                'sas_verified_gate_followup',
+                            ),
                             related_student_id__isnull=False,
                         ).select_related('related_student').order_by('-created_at')[:15]
                     )
                     type_filter = (
                         Q(notification_type='incident')
                         | Q(notification_type='sas_inactive_ready_activation')
+                        | Q(notification_type='sas_verified_gate_followup')
+                        | Q(notification_type='gate_manual_referral')
                         | Q(notification_type='student_registration')
                         | Q(notification_type='staff_personnel_registration')
                     )
@@ -267,11 +320,42 @@ def notifications_context(request):
     if request.user.is_authenticated:
         _nr_for_notif = get_user_role(request.user)
         if _nr_for_notif == 'admin' and (
-            admin_sas_unread_notifications
+            admin_gate_manual_referral_count
+            or admin_sas_unread_notifications
             or admin_incident_only_count
             or admin_student_reg_unread_count
             or admin_staff_reg_unread_count
         ):
+            if admin_gate_manual_referral_count:
+                manual_items = list(
+                    AdminNotification.objects.filter(
+                        target_user=request.user,
+                        is_read=False,
+                        notification_type='gate_manual_referral',
+                        related_student_id__isnull=False,
+                    ).select_related('related_student').order_by('-created_at')[:15]
+                )
+                for i, notif in enumerate(manual_items):
+                    st = notif.related_student
+                    if not st:
+                        continue
+                    try:
+                        st_url = reverse('gate-student-edit', kwargs={'pk': st.pk})
+                    except Exception:
+                        st_url = '#'
+                    notification_all.append({
+                        'type': 'admin_gate_manual_referral_item',
+                        'url': st_url,
+                        'label': f'{st.get_full_name()} ({st.student_id})',
+                        'issue_description': _gate_manual_notification_issue_description(
+                            notif.title, notif.message
+                        ),
+                        'label_right': _('Edit profile'),
+                        'icon': 'fa-id-card',
+                        'is_read': False,
+                        'show_gate_manual_section': i == 0,
+                        'time_ago': notification_relative_time(notif.created_at),
+                    })
             for i, notif in enumerate(admin_sas_unread_notifications):
                 st = notif.related_student
                 if not st:
@@ -280,10 +364,15 @@ def notifications_context(request):
                     st_url = reverse('gate-student-edit', kwargs={'pk': st.pk})
                 except Exception:
                     st_url = '#'
+                if notif.notification_type == 'sas_inactive_ready_activation':
+                    sas_followup_hint = _('Inactive account — open profile to activate.')
+                else:
+                    sas_followup_hint = _('Already active — no action needed.')
                 notification_all.append({
                     'type': 'admin_sas_activation_student',
                     'url': st_url,
                     'label': f'{st.get_full_name()} ({st.student_id})',
+                    'sas_followup_hint': sas_followup_hint,
                     'label_right': _('Open profile'),
                     'icon': 'fa-user-check',
                     'is_read': False,
@@ -343,7 +432,7 @@ def notifications_context(request):
                     'time_ago': notification_relative_time(latest_staff_reg),
                 })
             if admin_incident_only_count:
-                _append_unread_incident_nav_items(notification_all, request.user)
+                _append_unread_incident_nav_items(notification_all, request.user, viewer_role='admin')
         elif _nr_for_notif == 'student affairs' and (
             admin_incident_only_count or admin_student_reg_unread_count
         ):
@@ -376,7 +465,9 @@ def notifications_context(request):
                         'show_student_reg_section': j == 0,
                     })
             if admin_incident_only_count:
-                _append_unread_incident_nav_items(notification_all, request.user)
+                _append_unread_incident_nav_items(
+                    notification_all, request.user, viewer_role='student affairs'
+                )
         elif _nr_for_notif not in ('admin', 'student affairs') and admin_incident_unread_count:
             from gate.models import AdminNotification
 
@@ -484,6 +575,15 @@ def notifications_context(request):
             })
     notification_has_more = len(notification_all) > NOTIFICATION_DROPDOWN_MAX
 
+    show_notifications_history_link = False
+    if request.user.is_authenticated:
+        try:
+            _hist_role = get_user_role(request.user)
+            if _hist_role in ('admin', 'staff', 'faculty', 'student affairs'):
+                show_notifications_history_link = True
+        except Exception:
+            pass
+
     # Check if user is clocked in (gate shift)
     user_clocked_in = False
     if request.user.is_authenticated:
@@ -515,14 +615,50 @@ def notifications_context(request):
         'notification_all': notification_all,
         'notification_dropdown_max': NOTIFICATION_DROPDOWN_MAX,
         'notification_has_more': notification_has_more,
+        'show_notifications_history_link': show_notifications_history_link,
         'user_clocked_in': user_clocked_in,
     }
+
+
+def _eid_signatory_template_context(request, theme):
+    """Names + absolute URLs for e-ID back-of-card signatories (from SiteTheme)."""
+    base = {
+        'first_signatory_name': '',
+        'first_signatory_title': '',
+        'second_signatory_name': '',
+        'second_signatory_title': '',
+        'first_signatory_signature_url': None,
+        'second_signatory_signature_url': None,
+    }
+    if not theme:
+        return base
+
+    def abs_media_url(file_field):
+        if not file_field:
+            return None
+        try:
+            url = file_field.url
+            if url.startswith('http://') or url.startswith('https://'):
+                return url
+            return request.build_absolute_uri(url)
+        except Exception:
+            return None
+
+    base.update({
+        'first_signatory_name': (theme.default_first_signatory_name or '').strip(),
+        'first_signatory_title': (theme.default_first_signatory_title or '').strip(),
+        'second_signatory_name': (theme.default_second_signatory_name or '').strip(),
+        'second_signatory_title': (theme.default_second_signatory_title or '').strip(),
+        'first_signatory_signature_url': abs_media_url(theme.first_signatory_signature),
+        'second_signatory_signature_url': abs_media_url(theme.second_signatory_signature),
+    })
+    return base
 
 
 def theme_context(request):
     """Inject site theme (name, logo, primary color) for theming. Cached for anonymous to speed up login."""
     from django.core.cache import cache
-    cache_key = 'site_theme_context'
+    cache_key = 'site_theme_context_v2'
     # Anonymous users (login page): use cache to avoid DB hit every time
     if not request.user.is_authenticated:
         cached = cache.get(cache_key)
@@ -538,6 +674,7 @@ def theme_context(request):
                 'site_primary_color': theme.primary_color or '#28a745',
                 'site_logo': theme.logo,
             }
+            result.update(_eid_signatory_template_context(request, theme))
         else:
             result = {
                 'site_theme': None,
@@ -545,16 +682,19 @@ def theme_context(request):
                 'site_primary_color': '#28a745',
                 'site_logo': None,
             }
+            result.update(_eid_signatory_template_context(request, None))
         cache.set(cache_key, result, 300)  # 5 min for all users
         return result
     except Exception:
         pass
-    return {
+    out = {
         'site_theme': None,
         'site_name': 'City College of Bayawan',
         'site_primary_color': '#28a745',
         'site_logo': None,
     }
+    out.update(_eid_signatory_template_context(request, None))
+    return out
 
 
 

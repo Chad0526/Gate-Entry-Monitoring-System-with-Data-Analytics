@@ -71,12 +71,20 @@ class EventCategoryCreateView(RoleRequiredMixin, LoginRequiredMixin, CreateView)
     allowed_roles = EVENT_ROLES
     login_url = 'login'
     model = EventCategory
-    fields = ['name', 'code', 'image', 'priority', 'status']
+    # Priority + status are auto-assigned on create to simplify the UI.
+    fields = ['name', 'code', 'image']
     template_name = 'events/create_event_category.html'
 
     def form_valid(self, form):
         form.instance.created_user = self.request.user
         form.instance.updated_user = self.request.user
+        # Auto-assign defaults that are required by the model.
+        if not getattr(form.instance, 'status', None):
+            form.instance.status = 'active'
+        if not getattr(form.instance, 'priority', None):
+            from django.db.models import Max
+            max_p = EventCategory.objects.aggregate(Max('priority')).get('priority__max') or 0
+            form.instance.priority = max_p + 1
         return super().form_valid(form)
 
 
@@ -84,7 +92,8 @@ class EventCategoryUpdateView(RoleRequiredMixin, LoginRequiredMixin, UpdateView)
     allowed_roles = EVENT_ROLES
     login_url = 'login'
     model = EventCategory
-    fields = ['name', 'code', 'image', 'priority', 'status']
+    # Priority + status are managed implicitly; keep edit form minimal.
+    fields = ['name', 'code', 'image']
     template_name = 'events/edit_event_category.html'
 
     def form_valid(self, form):
@@ -102,12 +111,12 @@ class EventCategoryDeleteView(RoleRequiredMixin, LoginRequiredMixin, DeleteView)
 @login_required(login_url='login')
 @role_required('admin', 'faculty', 'staff')
 def create_event(request):
-    event_form = EventForm()
+    event_form = EventForm(creating_user=request.user)
     event_image_form = EventImageForm()
     event_agenda_form = EventAgendaForm()
     catg = EventCategory.objects.all()
     if request.method == 'POST':
-        event_form = EventForm(request.POST)
+        event_form = EventForm(request.POST, creating_user=request.user)
         event_image_form = EventImageForm(request.POST, request.FILES)
         event_agenda_form = EventAgendaForm(request.POST)
         if event_form.is_valid() and event_image_form.is_valid() and event_agenda_form.is_valid():
@@ -138,6 +147,11 @@ class EventCreateView(RoleRequiredMixin, LoginRequiredMixin, CreateView):
     form_class = EventCreateMultiForm
     template_name = 'events/create_event.html'
     success_url = reverse_lazy('event-list')
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['creating_user'] = self.request.user
+        return kwargs
 
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
@@ -247,7 +261,11 @@ def event_edit(request, pk):
     if event.end_date < timezone.localdate():
         from django.http import HttpResponseForbidden
         return HttpResponseForbidden('<h1>403 Forbidden</h1><p>Editing is locked for events that have already ended.</p>')
-    form = EventForm(request.POST or None, instance=event)
+    form = EventForm(
+        request.POST or None,
+        instance=event,
+        creating_user=request.user,
+    )
     try:
         event_image = event.eventimage
     except EventImage.DoesNotExist:

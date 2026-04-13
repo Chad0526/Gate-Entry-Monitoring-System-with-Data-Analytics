@@ -59,15 +59,15 @@ def _notify_admins_of_audit_change(audit_entry):
     model_label = (audit_entry.model_name or 'System').strip() or 'System'
     action_label = (audit_entry.action or 'updated').replace('_', ' ').strip()
     object_label = f" #{audit_entry.object_id}" if (audit_entry.object_id or '').strip() else ''
-    msg = (
-        f'{actor_name} performed "{action_label}" on {model_label}{object_label}.\n'
-        f'Details: {(audit_entry.description or "—")[:600]}'
-    )
+    desc = (audit_entry.description or '—').strip() or '—'
+    if len(desc) > 280:
+        desc = desc[:280] + '…'
+    msg = f'{actor_name} → {action_label} on {model_label}{object_label}\n{desc}'
     for admin in admins:
         AdminNotification.objects.create(
             notification_type='system',
             priority='normal',
-            title=f'System change: {model_label}',
+            title=f'{model_label}: {action_label}',
             message=msg[:1000],
             target_user=admin,
             broadcast=False,

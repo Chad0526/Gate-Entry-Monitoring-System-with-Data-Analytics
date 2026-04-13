@@ -162,9 +162,35 @@
       if (eventWrapLegacy) eventWrapLegacy.style.display = isEvents ? 'flex' : 'none';
       if (specificEventWrap) specificEventWrap.style.display = isEvents ? 'flex' : 'none';
     }
+
+    function _setSelectValueWithin(wrapEl, value) {
+      if (!wrapEl) return;
+      var sel = wrapEl.querySelector('select');
+      if (sel) sel.value = value;
+    }
+
+    function syncAudienceUI() {
+      // Requirement: show Program/Year/Section only when Audience = Students only.
+      // Hide (and clear) them for Visitors only and All.
+      var isEvents = modeSelect && modeSelect.value === 'event_attendance';
+      if (isEvents) return;
+      var sel = audienceWrap ? audienceWrap.querySelector('select[name="audience"]') : null;
+      var audience = sel ? String(sel.value || '').toLowerCase() : 'all';
+      var showStudentFilters = (audience === 'students');
+      if (programWrap) programWrap.style.display = showStudentFilters ? 'flex' : 'none';
+      if (yearWrap) yearWrap.style.display = showStudentFilters ? 'flex' : 'none';
+      if (sectionWrap) sectionWrap.style.display = showStudentFilters ? 'flex' : 'none';
+
+      if (!showStudentFilters) {
+        _setSelectValueWithin(programWrap, '');
+        _setSelectValueWithin(yearWrap, '');
+        _setSelectValueWithin(sectionWrap, '');
+      }
+    }
     if (modeSelect) {
       modeSelect.addEventListener('change', function () {
         syncReportModeUI();
+        syncAudienceUI();
         if (typeof form.requestSubmit === 'function') {
           form.requestSubmit();
         } else {
@@ -173,6 +199,21 @@
       });
       syncReportModeUI();
     }
+
+    if (audienceWrap) {
+      var audienceSelect = audienceWrap.querySelector('select[name="audience"]');
+      if (audienceSelect) {
+        audienceSelect.addEventListener('change', function () {
+          syncAudienceUI();
+          if (typeof form.requestSubmit === 'function') {
+            form.requestSubmit();
+          } else {
+            form.submit();
+          }
+        });
+      }
+    }
+    syncAudienceUI();
 
     toggleCustomDates();
     toggleTime();

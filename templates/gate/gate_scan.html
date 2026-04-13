@@ -1,11 +1,11 @@
-{% load static %}
 {% load i18n %}
+{% load static %}
 <!DOCTYPE html>
 <html lang="en"{% if guard_wall %} class="guard-wall-html"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Scanner - {{ site_name|default:"City College of Bayawan" }}</title>
+    <title>{% if event_attendance_scanner_event %}{{ page_title }}{% else %}QR Scanner - {{ site_name|default:"City College of Bayawan" }}{% endif %}</title>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -274,6 +274,106 @@ h1{font-size:20px; font-weight:600; display:flex; gap:10px; align-items:center}
   text-align:center;
 }
 .scanner-text{ color:var(--muted); font-size:15px; font-weight:500; text-align:center }
+.gate-scan-scanner--usb-mode #reader,
+.gate-scan-scanner--usb-mode .guard-scanner-frame-wrap #reader{
+  opacity:0.38;
+  pointer-events:none;
+  transition:opacity 0.2s ease;
+}
+#gateUsbScannerHint{
+  display:none;
+  margin:0;
+  padding:0;
+}
+.gate-scan-scanner--usb-mode + .info-column #gateUsbScannerHint{ display:block; }
+/* USB hint inside left column (guard wall) */
+.gate-scan-scanner--usb-mode #gateUsbScannerHint{ display:block; }
+.usb-help{
+  width:100%;
+  margin-top:8px;
+  border-radius:10px;
+  background:rgba(13,110,253,0.08);
+  border:1px solid rgba(13,110,253,0.22);
+  overflow:hidden;
+}
+.usb-help summary{
+  cursor:pointer;
+  padding:8px 10px;
+  font-size:13px;
+  font-weight:700;
+  color:#0b3d91;
+  user-select:none;
+  list-style:none;
+}
+.usb-help summary::-webkit-details-marker{ display:none; }
+.usb-help__body{
+  padding:8px 10px 10px;
+  font-size:12px;
+  line-height:1.45;
+  color:#1f2a37;
+}
+.usb-help__body p{ margin:0; }
+.usb-help__body .usb-help__muted{ color:#5b6775; margin-top:6px; }
+.camera-controls--with-entry-mode{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:10px;
+}
+.camera-controls__entry-mode{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:6px;
+}
+.entry-mode-label{
+  margin:0;
+  font-size:13px;
+  font-weight:600;
+  color:var(--muted);
+  white-space:nowrap;
+}
+select.gate-input-mode-select{
+  min-width:min(200px, 42vw);
+  max-width:100%;
+  padding:6px 10px;
+  border-radius:6px;
+  border:1px solid rgba(0,0,0,0.15);
+  font-size:14px;
+}
+.gate-wall-usb-extras,.scan-column-usb-extras{
+  width:100%;
+  margin-top:8px;
+}
+.gate-wall-usb-extras #gateUsbScannerHint,.scan-column-usb-extras #gateUsbScannerHint{
+  font-size:12px;
+  margin-bottom:8px;
+}
+#gateUsbSignalStatus{
+  display:none;
+  margin-top:8px;
+  padding:8px 10px;
+  font-size:12px;
+  line-height:1.45;
+  border-radius:8px;
+  background:#f8f9fa;
+  border:1px solid rgba(0,0,0,0.08);
+}
+.gate-scan-scanner--usb-mode #gateUsbSignalStatus{ display:block; }
+.gate-scan-scanner--usb-mode + .info-column #gateUsbSignalStatus{ display:block; }
+#gateUsbSignalStatus.gate-usb-signal--warn{ border-left:4px solid #f0ad4e; background:#fff8e6; }
+#gateUsbSignalStatus.gate-usb-signal--ok{ border-left:4px solid #198754; background:#e8f5e9; }
+.visually-hidden,.gate-usb-wedge-capture{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  padding:0!important;
+  margin:-1px!important;
+  overflow:hidden!important;
+  clip:rect(0,0,0,0)!important;
+  white-space:nowrap!important;
+  border:0!important;
+}
 .scan-result-card{
   width:100%;
   background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,250,250,0.98));
@@ -365,7 +465,12 @@ h1{font-size:20px; font-weight:600; display:flex; gap:10px; align-items:center}
 }
 .instructions h3{ color:var(--accent); display:flex; gap:8px; align-items:center; margin-bottom:10px }
 .instructions ol{ padding-left:18px; line-height:1.6; color:var(--muted) }
-.scan-column .manual-input{ width:100%; max-width:520px; }
+.info-column .manual-input,
+.manual-input--side-column{
+  width:100%;
+  max-width:100%;
+  flex-shrink:0;
+}
 .live-entries{
   width:100%;
   background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,250,250,0.98));
@@ -590,7 +695,65 @@ h1{font-size:20px; font-weight:600; display:flex; gap:10px; align-items:center}
 .popup-early-out-form .form-actions button{ padding:6px 12px; border-radius:6px; font-weight:600; font-size:12px; cursor:pointer; border:none }
 /* Default hidden; open via JS sets inline display:flex (class display:flex alone would fight inline none) */
 .visitor-modal-overlay{ position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.45); z-index:9999; display:none; align-items:center; justify-content:center; padding:clamp(12px, 3vw, 28px) }
+/* Above .guard-wall-full-overlay (100200) so visitor check-in/out modals show on guard-display / embed */
+body.guard-embed-mode .visitor-modal-overlay,
+body.guard-wall-mode .visitor-modal-overlay{ z-index:100300; }
+.live-entries-modal-body{
+  flex:1;
+  min-height:0;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  background:#fff;
+}
+.live-entries--in-modal{
+  flex:1;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  border-radius:0;
+  box-shadow:none;
+  border:none;
+  margin:0;
+  background:#fff;
+}
+.live-entries--in-modal .live-entries-head{ display:none !important; }
+.live-entries--in-modal .live-entries-frame{
+  flex:1;
+  min-height:min(55vh, 520px);
+  height:min(62vh, 640px);
+  width:100%;
+}
+.scan-stats-bar .ssb-live-entries-btn{
+  margin-left:4px;
+  padding:6px 14px;
+  font-weight:600;
+  font-size:13px;
+  border-radius:8px;
+  border:1px solid rgba(40,167,69,0.45);
+  background:#fff;
+  color:#1e7e34;
+  cursor:pointer;
+  white-space:nowrap;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-family:inherit;
+}
+.scan-stats-bar .ssb-live-entries-btn:hover{
+  background:#e8f5e9;
+  border-color:#28a745;
+}
 .visitor-modal{ background:#fff; border-radius:16px; box-shadow:0 16px 48px rgba(0,0,0,0.28); max-width:min(94vw, 640px); width:100%; max-height:92vh; overflow:auto }
+.visitor-modal.live-entries-modal-shell{
+  max-width:min(96vw, 1220px);
+  width:100%;
+  max-height:92vh;
+  padding:0;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
 .visitor-modal .visitor-modal-header{ background:linear-gradient(to right, var(--accent), var(--accent-dark)); color:#fff; padding:18px 22px; border-radius:16px 16px 0 0; display:flex; align-items:center; justify-content:space-between }
 .visitor-modal .visitor-modal-header h5{ margin:0; font-weight:700; font-size:1.35rem; letter-spacing:0.02em }
 .visitor-modal .visitor-modal-close{ background:none; border:none; color:#fff; font-size:1.5rem; cursor:pointer; padding:4px 10px; line-height:1; opacity:0.92; border-radius:8px }
@@ -1162,6 +1325,16 @@ body.guard-embed-mode.student-popup-style--idcard .student-popup-details li i{ w
   font-weight:700; white-space:nowrap;
 }
 .offline-banner.pending-sync{ background:linear-gradient(90deg, #fff59d 0%, #fff9c4 100%); }
+.offline-banner .manual-sync-btn{
+  background:#16a34a; color:#fff; border:none; padding:8px 16px; border-radius:8px;
+  font-weight:700; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+  transition:background 0.2s ease, transform 0.1s ease;
+}
+.offline-banner .manual-sync-btn:hover{ background:#15803d; transform:scale(1.05); }
+.offline-banner .manual-sync-btn:active{ transform:scale(0.98); }
+.offline-banner .manual-sync-btn i{ font-size:12px; }
+.offline-banner .manual-sync-btn.syncing i{ animation:spin 1s linear infinite; }
+@keyframes spin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
 /* Header badge: pending sync count (visible when queue > 0) */
 .header-pending-sync{
   display:none; align-items:center; gap:6px; padding:6px 12px; border-radius:999px;
@@ -1169,7 +1342,39 @@ body.guard-embed-mode.student-popup-style--idcard .student-popup-details li i{ w
 }
 .header-pending-sync.show{ display:inline-flex }
 .header-pending-sync .num{ font-weight:700; }
+.sw-debug-badge{
+  display:none; align-items:center; gap:6px; padding:6px 10px; border-radius:999px;
+  background:rgba(255,255,255,0.2); border:1px dashed rgba(255,255,255,0.55);
+  color:#fff; font-size:12px; font-weight:700; letter-spacing:.2px;
+}
+.sw-debug-badge.show{ display:inline-flex }
+.sw-debug-badge .sw-debug-state{
+  font-weight:600; opacity:.92;
+}
+.sw-debug-badge[data-sw-state="active"]{
+  background:rgba(76, 175, 80, 0.2);
+  border-color:rgba(76, 175, 80, 0.6);
+}
+.sw-debug-badge[data-sw-state="installed"],
+.sw-debug-badge[data-sw-state="registered"]{
+  background:rgba(33, 150, 243, 0.2);
+  border-color:rgba(33, 150, 243, 0.65);
+}
+.sw-debug-badge[data-sw-state="installing"],
+.sw-debug-badge[data-sw-state="waiting"],
+.sw-debug-badge[data-sw-state="checking..."]{
+  background:rgba(255, 193, 7, 0.22);
+  border-color:rgba(255, 193, 7, 0.7);
+}
+.sw-debug-badge[data-sw-state="failed"],
+.sw-debug-badge[data-sw-state="unsupported"]{
+  background:rgba(244, 67, 54, 0.22);
+  border-color:rgba(244, 67, 54, 0.75);
+}
 /* Event selector banner */
+.event-selector-bar--locked .event-current-badge{
+  display:none !important;
+}
 .event-selector-bar{
   background:linear-gradient(90deg, #fff9c4 0%, #fff59d 100%); border-bottom:1px solid rgba(255,235,59,0.3);
   padding:12px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
@@ -1927,11 +2132,26 @@ body.guard-embed-mode{
   transition:all .15s ease;
 }
 #gateSwitchCameraBtn:hover{ border-color:#28a745; color:#1e7e34; background:#f0faf3; }
-/* Guard wall (/gate/guard-display/): camera switch only (no Start — staff session drives preview) */
+/* Guard wall (/gate/guard-display/): keep camera/input controls always visible */
 .camera-control-row--guard-wall{
-  margin-top:10px;
-  margin-bottom:4px;
+  margin:10px auto 10px;
+  width:100%;
+  max-width:min(92vw, 820px);
+  padding:10px 12px;
+  border-radius:12px;
+  background:rgba(255,255,255,0.92);
+  border:1px solid rgba(0,0,0,0.08);
+  box-shadow:0 6px 18px rgba(0,0,0,0.06);
+  position:relative;
+  top:auto;
+  z-index:50; /* ensure controls stay clickable above preview layers */
+  pointer-events:auto;
 }
+.camera-control-row--guard-wall .camera-controls,
+.camera-control-row--guard-wall .camera-controls *{
+  pointer-events:auto;
+}
+body.guard-wall-mode .guard-scanner-frame-wrap{ position:relative; z-index:1; }
 .guard-wall-mode .camera-control-row--guard-wall .camera-controls{
   flex-wrap:wrap;
   justify-content:flex-start;
@@ -2012,6 +2232,13 @@ body.guard-embed-mode{
   transform:translateY(-1px); box-shadow:0 4px 14px rgba(40,167,69,0.3);
 }
 
+/* Manual entry validation feedback */
+#manualInput.manual-input-error{
+  border-color:#dc3545 !important;
+  box-shadow:0 0 0 3px rgba(220,53,69,0.12) !important;
+  background:#fff5f5 !important;
+}
+
 /* ── 7. Live Entries Polish ── */
 .live-entries{
   border:1px solid rgba(40,167,69,0.1);
@@ -2057,7 +2284,7 @@ body.guard-wall-mode{
   min-height:100vh;
   min-height:100dvh;
   overflow-x:hidden;
-  overflow-y:auto;
+  overflow-y:auto; /* allow scrolling only when needed */
   -webkit-overflow-scrolling:touch;
 }
 body.guard-wall-mode .container{
@@ -2073,17 +2300,21 @@ body.guard-wall-mode .main-content{
 /* Guard wall: staff-only camera — overlay + frame match embed; container anchors absolute overlay */
 body.guard-wall-mode .scanner-container{
   position:relative;
+  overflow:visible; /* allow sticky controls */
 }
 body.guard-wall-mode .guard-scanner-frame-wrap{
   flex:0 0 auto;
   margin:0 auto;
   width:100%;
-  max-width:min(92vw, 820px);
+  max-width:min(96vw, 980px);
   display:block;
 }
 body.guard-wall-mode .guard-scanner-frame-wrap #reader{
   width:100% !important;
   max-width:100% !important;
+  /* Keep controls + preview visible without scrolling */
+  height:clamp(320px, 56vh, 620px);
+  min-height:320px;
 }
 body.guard-wall-mode .guard-scanner-instruction{
   flex-shrink:0;
@@ -2106,22 +2337,52 @@ body.guard-wall-mode .camera-control-row{
   z-index:1;
 }
 @media (min-width: 992px){
-  /* Guard wall + logged-in staff: identical — wide Live Entries beside fixed-width scanner */
-  body.guard-wall-mode .main-content,
+  /* Guard wall: side-by-side, no page scroll */
+  body.guard-wall-mode .main-content{
+    flex-wrap:nowrap;
+    flex-direction:row;
+    align-items:stretch;
+  }
+  body.guard-wall-mode .main-content .scan-column{
+    flex:0 0 auto;
+    width:min(640px, 46vw);
+    max-width:640px;
+    align-self:stretch;
+  }
+  body.guard-wall-mode .main-content .info-column{
+    flex:1 1 0;
+    min-width:0;
+    align-self:stretch;
+    overflow:visible; /* page can scroll if needed */
+  }
+
+  /* Logged-in staff (non-guard-wall): keep side-by-side */
   body.staff-gate-scan:not(.guard-embed-mode):not(.guard-wall-mode) .main-content{
     flex-wrap:nowrap;
-    align-items:flex-start;
+    align-items:stretch;
   }
-  body.guard-wall-mode .main-content .scan-column,
   body.staff-gate-scan:not(.guard-embed-mode):not(.guard-wall-mode) .main-content .scan-column{
     flex:0 0 auto;
     width:min(520px, 38vw);
     max-width:520px;
   }
-  body.guard-wall-mode .main-content .info-column,
   body.staff-gate-scan:not(.guard-embed-mode):not(.guard-wall-mode) .main-content .info-column{
     flex:1 1 0;
     min-width:0;
+    align-self:stretch;
+  }
+  /* Manual entry + instructions in right column: instructions fills remaining height below */
+  body.staff-gate-scan:not(.guard-embed-mode) .main-content .info-column .instructions{
+    flex:1 1 auto;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-start;
+    align-items:stretch;
+  }
+  body.staff-gate-scan:not(.guard-embed-mode) .main-content .info-column .instructions ol{
+    flex:0 0 auto;
+    display:block;
   }
 }
 .kiosk-topbar{
@@ -2144,6 +2405,9 @@ body.guard-wall-mode .camera-control-row{
         <i class="fas fa-wifi fa-slash" id="offlineBannerIcon" aria-hidden="true"></i>
         <span class="offline-msg" id="offlineBannerMsg">You're offline. Scans are saved on this device and will sync when you're back online.</span>
         <span class="pending-count" id="offlinePendingCount" aria-label="Scans pending sync"></span>
+        <button type="button" id="manualSyncBtn" class="manual-sync-btn" style="display:none;" title="Manually sync offline scans">
+            <i class="fas fa-sync-alt"></i> Sync Now
+        </button>
     </div>
     {% if kiosk_mode and not guard_embed and not guard_wall %}
     <div class="kiosk-topbar" id="kioskTopbar">
@@ -2471,7 +2735,7 @@ body.guard-wall-mode .camera-control-row{
                     </h6>
                     <ul style="margin: 0; padding-left: 20px; line-height: 1.8; color: #495057;">
                         <li>Keep the scanner page open during your shift</li>
-                        <li>Check "Live Entries" to see recent scans</li>
+                        <li>Use the <strong>Live Entries</strong> button next to the clock in the stats bar to see recent scans</li>
                         <li>Use event selector for event attendance tracking</li>
                         <li>Manual entry: check out with name/ID only (blank reason), Enter or Submit; check in requires a reason</li>
                         <li>Offline queue syncs automatically - no action needed</li>
@@ -2487,6 +2751,29 @@ body.guard-wall-mode .camera-control-row{
         </div>
     </div>
 
+    {% if not guard_embed %}
+    <div class="visitor-modal-overlay" id="liveEntriesModalOverlay" style="display:none;" aria-hidden="true">
+        <div class="visitor-modal live-entries-modal-shell" onclick="event.stopPropagation()">
+            <div class="visitor-modal-header">
+                <h5><i class="fas fa-door-open"></i> {% if event_attendance_scanner_event %}{% trans "Live event scans" %}{% else %}{% trans "Live Entries" %}{% endif %}</h5>
+                <button type="button" class="visitor-modal-close" id="liveEntriesModalClose" aria-label="{% trans 'Close' %}"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="live-entries-modal-body">
+                <div class="live-entries live-entries--in-modal" id="liveEntriesPanel">
+                    <div class="live-entries-head">
+                        <h3 id="live-entries-anchor"><i class="fas fa-door-open"></i> {% if event_attendance_scanner_event %}{% trans "Live event scans" %}{% else %}{% trans "Live Entries" %}{% endif %}</h3>
+                    </div>
+                    <iframe id="liveEntriesIframe" class="live-entries-frame" src="{% if event_attendance_scanner_event %}{% url 'event-attendance-live-embed' event_attendance_scanner_event.id %}?embed=1{% else %}{% url 'gate-entry-list' %}?embed=1&amp;student_gate_only=1{% if guard_embed_token %}&amp;guard_token={{ guard_embed_token|urlencode }}{% endif %}{% if guard_wall %}&amp;live_panel=1{% endif %}{% endif %}" title="{% if event_attendance_scanner_event %}{% trans 'Live event attendance scans' %}{% else %}{% trans 'Live gate entries' %}{% endif %}"></iframe>
+                    <div class="live-entries-meta">
+                        {% trans "Last refresh" %}: <span id="liveEntriesLastRefresh">--:--:--</span>
+                        <a href="#gate-scan-scanner" class="live-entries-goto-scanner" id="liveEntriesGotoScanner" aria-label="{% trans 'Scroll to scanner' %}">↓ {% trans "Go to scanner" %}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="container">
         {% if guard_wall %}
         <div id="guardWallFullOverlay" class="guard-wall-full-overlay" aria-live="polite" aria-hidden="{% if guard_scanner_active %}true{% else %}false{% endif %}" style="display:{% if guard_scanner_active %}none{% else %}flex{% endif %};">
@@ -2494,10 +2781,1252 @@ body.guard-wall-mode .camera-control-row{
             <h2>{% trans "Waiting for staff to start the gate scanner" %}</h2>
             <p>{% trans "The gate dashboard is locked until staff starts the camera. Live entries and manual actions are disabled meanwhile." %}</p>
         </div>
+        <script>
+        (function() {
+            var token = '{{ guard_embed_token|escapejs }}';
+            if (!token) return;
+            var url = '/gate/api/guard-dashboard/?token=' + encodeURIComponent(token) + '&minimal=1';
+            var unlocked = false;
+
+            /* ============================================================
+               SELF-CONTAINED SCAN HANDLER for guard-wall display.
+               Does NOT depend on the main <script> block at all.
+               ============================================================ */
+            var _gwProcessing = false;
+            var _gwLastCode = '';
+            var _gwLastTime = 0;
+            var _gwSaveScanUrl = "{% url 'save_scan_guard' %}";
+            var _gwCsrf = "{{ csrf_token }}";
+            var _gwGuardToken = token;
+
+            function _gwGetCsrf() {
+                var m = document.cookie.match(/csrftoken=([^;]+)/);
+                return m ? m[1] : _gwCsrf;
+            }
+
+            function _gwParseQr(text) {
+                text = (text || '').trim();
+                if (!text) return '';
+                if (text.toUpperCase().indexOf('EVT:') === 0) return text;
+                var lines = text.split(/\r?\n/);
+                for (var i = 0; i < lines.length; i++) {
+                    var line = (lines[i] || '').trim();
+                    if (!line) continue;
+                    var upper = line.toUpperCase();
+                    if (upper.indexOf('ID:') === 0) return line.slice(3).trim();
+                    if (upper.indexOf('STU:') === 0) return line.slice(4).trim();
+                    if (upper.indexOf('VISITOR-') === 0) return 'VISITOR-' + line.slice(8);
+                    if (upper.indexOf('VIS-') === 0) return 'VIS-' + line.slice(4);
+                }
+                if (text.toUpperCase().indexOf('STU:') === 0) return text.slice(4).trim();
+                return text;
+            }
+
+            /* ── Audio: generate WAV beeps as data-URIs so they work without
+                 any server-hosted files. HTMLAudioElement is more reliable
+                 than AudioContext on mobile (fewer autoplay restrictions). ── */
+            var _gwAudioCtx = null;
+            var _gwAudioUnlocked = false;
+
+            function _gwEnsureAudioCtx() {
+                if (!_gwAudioCtx) {
+                    try { _gwAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+                }
+                if (_gwAudioCtx && _gwAudioCtx.state === 'suspended') {
+                    _gwAudioCtx.resume().catch(function() {});
+                }
+                return _gwAudioCtx;
+            }
+
+            function _gwUnlockAudio() {
+                if (_gwAudioUnlocked) return;
+                _gwAudioUnlocked = true;
+                _gwEnsureAudioCtx();
+                try {
+                    var a = new Audio();
+                    a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+                    a.volume = 0.01;
+                    a.play().then(function() { a.pause(); }).catch(function() {});
+                } catch (e) {}
+            }
+
+            (function() {
+                var events = ['click', 'touchstart', 'touchend', 'pointerdown', 'keydown'];
+                function handler() {
+                    _gwUnlockAudio();
+                    events.forEach(function(ev) { document.removeEventListener(ev, handler, true); });
+                }
+                events.forEach(function(ev) { document.addEventListener(ev, handler, true); });
+            })();
+
+            function _gwPlayTone(freq, duration, type, gain) {
+                var ctx = _gwEnsureAudioCtx();
+                if (!ctx) return;
+                function doPlay() {
+                    try {
+                        var osc = ctx.createOscillator();
+                        var g = ctx.createGain();
+                        osc.connect(g);
+                        g.connect(ctx.destination);
+                        osc.frequency.value = freq;
+                        osc.type = type || 'sine';
+                        var t = ctx.currentTime;
+                        g.gain.setValueAtTime(gain || 0.6, t);
+                        g.gain.linearRampToValueAtTime(0.01, t + duration);
+                        osc.start(t);
+                        osc.stop(t + duration);
+                    } catch (e) {
+                        try { console.warn('[Guard Wall] Beep failed:', e); } catch (_) {}
+                    }
+                }
+                // If audio is suspended, resume first then play (most common root cause of "no beep").
+                try {
+                    if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+                        ctx.resume().then(doPlay).catch(function(err) {
+                            try { console.warn('[Guard Wall] AudioContext.resume blocked:', err); } catch (_) {}
+                        });
+                        return;
+                    }
+                } catch (_) {}
+                doPlay();
+            }
+
+            function _gwBeepSuccess() {
+                _gwPlayTone(660, 0.18, 'sine', 0.6);
+                setTimeout(function() { _gwPlayTone(880, 0.22, 'sine', 0.6); }, 130);
+                try { if (navigator.vibrate) navigator.vibrate([60, 40, 60]); } catch (_) {}
+            }
+            function _gwBeepError() {
+                _gwPlayTone(300, 0.18, 'square', 0.45);
+                setTimeout(function() { _gwPlayTone(220, 0.22, 'square', 0.4); }, 200);
+                try { if (navigator.vibrate) navigator.vibrate([110, 60, 110]); } catch (_) {}
+            }
+
+            function _gwNotify(msg, type, name, time) {
+                var center = document.getElementById('notificationCenter');
+                if (!center) return;
+                type = type || 'info';
+                var icons = { in: 'fa-sign-in-alt', out: 'fa-sign-out-alt', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle', success: 'fa-check-circle' };
+                var displayTime = time || new Date().toLocaleTimeString();
+                var titleText;
+                if (type === 'in') titleText = 'CHECKED IN';
+                else if (type === 'out') titleText = 'CHECKED OUT';
+                else if (name && String(name).trim()) titleText = String(name).trim();
+                else titleText = type.toUpperCase();
+
+                var el = document.createElement('div');
+                el.className = 'notification ' + type;
+                el.innerHTML =
+                    '<i class="fas ' + (icons[type] || icons.info) + ' notification-icon"></i>' +
+                    '<div class="notification-content">' +
+                        '<div class="notification-title">' + titleText + '</div>' +
+                        '<div class="notification-message">' + (msg || '') + '</div>' +
+                        '<div class="notification-time"><i class="far fa-clock"></i> ' + displayTime + '</div>' +
+                    '</div>' +
+                    '<button class="notification-close" type="button"><i class="fas fa-times"></i></button>';
+                center.appendChild(el);
+                el.querySelector('.notification-close').addEventListener('click', function() {
+                    el.classList.add('hiding');
+                    setTimeout(function() { if (el.parentNode) el.remove(); }, 400);
+                });
+                setTimeout(function() {
+                    if (el.parentNode) {
+                        el.classList.add('hiding');
+                        setTimeout(function() { if (el.parentNode) el.remove(); }, 400);
+                    }
+                }, 4000);
+                var all = center.querySelectorAll('.notification');
+                if (all.length > 5) {
+                    all[0].classList.add('hiding');
+                    setTimeout(function() { if (all[0].parentNode) all[0].remove(); }, 400);
+                }
+            }
+
+            function _gwShowPopup(response) {
+                var overlay = document.getElementById('studentPopupOverlay');
+                if (!overlay) return;
+                var student = response.student || {};
+                var el = function(id) { return document.getElementById(id); };
+                var nameEl = el('studentPopupName');
+                var idEl = el('studentPopupId');
+                var courseEl = el('studentPopupCourse');
+                var emailEl = el('studentPopupEmail');
+                var scanTypeEl = el('studentPopupScanType');
+                var timeEl = el('studentPopupTime');
+                var badgeEl = el('studentPopupBadge');
+                var statusEl = el('studentPopupStatus');
+                var headerEl = overlay.querySelector('.student-popup-header h2');
+                var formEl = el('popupEarlyOutForm');
+                var regEl = el('popupRegistrationForm');
+
+                if (nameEl) nameEl.textContent = response.student_name || (student.first_name + ' ' + student.last_name).trim() || '';
+                if (idEl) idEl.textContent = 'ID: ' + (student.student_id || '');
+                var courseParts = [student.course_or_section || '', student.year_level || ''].filter(Boolean);
+                if (courseEl) courseEl.textContent = courseParts.join(' · ');
+                if (emailEl) emailEl.textContent = student.email || 'No email';
+                if (scanTypeEl) scanTypeEl.textContent = (response.status === 'OUT' ? 'OUT' : 'IN');
+                if (timeEl) timeEl.textContent = response.time || new Date().toLocaleTimeString();
+                if (badgeEl) {
+                    badgeEl.textContent = (response.success || response.result === 'ALLOWED') ? 'ALLOWED' : (response.denied ? 'DENIED' : '');
+                    badgeEl.className = 'student-popup-badge' + (response.denied ? ' denied' : '');
+                    badgeEl.style.display = (response.not_registered || response.inactive) ? 'none' : 'inline-block';
+                }
+                if (statusEl) {
+                    statusEl.textContent = response.message || '';
+                    statusEl.className = 'student-popup-status ' + (response.status === 'OUT' ? 'out' : 'in');
+                }
+                if (headerEl) {
+                    if (response.not_registered) headerEl.innerHTML = '<i class="fas fa-user-plus"></i> Not Registered';
+                    else if (response.inactive) headerEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Activation Required';
+                    else headerEl.innerHTML = '<i class="fas fa-user-check"></i> Scan successful';
+                }
+                if (formEl) { formEl.classList.remove('show'); formEl.style.display = 'none'; }
+                if (regEl) regEl.style.display = 'none';
+                overlay.classList.add('show');
+
+                if (window._gwPopupTimer) clearTimeout(window._gwPopupTimer);
+                if (!response.not_registered && !response.inactive && !response.require_note && !response.denied) {
+                    window._gwPopupTimer = setTimeout(function() {
+                        overlay.classList.remove('show');
+                    }, 5000);
+                }
+            }
+
+            /* ── Offline queue (IndexedDB) ── */
+            var _gwOfflineDB = null;
+            var _gwOfflineDBName = 'GateGuardOfflineDB';
+            var _gwOfflineStore = 'scans';
+            var _gwOfflineQueue = [];
+            var _gwSyncing = false;
+
+            function _gwOpenDB(cb) {
+                if (_gwOfflineDB) { cb(_gwOfflineDB); return; }
+                if (!window.indexedDB) {
+                    console.warn('[Guard Wall] IndexedDB is not available — offline queue cannot use IndexedDB. (Private mode, blocked storage, or unsupported context.)');
+                    cb(null);
+                    return;
+                }
+                var req = indexedDB.open(_gwOfflineDBName, 1);
+                req.onupgradeneeded = function(e) {
+                    var db = e.target.result;
+                    if (!db.objectStoreNames.contains(_gwOfflineStore)) {
+                        db.createObjectStore(_gwOfflineStore, { keyPath: 'id', autoIncrement: true });
+                    }
+                };
+                req.onsuccess = function() {
+                    _gwOfflineDB = req.result;
+                    console.info('[Guard Wall] IndexedDB ready: ' + _gwOfflineDBName + ' → ' + _gwOfflineStore
+                        + '. Rows appear only for scans saved while offline or when the server is unreachable; online OK scans are not stored locally.');
+                    cb(req.result);
+                };
+                req.onerror = function() {
+                    console.error('[Guard Wall] IndexedDB open failed:', req.error);
+                    cb(null);
+                };
+            }
+
+            function _gwLoadQueue(cb) {
+                _gwOpenDB(function(db) {
+                    if (!db) { cb([]); return; }
+                    try {
+                        var tx = db.transaction(_gwOfflineStore, 'readonly');
+                        var r = tx.objectStore(_gwOfflineStore).getAll();
+                        r.onsuccess = function() { _gwOfflineQueue = r.result || []; cb(_gwOfflineQueue); };
+                        r.onerror = function() { cb([]); };
+                    } catch (e) { cb([]); }
+                });
+            }
+
+            function _gwSaveOffline(record, cb) {
+                _gwOpenDB(function(db) {
+                    if (!db) { cb(false); return; }
+                    try {
+                        var tx = db.transaction(_gwOfflineStore, 'readwrite');
+                        var addReq = tx.objectStore(_gwOfflineStore).add(record);
+                        addReq.onsuccess = function() {
+                            record.id = addReq.result;
+                            _gwOfflineQueue.push(record);
+                            cb(true);
+                        };
+                        addReq.onerror = function() { cb(false); };
+                    } catch (e) { cb(false); }
+                });
+            }
+
+            function _gwDeleteOffline(id, cb) {
+                _gwOpenDB(function(db) {
+                    if (!db) { cb(); return; }
+                    try {
+                        var tx = db.transaction(_gwOfflineStore, 'readwrite');
+                        tx.objectStore(_gwOfflineStore).delete(id);
+                        tx.oncomplete = function() {
+                            _gwOfflineQueue = _gwOfflineQueue.filter(function(r) { return r.id !== id; });
+                            cb();
+                        };
+                        tx.onerror = function() { cb(); };
+                    } catch (e) { cb(); }
+                });
+            }
+
+            function _gwUpdateBanner() {
+                var banner = document.getElementById('offlineBanner');
+                var msgEl = document.getElementById('offlineBannerMsg');
+                var countEl = document.getElementById('offlinePendingCount');
+                var iconEl = document.getElementById('offlineBannerIcon');
+                var syncBtn = document.getElementById('manualSyncBtn');
+                var headerBadge = document.getElementById('headerPendingSync');
+                var headerNum = document.getElementById('headerPendingSyncNum');
+                var n = _gwOfflineQueue.length;
+
+                if (headerBadge && headerNum) {
+                    if (n > 0) { headerBadge.classList.add('show'); headerNum.textContent = n; }
+                    else { headerBadge.classList.remove('show'); }
+                }
+
+                if (!banner) return;
+                if (!navigator.onLine) {
+                    banner.classList.add('show');
+                    banner.classList.remove('pending-sync');
+                    if (iconEl) iconEl.className = 'fas fa-wifi-slash';
+                    if (msgEl) msgEl.textContent = "You're offline. Scans are saved on this device and will sync when you're back online.";
+                    if (countEl) countEl.textContent = n ? n + ' scan(s) pending sync' : 'No scans pending';
+                    if (syncBtn) syncBtn.style.display = 'none';
+                } else if (n > 0) {
+                    banner.classList.add('show', 'pending-sync');
+                    if (iconEl) iconEl.className = 'fas fa-cloud-upload-alt';
+                    if (msgEl) msgEl.textContent = 'Syncing ' + n + ' offline scan(s) to server\u2026';
+                    if (countEl) countEl.textContent = n + ' remaining';
+                    if (syncBtn) syncBtn.style.display = 'inline-flex';
+                } else {
+                    banner.classList.remove('show', 'pending-sync');
+                    if (countEl) countEl.textContent = '';
+                    if (syncBtn) syncBtn.style.display = 'none';
+                }
+            }
+
+            function _gwSyncQueue() {
+                if (_gwSyncing || !navigator.onLine || _gwOfflineQueue.length === 0) {
+                    _gwUpdateBanner();
+                    return;
+                }
+                _gwSyncing = true;
+                _gwUpdateBanner();
+                var item = _gwOfflineQueue[0];
+                if (!item) { _gwSyncing = false; _gwUpdateBanner(); return; }
+
+                var postBody = 'student_id=' + encodeURIComponent(item.student_id)
+                    + '&device_id=' + encodeURIComponent(item.device_id || 'guard-wall')
+                    + '&csrfmiddlewaretoken=' + encodeURIComponent(_gwGetCsrf())
+                    + '&guard_token=' + encodeURIComponent(_gwGuardToken);
+                if (item.local_time) postBody += '&local_time=' + encodeURIComponent(item.local_time);
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', _gwSaveScanUrl, true);
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                xhr.timeout = 10000;
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState !== 4) return;
+                    if (xhr.status >= 200 && xhr.status < 500) {
+                        _gwDeleteOffline(item.id, function() {
+                            console.log('[Guard Wall Sync] Synced item', item.id, item.student_id);
+                            _gwSyncing = false;
+                            _gwUpdateBanner();
+                            if (_gwOfflineQueue.length > 0) {
+                                setTimeout(_gwSyncQueue, 300);
+                            } else {
+                                _gwBeepSuccess();
+                                _gwNotify('All offline scans synced to server!', 'success', 'Sync Complete', new Date().toLocaleTimeString());
+                            }
+                        });
+                    } else {
+                        console.warn('[Guard Wall Sync] Failed for item', item.id, 'status:', xhr.status, '- will retry');
+                        _gwSyncing = false;
+                        _gwUpdateBanner();
+                        setTimeout(_gwSyncQueue, 5000);
+                    }
+                };
+                xhr.ontimeout = function() {
+                    _gwSyncing = false;
+                    _gwUpdateBanner();
+                    setTimeout(_gwSyncQueue, 5000);
+                };
+                xhr.send(postBody);
+            }
+
+            window.addEventListener('online', function() {
+                console.log('[Guard Wall] Back online — starting sync');
+                _gwUpdateBanner();
+                setTimeout(_gwSyncQueue, 1000);
+            });
+            window.addEventListener('offline', function() {
+                console.log('[Guard Wall] Went offline');
+                _gwUpdateBanner();
+            });
+
+            /* ── Duplicate check: same student within 60s while offline ── */
+            function _gwIsOfflineDuplicate(studentId) {
+                var cutoff = Date.now() - 60000;
+                for (var i = _gwOfflineQueue.length - 1; i >= 0; i--) {
+                    var r = _gwOfflineQueue[i];
+                    if (r.student_id === studentId && r.timestamp > cutoff) return true;
+                }
+                return false;
+            }
+
+            /* ── Queue an offline scan ── */
+            function _gwQueueOffline(parsedQr) {
+                var resultDiv = document.getElementById('result');
+                var currentTime = new Date().toLocaleTimeString();
+
+                if (_gwIsOfflineDuplicate(parsedQr)) {
+                    _gwBeepError();
+                    if (resultDiv) { resultDiv.innerHTML = 'Already scanned offline. No duplicate recorded.'; resultDiv.className = 'warning'; }
+                    _gwNotify('Already scanned offline. No duplicate.', 'warning', '', currentTime);
+                    return;
+                }
+
+                var record = {
+                    student_id: parsedQr,
+                    device_id: localStorage.getItem('scanner_device_id') || 'guard-wall',
+                    timestamp: Date.now(),
+                    local_time: new Date().toISOString(),
+                    client_ts: new Date().toISOString()
+                };
+                _gwSaveOffline(record, function(ok) {
+                    if (ok) {
+                        console.info('[Guard Wall] Saved scan to IndexedDB (pending sync):', parsedQr, 'queue length:', _gwOfflineQueue.length);
+                        _gwBeepSuccess();
+                        var n = _gwOfflineQueue.length;
+                        if (resultDiv) {
+                            resultDiv.innerHTML = 'Saved offline (' + n + ' scan' + (n > 1 ? 's' : '') + ' pending sync)';
+                            resultDiv.className = 'success';
+                        }
+                        _gwNotify('Scan saved offline. Will sync when back online. (' + n + ' pending)', 'info', 'OFFLINE SAVED', currentTime);
+                    } else {
+                        _gwBeepError();
+                        if (resultDiv) { resultDiv.innerHTML = 'Could not save offline scan.'; resultDiv.className = 'error'; }
+                        _gwNotify('Failed to save scan on this device.', 'error', '', currentTime);
+                    }
+                    _gwUpdateBanner();
+                });
+            }
+
+            /* ── Main scan handler ── */
+            function _gwHandleScan(decodedText) {
+                if (_gwProcessing) return;
+                var code = (decodedText || '').trim();
+                var now = Date.now();
+                if (code === _gwLastCode && (now - _gwLastTime) < 1500) return;
+                _gwLastCode = code;
+                _gwLastTime = now;
+
+                var parsedQr = _gwParseQr(decodedText);
+                if (!parsedQr) {
+                    _gwBeepError();
+                    _gwNotify('Invalid QR code format.', 'error');
+                    return;
+                }
+
+                _gwUnlockAudio();
+
+                /* OFFLINE: save locally */
+                if (!navigator.onLine) {
+                    console.log('[Guard Wall Scan] Offline — saving locally:', parsedQr);
+                    _gwQueueOffline(parsedQr);
+                    return;
+                }
+
+                /* ONLINE: send to server */
+                _gwProcessing = true;
+                var statusIndicator = document.querySelector('.status-indicator');
+                if (statusIndicator) {
+                    statusIndicator.classList.add('scanning');
+                    var sp = statusIndicator.querySelector('span');
+                    if (sp) sp.textContent = 'Processing QR code...';
+                }
+
+                console.log('[Guard Wall Scan] Sending to server:', parsedQr);
+                var postBody = 'student_id=' + encodeURIComponent(parsedQr)
+                    + '&device_id=' + encodeURIComponent(localStorage.getItem('scanner_device_id') || 'guard-wall')
+                    + '&csrfmiddlewaretoken=' + encodeURIComponent(_gwGetCsrf())
+                    + '&guard_token=' + encodeURIComponent(_gwGuardToken);
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', _gwSaveScanUrl, true);
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                xhr.timeout = 8000;
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState !== 4) return;
+                    _gwProcessing = false;
+                    if (statusIndicator) {
+                        statusIndicator.classList.remove('scanning');
+                        var sp2 = statusIndicator.querySelector('span');
+                        if (sp2) sp2.textContent = 'Scanner ready';
+                    }
+
+                    /* Network error or server down → fall back to offline */
+                    if (xhr.status === 0 || xhr.status >= 502) {
+                        console.warn('[Guard Wall Scan] Server unreachable, saving offline:', parsedQr);
+                        _gwQueueOffline(parsedQr);
+                        return;
+                    }
+
+                    try {
+                        var resp = JSON.parse(xhr.responseText);
+                        console.log('[Guard Wall Scan] Server response:', resp);
+                        var resultDiv = document.getElementById('result');
+                        var currentTime = new Date().toLocaleTimeString();
+
+                        if (resp.success) {
+                            _gwBeepSuccess();
+                            if (resultDiv) { resultDiv.innerHTML = resp.message || 'Scan recorded'; resultDiv.className = 'success'; }
+                            var notifType = (resp.status === 'OUT') ? 'out' : 'in';
+                            _gwNotify(resp.message || 'Scan recorded', notifType, resp.student_name, resp.time || currentTime);
+                            _gwShowPopup(resp);
+                        } else if (resp.not_registered || resp.inactive) {
+                            _gwBeepError();
+                            if (resultDiv) { resultDiv.innerHTML = resp.message || 'Not registered'; resultDiv.className = 'warning'; }
+                            _gwNotify(resp.message || 'Not registered', 'warning', '', currentTime);
+                            _gwShowPopup(resp);
+                        } else if (resp.already_scanned || resp.duplicate) {
+                            _gwBeepError();
+                            if (resultDiv) { resultDiv.innerHTML = resp.message || 'Already scanned'; resultDiv.className = 'warning'; }
+                            _gwNotify(resp.message || 'Already scanned', 'warning', '', currentTime);
+                        } else if (resp.require_note) {
+                            _gwBeepSuccess();
+                            if (resultDiv) { resultDiv.innerHTML = resp.message || 'Scan recorded'; resultDiv.className = 'success'; }
+                            _gwNotify(resp.message || 'Scan recorded (note optional)', 'in', resp.student_name, resp.time || currentTime);
+                            _gwShowPopup(resp);
+                        } else if (resp.need_visitor_checkin || resp.need_visitor_checkout) {
+                            _gwBeepSuccess();
+                            if (resultDiv) { resultDiv.innerHTML = resp.message || 'Visitor'; resultDiv.className = 'info'; }
+                            _gwNotify(resp.message || 'Visitor pass scanned', 'info', '', currentTime);
+                            try {
+                                if (resp.need_visitor_checkin && typeof openVisitorCheckinModal === 'function') {
+                                    openVisitorCheckinModal(resp.pass_code);
+                                } else if (resp.need_visitor_checkout && typeof openVisitorCheckoutModal === 'function') {
+                                    openVisitorCheckoutModal(resp.pass_code, resp.visit_id, resp.visit || {});
+                                }
+                            } catch (e) {
+                                console.error('[Guard Wall Scan] Visitor modal failed:', e);
+                            }
+                            try {
+                                if (typeof refreshLiveEntriesPanel === 'function') {
+                                    refreshLiveEntriesPanel(true, 'visitors');
+                                }
+                            } catch (_eLe) {}
+                        } else {
+                            _gwBeepError();
+                            if (resultDiv) { resultDiv.innerHTML = resp.message || 'Scan failed'; resultDiv.className = 'error'; }
+                            _gwNotify(resp.message || 'Scan failed', 'error', '', currentTime);
+                            if (resp.student_name || (resp.student && resp.student.student_id)) _gwShowPopup(resp);
+                        }
+                    } catch (e) {
+                        console.error('[Guard Wall Scan] Parse error:', e);
+                        _gwBeepError();
+                        _gwNotify('Server error. Status: ' + xhr.status, 'error');
+                    }
+                };
+                xhr.ontimeout = function() {
+                    _gwProcessing = false;
+                    if (statusIndicator) {
+                        statusIndicator.classList.remove('scanning');
+                        var sp3 = statusIndicator.querySelector('span');
+                        if (sp3) sp3.textContent = 'Scanner ready';
+                    }
+                    console.warn('[Guard Wall Scan] Timeout, saving offline:', parsedQr);
+                    _gwQueueOffline(parsedQr);
+                };
+                xhr.send(postBody);
+            }
+
+            window._gwHandleScan = _gwHandleScan;
+
+            /* Load existing queue on start + wire Sync Now button + initial banner */
+            _gwLoadQueue(function() {
+                _gwUpdateBanner();
+                if (navigator.onLine && _gwOfflineQueue.length > 0) {
+                    setTimeout(_gwSyncQueue, 2000);
+                }
+            });
+            var _syncNowBtn = document.getElementById('manualSyncBtn');
+            if (_syncNowBtn) {
+                _syncNowBtn.addEventListener('click', function() { _gwSyncQueue(); });
+            }
+            /* ============================================================ */
+
+            function getOverlays() {
+                return {
+                    full: document.getElementById('guardWallFullOverlay'),
+                    scanner: document.getElementById('guardStaffWaitOverlay'),
+                    livePanel: document.getElementById('liveEntriesPanel')
+                };
+            }
+
+            var _cameraStartAttempts = 0;
+
+            function removeTapButton() {
+                var old = document.getElementById('guardInlineTapToStart');
+                if (old) old.remove();
+            }
+
+            function showTapToStartButton() {
+                console.log('[Guard Inline Poll] Camera auto-start failed, will retry silently');
+                setTimeout(function() {
+                    if (window._gateUsbScannerMode) return;
+                    _cameraStartAttempts = 0;
+                    doStartCamera();
+                }, 3000);
+            }
+
+            function getInlineCameraPref() {
+                var sel = document.getElementById('gateCameraPreference');
+                var v = (sel && sel.value) ? String(sel.value).trim().toLowerCase() : 'auto';
+                if (v !== 'front' && v !== 'back' && v !== 'auto') v = 'auto';
+                return v;
+            }
+
+            function applyStoredCameraPref() {
+                try {
+                    var v = localStorage.getItem('gate_scan_camera_pref');
+                    if (!v) return;
+                    v = String(v).trim().toLowerCase();
+                    if (v !== 'front' && v !== 'back' && v !== 'auto') return;
+                    var sel = document.getElementById('gateCameraPreference');
+                    if (sel) sel.value = v;
+                } catch (e) {}
+            }
+
+            /** Build ordered list of constraints (deviceId strings or {facingMode}) for mobile + desktop. */
+            function buildCameraCandidates(pref, cams) {
+                cams = cams || [];
+                var out = [];
+                function lab(c) { return ((c.label || '') + ' ' + (c.id || '')).toLowerCase(); }
+                var i;
+                if (pref === 'front') {
+                    for (i = 0; i < cams.length; i++) {
+                        var L = lab(cams[i]);
+                        if (/facing front|front camera|selfie|camera 1,|wide angle camera.*front|user-facing/.test(L)) {
+                            if (out.indexOf(cams[i].id) < 0) out.push(cams[i].id);
+                        }
+                    }
+                    for (i = 0; i < cams.length; i++) {
+                        if (/front|selfie/.test(lab(cams[i])) && out.indexOf(cams[i].id) < 0) out.push(cams[i].id);
+                    }
+                    if (out.length === 0 && cams.length >= 2) {
+                        out.push(cams[cams.length - 1].id);
+                    }
+                    out.push({ facingMode: 'user' });
+                    out.push({ facingMode: { ideal: 'user' } });
+                } else if (pref === 'back') {
+                    for (i = 0; i < cams.length; i++) {
+                        var Lb = lab(cams[i]);
+                        if (/facing back|back camera|rear|environment|camera 0,|world facing/.test(Lb)) {
+                            if (out.indexOf(cams[i].id) < 0) out.push(cams[i].id);
+                        }
+                    }
+                    for (i = 0; i < cams.length; i++) {
+                        if (/back|rear/.test(lab(cams[i])) && !/front|selfie/.test(lab(cams[i])) && out.indexOf(cams[i].id) < 0) {
+                            out.push(cams[i].id);
+                        }
+                    }
+                    if (out.length === 0 && cams.length) out.push(cams[0].id);
+                    out.push({ facingMode: 'environment' });
+                    out.push({ facingMode: { ideal: 'environment' } });
+                } else {
+                    out.push({ facingMode: 'environment' }, { facingMode: 'user' });
+                    for (i = 0; i < cams.length; i++) out.push(cams[i].id);
+                }
+                return out;
+            }
+
+            function tryStartCameraCandidate(instance, candidates, config, onSuccess, idx) {
+                if (idx >= candidates.length) {
+                    console.error('[Guard Inline Poll] No camera candidate worked');
+                    showTapToStartButton();
+                    return;
+                }
+                var cand = candidates[idx];
+                var p = (typeof cand === 'object' && cand !== null && cand.facingMode !== undefined)
+                    ? instance.start(cand, config, onSuccess, function() {})
+                    : instance.start(cand, config, onSuccess, function() {});
+                p.then(function() {
+                    console.log('[Guard Inline Poll] Camera OK, candidate index', idx, cand);
+                    window.scannerRunning = true;
+                    // If we started with an explicit deviceId, remember it for reliable switching.
+                    try {
+                        if (typeof cand === 'string' && cand) {
+                            _currentCamId = cand;
+                            for (var i = 0; i < (_allCameras || []).length; i++) {
+                                if (_allCameras[i] && _allCameras[i].id === cand) { _currentCamIdx = i; break; }
+                            }
+                            try { localStorage.setItem(_camIdxStorageKey, String(_currentCamIdx)); } catch (_ls) {}
+                        }
+                    } catch (_eCand) {}
+                    removeTapButton();
+                }).catch(function(err) {
+                    console.warn('[Guard Inline Poll] Candidate', idx, 'failed:', err);
+                    tryStartCameraCandidate(instance, candidates, config, onSuccess, idx + 1);
+                });
+            }
+
+            function doStartCamera() {
+                if (window._gateUsbScannerMode) return;
+                removeTapButton();
+                var pref = getInlineCameraPref();
+                try {
+                    var instance = window._guardInlineCameraInstance;
+                    if (!instance) {
+                        instance = new Html5Qrcode('reader');
+                        window._guardInlineCameraInstance = instance;
+                    }
+                    var qrbox = function(vw, vh) {
+                        var m = Math.min(vw, vh);
+                        var size = Math.max(150, Math.floor(m * 0.8));
+                        return { width: size, height: size };
+                    };
+                    var onSuccess = function(decoded) {
+                        _gwHandleScan(decoded);
+                    };
+                    var config = { fps: 10, qrbox: qrbox, disableFlip: false };
+                    Html5Qrcode.getCameras().then(function(cams) {
+                        var candidates = buildCameraCandidates(pref, cams || []);
+                        tryStartCameraCandidate(instance, candidates, config, onSuccess, 0);
+                    }).catch(function() {
+                        var fallback = pref === 'front'
+                            ? [{ facingMode: 'user' }, { facingMode: { ideal: 'user' } }]
+                            : pref === 'back'
+                            ? [{ facingMode: 'environment' }, { facingMode: { ideal: 'environment' } }]
+                            : [{ facingMode: 'environment' }, { facingMode: 'user' }];
+                        tryStartCameraCandidate(instance, fallback, config, onSuccess, 0);
+                    });
+                } catch (e) {
+                    console.error('[Guard Inline Poll] Camera exception:', e);
+                    showTapToStartButton();
+                }
+            }
+
+            function tryStartCamera() {
+                _cameraStartAttempts++;
+                var readerEl = document.getElementById('reader');
+                if (!readerEl) {
+                    console.error('[Guard Inline Poll] No #reader element found');
+                    return;
+                }
+                if (typeof Html5Qrcode === 'undefined') {
+                    if (_cameraStartAttempts < 30) {
+                        console.log('[Guard Inline Poll] Html5Qrcode not loaded yet (attempt ' + _cameraStartAttempts + '/30)...');
+                        setTimeout(tryStartCamera, 1000);
+                    } else {
+                        console.error('[Guard Inline Poll] Html5Qrcode never loaded after 30s');
+                    }
+                    return;
+                }
+                if (window._gateUsbScannerMode) return;
+                console.log('[Guard Inline Poll] Starting camera, pref=' + getInlineCameraPref());
+                doStartCamera();
+            }
+            window._gateGuardWallTryStartCamera = tryStartCamera;
+
+            function restartInlineCameraForDropdown() {
+                if (window._gateUsbScannerMode) return;
+                if (!unlocked) return;
+                stopCurrentCamera(function() {
+                    window._guardInlineCameraInstance = null;
+                    _cameraStartAttempts = 0;
+                    doStartCamera();
+                });
+            }
+
+            function bindCameraPreference() {
+                var sel = document.getElementById('gateCameraPreference');
+                if (!sel || sel._guardInlinePrefBound) return;
+                sel._guardInlinePrefBound = true;
+                sel.addEventListener('change', function() {
+                    try { localStorage.setItem('gate_scan_camera_pref', getInlineCameraPref()); } catch (e) {}
+                    restartInlineCameraForDropdown();
+                });
+            }
+
+            var _allCameras = [];
+            var _currentCamIdx = -1;
+            var _switching = false;
+            var _currentCamId = null;
+            var _camIdxStorageKey = 'gate_guard_wall_cam_idx';
+
+            function stopCurrentCamera(cb) {
+                var inst = window._guardInlineCameraInstance;
+                if (!inst) { if (cb) cb(); return; }
+                try {
+                    // Always attempt to stop to release the camera device.
+                    // Some browsers return different getState values; gating on state can leave
+                    // the stream running and make switching silently fail.
+                    if (inst.stop) {
+                        inst.stop().then(function() {
+                            window._guardInlineCameraInstance = null;
+                            window.scannerRunning = false;
+                            if (cb) cb();
+                        }).catch(function() {
+                            window._guardInlineCameraInstance = null;
+                            window.scannerRunning = false;
+                            if (cb) cb();
+                        });
+                        return;
+                    }
+                    window._guardInlineCameraInstance = null;
+                    window.scannerRunning = false;
+                    if (cb) cb();
+                } catch (e) {
+                    window._guardInlineCameraInstance = null;
+                    window.scannerRunning = false;
+                    if (cb) cb();
+                }
+            }
+            window._gateGuardWallStopCamera = function(cb) { stopCurrentCamera(cb); };
+
+            function startCameraWithId(camId, cb) {
+                var inst = window._guardInlineCameraInstance;
+                if (!inst) {
+                    inst = new Html5Qrcode('reader');
+                    window._guardInlineCameraInstance = inst;
+                }
+                var qrbox = function(vw, vh) {
+                    var m = Math.min(vw, vh);
+                    return { width: Math.floor(m * 0.8), height: Math.floor(m * 0.8) };
+                };
+                var onSuccess = function(decoded) {
+                    _gwHandleScan(decoded);
+                };
+                inst.start(camId, { fps: 10, qrbox: qrbox, disableFlip: false }, onSuccess, function() {})
+                    .then(function() {
+                        console.log('[Guard Inline] Camera started:', camId);
+                        window.scannerRunning = true;
+                        _currentCamId = camId;
+                        // If we already have a camera list, align the index so the next switch
+                        // reliably moves to a different device.
+                        try {
+                            for (var i = 0; i < _allCameras.length; i++) {
+                                if (_allCameras[i] && _allCameras[i].id === camId) { _currentCamIdx = i; break; }
+                            }
+                        } catch (_eIdx) {}
+                        if (cb) cb(true);
+                    })
+                    .catch(function(err) {
+                        console.error('[Guard Inline] Camera start failed:', camId, err);
+                        if (cb) cb(false);
+                    });
+            }
+
+            function switchCamera() {
+                if (window._gateUsbScannerMode) {
+                    if (typeof showNotification === 'function') {
+                        showNotification('Switch Entry input to Camera to switch camera.', 'info');
+                    }
+                    return;
+                }
+                var statusEl = document.getElementById('gateSwitchCameraStatus');
+                function setStatus(t) {
+                    if (statusEl) statusEl.textContent = t || '';
+                }
+                if (_switching) {
+                    console.log('[Switch] Already switching, ignoring click');
+                    setStatus('Busy…');
+                    return;
+                }
+                _switching = true;
+                var btn = document.getElementById('gateSwitchCameraBtn');
+                if (btn) btn.disabled = true;
+                if (btn) btn.textContent = 'Switching…';
+                setStatus('Listing cameras…');
+
+                function done(msg) {
+                    _switching = false;
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-sync-alt"></i> Switch camera';
+                    }
+                    if (msg && typeof showNotification === 'function') showNotification(msg, 'info');
+                    setStatus(msg || '');
+                }
+
+                // Step 1: Stop any running camera completely using raw MediaStream API as backup.
+                function forceStopAllCameraStreams() {
+                    try {
+                        var videos = document.querySelectorAll('#reader video');
+                        for (var v = 0; v < videos.length; v++) {
+                            var s = videos[v].srcObject;
+                            if (s && s.getTracks) {
+                                s.getTracks().forEach(function(t) { t.stop(); });
+                            }
+                            videos[v].srcObject = null;
+                        }
+                    } catch (_e) {}
+                }
+
+                // Step 2: Get camera list.
+                console.log('[Switch] Step 1: enumerating cameras…');
+                Html5Qrcode.getCameras().then(function(cams) {
+                    _allCameras = cams || [];
+                    setStatus('Found ' + _allCameras.length + ' camera(s)');
+                    console.log('[Switch] Found ' + _allCameras.length + ' camera(s):');
+                    for (var c = 0; c < _allCameras.length; c++) {
+                        console.log('  [' + c + '] id=' + _allCameras[c].id + ' label=' + (_allCameras[c].label || '(no label)'));
+                    }
+                    if (_allCameras.length < 2) {
+                        done('Only ' + _allCameras.length + ' camera found');
+                        return;
+                    }
+
+                    // Determine which camera we're currently on.
+                    var curIdx = -1;
+                    if (_currentCamId) {
+                        for (var j = 0; j < _allCameras.length; j++) {
+                            if (_allCameras[j].id === _currentCamId) { curIdx = j; break; }
+                        }
+                    }
+                    // If we couldn't detect current camera (common when started via facingMode),
+                    // use the last successful index from storage.
+                    if (curIdx < 0) {
+                        try {
+                            var si = parseInt(localStorage.getItem(_camIdxStorageKey) || '-1', 10);
+                            if (!isNaN(si) && si >= 0 && si < _allCameras.length) curIdx = si;
+                        } catch (_e2) {}
+                    }
+                    if (curIdx < 0) curIdx = 0;
+                    var nextIdx = (curIdx + 1) % _allCameras.length;
+                    console.log('[Switch] Current camera index=' + curIdx + ', switching to index=' + nextIdx);
+                    setStatus('Switching to camera #' + (nextIdx + 1));
+
+                    // Step 3: Stop the current camera.
+                    console.log('[Switch] Step 2: stopping current camera…');
+                    setStatus('Stopping current camera…');
+                    stopCurrentCamera(function() {
+                        forceStopAllCameraStreams();
+                        window._guardInlineCameraInstance = null;
+                        console.log('[Switch] Step 3: camera stopped. Starting new camera idx=' + nextIdx + ' id=' + _allCameras[nextIdx].id);
+                        setStatus('Starting new camera…');
+
+                        // Small delay to let the device fully release.
+                        setTimeout(function() {
+                            var tried = 0;
+                            _currentCamIdx = nextIdx;
+                            function tryNext() {
+                                if (tried >= _allCameras.length) {
+                                    done('Could not start any camera. Check permissions or close other apps using the webcam.');
+                                    return;
+                                }
+                                var cam = _allCameras[_currentCamIdx];
+                                tried++;
+                                console.log('[Switch] Trying camera [' + _currentCamIdx + '] id=' + cam.id + ' label=' + (cam.label || ''));
+                                setStatus('Trying: ' + (cam.label || ('Camera ' + (_currentCamIdx + 1))));
+                                startCameraWithId(cam.id, function(ok) {
+                                    if (ok) {
+                                        console.log('[Switch] SUCCESS — now on camera [' + _currentCamIdx + '] ' + cam.label);
+                                        _currentCamId = cam.id;
+                                        try { localStorage.setItem(_camIdxStorageKey, String(_currentCamIdx)); } catch (_e3) {}
+                                        // Sync the hidden device selector (if present).
+                                        try {
+                                            var sel = document.getElementById('gateCameraDeviceSelect');
+                                            if (sel) sel.value = cam.id;
+                                        } catch (_eSel) {}
+                                        done('Switched: ' + (cam.label || ('Camera ' + (_currentCamIdx + 1))));
+                                    } else {
+                                        console.warn('[Switch] FAILED camera [' + _currentCamIdx + '], trying next…');
+                                        _currentCamIdx = (_currentCamIdx + 1) % _allCameras.length;
+                                        tryNext();
+                                    }
+                                });
+                            }
+                            tryNext();
+                        }, 400);
+                    });
+                }).catch(function(err) {
+                    console.error('[Switch] getCameras() failed:', err);
+                    done('Cannot list cameras');
+                });
+            }
+
+            window._guardInlineSwitchCamera = switchCamera;
+
+            function bindSwitchButton() {
+                var btn = document.getElementById('gateSwitchCameraBtn');
+                if (!btn || btn._guardInlineSwitchBound) return;
+                btn._guardInlineSwitchBound = true;
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    switchCamera();
+                });
+            }
+
+            function bindDeviceSelect() {
+                var sel = document.getElementById('gateCameraDeviceSelect');
+                if (!sel || sel._guardDeviceSelectBound) return;
+                sel._guardDeviceSelectBound = true;
+
+                function populate(cams) {
+                    _allCameras = cams || [];
+                    if (_allCameras.length < 2) {
+                        sel.style.display = 'none';
+                        return;
+                    }
+                    // Keep this control hidden in the UI; used internally as a reliable camera list.
+                    sel.style.display = 'none';
+                    // Rebuild options
+                    while (sel.options.length > 0) sel.remove(0);
+                    for (var i = 0; i < _allCameras.length; i++) {
+                        var opt = document.createElement('option');
+                        opt.value = _allCameras[i].id;
+                        opt.textContent = _allCameras[i].label || ('Camera ' + (i + 1));
+                        sel.appendChild(opt);
+                    }
+                    // Pick current/last
+                    var want = _currentCamId;
+                    if (!want) {
+                        try {
+                            var si = parseInt(localStorage.getItem(_camIdxStorageKey) || '-1', 10);
+                            if (!isNaN(si) && si >= 0 && si < _allCameras.length) want = _allCameras[si].id;
+                        } catch (_e) {}
+                    }
+                    if (want) sel.value = want;
+                }
+
+                // Initial populate
+                try {
+                    Html5Qrcode.getCameras().then(populate).catch(function() {});
+                } catch (_e0) {}
+
+                // On change: switch to selected device id
+                sel.addEventListener('change', function() {
+                    if (window._gateUsbScannerMode) return;
+                    var id = (sel.value || '').trim();
+                    if (!id) return;
+                    console.log('[Guard Inline] Device select ->', id);
+                    stopCurrentCamera(function() {
+                        window._guardInlineCameraInstance = null;
+                        startCameraWithId(id, function(ok) {
+                            if (!ok) {
+                                if (typeof showNotification === 'function') showNotification('Could not start selected camera. Check permissions or close other apps using the webcam.', 'warning');
+                                return;
+                            }
+                            // Persist index
+                            try {
+                                for (var k = 0; k < _allCameras.length; k++) {
+                                    if (_allCameras[k] && _allCameras[k].id === id) {
+                                        _currentCamIdx = k;
+                                        localStorage.setItem(_camIdxStorageKey, String(k));
+                                        break;
+                                    }
+                                }
+                            } catch (_e2) {}
+                        });
+                    });
+                });
+            }
+
+            var _guardWallUnlockedOnce = false;
+            function hideAllOverlays() {
+                var o = getOverlays();
+                if (o.full) { o.full.style.display = 'none'; o.full.setAttribute('aria-hidden', 'true'); }
+                if (o.scanner) { o.scanner.style.display = 'none'; o.scanner.setAttribute('aria-hidden', 'true'); }
+                if (o.livePanel) { o.livePanel.style.display = ''; }
+                window._gateGuardWallScannerActive = true;
+                _gwUnlockAudio();
+                bindSwitchButton();
+                bindCameraPreference();
+                bindDeviceSelect();
+                // Only start the camera on first unlock — not on every poll tick.
+                // Repeated tryStartCamera() calls were overwriting a user's Switch selection.
+                if (!_guardWallUnlockedOnce) {
+                    _guardWallUnlockedOnce = true;
+                    applyStoredCameraPref();
+                    _cameraStartAttempts = 0;
+                    tryStartCamera();
+                }
+            }
+
+            function showAllOverlays() {
+                var o = getOverlays();
+                if (o.full) { o.full.style.display = 'flex'; o.full.setAttribute('aria-hidden', 'false'); }
+                if (o.scanner) { o.scanner.style.display = ''; o.scanner.setAttribute('aria-hidden', 'false'); }
+                var modalOpen = document.getElementById('liveEntriesModalOverlay');
+                var isModalOpen = modalOpen && modalOpen.style.display === 'flex';
+                if (o.livePanel && !isModalOpen) { o.livePanel.style.display = 'none'; }
+                window._gateGuardWallScannerActive = false;
+                stopCurrentCamera(function() {});
+            }
+
+            /* DevTools "Offline" / real disconnect: XHR status 0 and poll cannot reach server.
+               Do not treat that as "staff stopped scanner" — keep camera if already unlocked. */
+            function _gwPollCantReachServer(xhr) {
+                return !navigator.onLine || !xhr || xhr.status === 0;
+            }
+
+            function poll() {
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', url, true);
+                xhr.setRequestHeader('Cache-Control', 'no-cache, no-store');
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState !== 4) return;
+                    try {
+                        // If offline / DNS error / non-JSON error pages, don't attempt JSON.parse.
+                        if (xhr.status !== 200) {
+                            if (unlocked && _gwPollCantReachServer(xhr)) {
+                                console.log('[Guard Inline Poll] Non-200 (' + xhr.status + ') but network unreachable — keeping scanner UI');
+                                return;
+                            }
+                            if (unlocked) {
+                                unlocked = false;
+                                showAllOverlays();
+                                console.log('[Guard Inline Poll] Non-200 (' + xhr.status + ') — overlays shown');
+                            }
+                            return;
+                        }
+                        var text = (xhr.responseText || '').trim();
+                        if (!text) {
+                            if (unlocked && !navigator.onLine) {
+                                console.log('[Guard Inline Poll] Empty response while offline — keeping scanner UI');
+                                return;
+                            }
+                            if (unlocked) {
+                                unlocked = false;
+                                showAllOverlays();
+                                console.log('[Guard Inline Poll] Empty response — overlays shown');
+                            }
+                            return;
+                        }
+                        if (text[0] === '<') {
+                            if (unlocked && !navigator.onLine) {
+                                console.log('[Guard Inline Poll] HTML while offline — keeping scanner UI');
+                                return;
+                            }
+                            if (unlocked) {
+                                unlocked = false;
+                                showAllOverlays();
+                                console.log('[Guard Inline Poll] HTML response — overlays shown');
+                            }
+                            return;
+                        }
+                        var data = JSON.parse(text);
+                        if (data && data.success && data.scanner_active) {
+                            if (!unlocked) {
+                                unlocked = true;
+                                hideAllOverlays();
+                                console.log('[Guard Inline Poll] Scanner ACTIVE — all overlays removed');
+                            }
+                        } else {
+                            if (unlocked) {
+                                unlocked = false;
+                                showAllOverlays();
+                                console.log('[Guard Inline Poll] Scanner INACTIVE — overlays shown');
+                            }
+                        }
+                    } catch (e) {
+                        if (unlocked && !navigator.onLine) {
+                            console.warn('[Guard Inline Poll] Parse error while offline — keeping scanner UI:', e);
+                            return;
+                        }
+                        if (unlocked) {
+                            unlocked = false;
+                            showAllOverlays();
+                        }
+                        console.warn('[Guard Inline Poll] Parse error — treating as inactive:', e);
+                    }
+                };
+                xhr.send();
+            }
+            poll();
+            setInterval(poll, 2000);
+            try {
+                window.addEventListener('storage', function(ev) {
+                    if (ev.key === 'ccb_gate_session_ping' || ev.key === 'ccb_gate_session_stop') {
+                        poll();
+                    }
+                });
+            } catch (e) {}
+            function bindGuardInlineScannerUi() {
+                applyStoredCameraPref();
+                bindSwitchButton();
+                bindCameraPreference();
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', bindGuardInlineScannerUi);
+            } else {
+                bindGuardInlineScannerUi();
+            }
+            console.log('[Guard Inline Poll] Started — polling every 2s:', url);
+        })();
+        </script>
+        <script>
+        (function guardWallPopupClose() {
+            function bind() {
+                var closeBtn = document.getElementById('studentPopupClose');
+                var overlay = document.getElementById('studentPopupOverlay');
+                if (closeBtn && !closeBtn._gwBound) {
+                    closeBtn._gwBound = true;
+                    closeBtn.addEventListener('click', function() {
+                        if (overlay) overlay.classList.remove('show');
+                    });
+                }
+                if (overlay && !overlay._gwBound) {
+                    overlay._gwBound = true;
+                    overlay.addEventListener('click', function(e) {
+                        if (e.target === overlay) overlay.classList.remove('show');
+                    });
+                }
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', bind);
+            } else {
+                bind();
+            }
+        })();
+        </script>
+        <script>
+        (function guardWallLiveEntriesSetup() {
+            function bind() {
+                var openBtn = document.getElementById('openLiveEntriesModalBtn');
+                var overlay = document.getElementById('liveEntriesModalOverlay');
+                var closeBtn = document.getElementById('liveEntriesModalClose');
+                var iframe = document.getElementById('liveEntriesIframe');
+                if (!openBtn || !overlay) return;
+                if (openBtn._guardWallBound) return;
+                openBtn._guardWallBound = true;
+                function show() {
+                    var lePanel = document.getElementById('liveEntriesPanel');
+                    if (lePanel) lePanel.style.display = '';
+                    overlay.style.display = 'flex';
+                    overlay.classList.add('show');
+                    overlay.setAttribute('aria-hidden', 'false');
+                    if (iframe) {
+                        var src = iframe.getAttribute('src') || iframe.src || '';
+                        if (src) {
+                            var sep = src.indexOf('?') >= 0 ? '&' : '?';
+                            iframe.src = src.replace(/[&?]_ts=\d+/, '') + sep + '_ts=' + Date.now();
+                        }
+                    }
+                }
+                function hide() {
+                    overlay.style.display = 'none';
+                    overlay.classList.remove('show');
+                    overlay.setAttribute('aria-hidden', 'true');
+                }
+                openBtn.addEventListener('click', show);
+                if (closeBtn) closeBtn.addEventListener('click', hide);
+                overlay.addEventListener('click', function(e) { if (e.target === overlay) hide(); });
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', bind);
+            } else {
+                bind();
+            }
+        })();
+        </script>
         {% endif %}
         <header>
             <div class="header-content{% if guard_embed %} header-content--guard{% endif %}">
-                <h1><i class="fas fa-qrcode"></i> {% if guard_embed %}Gate scanner{% else %}QR Code Scanner{% endif %}</h1>
+                <h1><i class="fas fa-qrcode"></i> {% if guard_embed %}Gate scanner{% elif event_attendance_scanner_event %}Event attendance{% else %}QR Code Scanner{% endif %}</h1>
                 {% if guard_embed %}
                 <div class="guard-header-clock" aria-live="polite" title="{% trans 'Current time' %}">
                     <i class="fas fa-clock" aria-hidden="true"></i>
@@ -2509,6 +4038,12 @@ body.guard-wall-mode .camera-control-row{
                         <i class="fas fa-cloud-upload-alt"></i>
                         <span class="num" id="headerPendingSyncNum">0</span> pending sync
                     </span>
+                    {% if user_role == 'admin' and not guard_embed and not guard_wall %}
+                    <span class="sw-debug-badge show" id="swDebugBadge" title="Service worker version and runtime state">
+                        <i class="fas fa-cogs"></i> SW v3
+                        <span class="sw-debug-state" id="swDebugState">checking...</span>
+                    </span>
+                    {% endif %}
                     {% if guard_embed %}
                     <button type="button" class="guard-incident-header-btn" id="guardIncidentReportBtn" title="{% trans 'Report incident to SAS or Registrar' %}">
                         <i class="fas fa-bell"></i>
@@ -2541,7 +4076,7 @@ body.guard-wall-mode .camera-control-row{
             </div>
         </header>
 
-        <!-- Quick Stats Bar (not on guard wall — clock lives in header center) -->
+        <!-- Quick Stats Bar: session, clock, Live Entries (not on /gate/embed-scanner/) -->
         {% if not guard_embed %}
         <div class="scan-stats-bar">
             <div class="ssb-group">
@@ -2551,12 +4086,38 @@ body.guard-wall-mode .camera-control-row{
                 <div class="ssb-item">
                     <i class="fas fa-clock"></i> <span class="ssb-clock" id="scanBarClock"></span>
                 </div>
+                <button type="button" class="ssb-live-entries-btn" id="openLiveEntriesModalBtn" title="{% if event_attendance_scanner_event %}{% trans 'Open recent scans for this event' %}{% else %}{% trans 'Open recent gate scans' %}{% endif %}">
+                    <i class="fas fa-door-open"></i> {% if event_attendance_scanner_event %}{% trans "Event scans" %}{% else %}{% trans "Live Entries" %}{% endif %}
+                </button>
             </div>
         </div>
         {% endif %}
 
         <!-- Event selector: on-campus events (staff can scan students for events) — not on guard-only monitor -->
-        {% if active_events and not guard_embed %}
+        {% if not guard_embed and event_attendance_scanner_event %}
+        <div class="event-selector-bar event-selector-bar--locked">
+            <div class="event-label">
+                <i class="fas fa-calendar-check"></i>
+                <span>Event:</span>
+            </div>
+            <div class="event-locked-name" style="flex:1; min-width:0; font-weight:600; color:#1b5e20;">
+                {{ event_attendance_scanner_event.name }}
+                <span class="text-muted font-weight-normal small">({{ event_attendance_scanner_event.start_date|date:"M d" }} – {{ event_attendance_scanner_event.end_date|date:"M d, Y" }})</span>
+            </div>
+            <a href="{% url 'event-attendance-scanner' %}" class="btn btn-sm btn-outline-secondary" style="white-space:nowrap;"><i class="fas fa-arrow-left"></i> {% trans "Events" %}</a>
+            <a href="{% url 'event-attendance-report' event_attendance_scanner_event.id %}" class="btn btn-sm btn-outline-success" style="white-space:nowrap;"><i class="fas fa-chart-bar"></i> {% trans "Report" %}</a>
+            <div class="event-current-badge" id="currentEventBadge" style="display:inline-flex;">
+                <i class="fas fa-flag"></i>
+                <span id="currentEventName">{{ event_attendance_scanner_event.name }}</span>
+            </div>
+            <button type="button" id="eventAttendeesBtn" class="event-attendees-btn" style="display:inline-flex; margin-left:auto;" title="{% trans 'View event attendees' %}">
+                <i class="fas fa-users"></i> {% trans "Event attendees" %}
+            </button>
+        </div>
+        <select id="eventSelector" style="display:none;" aria-hidden="true">
+            <option value="{{ event_attendance_scanner_event.id }}" selected>{{ event_attendance_scanner_event.name }}</option>
+        </select>
+        {% elif active_events and not guard_embed %}
         <div class="event-selector-bar">
             <div class="event-label">
                 <i class="fas fa-calendar-check"></i>
@@ -2590,30 +4151,64 @@ body.guard-wall-mode .camera-control-row{
                     <div class="guard-scanner-frame-wrap">
                         <div id="reader"></div>
                     </div>
-                    <div class="guard-scanner-instruction" aria-live="polite">
-                        <p class="guard-scanner-instruction__text">{% trans "Ensure the QR code is clearly visible within the scanner frame" %}</p>
-                    </div>
                     {% if guard_wall %}
-                    <div class="camera-control-row camera-control-row--guard-wall">
-                        <div class="camera-controls">
+                    <div class="camera-control-row camera-control-row--guard-wall" id="guardWallControls">
+                        <div class="camera-controls camera-controls--with-entry-mode">
+                            <div class="camera-controls__entry-mode">
+                                <label for="gateInputMode" class="entry-mode-label">{% trans "Entry input" %}</label>
+                                <select id="gateInputMode" class="gate-input-mode-select" title="{% trans 'Camera scans the screen; USB scanner types the QR like a keyboard (HID mode).' %}">
+                                    <option value="camera">{% trans "Camera (QR on screen)" %}</option>
+                                    <option value="usb_scanner">{% trans "USB / handheld scanner" %}</option>
+                                </select>
+                            </div>
                             <select id="gateCameraPreference" class="camera-select" title="{% trans 'Camera: default or last-used; Back/Front forces a lens' %}">
                                 <option value="auto" selected>{% trans "Default / auto (recommended)" %}</option>
                                 <option value="back">{% trans "Back camera (environment)" %}</option>
                                 <option value="front">{% trans "Front camera (selfie)" %}</option>
                             </select>
-                            <button type="button" id="gateSwitchCameraBtn" class="btn btn-outline-secondary btn-sm">
+                            <select id="gateCameraDeviceSelect" class="camera-select" style="display:none;" title="{% trans 'Camera device: select a specific webcam' %}">
+                                <option value="">{% trans "Camera device…" %}</option>
+                            </select>
+                            <button type="button" id="gateSwitchCameraBtn" class="btn btn-outline-secondary btn-sm" onclick="try{if(typeof showNotification==='function')showNotification('Switch clicked', 'info');}catch(_n){};try{var st=document.getElementById('gateSwitchCameraStatus');if(st)st.textContent='Clicked…';}catch(_e){};if(typeof window._guardInlineSwitchCamera==='function'){console.log('[Switch] onclick fired');window._guardInlineSwitchCamera();}else{console.log('[Switch] onclick: _guardInlineSwitchCamera not ready');}">
                                 <i class="fas fa-sync-alt"></i> {% trans "Switch camera" %}
                             </button>
+                            <span id="gateSwitchCameraStatus" class="small text-muted" style="margin-left:6px; display:inline-block; min-width:140px;"></span>
+                        </div>
+                        <div class="gate-wall-usb-extras">
+                            <div id="gateUsbScannerHint">
+                                <details class="usb-help">
+                                    <summary>{% trans "USB scanner help" %}</summary>
+                                    <div class="usb-help__body">
+                                        <p><strong>{% trans "USB mode" %}:</strong> {% trans "plug the scanner into this PC and scan normally." %}</p>
+                                        <p class="usb-help__muted">{% trans "If scanning does nothing, test in Notepad. If Notepad stays empty, switch the device to USB HID Keyboard mode using the scanner manual." %}</p>
+                                    </div>
+                                </details>
+                            </div>
+                            <label for="gateUsbWedgeCapture" class="visually-hidden">{% trans "USB scanner input" %}</label>
+                            <input type="text" id="gateUsbWedgeCapture" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" tabindex="-1" class="gate-usb-wedge-capture" title="{% trans 'USB scanner captures here (hidden)' %}">
+                            <p id="gateUsbSignalStatus" class="gate-usb-signal--warn" role="status" aria-live="polite"></p>
                         </div>
                         <p class="small text-muted mb-0 mt-1">{% trans "Use Switch if the wrong camera shows or you plug in another webcam. Staff Start/Stop for the gate session is only on the logged-in gate scanner page, not on this display." %}</p>
                     </div>
                     {% endif %}
+                    <div class="guard-scanner-instruction" aria-live="polite">
+                        <p class="guard-scanner-instruction__text" data-hint-camera="{% trans 'Ensure the QR code is clearly visible within the scanner frame' %}" data-hint-usb="{% trans 'USB scanner mode: aim the handheld scanner at the phone or card. The camera preview is paused.' %}">{% trans "Ensure the QR code is clearly visible within the scanner frame" %}</p>
+                    </div>
                     {% else %}
                     <div id="reader"></div>
                     {% endif %}
                     {% if not guard_wall %}
                     <div class="camera-control-row">
-                        <div class="camera-controls">
+                        <div class="camera-controls {% if not guard_embed and not event_attendance_field_trip %}camera-controls--with-entry-mode{% endif %}">
+                            {% if not guard_embed and not event_attendance_field_trip %}
+                            <div class="camera-controls__entry-mode">
+                                <label for="gateInputMode" class="entry-mode-label">{% trans "Entry input" %}</label>
+                                <select id="gateInputMode" class="gate-input-mode-select" title="{% trans 'Use the webcam for on-screen QR codes, or a USB handheld scanner (keyboard wedge).' %}">
+                                    <option value="camera">{% trans "Camera (QR on screen)" %}</option>
+                                    <option value="usb_scanner">{% trans "USB / handheld scanner" %}</option>
+                                </select>
+                            </div>
+                            {% endif %}
                             <select id="gateCameraPreference" class="camera-select" title="{% trans 'Camera: uses the current or last-used camera; pick Back/Front to force a lens' %}">
                                 <option value="auto" selected>{% trans "Default / auto (recommended)" %}</option>
                                 <option value="back">{% trans "Back camera (environment)" %}</option>
@@ -2633,9 +4228,25 @@ body.guard-wall-mode .camera-control-row{
                         </div>
                         <div id="gateCameraHelp" class="camera-help-note"></div>
                         <p class="small text-muted mb-0 mt-1">{% trans "Default / auto uses this device’s current camera (last used or system default). Use Switch to pick another camera if needed." %}</p>
+                        {% if not guard_embed and not event_attendance_field_trip %}
+                        <div class="scan-column-usb-extras">
+                            <div id="gateUsbScannerHint">
+                                <details class="usb-help">
+                                    <summary>{% trans "USB scanner help" %}</summary>
+                                    <div class="usb-help__body">
+                                        <p><strong>{% trans "USB mode" %}:</strong> {% trans "the camera is paused; scans are read from the handheld scanner." %}</p>
+                                        <p class="usb-help__muted">{% trans "Lost IDs: use Manual Entry on the right (Ctrl+M)." %}</p>
+                                    </div>
+                                </details>
+                            </div>
+                            <label for="gateUsbWedgeCapture" class="visually-hidden">{% trans "USB scanner input" %}</label>
+                            <input type="text" id="gateUsbWedgeCapture" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" tabindex="-1" class="gate-usb-wedge-capture" title="{% trans 'USB scanner captures here (hidden)' %}">
+                            <p id="gateUsbSignalStatus" class="gate-usb-signal--warn" role="status" aria-live="polite"></p>
+                        </div>
+                        {% endif %}
                     </div>
                     {% if not guard_embed %}
-                    <p class="scanner-text">{% trans "Position the QR code within the frame" %}</p>
+                    <p class="scanner-text" id="gateScannerFramingHint" data-hint-camera="{% trans 'Position the QR code within the frame' %}" data-hint-usb="{% trans 'USB scanner mode — camera paused. Use manual entry on the right for lost IDs (Ctrl+M).' %}">{% trans "Position the QR code within the frame" %}</p>
                     {% endif %}
                     {% endif %}
                     <div class="status-indicator">
@@ -2643,8 +4254,11 @@ body.guard-wall-mode .camera-control-row{
                         <span>{% if guard_embed or guard_wall %}{% trans "Waiting for staff scanner" %}{% else %}{% trans "Scanner ready" %}{% endif %}</span>
                     </div>
                 </div>
-                {% if not guard_embed %}
-                <div class="manual-input">
+            </div>
+
+            <div class="info-column">
+                {% if not guard_embed and not event_attendance_field_trip %}
+                <div class="manual-input manual-input--side-column">
                     <h3><i class="fas fa-keyboard"></i> Manual Entry (Student)</h3>
                     <p id="manualEntryEventHint" class="small text-muted mb-2" style="display:none;"></p>
                     <p class="small text-muted mb-2">{% trans "Check out: enter name or student ID only, leave office routing blank, then Enter or Submit. Check in with concern: choose office routing (ID concern -> Student Affairs), then Enter or Submit." %}</p>
@@ -2661,9 +4275,6 @@ body.guard-wall-mode .camera-control-row{
                     </div>
                 </div>
                 {% endif %}
-            </div>
-
-            <div class="info-column">
                 <div class="scan-result-card" style="display:none;">
                     <div class="scan-result-head">
                         <i class="fas fa-wave-square"></i> Scan Results
@@ -2690,16 +4301,6 @@ body.guard-wall-mode .camera-control-row{
             </div>
                 </div>
                 {% if not guard_embed %}
-                <div class="live-entries" id="liveEntriesPanel"{% if guard_wall and not guard_scanner_active %} style="display:none;"{% endif %}>
-                    <div class="live-entries-head">
-                        <h3 id="live-entries-anchor"><i class="fas fa-door-open"></i> Live Entries</h3>
-                    </div>
-                    <iframe id="liveEntriesIframe" class="live-entries-frame" src="{% url 'gate-entry-list' %}?embed=1{% if guard_embed_token %}&amp;guard_token={{ guard_embed_token|urlencode }}{% endif %}{% if guard_wall %}&amp;live_panel=1{% endif %}" title="Live gate entries"></iframe>
-                    <div class="live-entries-meta">
-                        Last refresh: <span id="liveEntriesLastRefresh">--:--:--</span>
-                        <a href="#gate-scan-scanner" class="live-entries-goto-scanner" id="liveEntriesGotoScanner" aria-label="Scroll to scanner">↓ Go to scanner</a>
-                    </div>
-                </div>
                 <div class="instructions">
                     <h3><i class="fas fa-info-circle"></i> Instructions</h3>
                     <ol>
@@ -2707,7 +4308,8 @@ body.guard-wall-mode .camera-control-row{
                         <li>Hold your device steady for accurate scanning</li>
                         <li>The system will automatically process valid student ID QR codes</li>
                         <li>Results will be displayed in the scan area after scanning</li>
-                        <li>Use manual entry if QR code is not scanning properly</li>
+                        {% if not event_attendance_field_trip %}<li>Use manual entry if QR code is not scanning properly</li>{% endif %}
+                        {% if event_attendance_field_trip %}<li>{% trans "Check-in is recorded on first scan; check-out when the event is marked completed." %}</li>{% endif %}
                     </ol>
                 </div>
                 {% endif %}
@@ -2720,6 +4322,52 @@ window.GATE_GUARD_EMBED = {% if guard_embed %}true{% else %}false{% endif %};
 window.GATE_GUARD_WALL = {% if guard_wall %}true{% else %}false{% endif %};
 window._gateGuardWallScannerActive = {% if guard_wall %}{% if guard_scanner_active %}true{% else %}false{% endif %}{% else %}true{% endif %};
 window.GATE_GUARD_DASHBOARD_MINIMAL_URL = {% if guard_embed_token %}"{% url 'gate-guard-dashboard-data' %}?token={{ guard_embed_token|urlencode }}&minimal=1"{% else %}""{% endif %};
+// Token-only guard-display/embed cannot rely on CSRF; use CSRF-exempt endpoint (still validates guard_token).
+window.GATE_SAVE_SCAN_URL = (window.GUARD_EMBED_TOKEN && (window.GATE_GUARD_WALL || window.GATE_GUARD_EMBED))
+  ? "{% url 'save_scan_guard' %}"
+  : "{% url 'save_scan' %}";
+
+// Guard-display page: force wall mode and poll URL (token must match server GATE_GUARD_DISPLAY_TOKEN).
+if (window.location.pathname.indexOf('/guard-display/') !== -1) {
+  console.log('[GUARD WALL FIX] Detected guard-display URL - forcing guard wall mode');
+  window.GATE_GUARD_WALL = true;
+  window.GATE_GUARD_EMBED = false;
+  var _gdtok = window.GUARD_EMBED_TOKEN || '';
+  try {
+    _gdtok = _gdtok || (new URLSearchParams(window.location.search).get('token') || '');
+  } catch (_e) {}
+  if (_gdtok) {
+    window.GUARD_EMBED_TOKEN = _gdtok;
+  }
+  if (!window.GATE_GUARD_DASHBOARD_MINIMAL_URL && _gdtok) {
+    window.GATE_GUARD_DASHBOARD_MINIMAL_URL =
+      '/gate/api/guard-dashboard/?token=' + encodeURIComponent(_gdtok) + '&minimal=1';
+  }
+}
+
+window.EVENT_ATTENDANCE_FIELD_TRIP_MODE = {% if event_attendance_field_trip %}true{% else %}false{% endif %};
+window.EVENT_ATTENDANCE_SCANNER_EVENT_ID = {% if event_attendance_scanner_event %}{{ event_attendance_scanner_event.id }}{% else %}null{% endif %};
+window.EVENT_ATTENDANCE_SCANNER_EVENT_NAME = {% if event_attendance_scanner_event %}"{{ event_attendance_scanner_event.name|escapejs }}"{% else %}""{% endif %};
+window.EVENT_FIELD_TRIP_POST_URL = {% if event_attendance_field_trip and event_attendance_scanner_event %}"{% url 'event-field-trip-scan' event_attendance_scanner_event.id %}"{% else %}""{% endif %};
+
+// DIAGNOSTIC: Log all window variables immediately
+console.log('=== WINDOW VARIABLES DIAGNOSTIC ===');
+console.log('URL pathname:', window.location.pathname);
+console.log('URL search:', window.location.search);
+console.log('GUARD_EMBED_TOKEN:', window.GUARD_EMBED_TOKEN);
+console.log('GATE_GUARD_EMBED:', window.GATE_GUARD_EMBED);
+console.log('GATE_GUARD_WALL:', window.GATE_GUARD_WALL);
+console.log('_gateGuardWallScannerActive:', window._gateGuardWallScannerActive);
+console.log('GATE_GUARD_DASHBOARD_MINIMAL_URL:', window.GATE_GUARD_DASHBOARD_MINIMAL_URL);
+console.log('===================================');
+var eventLiveEmbedUrlTmpl = "{% url 'event-attendance-live-embed' 987654321 %}";
+function eventLiveEmbedUrlFor(eid) {
+  return eventLiveEmbedUrlTmpl.replace('987654321', String(eid));
+}
+var fieldTripScanUrlTmpl = "{% url 'event-field-trip-scan' 987654321 %}";
+function fieldTripScanUrlFor(eid) {
+  return fieldTripScanUrlTmpl.replace('987654321', String(eid));
+}
 function guardTokenPayload() {
   if (typeof window.GUARD_EMBED_TOKEN === 'string' && window.GUARD_EMBED_TOKEN) {
     return { guard_token: window.GUARD_EMBED_TOKEN };
@@ -2859,10 +4507,16 @@ function guardTokenPayload() {
       var helpModal = document.getElementById('gateHelpModalOverlay');
       var studentPopup = document.getElementById('studentPopupOverlay');
       var eventEarlyOut = document.getElementById('eventEarlyOutModalOverlay');
+      var liveEntriesModal = document.getElementById('liveEntriesModalOverlay');
       
       if (helpModal && helpModal.style.display !== 'none') {
         helpModal.style.display = 'none';
         helpModal.classList.remove('show');
+      }
+      if (liveEntriesModal && liveEntriesModal.style.display !== 'none') {
+        liveEntriesModal.style.display = 'none';
+        liveEntriesModal.classList.remove('show');
+        liveEntriesModal.setAttribute('aria-hidden', 'true');
       }
       if (studentPopup && studentPopup.classList.contains('show')) {
         if (typeof closeStudentPopup === 'function') closeStudentPopup();
@@ -2974,11 +4628,45 @@ function guardTokenPayload() {
   var OFFLINE_DB_NAME = 'GateOfflineDB';
   var OFFLINE_DB_VERSION = 1;
   var OFFLINE_STORE = 'scans';
+  var OFFLINE_FALLBACK_KEY = 'gate_offline_queue_fallback_v1';
   var OFFLINE_QUEUE_MAX = 500;  // Soft cap to prevent massive queues
   var _offlineQueueCache = [];
+  var _offlineStorageMode = 'idb';
+
+  function readFallbackQueue() {
+    try {
+      var raw = localStorage.getItem(OFFLINE_FALLBACK_KEY);
+      if (!raw) return [];
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function writeFallbackQueue(list) {
+    try {
+      localStorage.setItem(OFFLINE_FALLBACK_KEY, JSON.stringify(list || []));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function normalizeOfflineRecord(record) {
+    if (!record) return null;
+    record.status = record.status || record.manual_status || 'IN';
+    record.use_save_scan = !!record.use_save_scan;
+    record.use_field_trip_scan = !!record.use_field_trip_scan;
+    return record;
+  }
 
   function openOfflineDB() {
     return new Promise(function(resolve, reject) {
+      if (!window.indexedDB) {
+        reject(new Error('IndexedDB not supported'));
+        return;
+      }
       var r = indexedDB.open(OFFLINE_DB_NAME, OFFLINE_DB_VERSION);
       r.onerror = function() { reject(r.error); };
       r.onsuccess = function() { resolve(r.result); };
@@ -3047,23 +4735,39 @@ function guardTokenPayload() {
 
   function loadOfflineQueueFromDB(callback) {
     openOfflineDB().then(function(db) {
+      _offlineStorageMode = 'idb';
       var tx = db.transaction(OFFLINE_STORE, 'readonly');
       var req = tx.objectStore(OFFLINE_STORE).getAll();
       req.onsuccess = function() {
         var list = req.result || [];
-        list.forEach(function(r) { r.status = r.status || r.manual_status || 'IN'; });
+        list.forEach(function(r) { normalizeOfflineRecord(r); });
         _offlineQueueCache = list;
         if (callback) callback(_offlineQueueCache);
       };
-      req.onerror = function() { if (callback) callback([]); };
-      db.close();
-    }).catch(function() { if (callback) callback([]); });
+      req.onerror = function() {
+        _offlineStorageMode = 'local';
+        var fallback = readFallbackQueue().map(normalizeOfflineRecord).filter(Boolean);
+        _offlineQueueCache = fallback;
+        if (callback) callback(_offlineQueueCache);
+      };
+      tx.oncomplete = function() { try { db.close(); } catch (e) {} };
+      tx.onerror = function() { try { db.close(); } catch (e2) {} };
+    }).catch(function() {
+      _offlineStorageMode = 'local';
+      var fallback = readFallbackQueue().map(normalizeOfflineRecord).filter(Boolean);
+      _offlineQueueCache = fallback;
+      if (callback) callback(_offlineQueueCache);
+    });
   }
 
   function addToOfflineQueue(item, callback) {
+    function cb(result) {
+      if (!callback) return;
+      callback(result);
+    }
     // Check queue size limit
     if (_offlineQueueCache.length >= OFFLINE_QUEUE_MAX) {
-      if (callback) callback(true);
+      cb({ ok: false, reason: 'full' });
       showNotification('Offline queue is full (' + OFFLINE_QUEUE_MAX + ' items). Please sync to server.', 'error');
       return;
     }
@@ -3076,7 +4780,7 @@ function guardTokenPayload() {
       // For event scans: check if already queued for this event+student+type
       var student_id = item.qr || item.student_id;
       if (isOfflineDuplicateEvent(student_id, item.event_id, status)) {
-        if (callback) callback(true);
+        cb({ ok: false, reason: 'duplicate' });
         return;
       }
     } else {
@@ -3084,7 +4788,7 @@ function guardTokenPayload() {
       if (!item.qr || !item.qr.startsWith('EVT:')) {
         var student_id = item.qr || item.student_id;
         if (isOfflineDuplicate(student_id)) {
-          if (callback) callback(true);
+          cb({ ok: false, reason: 'duplicate' });
           return;
         }
       }
@@ -3101,9 +4805,11 @@ function guardTokenPayload() {
       client_ts: item.client_ts || new Date().toISOString(),
       gate_manual_entry: item.gate_manual_entry || null,
       manual_entry_reason: item.manual_entry_reason || null,
-      use_save_scan: item.use_save_scan || false
+      use_save_scan: item.use_save_scan || false,
+      use_field_trip_scan: item.use_field_trip_scan || item.use_field_trip_sync || false
     };
     openOfflineDB().then(function(db) {
+      _offlineStorageMode = 'idb';
       var tx = db.transaction(OFFLINE_STORE, 'readwrite');
       var store = tx.objectStore(OFFLINE_STORE);
       var req = store.add(record);
@@ -3116,15 +4822,37 @@ function guardTokenPayload() {
           var student_id = item.qr || item.student_id;
           markOfflineEventScan(student_id, item.event_id, status);
         }
-        if (callback) callback(false);
+        cb({ ok: true, reason: 'saved' });
       };
-      req.onerror = function() { if (callback) callback(true); };
+      req.onerror = function() { cb({ ok: false, reason: 'error' }); };
       tx.oncomplete = function() { db.close(); };
-    }).catch(function() { if (callback) callback(true); });
+    }).catch(function() {
+      _offlineStorageMode = 'local';
+      var fallback = readFallbackQueue();
+      var maxId = 0;
+      for (var i = 0; i < fallback.length; i++) {
+        var rid = Number(fallback[i] && fallback[i].id);
+        if (!isNaN(rid) && rid > maxId) maxId = rid;
+      }
+      record.id = maxId + 1;
+      fallback.push(record);
+      if (!writeFallbackQueue(fallback)) {
+        cb({ ok: false, reason: 'error' });
+        return;
+      }
+      _offlineQueueCache.push(record);
+      updateOfflineBanner();
+      if (item.event_id) {
+        var student_id = item.qr || item.student_id;
+        markOfflineEventScan(student_id, item.event_id, status);
+      }
+      cb({ ok: true, reason: 'saved' });
+    });
   }
 
   function removeOfflineRecord(id, callback) {
     openOfflineDB().then(function(db) {
+      _offlineStorageMode = 'idb';
       var tx = db.transaction(OFFLINE_STORE, 'readwrite');
       tx.objectStore(OFFLINE_STORE).delete(id);
       tx.oncomplete = function() {
@@ -3132,12 +4860,12 @@ function guardTokenPayload() {
         if (callback) callback();
         db.close();
       };
-    }).catch(function() { if (callback) callback(); });
-  }
-
-  function getCsrfFromCookie() {
-    var match = document.cookie.match(/\bcsrftoken=([^;]+)/);
-    return match ? match[1].trim() : '';
+    }).catch(function() {
+      _offlineStorageMode = 'local';
+      _offlineQueueCache = _offlineQueueCache.filter(function(r) { return r.id !== id; });
+      writeFallbackQueue(_offlineQueueCache);
+      if (callback) callback();
+    });
   }
 
   function updateOfflineBanner() {
@@ -3147,6 +4875,7 @@ function guardTokenPayload() {
     var countEl = document.getElementById('offlinePendingCount');
     var headerBadge = document.getElementById('headerPendingSync');
     var headerNum = document.getElementById('headerPendingSyncNum');
+    var manualSyncBtn = document.getElementById('manualSyncBtn');
     if (!banner) return;
     var q = _offlineQueueCache;
     var isOffline = !navigator.onLine;
@@ -3181,6 +4910,7 @@ function guardTokenPayload() {
           countEl.textContent = q.length ? q.length + ' scan(s) pending sync' : 'No scans pending';
         }
       }
+      if (manualSyncBtn) manualSyncBtn.style.display = 'none';
     } else {
       if (q.length > 0) {
         banner.classList.add('show', 'pending-sync');
@@ -3190,31 +4920,40 @@ function guardTokenPayload() {
         }
         if (msgEl) msgEl.textContent = 'Syncing to server…';
         if (countEl) countEl.textContent = q.length + ' scan(s) remaining';
+        if (manualSyncBtn) manualSyncBtn.style.display = 'inline-flex';
       } else {
         banner.classList.remove('show', 'pending-sync');
         if (countEl) countEl.textContent = '';
+        if (manualSyncBtn) manualSyncBtn.style.display = 'none';
       }
     }
   }
 
   function syncOfflineQueue() {
-    if (!navigator.onLine) return;
+    console.log('[OFFLINE SYNC] Starting sync. Queue length:', _offlineQueueCache.length, 'Online:', navigator.onLine);
+    if (!navigator.onLine) {
+      console.log('[OFFLINE SYNC] Aborted: Still offline');
+      return;
+    }
     if (_offlineQueueCache.length === 0) {
+      console.log('[OFFLINE SYNC] No scans to sync');
       updateOfflineBanner();
       return;
     }
     var csrf = getCsrfFromCookie();
-    var saveScanUrl = "{% url 'save_scan' %}";
+    var saveScanUrl = (window.GATE_SAVE_SCAN_URL || "{% url 'save_scan' %}");
     var eventScanUrl = "{% url 'scan_event_qr' %}";
     
     function sendNext() {
       if (_offlineQueueCache.length === 0) {
+        console.log('[OFFLINE SYNC] All scans synced successfully');
         updateOfflineBanner();
         showNotification('All offline scans synced to server.', 'info');
         refreshLiveEntriesPanel();
         return;
       }
       var item = _offlineQueueCache[0];
+      console.log('[OFFLINE SYNC] Syncing item:', item.id, 'Student:', item.qr || item.student_id, 'Event:', item.event_id);
       var url = saveScanUrl;
       var body = { csrfmiddlewaretoken: csrf };
       if (typeof window.GUARD_EMBED_TOKEN === 'string' && window.GUARD_EMBED_TOKEN) {
@@ -3231,6 +4970,14 @@ function guardTokenPayload() {
         if (item.gate_manual_entry) body.gate_manual_entry = item.gate_manual_entry;
         if (item.manual_entry_reason) body.manual_entry_reason = item.manual_entry_reason;
         if (item.local_time) body.local_time = item.local_time;
+        body.device_id = DEVICE_ID + '-OFFLINE';
+      } else if (item.event_id && item.use_field_trip_scan) {
+        url = (typeof window.EVENT_FIELD_TRIP_POST_URL === 'string' && window.EVENT_FIELD_TRIP_POST_URL)
+          ? window.EVENT_FIELD_TRIP_POST_URL
+          : fieldTripScanUrlFor(item.event_id);
+        body.student_id = item.qr || item.student_id;
+        var stFt = (item.scan_type || item.status || 'IN').toUpperCase();
+        body.scan_type = (stFt === 'OUT') ? 'OUT' : 'IN';
         body.device_id = DEVICE_ID + '-OFFLINE';
       } else if (item.event_id) {
         // Event attendance scan
@@ -3252,14 +4999,16 @@ function guardTokenPayload() {
         if (item.local_time) body.local_time = item.local_time;
       }
       
+      console.log('[OFFLINE SYNC] POST to:', url, 'Body:', body);
       updateOfflineBanner();
       $.post(url, body)
         .done(function(response) {
+          console.log('[OFFLINE SYNC] Success for item:', item.id, 'Response:', response);
           var result = response.result || '';
           var student_id = item.qr || item.student_id;
           
           // Clear offline mark on success or duplicate (don't retry these)
-          if (item.event_id && (result === 'SUCCESS' || result === 'DUPLICATE' || result === 'NOT_CHECKED_IN' || response.success)) {
+          if (item.event_id && (result === 'SUCCESS' || result === 'ALLOWED' || result === 'DUPLICATE' || result === 'NOT_CHECKED_IN' || response.success)) {
             var stMark = body.scan_type || body.manual_status || 'IN';
             clearOfflineEventMark(student_id, item.event_id, stMark);
           }
@@ -3271,14 +5020,14 @@ function guardTokenPayload() {
             showNotification(name + ' synced to server.', 'info');
           } else if (result === 'DUPLICATE' || result === 'NOT_CHECKED_IN') {
             // Don't play error for expected states
-            console.log('Offline scan was duplicate or not checked in:', item.id);
+            console.log('[OFFLINE SYNC] Scan was duplicate or not checked in:', item.id);
           }
           
           // Remove from queue and continue
           removeOfflineRecord(item.id, sendNext);
         })
         .fail(function(xhr) {
-          console.error('Sync failed for item', item.id, xhr);
+          console.error('[OFFLINE SYNC] Failed for item:', item.id, 'Status:', xhr.status, 'Response:', xhr.responseText);
           // Don't block queue: remove this item and continue with next
           // (Failed items won't be retried to prevent infinite loops)
           showNotification('Some scans could not sync. Check network.', 'warning');
@@ -3289,7 +5038,9 @@ function guardTokenPayload() {
   }
 
   window.addEventListener('online', function() {
+    console.log('[OFFLINE SYNC] Network online event fired');
     loadOfflineQueueFromDB(function() {
+      console.log('[OFFLINE SYNC] Queue loaded from DB. Length:', _offlineQueueCache.length);
       updateOfflineBanner();
       if (_offlineQueueCache.length > 0) syncOfflineQueue();
     });
@@ -3298,10 +5049,63 @@ function guardTokenPayload() {
     updateOfflineBanner();
   });
 
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register("{% url 'gate-scan-sw' %}?v=1", { scope: '/gate/' })
-      .then(function() {})
-      .catch(function() {});
+  loadOfflineQueueFromDB(function() {
+    console.log('[OFFLINE SYNC] Initial queue load. Length:', _offlineQueueCache.length, 'Online:', navigator.onLine);
+    updateOfflineBanner();
+    if (navigator.onLine && _offlineQueueCache.length > 0) syncOfflineQueue();
+  });
+
+  var manualSyncBtn = document.getElementById('manualSyncBtn');
+  if (manualSyncBtn) {
+    manualSyncBtn.addEventListener('click', function() {
+      console.log('[OFFLINE SYNC] Manual sync triggered by user');
+      if (!navigator.onLine) {
+        showNotification('Cannot sync: You are still offline.', 'warning');
+        return;
+      }
+      if (_offlineQueueCache.length === 0) {
+        showNotification('No scans to sync.', 'info');
+        return;
+      }
+      manualSyncBtn.classList.add('syncing');
+      manualSyncBtn.disabled = true;
+      syncOfflineQueue();
+      setTimeout(function() {
+        manualSyncBtn.classList.remove('syncing');
+        manualSyncBtn.disabled = false;
+      }, 2000);
+    });
+  }
+
+  function setSwDebugState(text) {
+    var el = document.getElementById('swDebugState');
+    var badge = document.getElementById('swDebugBadge');
+    if (el) el.textContent = text;
+    if (badge) badge.title = 'Service worker: ' + text;
+  }
+
+  // Guard display: skip SW to avoid stale cached HTML/JS
+  if (!window.GATE_GUARD_WALL && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.register("{% url 'gate-scan-sw' %}?v=30", { scope: '/gate/' })
+      .then(function(reg) {
+        if (reg.active) {
+          setSwDebugState(navigator.serviceWorker.controller ? 'active' : 'installed');
+        } else if (reg.waiting) {
+          setSwDebugState('waiting');
+        } else if (reg.installing) {
+          setSwDebugState('installing');
+        } else {
+          setSwDebugState('registered');
+        }
+      })
+      .catch(function() {
+        setSwDebugState('failed');
+      });
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+      setSwDebugState('active');
+    });
+  } else {
+    setSwDebugState('unsupported');
   }
 
   loadOfflineQueueFromDB(function() {
@@ -3310,25 +5114,19 @@ function guardTokenPayload() {
   });
 
   // -------------------------
-  // Live entries panel (right side)
+  // Live entries: modal for /gate/ and /gate/guard-display/ (not token embed)
   // -------------------------
-  var entriesPopupUrl = "{% url 'gate-entry-list' %}?embed=1{% if guard_embed_token %}&guard_token={{ guard_embed_token|urlencode }}{% endif %}{% if guard_wall %}&live_panel=1{% endif %}";
+  /* Gate /guard-display: always daily gate entries. Event-only scanner page sets EVENT_ATTENDANCE_SCANNER_EVENT_ID. */
+  var entriesPopupUrl = "{% url 'gate-entry-list' %}?embed=1&student_gate_only=1{% if guard_embed_token %}&guard_token={{ guard_embed_token|urlencode }}{% endif %}{% if guard_wall %}&live_panel=1{% endif %}";
+  function getLiveEntriesEmbedUrl() {
+    if (typeof window.EVENT_ATTENDANCE_SCANNER_EVENT_ID !== 'undefined' && window.EVENT_ATTENDANCE_SCANNER_EVENT_ID) {
+      return eventLiveEmbedUrlFor(String(window.EVENT_ATTENDANCE_SCANNER_EVENT_ID)) + '?embed=1&from_date=' + encodeURIComponent(getTodayISO());
+    }
+    return entriesPopupUrl;
+  }
   var liveEntriesPanel = document.getElementById('liveEntriesPanel');
   var liveEntriesIframe = document.getElementById('liveEntriesIframe');
   var liveEntriesLastRefresh = document.getElementById('liveEntriesLastRefresh');
-  var LIVE_ENTRIES_REFRESH_KEY = 'live_entries_refresh_sec';
-  var liveEntriesRefreshSeconds = 5;
-  var liveEntriesRefreshTimer = null;
-
-  function isValidLiveEntriesRefreshValue(value) {
-    return value === '5' || value === '10' || value === '15';
-  }
-
-  function readLiveEntriesRefreshSeconds() {
-    var saved = localStorage.getItem(LIVE_ENTRIES_REFRESH_KEY);
-    if (isValidLiveEntriesRefreshValue(saved)) return parseInt(saved, 10);
-    return 5;
-  }
 
   function getLiveEntriesActiveTab() {
     if (!liveEntriesIframe) return '';
@@ -3352,6 +5150,11 @@ function guardTokenPayload() {
     try {
       var doc = liveEntriesIframe.contentWindow && liveEntriesIframe.contentWindow.document;
       if (!doc) return;
+      var liveModalOv = document.getElementById('liveEntriesModalOverlay');
+      if (liveModalOv && liveModalOv.style.display === 'flex') {
+        liveEntriesIframe.style.height = '';
+        return;
+      }
       var body = doc.body;
       var html = doc.documentElement;
       if (!body || !html) return;
@@ -3394,48 +5197,18 @@ function guardTokenPayload() {
 
   function refreshLiveEntriesPanel(forceRefresh, preferredTab) {
     if (!liveEntriesIframe || !navigator.onLine) return;
-    if (window.GATE_GUARD_WALL && window._gateGuardWallScannerActive === false) return;
+    var leModalOv = document.getElementById('liveEntriesModalOverlay');
+    var modalIsOpen = leModalOv && leModalOv.style.display === 'flex';
+    if (!forceRefresh && !modalIsOpen && window.GATE_GUARD_WALL && window._gateGuardWallScannerActive === false) return;
     var tab = preferredTab || getLiveEntriesActiveTab();
-    var nextUrl = entriesPopupUrl;
+    var nextUrl = getLiveEntriesEmbedUrl();
     if (tab) nextUrl += '&tab=' + encodeURIComponent(tab);
     nextUrl += '&_ts=' + Date.now();
-    // Avoid assigning iframe.src on every tick — full navigations flash white. Fetch HTML and
-    // replace the iframe document in place so the panel repaints without a blank frame.
-    fetch(nextUrl, { credentials: 'same-origin', cache: 'no-store' })
-      .then(function(r) {
-        if (!r.ok) throw new Error('live entries refresh failed');
-        return r.text();
-      })
-      .then(function(html) {
-        var doc = liveEntriesIframe.contentDocument;
-        if (!doc || !doc.open) {
-          liveEntriesIframe.src = nextUrl;
-          return;
-        }
-        doc.open();
-        doc.write(html);
-        doc.close();
-        markLiveEntriesRefresh();
-        setTimeout(fitLiveEntriesFrameHeight, 0);
-        setTimeout(fitLiveEntriesFrameHeight, 150);
-      })
-      .catch(function() {
-        liveEntriesIframe.src = nextUrl;
-      });
+    // Must navigate with a real iframe load — fetch()+document.write() leaves the iframe document
+    // on about:blank/wrong URL so GET forms (Apply / Reset) do not submit to /gate/entries/.
+    liveEntriesIframe.src = nextUrl;
   }
 
-  function restartLiveEntriesAutoRefresh() {
-    if (liveEntriesRefreshTimer) {
-      clearInterval(liveEntriesRefreshTimer);
-      liveEntriesRefreshTimer = null;
-    }
-    if (!liveEntriesIframe) return;
-    liveEntriesRefreshTimer = setInterval(function() {
-      refreshLiveEntriesPanel();
-    }, liveEntriesRefreshSeconds * 1000);
-  }
-
-  liveEntriesRefreshSeconds = readLiveEntriesRefreshSeconds();
   if (liveEntriesIframe) {
     liveEntriesIframe.addEventListener('load', function() {
       markLiveEntriesRefresh();
@@ -3452,11 +5225,45 @@ function guardTokenPayload() {
         }
       } catch (e) {}
     });
-    restartLiveEntriesAutoRefresh();
   }
   window.addEventListener('resize', function() {
     fitLiveEntriesFrameHeight();
   });
+
+  (function gateLiveEntriesModal() {
+    var overlay = document.getElementById('liveEntriesModalOverlay');
+    var openBtn = document.getElementById('openLiveEntriesModalBtn');
+    var closeBtn = document.getElementById('liveEntriesModalClose');
+    if (!overlay) return;
+    function showLiveEntriesModal() {
+      var lePanel = document.getElementById('liveEntriesPanel');
+      if (lePanel) lePanel.style.display = '';
+      overlay.style.display = 'flex';
+      overlay.classList.add('show');
+      overlay.setAttribute('aria-hidden', 'false');
+      setTimeout(function() {
+        refreshLiveEntriesPanel(true);
+        fitLiveEntriesFrameHeight();
+        setTimeout(fitLiveEntriesFrameHeight, 200);
+      }, 40);
+    }
+    function hideLiveEntriesModal() {
+      overlay.style.display = 'none';
+      overlay.classList.remove('show');
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+    if (openBtn) openBtn.addEventListener('click', showLiveEntriesModal);
+    if (closeBtn) closeBtn.addEventListener('click', hideLiveEntriesModal);
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) hideLiveEntriesModal();
+    });
+    var gotoLink = document.getElementById('liveEntriesGotoScanner');
+    if (gotoLink) {
+      gotoLink.addEventListener('click', function() {
+        if (overlay.style.display === 'flex') hideLiveEntriesModal();
+      });
+    }
+  })();
 
   // -------------------------
   // Live Entries iframe → full-page SAS report feedback (postMessage)
@@ -3578,12 +5385,21 @@ function guardTokenPayload() {
   // -------------------------
   var _studentPopupAutoCloseTimer = null;
   function showStudentPopup(response) {
-    var student = response.student || {};
-    var overlay = document.getElementById('studentPopupOverlay');
-    var headerEl = overlay.querySelector('.student-popup-header');
-    var statusEl = document.getElementById('studentPopupStatus');
-    var formEl = document.getElementById('popupEarlyOutForm');
-    var regEl = document.getElementById('popupRegistrationForm');
+    try {
+      response = response || {};
+      var student = response.student || {};
+      var overlay = document.getElementById('studentPopupOverlay');
+      if (!overlay) {
+        // Some minimal/embedded shells may omit the popup; fall back to toast-only.
+        try {
+          showNotification((response && response.message) ? response.message : 'Scan processed.', (response && response.success) ? 'success' : 'info');
+        } catch (_e0) {}
+        return;
+      }
+      var headerEl = overlay.querySelector('.student-popup-header');
+      var statusEl = document.getElementById('studentPopupStatus');
+      var formEl = document.getElementById('popupEarlyOutForm');
+      var regEl = document.getElementById('popupRegistrationForm');
 
     var badgeEl = document.getElementById('studentPopupBadge');
     if (badgeEl) {
@@ -3801,21 +5617,25 @@ function guardTokenPayload() {
     } else {
       photoEl.style.display = 'none';
     }
-    overlay.classList.add('show');
+      overlay.classList.add('show');
     if (_studentPopupAutoCloseTimer) {
       clearTimeout(_studentPopupAutoCloseTimer);
       _studentPopupAutoCloseTimer = null;
     }
     // Auto-dismiss after a few seconds for simple success scans only (checked in/out OK).
     // Activation required, notes, denied, duplicate, etc. stay open until the user closes them.
-    if (!response.already_scanned && !response.require_note && !response.denied && !response.not_registered && !response.inactive) {
-      _studentPopupAutoCloseTimer = setTimeout(function() {
-        _studentPopupAutoCloseTimer = null;
-        var ov = document.getElementById('studentPopupOverlay');
-        if (ov && ov.classList.contains('show')) {
-          closeStudentPopup();
-        }
-      }, 5000);
+      if (!response.already_scanned && !response.require_note && !response.denied && !response.not_registered && !response.inactive) {
+        _studentPopupAutoCloseTimer = setTimeout(function() {
+          _studentPopupAutoCloseTimer = null;
+          var ov = document.getElementById('studentPopupOverlay');
+          if (ov && ov.classList.contains('show')) {
+            closeStudentPopup();
+          }
+        }, 5000);
+      }
+    } catch (e) {
+      try { console.error('[Student Popup] Render error:', e, response); } catch (_e1) {}
+      try { showNotification((response && response.message) ? response.message : 'Scan processed.', (response && response.success) ? 'success' : 'info'); } catch (_e2) {}
     }
   }
 
@@ -3927,7 +5747,7 @@ function guardTokenPayload() {
         csrfmiddlewaretoken: (getCsrfFromCookie() || "{{ csrf_token }}")
       };
       if (typeof selectedEventId !== 'undefined' && selectedEventId) postData.event_id = selectedEventId;
-      $.post("{% url 'save_scan' %}", $.extend({}, postData, guardTokenPayload()), function(response) {
+      $.post((window.GATE_SAVE_SCAN_URL || "{% url 'save_scan' %}"), $.extend({}, postData, guardTokenPayload()), function(response) {
         btn.disabled = false;
         window._pendingNoteScan = null;
         document.getElementById('requireNotePanel').style.display = 'none';
@@ -3996,43 +5816,174 @@ function guardTokenPayload() {
   // -------------------------
   // Beep on successful scan (Web Audio API)
   // -------------------------
-  function playSuccessBeep() {
+  // Many browsers block audio until a user gesture. We unlock once and reuse a single AudioContext.
+  var _gateBeepCtx = null;
+  var _gateBeepUnlocked = false;
+  var _gateBeepWarned = false;
+  var _gateBeepPromptEl = null;
+
+  function _gateEnsureBeepCtx() {
+    if (!_gateBeepCtx) {
+      try { _gateBeepCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { _gateBeepCtx = null; }
+    }
+    return _gateBeepCtx;
+  }
+
+  function _gateUnlockBeepAudio() {
+    var ctx = _gateEnsureBeepCtx();
+    // Don't mark unlocked until we at least attempted resume.
+    _gateBeepUnlocked = true;
     try {
-      var audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      var oscillator = audioContext.createOscillator();
-      var gainNode = audioContext.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      oscillator.frequency.value = 800;
-      oscillator.type = 'sine';
-      gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.15);
-    } catch (e) {}
+      if (ctx && ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+        ctx.resume().then(function() {
+          try { console.info('[BEEP] AudioContext resumed (unlocked).'); } catch (_) {}
+        }).catch(function(err) {
+          _gateBeepUnlocked = false;
+          try { console.warn('[BEEP] AudioContext resume blocked:', err); } catch (_) {}
+        });
+      }
+    } catch (_) {}
+    // Also poke HTMLAudio very quietly to satisfy some autoplay policies.
+    try {
+      var a = new Audio();
+      a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+      a.volume = 0.01;
+      a.play().then(function() { a.pause(); }).catch(function() {});
+    } catch (_) {}
+  }
+
+  (function bindBeepUnlockOnce() {
+    var events = ['click', 'touchstart', 'touchend', 'pointerdown', 'keydown'];
+    function handler() {
+      _gateUnlockBeepAudio();
+      events.forEach(function(ev) { document.removeEventListener(ev, handler, true); });
+    }
+    events.forEach(function(ev) { document.addEventListener(ev, handler, true); });
+  })();
+
+  function _gateMaybeWarnAudioLocked() {
+    if (_gateBeepWarned) return;
+    _gateBeepWarned = true;
+    try {
+      if (typeof showNotification === 'function') {
+        showNotification('Sound is blocked by the browser. Tap anywhere once to enable beep.', 'warning');
+      }
+    } catch (_) {}
+
+    // Persistent prompt (much harder to miss than a toast).
+    try {
+      if (_gateBeepPromptEl) return;
+      var el = document.createElement('div');
+      el.id = 'gateEnableSoundPrompt';
+      el.style.position = 'fixed';
+      el.style.left = '12px';
+      el.style.right = '12px';
+      el.style.bottom = '12px';
+      el.style.zIndex = '10030';
+      el.style.background = 'rgba(17,24,39,0.95)';
+      el.style.color = '#fff';
+      el.style.border = '1px solid rgba(255,255,255,0.18)';
+      el.style.borderRadius = '12px';
+      el.style.padding = '10px 12px';
+      el.style.display = 'flex';
+      el.style.alignItems = 'center';
+      el.style.justifyContent = 'space-between';
+      el.style.gap = '10px';
+      el.style.boxShadow = '0 18px 60px rgba(0,0,0,.45)';
+      el.innerHTML =
+        '<div style="font-weight:800; font-size:13px; line-height:1.2;">Sound is blocked. Tap “Enable sound” once to turn on beeps.</div>' +
+        '<div style="display:flex; gap:8px; align-items:center;">' +
+          '<button type="button" id="gateEnableSoundBtn" style="background:#22c55e; color:#052e16; border:none; padding:8px 12px; border-radius:10px; font-weight:900; cursor:pointer;">Enable sound</button>' +
+          '<button type="button" id="gateEnableSoundDismiss" style="background:transparent; color:#e5e7eb; border:1px solid rgba(255,255,255,0.22); padding:8px 10px; border-radius:10px; font-weight:800; cursor:pointer;">Dismiss</button>' +
+        '</div>';
+      document.body.appendChild(el);
+      _gateBeepPromptEl = el;
+      var btn = document.getElementById('gateEnableSoundBtn');
+      var dis = document.getElementById('gateEnableSoundDismiss');
+      if (btn) {
+        btn.addEventListener('click', function() {
+          _gateUnlockBeepAudio();
+          // Attempt a tiny test tone after unlocking.
+          setTimeout(function() { _gatePlayTone(880, 80, 'sine', 0.10); }, 80);
+          if (_gateBeepPromptEl) _gateBeepPromptEl.remove();
+          _gateBeepPromptEl = null;
+        });
+      }
+      if (dis) {
+        dis.addEventListener('click', function() {
+          if (_gateBeepPromptEl) _gateBeepPromptEl.remove();
+          _gateBeepPromptEl = null;
+        });
+      }
+    } catch (_) {}
+  }
+
+  function _gatePlayTone(freq, durationMs, type, gain) {
+    var ctx = _gateEnsureBeepCtx();
+    if (!ctx) return false;
+    function doPlay() {
+      try {
+        var osc = ctx.createOscillator();
+        var g = ctx.createGain();
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.frequency.value = freq;
+        osc.type = type || 'sine';
+        var now = ctx.currentTime;
+        var dur = Math.max(0.05, (durationMs || 150) / 1000);
+        var vol = (typeof gain === 'number') ? gain : 0.18;
+        g.gain.setValueAtTime(vol, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        osc.start(now);
+        osc.stop(now + dur);
+        return true;
+      } catch (e) {
+        try { console.warn('[BEEP] play failed:', e); } catch (_) {}
+        return false;
+      }
+    }
+    try {
+      if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+        // Fire-and-forget: resume then play.
+        ctx.resume().then(doPlay).catch(function(err) {
+          try { console.warn('[BEEP] resume blocked:', err); } catch (_) {}
+        });
+        return true;
+      }
+    } catch (_) {}
+    return doPlay();
+  }
+
+  function playSuccessBeep() {
+    // Try to unlock on-demand at scan time (still may be blocked without user gesture).
+    if (!_gateBeepUnlocked) _gateUnlockBeepAudio();
+    try {
+      var ctx = _gateEnsureBeepCtx();
+      console.log('[BEEP] success attempt. ctx:', !!ctx, 'state:', ctx ? ctx.state : 'none');
+    } catch (_) {}
+    // Two-tone success beep (more noticeable in noisy areas).
+    var ok1 = _gatePlayTone(880, 120, 'sine', 0.16);
+    setTimeout(function() { _gatePlayTone(1175, 120, 'sine', 0.14); }, 140);
+    if (!ok1) {
+      _gateMaybeWarnAudioLocked();
+      try { if (navigator.vibrate) navigator.vibrate([80, 40, 80]); } catch (_) {}
+    }
+    return ok1;
   }
 
   function playErrorBeep() {
+    if (!_gateBeepUnlocked) _gateUnlockBeepAudio();
     try {
-      var audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      function playTone(freq, startTime) {
-        var osc = audioContext.createOscillator();
-        var gain = audioContext.createGain();
-        osc.connect(gain);
-        gain.connect(audioContext.destination);
-        osc.frequency.value = freq;
-        osc.type = 'square';
-        gain.gain.setValueAtTime(0.15, startTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.12);
-        osc.start(startTime);
-        osc.stop(startTime + 0.12);
-      }
-      var t = audioContext.currentTime;
-      playTone(300, t);
-      setTimeout(function() {
-        playTone(250, audioContext.currentTime);
-      }, 220);
-    } catch (e) {}
+      var ctx = _gateEnsureBeepCtx();
+      console.log('[BEEP] error attempt. ctx:', !!ctx, 'state:', ctx ? ctx.state : 'none');
+    } catch (_) {}
+    var ok1 = _gatePlayTone(260, 130, 'square', 0.15);
+    setTimeout(function() { _gatePlayTone(210, 140, 'square', 0.14); }, 170);
+    if (!ok1) {
+      _gateMaybeWarnAudioLocked();
+      try { if (navigator.vibrate) navigator.vibrate([120, 60, 120]); } catch (_) {}
+    }
+    return ok1;
   }
 
   // -------------------------
@@ -4077,6 +6028,12 @@ function guardTokenPayload() {
     document.getElementById('visitorCheckoutModalOverlay').style.display = 'none';
     document.getElementById('visitorCheckoutModalOverlay').setAttribute('aria-hidden', 'true');
   }
+
+  /* Guard-wall scan handler is a separate early script; it must call these via window. */
+  window.openVisitorCheckinModal = openVisitorCheckinModal;
+  window.closeVisitorCheckinModal = closeVisitorCheckinModal;
+  window.openVisitorCheckoutModal = openVisitorCheckoutModal;
+  window.closeVisitorCheckoutModal = closeVisitorCheckoutModal;
 
   document.getElementById('visitorCheckinModalClose').addEventListener('click', closeVisitorCheckinModal);
   document.getElementById('visitorCheckinCancel').addEventListener('click', closeVisitorCheckinModal);
@@ -4257,10 +6214,7 @@ function guardTokenPayload() {
   function parseStudentId(decodedText) {
     var text = (decodedText || '').trim();
     if (!text) return '';
-    // If it's an event token QR (EVT:...), return as-is for event scanning.
     if (text.toUpperCase().indexOf('EVT:') === 0) return text;
-
-    // Parse line-based payloads first (supports "ID:xxx", visitor codes, and mixed-case prefixes).
     var lines = text.split(/\r?\n/);
     for (var i = 0; i < lines.length; i++) {
       var line = (lines[i] || '').trim();
@@ -4271,32 +6225,31 @@ function guardTokenPayload() {
       if (upper.indexOf('VISITOR-') === 0) return 'VISITOR-' + line.slice(8);
       if (upper.indexOf('VIS-') === 0) return 'VIS-' + line.slice(4);
     }
-
-    // Support full URL payloads that embed visitor codes (e.g. .../VIS-001 or ?code=VIS-001).
     var visitorMatch = text.match(/(?:^|[^A-Z0-9_])(VIS-\d{1,6}|VISITOR-[A-Za-z0-9_-]{6,64})(?:$|[^A-Z0-9_-])/i);
     if (visitorMatch && visitorMatch[1]) {
       var code = visitorMatch[1];
       if (code.toUpperCase().indexOf('VISITOR-') === 0) return 'VISITOR-' + code.slice(8);
       if (code.toUpperCase().indexOf('VIS-') === 0) return 'VIS-' + code.slice(4);
     }
-
-    // Support "STU:xxx" format too.
     if (text.toUpperCase().indexOf('STU:') === 0) return text.slice(4).trim();
     return text;
   }
 
   function getCurrentEventId() {
+    if (typeof window.EVENT_ATTENDANCE_SCANNER_EVENT_ID !== 'undefined' && window.EVENT_ATTENDANCE_SCANNER_EVENT_ID) {
+      return String(window.EVENT_ATTENDANCE_SCANNER_EVENT_ID);
+    }
     var sel = document.getElementById('eventSelector');
     if (!sel || !sel.value) return null;
     var v = String(sel.value).trim();
     return v === '' ? null : v;
   }
 
-  // Debounce mechanism: prevent scanning the same QR code multiple times in quick succession
   var lastScannedCode = null;
   var lastScannedTime = 0;
-  var SCAN_COOLDOWN_MS = 1200; // short cooldown to prevent duplicates without feeling unresponsive
+  var SCAN_COOLDOWN_MS = 1200;
   var scanProcessingStartedAt = 0;
+  var currentScanMode = 'IN';
 
   function forceScannerReadyState() {
     var statusIndicator = document.querySelector('.status-indicator');
@@ -4309,28 +6262,22 @@ function guardTokenPayload() {
     scanProcessingStartedAt = 0;
   }
 
+  window.onScanSuccess = onScanSuccess;
   function onScanSuccess(decodedText, decodedResult) {
     if (isProcessingScan) {
-      // Recovery: if a previous scan got stuck, auto-unlock after timeout.
       if (scanProcessingStartedAt && (Date.now() - scanProcessingStartedAt) > 12000) {
         forceScannerReadyState();
       } else {
         return;
       }
     }
-    
-    // Debounce: Check if this is the same code scanned within cooldown period
     var normalizedDecoded = (decodedText || '').trim();
     var now = Date.now();
     if (normalizedDecoded === lastScannedCode && (now - lastScannedTime) < SCAN_COOLDOWN_MS) {
-      // Same code scanned too quickly - ignore silently
       return;
     }
-    
-    // Update last scanned tracking
     lastScannedCode = normalizedDecoded;
     lastScannedTime = now;
-    
     isProcessingScan = true;
     scanProcessingStartedAt = now;
 
@@ -4362,20 +6309,34 @@ function guardTokenPayload() {
     if (currentEventId === '') currentEventId = null;
     var isEventScan = currentEventId && currentEventId.length > 0;
     var isEventToken = qr_or_student_id.startsWith('EVT:');
-    
+    function shouldQueueOfflineFromXhr(xhr) {
+      return !navigator.onLine || !xhr || xhr.status === 0 || xhr.status === 504 || xhr.status === 503;
+    }
+
     if (!navigator.onLine) {
       var queueItem = {
         qr: qr_or_student_id,
         event_id: currentEventId,
-        scan_type: currentScanMode,  // Use current scan mode instead of hardcoded 'IN'
-        client_ts: new Date().toISOString()
+        scan_type: currentScanMode,
+        client_ts: new Date().toISOString(),
+        use_field_trip_scan: !!(typeof window.EVENT_ATTENDANCE_FIELD_TRIP_MODE !== 'undefined' && window.EVENT_ATTENDANCE_FIELD_TRIP_MODE && window.EVENT_FIELD_TRIP_POST_URL)
       };
-      addToOfflineQueue(queueItem, function(isDuplicate) {
-        if (isDuplicate) {
+      addToOfflineQueue(queueItem, function(result) {
+        if (!result || !result.ok) {
           playErrorBeep();
-          document.getElementById('result').innerHTML = 'Already scanned. No duplicate recorded.';
-          document.getElementById('result').className = 'warning';
-          showNotification('Already scanned. No duplicate recorded.', 'warning');
+          if (result && result.reason === 'duplicate') {
+            document.getElementById('result').innerHTML = 'Already scanned. No duplicate recorded.';
+            document.getElementById('result').className = 'warning';
+            showNotification('Already scanned. No duplicate recorded.', 'warning');
+          } else if (result && result.reason === 'full') {
+            document.getElementById('result').innerHTML = 'Offline queue is full. Please reconnect and sync.';
+            document.getElementById('result').className = 'error';
+            showNotification('Offline queue is full. Please reconnect and sync.', 'error');
+          } else {
+            document.getElementById('result').innerHTML = 'Could not save offline scan on this device.';
+            document.getElementById('result').className = 'error';
+            showNotification('Could not save offline scan on this device.', 'error');
+          }
         } else {
           playSuccessBeep();
           var n = _offlineQueueCache.length;
@@ -4390,8 +6351,7 @@ function guardTokenPayload() {
       });
       return;
     }
-    
-    // ONLINE: Route to correct endpoint
+
     if (isEventScan || isEventToken) {
       // Event attendance scan (token or student ID) – use current dropdown value
       var postData = $.extend({
@@ -4475,6 +6435,37 @@ function guardTokenPayload() {
         if (response.ok && typeof refreshEventAttendeesIframe === 'function') refreshEventAttendeesIframe();
         if (response.ok) refreshLiveEntriesPanel();
       }).fail(function(xhr) {
+        if (shouldQueueOfflineFromXhr(xhr)) {
+          addToOfflineQueue({
+            qr: qr_or_student_id,
+            event_id: currentEventId,
+            scan_type: currentScanMode,
+            client_ts: new Date().toISOString()
+          }, function(result) {
+            if (result && result.ok) {
+              playSuccessBeep();
+              var n = _offlineQueueCache.length;
+              document.getElementById('result').innerHTML = 'Saved offline' + (n ? ' (' + n + ' scan(s) pending sync). ' : '. ') + 'Will sync when online.';
+              document.getElementById('result').className = 'success';
+              showNotification('Scan saved to local database. Will sync to server when back online.', 'info');
+            } else if (result && result.reason === 'duplicate') {
+              playErrorBeep();
+              document.getElementById('result').innerHTML = 'Already scanned. No duplicate recorded.';
+              document.getElementById('result').className = 'warning';
+              showNotification('Already scanned. No duplicate recorded.', 'warning');
+            } else {
+              playErrorBeep();
+              document.getElementById('result').innerHTML = 'Network lost and offline save failed on this device.';
+              document.getElementById('result').className = 'error';
+              showNotification('Network lost and offline save failed on this device.', 'error');
+            }
+            statusIndicator.classList.remove('scanning');
+            statusIndicator.querySelector('span').textContent = 'Scanner ready';
+            isProcessingScan = false;
+            scanProcessingStartedAt = 0;
+          });
+          return;
+        }
         playErrorBeep();
         var msg = (xhr.status >= 500) ? 'Server error. Please try again or contact support.' : 'Network error. Please check your connection.';
         if (xhr && xhr.status === 403) msg = 'Security token expired. Please refresh the scanner page and try again.';
@@ -4502,7 +6493,7 @@ function guardTokenPayload() {
       postData.manual_status = currentScanMode;
     }
 
-    $.post("{% url 'save_scan' %}", $.extend({}, postData, guardTokenPayload()), function(response) {
+      $.post((window.GATE_SAVE_SCAN_URL || "{% url 'save_scan' %}"), $.extend({}, postData, guardTokenPayload()), function(response) {
       var resultDiv = document.getElementById('result');
       var hintDiv = document.getElementById('resultScheduleHint');
       var notePanel = document.getElementById('requireNotePanel');
@@ -4622,6 +6613,37 @@ function guardTokenPayload() {
         refreshLiveEntriesPanel();
       }
     }).fail(function(xhr) {
+      if (shouldQueueOfflineFromXhr(xhr)) {
+        addToOfflineQueue({
+          qr: qr_or_student_id,
+          event_id: selectedEventId || null,
+          scan_type: currentScanMode,
+          client_ts: new Date().toISOString()
+        }, function(result) {
+          if (result && result.ok) {
+            playSuccessBeep();
+            var n = _offlineQueueCache.length;
+            document.getElementById('result').innerHTML = 'Saved offline' + (n ? ' (' + n + ' scan(s) pending sync). ' : '. ') + 'Will sync when online.';
+            document.getElementById('result').className = 'success';
+            showNotification('Scan saved to local database. Will sync to server when back online.', 'info');
+          } else if (result && result.reason === 'duplicate') {
+            playErrorBeep();
+            document.getElementById('result').innerHTML = 'Already scanned today. No duplicate recorded.';
+            document.getElementById('result').className = 'warning';
+            showNotification('Already scanned today. No duplicate recorded.', 'warning');
+          } else {
+            playErrorBeep();
+            document.getElementById('result').innerHTML = 'Network lost and offline save failed on this device.';
+            document.getElementById('result').className = 'error';
+            showNotification('Network lost and offline save failed on this device.', 'error');
+          }
+          statusIndicator.classList.remove('scanning');
+          statusIndicator.querySelector('span').textContent = 'Scanner ready';
+          isProcessingScan = false;
+          scanProcessingStartedAt = 0;
+        });
+        return;
+      }
       playErrorBeep();
       var msg = (xhr && xhr.status >= 500) ? 'Server error. Please try again or contact support.' : 'Network error. Please check your connection.';
       if (xhr && xhr.status === 403) msg = 'Security token expired. Please refresh the scanner page and try again.';
@@ -4642,6 +6664,8 @@ function guardTokenPayload() {
   var scannerSwitching = false;
   /** Staff /gate/ only: client sets true while camera runs; heartbeat notifies guard wall. */
   window._gateStaffScannerHeartbeatActive = false;
+  /** True when Entry input = USB scanner (camera off; wedge / manual field). */
+  window._gateUsbScannerMode = false;
   function setStaffScannerHeartbeatActive(on) {
     if (typeof window.GATE_GUARD_EMBED !== 'undefined' && window.GATE_GUARD_EMBED) return;
     if (typeof window.GATE_GUARD_WALL !== 'undefined' && window.GATE_GUARD_WALL) return;
@@ -4751,19 +6775,23 @@ function guardTokenPayload() {
     var extBtn = document.getElementById('gateStartCameraBtn');
     var stopBtn = document.getElementById('gateStopCameraBtn');
     var swBtn = document.getElementById('gateSwitchCameraBtn');
+    var usbMode = !!window._gateUsbScannerMode;
+    // Guard wall uses its own inline Html5Qrcode instance and tracks state on window.scannerRunning.
+    var running = (window.GATE_GUARD_WALL ? !!window.scannerRunning : scannerRunning);
     if (extBtn) {
-      if (scannerRunning) {
+      if (running) {
         extBtn.style.display = 'none';
       } else {
         extBtn.style.display = 'inline-flex';
-        extBtn.disabled = scannerStarting;
+        extBtn.disabled = scannerStarting || usbMode;
         extBtn.classList.remove('btn-success');
         extBtn.classList.add('btn-primary');
         extBtn.innerHTML = scannerStarting ? '<i class="fas fa-spinner fa-spin"></i> Starting...' : '<i class="fas fa-camera"></i> Start camera';
+        extBtn.title = usbMode ? 'Switch Entry input to Camera to start the webcam.' : '';
       }
     }
     if (stopBtn) {
-      if (scannerRunning) {
+      if (running) {
         stopBtn.style.display = 'inline-flex';
         stopBtn.disabled = scannerSwitching;
       } else {
@@ -4771,7 +6799,9 @@ function guardTokenPayload() {
       }
     }
     if (swBtn) {
-      swBtn.disabled = scannerStarting || scannerSwitching || !scannerRunning;
+      swBtn.disabled = scannerStarting || scannerSwitching || !running || usbMode;
+      if (usbMode) swBtn.title = 'Switch Entry input to Camera to switch lenses.';
+      else swBtn.title = '';
     }
   }
   /** Guard embed: stretch library internals to fill the square #reader (fixes black strip / letterboxing). */
@@ -4858,7 +6888,9 @@ function guardTokenPayload() {
       document.addEventListener('webkitfullscreenchange', fsReflow);
     }
   }
-  function stopScanner(done) {
+  function stopScanner(done, opts) {
+    opts = opts || {};
+    var keepStaffHeartbeat = !!opts.keepStaffHeartbeat;
     if (!html5QrcodeInstance || !scannerRunning) {
       if (typeof done === 'function') done();
       return;
@@ -4866,13 +6898,13 @@ function guardTokenPayload() {
     html5QrcodeInstance.stop().then(function() {
       scannerRunning = false;
       activeCameraId = null;
-      setStaffScannerHeartbeatActive(false);
+      if (!keepStaffHeartbeat) setStaffScannerHeartbeatActive(false);
       updateExternalCameraButtonState();
       if (typeof done === 'function') done();
     }).catch(function() {
       scannerRunning = false;
       activeCameraId = null;
-      setStaffScannerHeartbeatActive(false);
+      if (!keepStaffHeartbeat) setStaffScannerHeartbeatActive(false);
       updateExternalCameraButtonState();
       if (typeof done === 'function') done();
     });
@@ -4891,7 +6923,11 @@ function guardTokenPayload() {
     }
     var ids = [];
     if (pref === 'front') {
-      ids = frontIds.concat(unknownIds, backIds);
+      var unkF = unknownIds.slice();
+      if (!frontIds.length && unkF.length >= 2) {
+        unkF.reverse();
+      }
+      ids = frontIds.concat(unkF, backIds);
     } else if (pref === 'back') {
       ids = backIds.concat(unknownIds.slice().reverse(), frontIds);
     } else {
@@ -4940,6 +6976,11 @@ function guardTokenPayload() {
     });
   }
   function startScannerWithPreference(pref, done) {
+    if (window._gateUsbScannerMode) {
+      showNotification('Switch "Entry input" to Camera to use the webcam.', 'info');
+      if (typeof done === 'function') done(false);
+      return;
+    }
     if (scannerStarting) {
       if (typeof done === 'function') done(false);
       return;
@@ -5017,6 +7058,8 @@ function guardTokenPayload() {
   /** Guard embed / guard wall: no Start button — begin preview only after staff scanner is active (heartbeat). */
   function guardEmbedAutoStartCamera() {
     if (!window.GATE_GUARD_EMBED && !window.GATE_GUARD_WALL) return;
+    if (window.GATE_GUARD_WALL) return;
+    if (window._gateUsbScannerMode) return;
     if (scannerRunning || scannerStarting) return;
     setTimeout(function() {
       if (scannerRunning || scannerStarting) return;
@@ -5024,15 +7067,38 @@ function guardTokenPayload() {
     }, 400);
   }
   /** Poll staff scanner heartbeat; guard embed + guard wall stay blocked until staff taps Start on /gate/. */
+  var _guardPollStarted = false;
   function guardEmbedStaffScannerPoll() {
-    if (!window.GATE_GUARD_EMBED && !window.GATE_GUARD_WALL) return;
+    if (_guardPollStarted) return;
+    console.log('[Guard Poll] Function called');
+    console.log('[Guard Poll] GATE_GUARD_EMBED:', window.GATE_GUARD_EMBED);
+    console.log('[Guard Poll] GATE_GUARD_WALL:', window.GATE_GUARD_WALL);
+    
+    if (!window.GATE_GUARD_EMBED && !window.GATE_GUARD_WALL) {
+      console.log('[Guard Poll] Not guard embed or wall, skipping poll');
+      return;
+    }
+    _guardPollStarted = true;
     var url = window.GATE_GUARD_DASHBOARD_MINIMAL_URL;
-    if (!url) return;
+    console.log('[Guard Poll] Initializing with URL:', url);
+    console.log('[Guard Poll] GATE_GUARD_WALL:', window.GATE_GUARD_WALL);
+    console.log('[Guard Poll] GATE_GUARD_EMBED:', window.GATE_GUARD_EMBED);
+    if (!url) {
+      console.error('[Guard Poll] No URL configured! Check GATE_GUARD_DASHBOARD_MINIMAL_URL');
+      return;
+    }
     var overlay = document.getElementById('guardStaffWaitOverlay');
     var fullOverlay = document.getElementById('guardWallFullOverlay');
     var livePanel = document.getElementById('liveEntriesPanel');
     var statusSpan = document.querySelector('.scanner-container .status-indicator span');
+    console.log('[Guard Poll] Overlay elements:', {
+      overlay: !!overlay,
+      fullOverlay: !!fullOverlay,
+      livePanel: !!livePanel,
+      statusSpan: !!statusSpan
+    });
     function hideOverlay() {
+      console.log('[Guard Poll] Hiding overlay - scanner is ACTIVE');
       window._gateGuardWallScannerActive = true;
       if (overlay) {
         overlay.style.display = 'none';
@@ -5045,6 +7111,7 @@ function guardTokenPayload() {
       if (livePanel) livePanel.style.display = '';
     }
     function showOverlay() {
+      console.log('[Guard Poll] Showing overlay - scanner is INACTIVE');
       window._gateGuardWallScannerActive = false;
       if (overlay) {
         overlay.style.display = '';
@@ -5054,18 +7121,34 @@ function guardTokenPayload() {
         fullOverlay.style.display = 'flex';
         fullOverlay.setAttribute('aria-hidden', 'false');
       }
-      if (livePanel) livePanel.style.display = 'none';
+      var _leModal = document.getElementById('liveEntriesModalOverlay');
+      if (livePanel && !(_leModal && _leModal.style.display === 'flex')) livePanel.style.display = 'none';
     }
     function tick() {
-      fetch(url, { credentials: 'same-origin' })
-        .then(function(r) { return r.json(); })
+      console.log('[Guard Poll] Polling:', url);
+      fetch(url, { credentials: 'same-origin', cache: 'no-store' })
+        .then(function(r) {
+          console.log('[Guard Poll] Response status:', r.status);
+          if (!r.ok) {
+            console.warn('[Guard Poll] Non-OK response; check token matches GATE_GUARD_DISPLAY_TOKEN');
+            return null;
+          }
+          return r.json();
+        })
         .then(function(data) {
-          if (!data || !data.success) return;
+          if (data === null) return;
+          console.log('[Guard Poll] Response data:', data);
+          if (!data || !data.success) {
+            console.warn('[Guard Poll] Invalid response or not successful');
+            return;
+          }
           if (data.scanner_active) {
+            console.log('[Guard Poll] Scanner is ACTIVE - starting camera');
             if (statusSpan) statusSpan.textContent = 'Scanner active';
             hideOverlay();
             guardEmbedAutoStartCamera();
           } else {
+            console.log('[Guard Poll] Scanner is INACTIVE - showing waiting message');
             if (scannerRunning) {
               stopScanner(function() {});
             }
@@ -5073,12 +7156,29 @@ function guardTokenPayload() {
             showOverlay();
           }
         })
-        .catch(function() {});
+        .catch(function(err) {
+          console.error('[Guard Poll] Fetch error:', err);
+        });
     }
+    window.addEventListener('storage', function(ev) {
+      if (ev.key === 'ccb_gate_session_ping' || ev.key === 'ccb_gate_session_stop') {
+        console.log('[Guard Poll] Dashboard session signal — rechecking now');
+        tick();
+      }
+    });
+    console.log('[Guard Poll] Starting initial poll and interval (1.5s) + storage sync from dashboard');
     tick();
-    setInterval(tick, 2500);
+    setInterval(tick, 1500);
   }
   function switchCameraFromExternalButton() {
+    if (window._gateUsbScannerMode) {
+      showNotification('Switch Entry input to Camera to switch camera.', 'info');
+      return;
+    }
+    if (window.GATE_GUARD_WALL && typeof window._guardInlineSwitchCamera === 'function') {
+      window._guardInlineSwitchCamera();
+      return;
+    }
     if (scannerSwitching || scannerStarting) return;
     scannerSwitching = true;
     function finishSwitch() {
@@ -5122,6 +7222,15 @@ function guardTokenPayload() {
     }
     switchWithKnownCameras();
   }
+  // Guard poll MUST start regardless of QR library — start it as early as possible.
+  if (window.GATE_GUARD_EMBED || window.GATE_GUARD_WALL) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() { guardEmbedStaffScannerPoll(); });
+    } else {
+      guardEmbedStaffScannerPoll();
+    }
+  }
+
   function initQrScanner() {
     var readerEl = document.getElementById('reader');
     if (!readerEl) return;
@@ -5131,9 +7240,6 @@ function guardTokenPayload() {
         navigator.mediaDevices.addEventListener('devicechange', function() {
           listCameras(function(cams) { availableCameras = cams || []; });
         });
-      }
-      if (window.GATE_GUARD_EMBED || window.GATE_GUARD_WALL) {
-        guardEmbedStaffScannerPoll();
       }
     }
     if (typeof Html5Qrcode !== 'undefined') {
@@ -5182,6 +7288,7 @@ function guardTokenPayload() {
     } catch (e) {}
     cameraPrefSelect.addEventListener('change', function() {
       setCameraPreference(cameraPrefSelect.value);
+      if (window.GATE_GUARD_WALL) return;
       if (scannerRunning) {
         startScannerWithPreference(getCameraPreference(), function() {});
       }
@@ -5199,7 +7306,42 @@ function guardTokenPayload() {
   }
   var switchCameraBtn = document.getElementById('gateSwitchCameraBtn');
   if (switchCameraBtn) {
-    switchCameraBtn.addEventListener('click', switchCameraFromExternalButton);
+    if (window.GATE_GUARD_WALL && typeof window._guardInlineSwitchCamera === 'function') {
+      // Guard wall: always bind the inline switch here too (belt-and-suspenders).
+      if (!switchCameraBtn._guardInlineSwitchBound) {
+        switchCameraBtn._guardInlineSwitchBound = true;
+        switchCameraBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          console.log('[Switch] Button clicked (outer binding, guard wall)');
+          window._guardInlineSwitchCamera();
+        });
+      }
+    } else {
+      switchCameraBtn.addEventListener('click', switchCameraFromExternalButton);
+    }
+  }
+
+  // Global fallback: ensure any #gateSwitchCameraBtn click triggers the right switch.
+  // This covers cases where the button is re-rendered or missed by earlier bindings.
+  if (!window._gateGlobalSwitchCameraBound) {
+    window._gateGlobalSwitchCameraBound = true;
+    document.addEventListener('click', function(e) {
+      var t = e.target;
+      if (!t || !t.closest) return;
+      var btn = t.closest('#gateSwitchCameraBtn');
+      if (!btn) return;
+      try { console.log('[Switch] Global click fallback fired'); } catch (_e) {}
+      try {
+        var st = document.getElementById('gateSwitchCameraStatus');
+        if (st) st.textContent = 'Clicked…';
+      } catch (_e2) {}
+      e.preventDefault();
+      if (window.GATE_GUARD_WALL && typeof window._guardInlineSwitchCamera === 'function') {
+        window._guardInlineSwitchCamera();
+      } else if (typeof switchCameraFromExternalButton === 'function') {
+        switchCameraFromExternalButton();
+      }
+    }, true);
   }
   showBrowserHelpIfNeeded();
   setInterval(updateExternalCameraButtonState, 1000);
@@ -5213,6 +7355,251 @@ function guardTokenPayload() {
     var manualInputEl = document.getElementById('manualInput');
     var manualReasonEl = document.getElementById('manualReason');
     if (!manualSubmitEl || !manualInputEl || !manualReasonEl) return;
+
+    // Manual entry should not be blocked by camera-scan processing flags (guard-display/guard-wall).
+    // Use a dedicated lock to prevent double-submits from Enter/Submit/scanner suffix.
+    var manualProcessing = false;
+
+    var GATE_INPUT_MODE_KEY = 'gate_scan_input_mode';
+    var gateInputModeEl = document.getElementById('gateInputMode');
+    var gateUsbWedgeEl = document.getElementById('gateUsbWedgeCapture');
+    var gateUsbSignalEl = document.getElementById('gateUsbSignalStatus');
+
+    function setUsbSignalListening() {
+      if (!gateUsbSignalEl || !window._gateUsbScannerMode) return;
+      gateUsbSignalEl.className = 'gate-usb-signal--warn';
+      gateUsbSignalEl.textContent = 'USB listen: waiting for scan…';
+    }
+
+    function updateUsbSignalFromBuffer() {
+      if (!gateUsbSignalEl || !window._gateUsbScannerMode || !gateUsbWedgeEl) return;
+      var n = (gateUsbWedgeEl.value || '').length;
+      if (!n) {
+        setUsbSignalListening();
+        return;
+      }
+      gateUsbSignalEl.className = 'gate-usb-signal--ok';
+      gateUsbSignalEl.textContent = 'USB OK: ' + n + ' char(s)…';
+    }
+
+    function focusUsbWedgeField(clearFirst) {
+      if (!gateUsbWedgeEl || !window._gateUsbScannerMode) return;
+      try {
+        if (clearFirst) gateUsbWedgeEl.value = '';
+        gateUsbWedgeEl.focus();
+      } catch (_w) {}
+    }
+
+    function finalizeUsbWedgePayload(raw) {
+      var payload = (raw || '').trim();
+      if (!payload) {
+        if (gateUsbSignalEl && window._gateUsbScannerMode) {
+          gateUsbSignalEl.className = 'gate-usb-signal--warn';
+          gateUsbSignalEl.textContent = 'No text received. Test in Notepad if needed.';
+        }
+        return;
+      }
+      // If the scanner got "stuck" in a processing state (network drop, tab sleep),
+      // don't silently ignore the next hardware scan.
+      try {
+        if (typeof isProcessingScan !== 'undefined' && isProcessingScan && typeof scanProcessingStartedAt !== 'undefined') {
+          if (!scanProcessingStartedAt || (Date.now() - scanProcessingStartedAt) > 2500) {
+            if (typeof forceScannerReadyState === 'function') forceScannerReadyState();
+          }
+        }
+      } catch (_busy) {}
+      if (gateUsbSignalEl && window._gateUsbScannerMode) {
+        gateUsbSignalEl.className = 'gate-usb-signal--ok';
+        gateUsbSignalEl.textContent = 'Processing…';
+      }
+      try {
+        if (typeof window.GATE_GUARD_WALL !== 'undefined' && window.GATE_GUARD_WALL && typeof window._gwHandleScan === 'function') {
+          window._gwHandleScan(payload);
+          return;
+        }
+        if (typeof window.onScanSuccess === 'function') window.onScanSuccess(payload, null);
+      } catch (e) {
+        try { console.error('[USB Scanner] Failed to process payload:', e); } catch (_e) {}
+      }
+    }
+
+    if (gateUsbWedgeEl) {
+      var _wedgeIdleTimer = null;
+      var WEDGE_IDLE_MS = 220;
+      gateUsbWedgeEl.addEventListener('keydown', function(e) {
+        if (!window._gateUsbScannerMode) return;
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (_wedgeIdleTimer) { clearTimeout(_wedgeIdleTimer); _wedgeIdleTimer = null; }
+          var v = gateUsbWedgeEl.value.trim();
+          gateUsbWedgeEl.value = '';
+          finalizeUsbWedgePayload(v);
+          setTimeout(function() { focusUsbWedgeField(false); }, 40);
+          return;
+        }
+        if (e.key === 'Tab' || e.key === 'Escape') return;
+        if (e.key && e.key.length === 1) updateUsbSignalFromBuffer();
+      });
+      gateUsbWedgeEl.addEventListener('input', function() {
+        if (!window._gateUsbScannerMode) return;
+        updateUsbSignalFromBuffer();
+        if (_wedgeIdleTimer) clearTimeout(_wedgeIdleTimer);
+        _wedgeIdleTimer = setTimeout(function() {
+          _wedgeIdleTimer = null;
+          var v = (gateUsbWedgeEl.value || '').trim();
+          if (!v) return;
+          gateUsbWedgeEl.value = '';
+          finalizeUsbWedgePayload(v);
+          setTimeout(function() { focusUsbWedgeField(false); }, 40);
+        }, WEDGE_IDLE_MS);
+      });
+
+      // Don't steal focus from dropdowns / camera controls — otherwise Entry input <select>
+      // opens then immediately closes ("blinks") when we refocus the hidden wedge field.
+      function usbWedgeAllowRefocusForActiveElement(ae) {
+        if (!ae) return false;
+        if (ae.id === 'manualInput' || ae.id === 'gateUsbWedgeCapture') return false;
+        var tag = (ae.tagName || '').toUpperCase();
+        if (tag === 'SELECT' || tag === 'BUTTON' || tag === 'TEXTAREA') return false;
+        if (ae.isContentEditable) return false;
+        if (ae.closest && ae.closest('.camera-control-row')) return false;
+        if (ae.closest && ae.closest('.gate-wall-usb-extras')) return false;
+        if (ae.closest && ae.closest('.scan-column-usb-extras')) return false;
+        if (ae.closest && ae.closest('.manual-input')) return false;
+        if (ae.closest && ae.closest('.modal')) return false;
+        // Visitor check-in/out, live entries, help, etc. use .visitor-modal-overlay (not Bootstrap .modal).
+        if (ae.closest && ae.closest('.visitor-modal-overlay')) return false;
+        return true;
+      }
+
+      function usbWedgeAllowRefocusForClickTarget(t) {
+        if (!t || !t.closest) return true;
+        if ((t.tagName || '').toUpperCase() === 'SELECT' || (t.tagName || '').toUpperCase() === 'OPTION') return false;
+        if (t.closest('.camera-control-row')) return false;
+        if (t.closest('.gate-wall-usb-extras')) return false;
+        if (t.closest('.scan-column-usb-extras')) return false;
+        if (t.closest('.manual-input')) return false;
+        if (t.closest('.modal')) return false;
+        if (t.closest('.visitor-modal-overlay')) return false;
+        if (t.closest('label[for="gateInputMode"]')) return false;
+        return true;
+      }
+
+      // If something steals focus, re-focus the wedge field (but don't fight the user
+      // when they're intentionally typing manual/lost-ID info).
+      setInterval(function() {
+        if (!window._gateUsbScannerMode) return;
+        var ae = document.activeElement;
+        if (!usbWedgeAllowRefocusForActiveElement(ae)) return;
+        try { focusUsbWedgeField(false); } catch (_rf) {}
+      }, 2500);
+
+      // Clicking anywhere in USB mode should re-arm the scanner focus.
+      document.addEventListener('click', function(e) {
+        if (!window._gateUsbScannerMode) return;
+        if (!usbWedgeAllowRefocusForClickTarget(e.target)) return;
+        setTimeout(function() {
+          var ae = document.activeElement;
+          if (!usbWedgeAllowRefocusForActiveElement(ae)) return;
+          focusUsbWedgeField(false);
+        }, 30);
+      }, true);
+    }
+
+    function applyGateInputMode(mode, fromUserInteraction) {
+      var usb = (mode === 'usb_scanner');
+      window._gateUsbScannerMode = usb;
+      try {
+        localStorage.setItem(GATE_INPUT_MODE_KEY, usb ? 'usb_scanner' : 'camera');
+      } catch (_ls) {}
+      if (gateInputModeEl) {
+        var want = usb ? 'usb_scanner' : 'camera';
+        if (gateInputModeEl.value !== want) gateInputModeEl.value = want;
+      }
+      var scanCol = document.getElementById('gate-scan-scanner');
+      if (scanCol) {
+        if (usb) scanCol.classList.add('gate-scan-scanner--usb-mode');
+        else scanCol.classList.remove('gate-scan-scanner--usb-mode');
+      }
+      var hintFraming = document.getElementById('gateScannerFramingHint');
+      if (hintFraming) {
+        var camT = hintFraming.getAttribute('data-hint-camera') || hintFraming.textContent;
+        var usbT = hintFraming.getAttribute('data-hint-usb') || '';
+        hintFraming.textContent = usb ? usbT : camT;
+      }
+      var guardInstr = document.querySelector('.guard-scanner-instruction__text');
+      if (guardInstr) {
+        var gCam = guardInstr.getAttribute('data-hint-camera');
+        var gUsb = guardInstr.getAttribute('data-hint-usb');
+        if (gCam && gUsb) guardInstr.textContent = usb ? gUsb : gCam;
+      }
+      if (usb) {
+        if (typeof window._gateGuardWallStopCamera === 'function') {
+          window._gateGuardWallStopCamera(function() {});
+        }
+        stopScanner(function() {}, { keepStaffHeartbeat: true });
+        setTimeout(function() {
+          focusUsbWedgeField(true);
+          setUsbSignalListening();
+          try { showNotification('USB scanner ready. Scan a student QR now.', 'info'); } catch (_n) {}
+        }, 120);
+      } else if (fromUserInteraction && typeof window.GATE_GUARD_WALL !== 'undefined' && window.GATE_GUARD_WALL && typeof window._gateGuardWallTryStartCamera === 'function') {
+        setTimeout(function() {
+          if (!window._gateUsbScannerMode) window._gateGuardWallTryStartCamera();
+        }, 250);
+      }
+      if (typeof updateExternalCameraButtonState === 'function') updateExternalCameraButtonState();
+      if (!usb && gateUsbSignalEl) {
+        gateUsbSignalEl.textContent = '';
+        gateUsbSignalEl.className = 'gate-usb-signal--warn';
+      }
+    }
+
+    if (gateInputModeEl) {
+      try {
+        var savedIm = localStorage.getItem(GATE_INPUT_MODE_KEY);
+        if (savedIm === 'usb_scanner' || savedIm === 'camera') gateInputModeEl.value = savedIm;
+      } catch (_eim) {}
+      gateInputModeEl.addEventListener('change', function() {
+        applyGateInputMode(gateInputModeEl.value, true);
+      });
+      applyGateInputMode(gateInputModeEl.value, false);
+    } else {
+      window._gateUsbScannerMode = false;
+    }
+
+    function usbScannerShouldCaptureKeydown(e) {
+      if (!window._gateUsbScannerMode) return false;
+      var t = e.target;
+      if (!t) return true;
+      var tag = (t.tagName || '').toUpperCase();
+      if (tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return false;
+      if (tag === 'INPUT' && (t.id === 'manualInput' || t.id === 'gateUsbWedgeCapture')) return false;
+      if (tag === 'INPUT') return false;
+      if (t.isContentEditable) return false;
+      if (t.closest && t.closest('.modal')) return false;
+      var le = document.getElementById('liveEntriesModalOverlay');
+      if (le && le.style.display === 'flex' && t.closest && t.closest('#liveEntriesModalOverlay')) return false;
+      return true;
+    }
+
+    function getCsrfTokenSafe() {
+      // Guard-display may not have getCsrfFromCookie() in scope.
+      try {
+        if (typeof getCsrfFromCookie === 'function') return getCsrfFromCookie();
+      } catch (_e) {}
+      try {
+        var m = document.cookie.match(/\\bcsrftoken=([^;]+)/);
+        if (m && m[1]) return String(m[1]).trim();
+      } catch (_e2) {}
+      // Fallback: template-provided token (may be empty if middleware didn't set)
+      return "{{ csrf_token }}";
+    }
+
+    function clearManualInputError() {
+      manualInputEl.classList.remove('manual-input-error');
+    }
+    manualInputEl.addEventListener('input', clearManualInputError);
 
     function manualReasonPlaceholderSync() {
       if ((manualReasonEl.value || '').trim() === '') {
@@ -5235,19 +7622,37 @@ function guardTokenPayload() {
     }
 
     function doManualSubmit(studentInput, gateKind, reasonText, reasonLabelText, skipConfirm) {
-      if (isProcessingScan) {
-        showNotification('Please wait while the current scan is being processed', 'warning');
+      if (manualProcessing) {
+        showNotification('Please wait while the manual entry is being processed', 'warning');
         return;
       }
       var scanStatus = gateKind === 'in' ? 'IN' : 'OUT';
       var runPost = function() {
-        isProcessingScan = true;
+        manualProcessing = true;
+        var manualProcessingStartedAt = Date.now();
+        var selectedEventIdSafe = (typeof selectedEventId !== 'undefined' && selectedEventId) ? selectedEventId : null;
+        try { console.log('[Manual Entry] Sending request', { studentInput: studentInput, gateKind: gateKind, scanStatus: scanStatus, reasonText: reasonText, eventId: selectedEventIdSafe }); } catch (_e0) {}
 
         var statusIndicator = document.querySelector('.status-indicator');
         statusIndicator.classList.add('scanning');
         statusIndicator.querySelector('span').textContent = 'Processing manual input...';
 
         var fullDateTime = manualEntryLocalDateTime();
+
+        // Safety net: never allow manual entry to stay "stuck" forever.
+        // If the network stack drops the request (ngrok, SW, browser), reset after 12s.
+        setTimeout(function() {
+          if (manualProcessing && (Date.now() - manualProcessingStartedAt) > 12000) {
+            manualProcessing = false;
+            try {
+              statusIndicator.classList.remove('scanning');
+              statusIndicator.querySelector('span').textContent = 'Scanner ready';
+            } catch (e) {}
+            try {
+              showNotification('Manual entry timed out. Please try again.', 'warning');
+            } catch (e2) {}
+          }
+        }, 12500);
 
         if (!navigator.onLine) {
           addToOfflineQueue({
@@ -5257,14 +7662,22 @@ function guardTokenPayload() {
             manual_entry_reason: gateKind === 'in' ? (reasonText || '') : '',
             use_save_scan: true,
             local_time: fullDateTime,
-            event_id: selectedEventId,
+            event_id: selectedEventIdSafe,
             client_ts: new Date().toISOString()
-          }, function(isDuplicate) {
-            if (isDuplicate) {
+          }, function(result) {
+            if (!result || !result.ok) {
               playErrorBeep();
-              document.getElementById('result').innerHTML = 'Already scanned today. No duplicate recorded.';
+              if (result && result.reason === 'duplicate') {
+                document.getElementById('result').innerHTML = 'Already scanned today. No duplicate recorded.';
+                showNotification('Already scanned today. No duplicate recorded.', 'warning');
+              } else if (result && result.reason === 'full') {
+                document.getElementById('result').innerHTML = 'Offline queue is full. Please reconnect and sync.';
+                showNotification('Offline queue is full. Please reconnect and sync.', 'error');
+              } else {
+                document.getElementById('result').innerHTML = 'Could not save offline manual entry on this device.';
+                showNotification('Could not save offline manual entry on this device.', 'error');
+              }
               document.getElementById('result').className = 'warning';
-              showNotification('Already scanned today. No duplicate recorded.', 'warning');
             } else {
               playSuccessBeep();
               var n = _offlineQueueCache.length;
@@ -5274,7 +7687,7 @@ function guardTokenPayload() {
             }
             statusIndicator.classList.remove('scanning');
             statusIndicator.querySelector('span').textContent = 'Scanner ready';
-            isProcessingScan = false;
+            manualProcessing = false;
             manualInputEl.value = '';
             manualReasonEl.value = '';
             manualReasonPlaceholderSync();
@@ -5286,14 +7699,25 @@ function guardTokenPayload() {
           student_id: studentInput,
           local_time: fullDateTime,
           device_id: DEVICE_ID,
-          csrfmiddlewaretoken: (getCsrfFromCookie() || "{{ csrf_token }}"),
+          csrfmiddlewaretoken: getCsrfTokenSafe(),
           manual_status: scanStatus,
           gate_manual_entry: gateKind
         };
         if (gateKind === 'in' && reasonText) postData.manual_entry_reason = reasonText;
-        if (selectedEventId) postData.event_id = selectedEventId;
+        if (selectedEventIdSafe) postData.event_id = selectedEventIdSafe;
 
-        $.post("{% url 'save_scan' %}", $.extend({}, postData, guardTokenPayload()), function(response) {
+        $.ajax({
+          url: (window.GATE_SAVE_SCAN_URL || "{% url 'save_scan' %}"),
+          method: "POST",
+          data: $.extend({}, postData, guardTokenPayload()),
+          timeout: 10000,
+          success: function(response) {
+      // jQuery may hand us a string if response headers are odd; normalize to object.
+      try {
+        if (typeof response === 'string') response = JSON.parse(response);
+      } catch (_e) {}
+      try { console.log('[Manual Entry] save_scan response:', response); } catch (_e2) {}
+
       var resultDiv = document.getElementById('result');
       var hintDiv = document.getElementById('resultScheduleHint');
       var notePanel = document.getElementById('requireNotePanel');
@@ -5320,7 +7744,7 @@ function guardTokenPayload() {
         refreshLiveEntriesPanel(true, 'visitors');
         statusIndicator.classList.remove('scanning');
         statusIndicator.querySelector('span').textContent = 'Scanner ready';
-        isProcessingScan = false;
+        manualProcessing = false;
         return;
       }
       if (response.need_visitor_checkout) {
@@ -5331,7 +7755,7 @@ function guardTokenPayload() {
         refreshLiveEntriesPanel(true, 'visitors');
         statusIndicator.classList.remove('scanning');
         statusIndicator.querySelector('span').textContent = 'Scanner ready';
-        isProcessingScan = false;
+        manualProcessing = false;
         return;
       }
       if (response.duplicate) {
@@ -5341,7 +7765,7 @@ function guardTokenPayload() {
         showNotification(response.message || 'Duplicate scan.', 'warning');
         statusIndicator.classList.remove('scanning');
         statusIndicator.querySelector('span').textContent = 'Scanner ready';
-        isProcessingScan = false;
+        manualProcessing = false;
         return;
       }
 
@@ -5354,6 +7778,8 @@ function guardTokenPayload() {
         manualInputEl.value = '';
         manualReasonEl.value = '';
         manualReasonPlaceholderSync();
+        clearManualInputError();
+        manualProcessing = false;
         if (response.status === 'IN') {
           /* Same toast pattern as visitor check-in success (upper-right .notification.success) */
           showNotification(
@@ -5380,18 +7806,29 @@ function guardTokenPayload() {
         document.getElementById('outNoteSelect').value = '';
         document.getElementById('outNoteText').value = '';
         showNotification(response.message, 'warning', 'Optional note', currentTime);
-      } else if (response.not_registered || response.inactive) {
+        // manualProcessing is intentionally kept true until note is submitted/cancelled.
+      } else if ((response && (response.not_registered || response.inactive)) || (response && response.message && /not registered/i.test(String(response.message)))) {
         playErrorBeep();
-        resultDiv.innerHTML = escapeHtml(response.message);
+        var isNotRegistered = !!(response && response.not_registered) || (response && response.message && /not registered/i.test(String(response.message)));
+        var _manualFailMsg = (response && response.message) ? response.message : '';
+        if (isNotRegistered) {
+          _manualFailMsg = 'Not registered: "' + studentInput + '". This ID/name is not in the system.';
+          manualInputEl.classList.add('manual-input-error');
+        } else if (response.inactive) {
+          manualInputEl.classList.add('manual-input-error');
+        }
+        resultDiv.innerHTML = escapeHtml(_manualFailMsg);
         resultDiv.className = 'warning';
         showStudentPopup(response);
-        showNotification(response.message, 'warning', response.inactive ? 'Activation Required' : 'Registration required', currentTime);
+        showNotification(_manualFailMsg, 'warning', (response && response.inactive) ? 'Activation Required' : 'Not registered', currentTime);
+        manualProcessing = false;
       } else if (response.already_scanned) {
         playErrorBeep();
         resultDiv.innerHTML = escapeHtml(response.message);
         resultDiv.className = 'warning';
         /* Duplicate / cooldown: no student popup */
         showNotification(response.message, 'warning', response.repeat_cooldown ? 'Wait' : 'Already scanned', response.first_scan_time || currentTime);
+        manualProcessing = false;
       } else {
         playErrorBeep();
         resultDiv.innerHTML = escapeHtml(response.message);
@@ -5402,13 +7839,15 @@ function guardTokenPayload() {
           showStudentPopup(response);
         }
         showNotification(response.message, response.color === 'warning' ? 'warning' : 'error', 'Error', response.time || currentTime);
+        manualProcessing = false;
       }
 
       // Unlock scanner state immediately after the server responds.
       setTimeout(function() {
         statusIndicator.classList.remove('scanning');
         statusIndicator.querySelector('span').textContent = 'Scanner ready';
-        if (!response.require_note) isProcessingScan = false;
+        // For manual entry, the dedicated lock is released above; keep it locked only when require_note is active.
+        if (!response.require_note) manualProcessing = false;
       }, 0);
       if (response.success && typeof refreshEventAttendeesIframe === 'function') refreshEventAttendeesIframe();
       if (response.success) {
@@ -5416,59 +7855,162 @@ function guardTokenPayload() {
       } else if (response.require_note || response.not_registered || response.inactive || response.already_scanned) {
         refreshLiveEntriesPanel();
       }
-    }).fail(function(xhr) {
+          },
+          error: function(xhr) {
+      try { console.warn('[Manual Entry] save_scan error:', xhr && xhr.status, xhr && xhr.responseText); } catch (_e3) {}
+      if (!navigator.onLine || !xhr || xhr.status === 0) {
+        addToOfflineQueue({
+          student_id: studentInput,
+          manual_status: scanStatus,
+          gate_manual_entry: gateKind,
+          manual_entry_reason: gateKind === 'in' ? (reasonText || '') : '',
+          use_save_scan: true,
+          local_time: fullDateTime,
+          event_id: selectedEventId,
+          client_ts: new Date().toISOString()
+        }, function(result) {
+          if (result && result.ok) {
+            playSuccessBeep();
+            var n = _offlineQueueCache.length;
+            document.getElementById('result').innerHTML = 'Saved offline' + (n ? ' (' + n + ' scan(s) pending sync). ' : '. ') + 'Will sync when online.';
+            document.getElementById('result').className = 'success';
+            showNotification('Manual entry saved to local database. Will sync to server when back online.', 'info');
+            clearManualInputError();
+          } else if (result && result.reason === 'duplicate') {
+            playErrorBeep();
+            document.getElementById('result').innerHTML = 'Already scanned today. No duplicate recorded.';
+            document.getElementById('result').className = 'warning';
+            showNotification('Already scanned today. No duplicate recorded.', 'warning');
+          } else {
+            playErrorBeep();
+            document.getElementById('result').innerHTML = 'Network lost and offline manual save failed on this device.';
+            document.getElementById('result').className = 'error';
+            showNotification('Network lost and offline manual save failed on this device.', 'error');
+          }
+          statusIndicator.classList.remove('scanning');
+          statusIndicator.querySelector('span').textContent = 'Scanner ready';
+          manualProcessing = false;
+          manualInputEl.value = '';
+          manualReasonEl.value = '';
+          manualReasonPlaceholderSync();
+        });
+        return;
+      }
       playErrorBeep();
-      var msg = (xhr && xhr.status >= 500) ? 'Server error. Please try again or contact support.' : 'Network error. Please check your connection.';
+      var msg;
+      if (xhr && xhr.status === 0) {
+        msg = 'Network timeout. Please try again.';
+      } else {
+        msg = (xhr && xhr.status >= 500) ? 'Server error. Please try again or contact support.' : 'Network error. Please check your connection.';
+      }
       if (xhr && xhr.status === 403) msg = 'Security token expired. Please refresh the scanner page and try again.';
       showNotification(msg, 'error');
       statusIndicator.classList.remove('scanning');
       statusIndicator.querySelector('span').textContent = 'Scanner ready';
-      isProcessingScan = false;
-    });
+      manualProcessing = false;
+          }
+        });
       };
 
       if (skipConfirm) {
         runPost();
       } else {
         var reasonLabel = gateKind === 'in' ? (reasonLabelText || reasonText || 'check-in') : 'check-out (no ID scan)';
-        themeConfirm(
-          'Submit manual entry for "' + studentInput + '" as ' + reasonLabel + '?',
-          function() { runPost(); }
-        );
+        if (typeof themeConfirm === 'function') {
+          themeConfirm(
+            'Submit manual entry for "' + studentInput + '" as ' + reasonLabel + '?',
+            function() { runPost(); }
+          );
+        } else {
+          // Guard-display / minimal shells: if confirm helper isn't present, submit immediately.
+          runPost();
+        }
       }
     }
 
-    manualSubmitEl.addEventListener('click', function() {
-      var raw = manualInputEl.value.trim();
-      var reason = (manualReasonEl.value || '').trim();
+    function runManualSubmitFromUi() {
+      try {
+        var raw = manualInputEl.value.trim();
+        var reason = (manualReasonEl.value || '').trim();
 
-      if (!raw) {
-        showNotification('Enter a registered name or student ID.', 'warning');
+        if (!raw) {
+          showNotification('Enter a registered name or student ID.', 'warning');
+          return;
+        }
+        var reasonLabel = reason ? ((manualReasonEl.options[manualReasonEl.selectedIndex] || {}).text || reason) : '';
+        if (reason) {
+          doManualSubmit(raw, 'in', reason, reasonLabel, false);
+        } else {
+          doManualSubmit(raw, 'out', '', '', true);
+        }
+      } catch (err) {
+        try { console.error('[Manual Entry] Submit handler error:', err); } catch (_e) {}
+        try { showNotification('Manual entry error. Please refresh the page and try again.', 'error'); } catch (_e2) {}
+      }
+    }
+
+    // USB handheld scanners typically behave like a keyboard that types the QR payload fast
+    // and ends with Enter (or sometimes just a short pause). In USB scanner mode we treat
+    // that payload as a normal QR scan (same handler as the camera), not a manual entry.
+    var _usbScanBuf = '';
+    var _usbScanTimer = null;
+    var USB_SCAN_IDLE_MS = 200;
+    function _usbScanResetTimer() {
+      if (_usbScanTimer) clearTimeout(_usbScanTimer);
+      _usbScanTimer = setTimeout(function() { _usbScanFinalize('idle'); }, USB_SCAN_IDLE_MS);
+    }
+    function _usbScanFinalize(_why) {
+      if (_usbScanTimer) { clearTimeout(_usbScanTimer); _usbScanTimer = null; }
+      var payload = (_usbScanBuf || '').trim();
+      _usbScanBuf = '';
+      finalizeUsbWedgePayload(payload);
+    }
+    document.addEventListener('keydown', function(e) {
+      if (!usbScannerShouldCaptureKeydown(e)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'Enter') {
+        if (!_usbScanBuf) return;
+        e.preventDefault();
+        _usbScanFinalize('enter');
         return;
       }
-      var reasonLabel = reason ? ((manualReasonEl.options[manualReasonEl.selectedIndex] || {}).text || reason) : '';
-      if (reason) {
-        doManualSubmit(raw, 'in', reason, reasonLabel, false);
-      } else {
-        doManualSubmit(raw, 'out', '', '', true);
+      if (e.key && e.key.length === 1) {
+        e.preventDefault();
+        _usbScanBuf += e.key;
+        _usbScanResetTimer();
       }
+    }, true);
+
+    manualSubmitEl.addEventListener('click', function() {
+      try { console.log('[Manual Entry] Submit clicked'); } catch (_l) {}
+      runManualSubmitFromUi();
     });
+
+    function manualInputLooksLikeQrPayload(val) {
+      var s = (val || '').trim();
+      if (!s) return false;
+      if (/\r|\n/.test(val)) return true;
+      if (/^(STU|ID|EVT):/i.test(s)) return true;
+      if (/VISITOR-|VIS-/i.test(s)) return true;
+      return false;
+    }
 
     manualInputEl.addEventListener('keydown', function(e) {
       if (e.key !== 'Enter') return;
+      if (window._gateUsbScannerMode) {
+        var raw = manualInputEl.value.trim();
+        if (raw && manualInputLooksLikeQrPayload(manualInputEl.value)) {
+          e.preventDefault();
+          manualInputEl.value = '';
+          clearManualInputError();
+          finalizeUsbWedgePayload(raw);
+          setTimeout(function() { focusUsbWedgeField(false); }, 40);
+          return;
+        }
+      }
       e.preventDefault();
-      var raw = manualInputEl.value.trim();
-      var reason = (manualReasonEl.value || '').trim();
-      if (!raw) {
-        showNotification('Enter a registered name or student ID.', 'warning');
-        return;
-      }
-      var reasonLabel = reason ? ((manualReasonEl.options[manualReasonEl.selectedIndex] || {}).text || reason) : '';
-      if (reason) {
-        doManualSubmit(raw, 'in', reason, reasonLabel, false);
-      } else {
-        doManualSubmit(raw, 'out', '', '', true);
-      }
+      try { console.log('[Manual Entry] Enter pressed'); } catch (_l2) {}
+      runManualSubmitFromUi();
     });
   })();
 
@@ -5492,7 +8034,7 @@ function guardTokenPayload() {
     var resultDiv = document.getElementById('result');
     var hintDiv = document.getElementById('resultScheduleHint');
     var notePanel = document.getElementById('requireNotePanel');
-    $.post("{% url 'save_scan' %}", $.extend({}, postData, guardTokenPayload()), function(response) {
+    $.post((window.GATE_SAVE_SCAN_URL || "{% url 'save_scan' %}"), $.extend({}, postData, guardTokenPayload()), function(response) {
       notePanel.style.display = 'none';
       window._pendingNoteScan = null;
       if (response.success) {
@@ -5870,8 +8412,9 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-if (!window.GUARD_EMBED_TOKEN) {
-// Poll for new notifications every 10 seconds
+if (!window.GUARD_EMBED_TOKEN && !window.GATE_GUARD_WALL) {
+// Poll for new notifications every 10 seconds (only for logged-in staff, not guard wall)
+console.log('[Gate Scan Notifications] Notification polling ENABLED');
 function checkNewNotifications() {
   const url = `{% url 'gate-api-poll-personnel-notifications' %}?since=${encodeURIComponent(lastNotificationCheck)}`;
   console.log('[Gate Scan Notifications] Checking for new notifications:', url);
@@ -5908,6 +8451,8 @@ setInterval(checkNewNotifications, 10000);
 // Check immediately on page load
 setTimeout(checkNewNotifications, 2000);
 console.log('[Gate Scan Notifications] Notification polling initialized');
+} else {
+  console.log('[Gate Scan Notifications] Notification polling DISABLED (guard wall or embed mode)');
 }
 
 {% if guard_embed %}
@@ -6006,6 +8551,17 @@ console.log('[Gate Scan Notifications] Notification polling initialized');
       credentials: 'same-origin',
       headers: headers,
       body: JSON.stringify({ camera_running: active }),
+    }).then(function(r) {
+      // If staff session expired / CSRF missing, guard wall will never unlock.
+      // Surface this so staff knows to refresh/re-login.
+      if (r && (r.status === 401 || r.status === 403)) {
+        window._gateStaffScannerHeartbeatActive = false;
+        try {
+          if (typeof showNotification === 'function') {
+            showNotification('Scanner heartbeat blocked (session expired). Refresh the scanner page and login again.', 'warning');
+          }
+        } catch (e) {}
+      }
     }).catch(function () {});
   }
   window._gateScannerHeartbeatPingNow = sendStaffScannerHeartbeatState;

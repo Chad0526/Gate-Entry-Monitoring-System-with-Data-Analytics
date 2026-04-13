@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -123,7 +124,7 @@
       font-weight: 600;
       border-radius: 12px 12px 0 0;
     }
-    {% if hide_embed_filters %}
+    {% if compact_live_panel %}
     /* Guard live panel compact mode: keep full table visible without horizontal scrolling. */
     body { padding: 8px; }
     .card-body .table { font-size: 0.74rem; line-height: 1.15; table-layout: fixed; width: 100%; }
@@ -150,19 +151,154 @@
     .card-body .table tbody td:nth-child(8) { width: 15%; white-space: nowrap; }
     .card-body .table tbody td:nth-child(3) code { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
     {% endif %}
+
+    /* Print styles with header */
+    @media print {
+      body { padding: 0; background: #fff; }
+      
+      /* Show print header */
+      .print-header {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 20px;
+        border-bottom: 2px solid #28a745;
+        margin-bottom: 16px;
+      }
+      
+      .print-header-logo {
+        width: 50px;
+        height: 50px;
+        margin-right: 16px;
+      }
+      
+      .print-header-content {
+        text-align: center;
+      }
+      
+      .print-header-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1e5631;
+        margin: 0 0 4px 0;
+      }
+      
+      .print-header-subtitle {
+        font-size: 14px;
+        color: #495057;
+        margin: 0 0 2px 0;
+      }
+      
+      .print-header-date {
+        font-size: 12px;
+        color: #6c757d;
+        margin: 0;
+      }
+      
+      /* Hide interactive elements */
+      .gate-embed-filter,
+      .entries-tabs-wrap,
+      .btn,
+      button,
+      .pagination,
+      .btn-report-id-mismatch,
+      .no-print {
+        display: none !important;
+      }
+      
+      /* Optimize table for print */
+      .card {
+        box-shadow: none;
+        border: 1px solid #dee2e6;
+      }
+      
+      .card-body {
+        padding: 0 !important;
+      }
+      
+      .table {
+        font-size: 10px !important;
+        page-break-inside: auto;
+      }
+      
+      .table thead th {
+        background: #f8f9fa !important;
+        color: #212529 !important;
+        border: 1px solid #dee2e6 !important;
+        padding: 6px 4px !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      
+      .table tbody td {
+        padding: 4px !important;
+        border: 1px solid #dee2e6 !important;
+      }
+      
+      .table tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+      }
+      
+      /* Hide photo column to save space */
+      .table thead th:nth-child(1),
+      .table tbody td:nth-child(1) {
+        display: none;
+      }
+      
+      /* Hide action column */
+      .table thead th:nth-child(8),
+      .table tbody td:nth-child(8) {
+        display: none;
+      }
+      
+      /* Ensure badges print with color */
+      .badge {
+        border: 1px solid #dee2e6;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      
+      /* Page footer with page numbers */
+      @page {
+        margin: 0.5in;
+        @bottom-right {
+          content: "Page " counter(page) " of " counter(pages);
+        }
+      }
+    }
   </style>
 </head>
 <body>
 {% include 'base/confirm_modal.html' %}
+  
+  <!-- Print header (only visible when printing) -->
+  <div class="print-header" style="display: none;">
+    <img src="{% static 'img/logo.png' %}" alt="Logo" class="print-header-logo">
+    <div class="print-header-content">
+      <div class="print-header-title">{{ site_name|default:"City College of Bayawan" }}</div>
+      <div class="print-header-subtitle">Gate Entry Report{% if student_gate_only %} - Student Gate Only{% endif %}</div>
+      <div class="print-header-date">
+        {% if to_date and to_date != from_date %}
+          Date Range: {{ from_date }} to {{ to_date }}
+        {% else %}
+          Date: {{ from_date }}
+        {% endif %}
+        | Generated: {% now "Y-m-d H:i:s" %}
+      </div>
+    </div>
+  </div>
+
   <div class="card">
-    {% if not hide_embed_filters %}
     <div class="card-header gate-embed-filter py-3">
       <div class="d-flex flex-wrap align-items-center justify-content-between" style="gap:10px;">
         <h6 class="m-0"><i class="fas fa-filter mr-1"></i> Search &amp; date range</h6>
-        <form method="get" class="form-inline" style="gap:8px; display:flex; flex-wrap:wrap; align-items:center;">
+        <div class="d-flex flex-wrap align-items-center" style="gap:8px;">
+        <form id="gateEmbedEntriesFilterForm" method="get" action="{% url 'gate-entry-list' %}" class="form-inline" style="gap:8px; display:flex; flex-wrap:wrap; align-items:center;">
           <input type="hidden" name="embed" value="1">
           {% if student_gate_only %}<input type="hidden" name="student_gate_only" value="1">{% endif %}
           {% if guard_token %}<input type="hidden" name="guard_token" value="{{ guard_token }}">{% endif %}
+          {% if compact_live_panel %}<input type="hidden" name="live_panel" value="1">{% endif %}
           <input type="hidden" name="per_page" value="{{ per_page|default:10 }}">
           <input type="search" name="q" value="{{ q|default:'' }}" placeholder="Search ID / name / notes" class="form-control form-control-sm" style="max-width:200px;" title="Search">
           <input type="date" name="from_date" value="{{ from_date|default:'' }}" class="form-control form-control-sm" title="From date">
@@ -176,12 +312,12 @@
             <option value="out" {% if filter == 'out' %}selected{% endif %}>OUT</option>
           </select>
           <button type="submit" class="btn btn-sm btn-primary">Apply</button>
-          <a href="{% url 'gate-entry-list' %}?embed=1{% if student_gate_only %}&amp;student_gate_only=1{% endif %}" class="btn btn-sm btn-outline-secondary">Reset</a>
         </form>
+        <a href="{% url 'gate-entry-list' %}?embed=1{% if student_gate_only %}&amp;student_gate_only=1{% endif %}{% if guard_token %}&amp;guard_token={{ guard_token|urlencode }}{% endif %}{% if compact_live_panel %}&amp;live_panel=1{% endif %}" class="btn btn-sm btn-outline-secondary" id="gateEmbedEntriesResetLink">Reset</a>
+        </div>
       </div>
       <p class="mb-0 mt-2 small text-muted" style="font-weight:400;">Set both dates for a range (like monthly analytics). Leave end date empty to use a single day.</p>
     </div>
-    {% endif %}
     <div class="entries-tabs-wrap">
       <div class="entries-tabs">
         <a href="#" class="active" data-tab="entries"><i class="fas fa-door-open mr-2"></i> Student entries</a>
@@ -233,7 +369,7 @@
                     data-student-id="{% if primary_e.student %}{{ primary_e.student.student_id }}{% else %}{{ primary_e.student_id|default:'' }}{% endif %}"
                     data-entry-id="{{ primary_e.pk }}"
                     title="Notify Student Affairs (SAS) — possible ID / person mismatch">
-                    <i class="fas fa-exclamation-triangle"></i> {% if hide_embed_filters %}Report{% else %}Report ID mismatch{% endif %}
+                    <i class="fas fa-exclamation-triangle"></i> {% if compact_live_panel %}Report{% else %}Report ID mismatch{% endif %}
                   </button>
                 </td>
               </tr>
@@ -336,6 +472,39 @@
   <script>
     window.GUARD_EMBED_TOKEN = "{{ guard_token|default:''|escapejs }}";
     window.GATE_ID_MISMATCH_REPORT_URL = "{% url 'gate-api-guard-incident-report' %}";
+    (function gateEmbedFilterNavigate() {
+      var form = document.getElementById('gateEmbedEntriesFilterForm');
+      if (!form) return;
+      form.addEventListener('submit', function(ev) {
+        ev.preventDefault();
+        var action = (form.getAttribute('action') || '').trim();
+        var u;
+        try {
+          u = new URL(action || window.location.pathname, window.location.href);
+        } catch (e) {
+          window.location.assign(window.location.pathname + '?' + new URLSearchParams(new FormData(form)).toString());
+          return;
+        }
+        u.search = '';
+        new FormData(form).forEach(function(val, key) {
+          u.searchParams.append(key, val);
+        });
+        window.location.assign(u.toString());
+      });
+      var resetA = document.getElementById('gateEmbedEntriesResetLink');
+      if (resetA) {
+        resetA.addEventListener('click', function(ev) {
+          ev.preventDefault();
+          var href = (resetA.getAttribute('href') || '').trim();
+          if (!href) return;
+          try {
+            window.location.assign(new URL(href, window.location.href).toString());
+          } catch (e2) {
+            window.location.assign(href);
+          }
+        });
+      }
+    })();
     (function() {
       var LS_REPORTED_KEY = 'gate_id_mismatch_reported_v1';
       function mergeReportedMapsFromStorages() {

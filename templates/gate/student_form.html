@@ -27,7 +27,7 @@
     border-radius: 16px;
     border: 1px solid rgba(22, 163, 74, 0.12);
     box-shadow: 0 4px 24px rgba(15, 81, 50, 0.06);
-    overflow: hidden;
+    overflow: visible;
   }
   .student-form-modern .card-header {
     background: #fff;
@@ -63,10 +63,17 @@
     position: relative;
     box-shadow: 0 8px 28px rgba(22, 163, 74, 0.12);
   }
+  /* Absolute + object-fit avoids flex/attr stretching (uniform scale only). */
   .student-avatar-circle img#student-avatar-img {
+    position: absolute;
+    left: 0;
+    top: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
+    z-index: 1;
+    max-width: none;
   }
   .student-avatar-initials {
     font-size: 2.25rem;
@@ -92,6 +99,9 @@
     cursor: pointer;
     z-index: 5;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
+    padding: 0;
+    appearance: none;
+    -webkit-appearance: none;
   }
   .student-avatar-fab:hover {
     transform: scale(1.05);
@@ -99,6 +109,95 @@
     box-shadow: 0 6px 18px rgba(22, 163, 74, 0.5);
   }
   .student-avatar-fab i { font-size: 1rem; }
+  .student-photo-fab-dropdown {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    z-index: 6;
+    width: 40px;
+    height: 40px;
+  }
+  .student-photo-fab-dropdown .student-avatar-fab {
+    position: static;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+  }
+  .student-avatar-fab.dropdown-toggle::after {
+    display: none;
+  }
+  .student-photo-fab-menu {
+    min-width: 11rem;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+    padding: 0.35rem 0;
+  }
+  .student-photo-fab-menu .dropdown-item {
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    color: #334155;
+  }
+  .student-photo-fab-menu .dropdown-item:hover {
+    background: #ecfdf5;
+    color: #15803d;
+  }
+  #studentWebcamModal .modal-content {
+    border-radius: 16px;
+    overflow: hidden;
+    border: none;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
+  }
+  #studentWebcamModal .modal-header {
+    background: #16a34a;
+    color: #fff;
+    border: none;
+    padding: 0.65rem 1rem;
+  }
+  #studentWebcamModal .modal-header .close {
+    color: #fff;
+    opacity: 0.9;
+    text-shadow: none;
+  }
+  /* Passport 3.5×4.5 cm ⇒ width:height = 7:9 (not square / not 130×155). Padding-top trick keeps ratio in all browsers. */
+  #studentWebcamModal .student-webcam-video-wrap {
+    position: relative;
+    width: min(300px, 88vw);
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    background: #0f172a;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 3px solid #16a34a;
+    box-sizing: border-box;
+  }
+  #studentWebcamModal .student-webcam-video-wrap::before {
+    content: '';
+    display: block;
+    width: 100%;
+    padding-top: calc(100% * 9 / 7);
+  }
+  #studentWebcamModal #studentWebcamVideo {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    object-position: center;
+  }
+  #studentWebcamModal .student-webcam-id-hint {
+    font-size: 0.8125rem;
+    color: #64748b;
+    margin: 0 0 0.5rem;
+    line-height: 1.4;
+  }
+  #studentWebcamErr {
+    font-size: 0.875rem;
+  }
   .student-avatar-hint {
     font-size: 0.8125rem;
     color: #64748b;
@@ -430,16 +529,24 @@
               <label for="{{ form.photo.id_for_label }}" class="student-avatar-circle-label">
                 <div class="student-avatar-circle" id="student-avatar-ring">
                   {% if student and student.photo %}
-                  <img src="{{ student.photo.url }}" alt="" id="student-avatar-img" width="140" height="140">
+                  <img src="{{ student.photo.url }}" alt="" id="student-avatar-img">
                   <span id="student-avatar-initials" class="student-avatar-initials" style="display:none;" aria-hidden="true">{% if student.first_name or student.last_name %}{{ student.first_name|default:''|slice:':1'|upper }}{{ student.last_name|default:''|slice:':1'|upper }}{% else %}?{% endif %}</span>
                   {% else %}
                   <span id="student-avatar-initials" class="student-avatar-initials">{% if student %}{% if student.first_name or student.last_name %}{{ student.first_name|default:''|slice:':1'|upper }}{{ student.last_name|default:''|slice:':1'|upper }}{% else %}?{% endif %}{% else %}{% if form.first_name.value or form.last_name.value %}{{ form.first_name.value|default:''|slice:':1'|upper }}{{ form.last_name.value|default:''|slice:':1'|upper }}{% else %}+{% endif %}{% endif %}</span>
                   {% endif %}
                 </div>
               </label>
-              <label for="{{ form.photo.id_for_label }}" class="student-avatar-fab" title="Upload photo" aria-label="Upload photo"><i class="fas fa-camera"></i></label>
+              <div class="dropdown dropup student-photo-fab-dropdown">
+                <button type="button" class="student-avatar-fab dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Add photo" aria-label="Photo options">
+                  <i class="fas fa-camera"></i>
+                </button>
+                <div class="dropdown-menu dropdown-menu-right student-photo-fab-menu">
+                  <button type="button" class="dropdown-item student-photo-opt-upload" id="studentPhotoOptUpload"><i class="fas fa-folder-open mr-2 text-muted"></i>Upload photo</button>
+                  <button type="button" class="dropdown-item student-photo-opt-capture" id="studentPhotoOptCapture"><i class="fas fa-camera-retro mr-2 text-muted"></i>Capture image</button>
+                </div>
+              </div>
             </div>
-            <p class="student-avatar-hint">Click the photo or camera to choose a file.</p>
+            <p class="student-avatar-hint">Click the circle for a file, or the camera for upload / webcam capture.</p>
             {% if form.photo.errors %}<div class="text-danger small mt-1">{{ form.photo.errors }}</div>{% endif %}
           </div>
 
@@ -664,6 +771,29 @@
   </div>
 </div>
 {% endif %}
+<div class="modal fade" id="studentWebcamModal" tabindex="-1" role="dialog" aria-labelledby="studentWebcamModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: min(560px, 96vw);">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title mb-0" id="studentWebcamModalTitle"><i class="fas fa-camera mr-2"></i>Capture photo</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-1">Allow camera access when prompted. Coach the student so their pose fits this frame—<strong>Capture</strong> saves exactly what you see here for the ID card.</p>
+        <p class="student-webcam-id-hint mb-2">Frame is <strong>passport proportion</strong> (3.5×4.5&nbsp;cm → 7∶9)—same as the e-ID slot, not square.</p>
+        <div id="studentWebcamErr" class="text-danger mb-2" role="alert"></div>
+        <div class="student-webcam-video-wrap mb-3">
+          <video id="studentWebcamVideo" playsinline autoplay muted></video>
+        </div>
+        <canvas id="studentWebcamCanvas" class="d-none"></canvas>
+        <div class="d-flex flex-wrap justify-content-end" style="gap: 8px;">
+          <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-success" id="studentWebcamCaptureBtn"><i class="fas fa-circle mr-1"></i>Capture</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% include 'snippets/eid_iframe_url_script.html' %}
 <script>
   (function() {
@@ -764,31 +894,223 @@
     if (fnField) fnField.addEventListener('input', updateAvatarInitialsFromNames);
     if (lnField) lnField.addEventListener('input', updateAvatarInitialsFromNames);
 
+    function applyStudentPhotoPreview(f) {
+      if (!f || !f.type.match(/^image\//)) return;
+      var url = URL.createObjectURL(f);
+      var ring = document.getElementById('student-avatar-ring');
+      var avatarImg = document.getElementById('student-avatar-img');
+      var initialsEl = document.getElementById('student-avatar-initials');
+      if (avatarImg) {
+        avatarImg.src = url;
+        avatarImg.style.display = '';
+        avatarImg.removeAttribute('width');
+        avatarImg.removeAttribute('height');
+        if (initialsEl) initialsEl.style.display = 'none';
+      } else if (ring) {
+        var img = document.createElement('img');
+        img.id = 'student-avatar-img';
+        img.alt = '';
+        img.src = url;
+        if (initialsEl) initialsEl.style.display = 'none';
+        ring.insertBefore(img, initialsEl || ring.firstChild);
+      }
+    }
+
     if (photoFileInput) {
       photoFileInput.addEventListener('change', function() {
-        var f = this.files && this.files[0];
-        if (!f || !f.type.match(/^image\//)) return;
-        var url = URL.createObjectURL(f);
-        var ring = document.getElementById('student-avatar-ring');
-        var avatarImg = document.getElementById('student-avatar-img');
-        var initialsEl = document.getElementById('student-avatar-initials');
-        if (avatarImg) {
-          avatarImg.src = url;
-          avatarImg.style.display = '';
-          if (initialsEl) initialsEl.style.display = 'none';
-        } else if (ring) {
-          var img = document.createElement('img');
-          img.id = 'student-avatar-img';
-          img.alt = '';
-          img.width = 140;
-          img.height = 140;
-          img.src = url;
-          img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-          if (initialsEl) initialsEl.style.display = 'none';
-          ring.insertBefore(img, initialsEl || ring.firstChild);
-        }
+        applyStudentPhotoPreview(this.files && this.files[0]);
       });
     }
+
+    /* Match object-fit:cover on #studentWebcamVideo; box is 7∶9 (passport 3.5×4.5 cm) same as e-ID slot. */
+    function gateStudentWebcamCoverCropFromVideo(video) {
+      var vw = video.videoWidth;
+      var vh = video.videoHeight;
+      if (!vw || !vh) return null;
+      var rect = video.getBoundingClientRect();
+      var elW = rect.width;
+      var elH = rect.height;
+      if (elW < 2 || elH < 2) return null;
+      var arElement = elW / elH;
+      var arVideo = vw / vh;
+      var sx, sy, sw, sh;
+      if (arVideo > arElement) {
+        sh = vh;
+        sw = vh * arElement;
+        sx = (vw - sw) / 2;
+        sy = 0;
+      } else {
+        sw = vw;
+        sh = vw / arElement;
+        sx = 0;
+        sy = (vh - sh) / 2;
+      }
+      return { sx: sx, sy: sy, sw: sw, sh: sh };
+    }
+
+    var studentPhotoOptUpload = document.getElementById('studentPhotoOptUpload');
+    if (studentPhotoOptUpload && photoFileInput) {
+      studentPhotoOptUpload.addEventListener('click', function(e) {
+        e.preventDefault();
+        photoFileInput.click();
+      });
+    }
+
+    /* Webcam + Bootstrap modals need jQuery; on base.html scripts load after this block, so wait for DOMContentLoaded. Modal iframe shell has jQuery in <body> before content, but we still use one code path here. */
+    function gateStudentFormBindJquery($) {
+      var studentWebcamModal = document.getElementById('studentWebcamModal');
+      var studentWebcamStream = null;
+      function stopStudentWebcamStream() {
+        if (studentWebcamStream) {
+          studentWebcamStream.getTracks().forEach(function(t) { t.stop(); });
+          studentWebcamStream = null;
+        }
+        var v = document.getElementById('studentWebcamVideo');
+        if (v) v.srcObject = null;
+      }
+
+      var studentPhotoOptCapture = document.getElementById('studentPhotoOptCapture');
+      if (studentPhotoOptCapture && studentWebcamModal) {
+        studentPhotoOptCapture.addEventListener('click', function(e) {
+          e.preventDefault();
+          $(studentWebcamModal).modal('show');
+        });
+        $(studentWebcamModal).off('hidden.bs.modal.gateWcam shown.bs.modal.gateWcam');
+        $(studentWebcamModal).on('hidden.bs.modal.gateWcam', function() {
+          stopStudentWebcamStream();
+          var errEl = document.getElementById('studentWebcamErr');
+          if (errEl) errEl.textContent = '';
+        });
+        $(studentWebcamModal).on('shown.bs.modal.gateWcam', function() {
+          window.setTimeout(function() {
+            var errEl = document.getElementById('studentWebcamErr');
+            var video = document.getElementById('studentWebcamVideo');
+            if (errEl) errEl.textContent = '';
+            stopStudentWebcamStream();
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+              if (errEl) errEl.textContent = 'Camera is not supported in this browser. Use Upload photo.';
+              return;
+            }
+            if (video) {
+              video.setAttribute('playsinline', 'true');
+              video.setAttribute('webkit-playsinline', 'true');
+              video.setAttribute('muted', 'true');
+              video.muted = true;
+            }
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+              .catch(function() {
+                return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+              })
+              .then(function(stream) {
+                studentWebcamStream = stream;
+                if (!video) return;
+                video.srcObject = stream;
+                video.onloadedmetadata = function() {};
+                function checkPreview() {
+                  if (video.videoWidth === 0 && errEl) {
+                    errEl.textContent = 'Live preview did not start. Try again or use Upload photo. If Add student opened inside a frame, allow camera (iframe uses allow="camera").';
+                  }
+                }
+                var playP = video.play();
+                if (playP && typeof playP.then === 'function') {
+                  playP.then(function() { window.setTimeout(checkPreview, 2000); })
+                    .catch(function() { window.setTimeout(checkPreview, 2200); });
+                } else {
+                  window.setTimeout(checkPreview, 2000);
+                }
+              })
+              .catch(function() {
+                if (errEl) {
+                  errEl.textContent = 'Could not access the camera. Allow permission in the browser or use Upload photo.';
+                }
+              });
+          }, 100);
+        });
+      }
+
+      var studentWebcamCaptureBtn = document.getElementById('studentWebcamCaptureBtn');
+      if (studentWebcamCaptureBtn && photoFileInput) {
+        studentWebcamCaptureBtn.addEventListener('click', function() {
+          var video = document.getElementById('studentWebcamVideo');
+          var canvas = document.getElementById('studentWebcamCanvas');
+          var errEl = document.getElementById('studentWebcamErr');
+          if (!video || !canvas || !video.videoWidth) {
+            if (errEl) errEl.textContent = 'Wait for the live preview, then capture.';
+            return;
+          }
+          var crop = gateStudentWebcamCoverCropFromVideo(video);
+          if (!crop) {
+            if (errEl) errEl.textContent = 'Wait for the live preview, then capture.';
+            return;
+          }
+          var PASS_W = 7;
+          var PASS_H = 9;
+          var PASS_EXPORT_UNIT = 100;
+          var outW = PASS_W * PASS_EXPORT_UNIT;
+          var outH = PASS_H * PASS_EXPORT_UNIT;
+          canvas.width = outW;
+          canvas.height = outH;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(video, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, outW, outH);
+          canvas.toBlob(function(blob) {
+            if (!blob) {
+              if (errEl) errEl.textContent = 'Could not create the image. Try again.';
+              return;
+            }
+            var file = new File([blob], 'webcam-photo.jpg', { type: 'image/jpeg' });
+            try {
+              var dt = new DataTransfer();
+              dt.items.add(file);
+              photoFileInput.files = dt.files;
+            } catch (err) {
+              if (errEl) errEl.textContent = 'This browser cannot attach a captured photo. Use Upload photo instead.';
+              return;
+            }
+            applyStudentPhotoPreview(file);
+            try {
+              photoFileInput.dispatchEvent(new Event('change', { bubbles: true }));
+            } catch (e) {}
+            if (studentWebcamModal) {
+              $(studentWebcamModal).modal('hide');
+            }
+          }, 'image/jpeg', 0.92);
+        });
+      }
+
+      var openPopupBtn = document.getElementById('studentEidOpenPopup');
+      var popupModal = document.getElementById('studentEidPopupModal');
+      var popupFrame = document.getElementById('studentEidPopupFrame');
+      var popupEidUrl = "{% if student %}{% url 'gate-student-eid' student.pk %}{% endif %}";
+      if (openPopupBtn && popupModal && popupFrame) {
+        openPopupBtn.addEventListener('click', function() {
+          var pu = popupEidUrl;
+          if (pu && typeof normalizeGateEidUrl === 'function') pu = normalizeGateEidUrl(pu);
+          popupFrame.src = pu || 'about:blank';
+          $(popupModal).modal('show');
+        });
+        $(popupModal).off('hidden.bs.modal.gateEidPop');
+        $(popupModal).on('hidden.bs.modal.gateEidPop', function() {
+          popupFrame.src = 'about:blank';
+        });
+      }
+    }
+
+    function gateStudentFormWhenJqueryReady() {
+      function run() {
+        if (typeof window.jQuery === 'undefined') {
+          return;
+        }
+        gateStudentFormBindJquery(window.jQuery);
+      }
+      if (typeof window.jQuery !== 'undefined') {
+        run();
+      } else if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', run);
+      } else {
+        run();
+      }
+    }
+    gateStudentFormWhenJqueryReady();
     var inlineFrame = document.getElementById('studentEidInlineFrame');
     if (inlineFrame && inlineFrame.src && typeof normalizeGateEidUrl === 'function') {
       try { inlineFrame.src = normalizeGateEidUrl(inlineFrame.src); } catch (e) {}
@@ -808,21 +1130,6 @@
           var w = window.open(inlineFrame.src, 'eidprint', 'noopener,noreferrer,width=800,height=600');
           if (w) w.addEventListener('load', function() { w.print(); w.onafterprint = function() { w.close(); }; });
         }
-      });
-    }
-    var openPopupBtn = document.getElementById('studentEidOpenPopup');
-    var popupModal = document.getElementById('studentEidPopupModal');
-    var popupFrame = document.getElementById('studentEidPopupFrame');
-    var popupEidUrl = "{% if student %}{% url 'gate-student-eid' student.pk %}{% endif %}";
-    if (openPopupBtn && popupModal && popupFrame) {
-      openPopupBtn.addEventListener('click', function() {
-        var pu = popupEidUrl;
-        if (pu && typeof normalizeGateEidUrl === 'function') pu = normalizeGateEidUrl(pu);
-        popupFrame.src = pu || 'about:blank';
-        $(popupModal).modal('show');
-      });
-      $(popupModal).on('hidden.bs.modal', function() {
-        popupFrame.src = 'about:blank';
       });
     }
   })();

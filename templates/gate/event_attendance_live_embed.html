@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Event scans – {{ event.name }}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+  <style>
+    body { margin: 0; padding: 16px; background: #fff; font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .embed-header { font-weight: 600; color: #1e5631; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .embed-header .badge { font-weight: 600; }
+    .table { font-size: 12px; margin-bottom: 0; }
+    .table thead th { background: #e8f5e9; color: #1b5e20; font-weight: 600; border-color: rgba(40,167,69,0.3); white-space: nowrap; }
+    .table td { vertical-align: middle; }
+    .embed-wrap { max-height: 360px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    code { font-size: 0.78rem; }
+  </style>
+</head>
+<body>
+  <div class="embed-header">
+    <i class="fas fa-calendar-check"></i>
+    <span>{{ event.name }}</span>
+    <span class="badge badge-light border text-muted">{{ filter_date|date:"M j, Y" }}</span>
+    <span class="badge badge-success ml-auto"><i class="fas fa-clipboard-list"></i> Event scans only</span>
+  </div>
+  <div class="embed-wrap">
+    <table class="table table-striped table-hover table-sm">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Type</th>
+          <th>Result</th>
+          <th>Student ID</th>
+          <th>Name</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td>{{ log.scan_time|date:"g:i:s A" }}</td>
+          <td><span class="badge {% if log.scan_type == 'OUT' %}badge-warning text-dark{% else %}badge-primary{% endif %}">{{ log.scan_type }}</span></td>
+          <td><span class="badge {% if log.result == 'SUCCESS' %}badge-success{% elif log.result == 'DUPLICATE' %}badge-secondary{% else %}badge-warning text-dark{% endif %}">{{ log.result }}</span></td>
+          <td>{% if log.student %}<code>{{ log.student.student_id }}</code>{% else %}—{% endif %}</td>
+          <td>{% if log.student %}{{ log.student.get_full_name }}{% else %}—{% endif %}</td>
+          <td class="small text-muted">{{ log.remarks|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-muted text-center py-4">No scans recorded for this date yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

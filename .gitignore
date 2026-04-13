@@ -138,3 +138,6 @@ media/
 
 # Backup outputs (scheduled backups; do not commit)
 backups/
+
+# Django file cache (multi-worker)
+.django_cache/

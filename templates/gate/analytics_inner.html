@@ -764,7 +764,7 @@
 <div class="section-card dashboard-section" style="margin-top:0;">
   <div class="section-head">Analytics overview</div>
   <div class="section-body" style="padding-top: 8px;">
-    <form method="get" class="analytics-overview-bar js-analytics-ajax" action="{% url 'gate-analytics' %}" id="analyticsOverviewForm">
+    <form method="get" class="analytics-overview-bar js-analytics-ajax" action="{% url 'gate-analytics' %}" id="analyticsOverviewForm" data-no-page-loader="1">
       <input type="hidden" name="year" value="{{ selected_year }}">
       <div>
         <label for="overviewPreset">Date range</label>

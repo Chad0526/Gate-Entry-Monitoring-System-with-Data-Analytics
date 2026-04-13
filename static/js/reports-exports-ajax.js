@@ -36,6 +36,7 @@
         return r.text();
       })
       .then(function (html) {
+        if (window.ccbHidePageLoader) window.ccbHidePageLoader();
         root.innerHTML = html;
         root.style.opacity = '';
         root.style.pointerEvents = '';
@@ -49,6 +50,7 @@
         if (window.initReportsExportsExportButtons) window.initReportsExportsExportButtons();
       })
       .catch(function () {
+        if (window.ccbHidePageLoader) window.ccbHidePageLoader();
         root.style.opacity = '';
         root.style.pointerEvents = '';
         window.location.href = url;

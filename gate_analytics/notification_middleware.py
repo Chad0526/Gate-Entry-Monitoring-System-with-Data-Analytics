@@ -5,8 +5,9 @@ Read state is stored in the database (NotificationRead) so it persists across se
 from django.urls import resolve
 from django.urls.exceptions import Resolver404
 from django.utils import timezone
+from django.db.models import Q
 
-from gate.models import AdminNotification, NotificationRead
+from gate.models import AdminNotification, NotificationRead, Student
 
 
 def _get_notification_keys(request):
@@ -70,12 +71,36 @@ class NotificationReadMiddleware:
                         notification_type='incident',
                     ).update(is_read=True, read_at=timezone.now())
                 if rm.url_name == 'gate-student-edit' and rm.kwargs.get('pk'):
+                    pk = rm.kwargs['pk']
                     AdminNotification.objects.filter(
                         target_user=request.user,
                         is_read=False,
                         notification_type='sas_inactive_ready_activation',
-                        related_student_id=rm.kwargs['pk'],
+                        related_student_id=pk,
                     ).update(is_read=True, read_at=timezone.now())
+                    AdminNotification.objects.filter(
+                        target_user=request.user,
+                        is_read=False,
+                        notification_type='gate_manual_referral',
+                        related_student_id=pk,
+                    ).update(is_read=True, read_at=timezone.now())
+                    AdminNotification.objects.filter(
+                        target_user=request.user,
+                        is_read=False,
+                        notification_type='sas_verified_gate_followup',
+                        related_student_id=pk,
+                    ).update(is_read=True, read_at=timezone.now())
+                    st = Student.objects.filter(pk=pk).only('student_id').first()
+                    inc_q = Q(related_incident__student_id=pk)
+                    if st and (st.student_id or '').strip():
+                        inc_q |= Q(
+                            related_incident__scanned_id__iexact=(st.student_id or '').strip()
+                        )
+                    AdminNotification.objects.filter(
+                        target_user=request.user,
+                        is_read=False,
+                        notification_type='incident',
+                    ).filter(inc_q).update(is_read=True, read_at=timezone.now())
             except Exception:
                 pass
         response = self.get_response(request)

@@ -250,8 +250,8 @@
         var msg = form.getAttribute('data-confirm-message');
         if (!msg) return;
         var options = {};
-        if (form.getAttribute('data-confirm-danger')) options.danger = true;
-        if (form.getAttribute('data-confirm-deny')) options.deny = true;
+        if (form.hasAttribute('data-confirm-danger')) options.danger = true;
+        if (form.hasAttribute('data-confirm-deny')) options.deny = true;
         window.themeConfirm(msg, function() {
           form._themeConfirmSubmitted = true;
           form.submit();

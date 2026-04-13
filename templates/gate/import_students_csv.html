@@ -5,15 +5,46 @@
 {% block content %}
 <div class="row">
   <div class="col-md-8">
+    <style>
+      /* Cleaner CSV examples */
+      .csv-help-list { padding-left: 1.2rem; margin-bottom: 0.75rem; }
+      .csv-help-list li { margin-bottom: 0.25rem; }
+      .csv-example {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 12px;
+        line-height: 1.45;
+        overflow: auto;
+        white-space: pre;
+        margin: 0;
+      }
+      .csv-example-title {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #14532d;
+        margin: 0 0 6px 0;
+      }
+      .csv-example-subtitle {
+        font-size: 0.78rem;
+        color: #64748b;
+        margin: 0 0 10px 0;
+      }
+    </style>
     <div class="card card-primary">
       <div class="card-header">
         <h5 class="m-0"><i class="fas fa-file-csv mr-1"></i> Import students from CSV (Registrar)</h5>
       </div>
       <div class="card-body">
-        <p class="text-muted">Upload a CSV file. <strong>Student ID is optional</strong> — leave the column out or cells blank and the system assigns a unique 8-digit ID for each new row.</p>
-        <p class="text-muted mb-2"><strong>Full format</strong> (with header): optional <code>student_id</code>, then <code>first_name</code>, <code>middle_name</code> (Middle Initial), <code>last_name</code>, <code>email</code>, <code>address</code>, <code>birthdate</code>, <strong>required</strong> <code>sex</code> (or <code>gender</code>; <strong>MALE</strong> or <strong>FEMALE</strong>, or M/F), <code>contact_number</code>, <code>guardians_parents</code>, <code>guardian_contact</code>, <code>program</code> or <code>course</code> (same column), <code>year_level</code>, <code>section</code>. Birthdate: MM/DD/YYYY or YYYY-MM-DD.</p>
-        <p class="text-muted mb-2"><strong>Simple format</strong> (with header): <code>first_name</code>, <code>last_name</code>, optional <code>email</code>, and <strong>required</strong> <code>sex</code> (or <code>gender</code>). You can still include <code>student_id</code> if you already have official IDs.</p>
-        <p class="small text-muted mb-3">QR codes are generated automatically — view them in the student list or on each student’s edit page.</p>
+        <p class="text-muted mb-2">Upload a CSV file with a <strong>header row</strong> (column names).</p>
+        <ul class="text-muted csv-help-list">
+          <li><strong>Student ID is optional.</strong> If you leave it blank (or remove the column), the system will assign an ID automatically.</li>
+          <li><strong>Required fields:</strong> <code>first_name</code>, <code>last_name</code>, and <code>sex</code> (or <code>gender</code>).</li>
+          <li><strong>Sex/Gender values:</strong> <code>MALE</code>/<code>FEMALE</code> (or <code>M</code>/<code>F</code>).</li>
+          <li><strong>Birthdate format:</strong> <code>MM/DD/YYYY</code> or <code>YYYY-MM-DD</code>.</li>
+        </ul>
+        <p class="small text-muted mb-3">Student QR codes are generated automatically after import.</p>
         <p class="mb-3">
           <!-- Sample CSV download intentionally removed. -->
         </p>
@@ -32,13 +63,19 @@
       <div class="card-header">
         <h6 class="m-0"><i class="fas fa-info-circle mr-1"></i> CSV formats</h6>
       </div>
-      <div class="card-body p-2">
-        <p class="small mb-1"><strong>Full format</strong> (with header; <code>student_id</code> optional):</p>
-        <pre class="mb-2 small">first_name,middle_name,last_name,email,address,birthdate,sex,contact_number,guardians_parents,guardian_contact,program,year_level,section
-Ed mathew,Marimat,Dianson,ed@gmail.com,Gomez st,04/13/2012,MALE,09514697133,mary apple dianson,09758132506,BSE,1,B</pre>
-        <p class="small mb-1"><strong>Simple format</strong> (with header):</p>
-        <pre class="mb-0 small">first_name,last_name,email,sex
+      <div class="card-body p-3">
+        <div class="mb-3">
+          <div class="csv-example-title">Simple (recommended)</div>
+          <div class="csv-example-subtitle">Minimum required fields. Good for quick imports.</div>
+          <pre class="csv-example">first_name,last_name,email,sex
 Juan,Dela Cruz,juan.delacruz@example.com,MALE</pre>
+        </div>
+        <div>
+          <div class="csv-example-title">Full format</div>
+          <div class="csv-example-subtitle">Optional columns — include only what you have.</div>
+          <pre class="csv-example">student_id,first_name,middle_name,last_name,email,address,birthdate,sex,contact_number,guardians_parents,guardian_contact,program,year_level,section
+20240001,Ed mathew,Marimat,Dianson,ed@gmail.com,Gomez st,04/13/2012,MALE,09514697133,mary apple dianson,09758132506,BSE,1,B</pre>
+        </div>
       </div>
     </div>
   </div>

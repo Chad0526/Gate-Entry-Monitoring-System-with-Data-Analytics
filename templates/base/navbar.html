@@ -51,6 +51,41 @@
     overflow-x: hidden;
     scrollbar-width: thin;
   }
+  #notifications-dropdown.notif-dropdown--history-open .notif-body {
+    max-height: min(70vh, 520px);
+  }
+  #notifications-dropdown .notif-history-type {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ccb-muted, #4d7c5e);
+    margin-bottom: 2px;
+  }
+  #notifications-dropdown .notif-item--history .notif-history-msg {
+    font-size: 0.78rem;
+    color: #64748b;
+    font-weight: 500;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.35;
+    margin-top: 4px;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+  }
+  #notifications-dropdown .notifications-history-section {
+    border-top: 1px solid var(--ccb-border, #e2e8f0);
+  }
+  #notifications-dropdown .notif-issue-desc {
+    font-size: 0.78rem;
+    color: var(--ccb-muted, #64748b);
+    font-weight: 600;
+    margin-top: 4px;
+    line-height: 1.35;
+  }
   #notifications-dropdown .notif-section-title {
     padding: 12px 18px 6px;
     font-size: 0.7rem;
@@ -61,7 +96,8 @@
     background: #fff;
   }
   #notifications-dropdown .notif-item {
-    display: block;
+    display: flex;
+    flex-direction: column;
     padding: 12px 18px;
     color: var(--ccb-text, #14532d);
     text-decoration: none;
@@ -107,24 +143,59 @@
   #notifications-dropdown .notif-item.notification-read:hover .notif-icon {
     color: #94a3b8;
   }
+  /* Main row: icon + title + action link */
+  #notifications-dropdown .notif-item .notif-main-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+  }
   #notifications-dropdown .notif-item .notif-icon {
     width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     text-align: center;
-    margin-right: 12px;
     color: var(--ccb-muted, #64748b);
     font-size: 1rem;
   }
   #notifications-dropdown .notif-item.notification-unread .notif-icon {
     color: var(--ccb-primary, #16a34a);
   }
+  #notifications-dropdown .notif-item .notif-content {
+    flex: 1;
+    min-width: 0;
+  }
+  #notifications-dropdown .notif-item .notif-title {
+    display: block;
+    margin-bottom: 2px;
+    word-wrap: break-word;
+  }
+  #notifications-dropdown .notif-item .notif-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  #notifications-dropdown .notif-item .notif-time {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ccb-muted, #64748b);
+    flex-shrink: 0;
+  }
+  #notifications-dropdown .notif-item.notification-read .notif-time {
+    color: #94a3b8;
+  }
   #notifications-dropdown .notif-item .notif-label-right {
-    float: right;
     font-size: 0.8125rem;
     color: var(--ccb-muted, #64748b);
     font-weight: 500;
+    flex-shrink: 0;
   }
   #notifications-dropdown .notif-item .notif-label-right-link {
-    float: right;
     font-size: 0.8125rem;
     font-weight: 700;
     color: var(--ccb-primary, #16a34a);
@@ -132,6 +203,7 @@
     padding: 2px 0;
     border-radius: 0;
     transition: color 0.2s ease, text-decoration 0.2s ease;
+    flex-shrink: 0;
   }
   #notifications-dropdown .notif-item .notif-label-right-link:hover {
     color: var(--ccb-primary-dark, #15803d);
@@ -144,18 +216,6 @@
   #notifications-dropdown .notif-item.notification-unread .notif-label-right-link:hover {
     color: var(--ccb-primary-darker, #166534);
     background: transparent;
-  }
-  #notifications-dropdown .notif-item .notif-time {
-    display: block;
-    clear: both;
-    font-size: 0.68rem;
-    font-weight: 500;
-    color: var(--ccb-muted, #64748b);
-    margin-top: 4px;
-    padding-left: 44px;
-  }
-  #notifications-dropdown .notif-item.notification-read .notif-time {
-    color: #94a3b8;
   }
   #notifications-dropdown .notif-item.notif-item-row-only {
     cursor: default;
@@ -187,28 +247,58 @@
     color: var(--ccb-primary, #16a34a);
   }
   #notifications-dropdown .notif-footer {
-    padding: 12px 18px;
+    padding: 10px 14px 14px;
     border-top: 1px solid var(--ccb-border, #e2e8f0);
-    background: var(--ccb-primary-bg, #f0fdf4);
+    background: var(--ccb-card-bg, #fff);
     border-radius: 0 0 var(--ccb-radius, 12px) var(--ccb-radius, 12px);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
   }
-  #notifications-dropdown #notifications-see-all {
+  /* Text-link look (matches dashboard “Open full staff scanner…” style): no button chrome */
+  #notifications-dropdown .notif-footer-text-action {
     display: block;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 8px 10px;
     text-align: center;
-    padding: 10px 14px;
-    font-size: 0.9rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    background: linear-gradient(135deg, var(--ccb-primary, #16a34a) 0%, var(--ccb-primary-dark, #15803d) 100%);
-    color: #fff !important;
-    border-radius: var(--ccb-radius-sm, 8px);
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: inherit;
+    line-height: 1.45;
+    color: var(--ccb-primary-dark, #15803d);
+    background: transparent;
     border: none;
-    text-decoration: none;
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    border-radius: var(--ccb-radius-sm, 8px);
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: rgba(21, 128, 61, 0.45);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    -webkit-appearance: none;
+    appearance: none;
+    box-shadow: none;
+    transition: color 0.18s ease, text-decoration-color 0.18s ease;
   }
-  #notifications-dropdown #notifications-see-all:hover {
-    box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35);
-    color: #fff !important;
+  /* Hover: blue text + matching soft blue underline */
+  #notifications-dropdown .notif-footer-text-action:hover {
+    color: #2563eb;
+    text-decoration-color: rgba(37, 99, 235, 0.45);
+    text-decoration-thickness: 1px;
+  }
+  #notifications-dropdown .notif-footer-text-action:active {
+    color: #1d4ed8;
+    text-decoration-color: rgba(29, 78, 216, 0.5);
+    text-decoration-thickness: 1px;
+  }
+  #notifications-dropdown .notif-footer-text-action:focus {
+    outline: 2px solid rgba(22, 163, 74, 0.35);
+    outline-offset: 2px;
+  }
+  #notifications-dropdown .notif-footer-text-action:focus:not(:focus-visible) {
+    outline: none;
   }
 
   /* User dropdown – matches notifications and CCB dashboard */
@@ -280,99 +370,196 @@
             </button>
             {% endif %}
           </div>
+          <div class="notif-body" id="notifications-dropdown-body">
           {% if notification_all %}
-          <div class="notif-body">
             {% for item in notification_all %}
             {% if item.type != 'pending_summary' and item.type != 'student' %}
             {% if item.type == 'new_events_summary' %}
             <div class="notif-section-title">{% trans "New events" %}</div>
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
-              <i class="fas {{ item.icon }} notif-icon"></i>
-              <strong>{{ item.label }}</strong>
-              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
-              {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+              <div class="notif-main-row">
+                <i class="fas {{ item.icon }} notif-icon"></i>
+                <div class="notif-content">
+                  <span class="notif-title"><strong>{{ item.label }}</strong></span>
+                  <div class="notif-meta">
+                    {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
+                    {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+                  </div>
+                </div>
+              </div>
             </a>
             {% elif item.type == 'events_summary' %}
             <div class="notif-section-title">{% trans "Upcoming events" %}</div>
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
-              <i class="fas {{ item.icon }} notif-icon"></i>
-              <strong>{{ item.label }}</strong>
-              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
-              {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+              <div class="notif-main-row">
+                <i class="fas {{ item.icon }} notif-icon"></i>
+                <div class="notif-content">
+                  <span class="notif-title"><strong>{{ item.label }}</strong></span>
+                  <div class="notif-meta">
+                    {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
+                    {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+                  </div>
+                </div>
+              </div>
             </a>
             {% elif item.type == 'pending_staff_personnel_summary' %}
             <div class="notif-section-title">{% trans "Staff/Faculty pending approval" %}</div>
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
-              <i class="fas {{ item.icon }} notif-icon"></i>
-              <strong>{{ item.label }}</strong>
-              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
-              {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+              <div class="notif-main-row">
+                <i class="fas {{ item.icon }} notif-icon"></i>
+                <div class="notif-content">
+                  <span class="notif-title"><strong>{{ item.label }}</strong></span>
+                  <div class="notif-meta">
+                    {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
+                    {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+                  </div>
+                </div>
+              </div>
+            </a>
+            {% elif item.type == 'admin_gate_manual_referral_item' %}
+            {% if item.show_gate_manual_section %}
+            <div class="notif-section-title">{% trans "Guard manual entry (office routing)" %}</div>
+            {% endif %}
+            <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
+              <div class="notif-main-row">
+                <i class="fas {{ item.icon }} notif-icon"></i>
+                <div class="notif-content">
+                  <span class="notif-title"><strong>{{ item.label }}</strong></span>
+                  {% if item.issue_description %}
+                  <div class="notif-issue-desc">{% trans "Routing" %}: {{ item.issue_description }}</div>
+                  {% endif %}
+                  <div class="notif-meta">
+                    {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
+                    {% if item.label_right %}<span class="notif-label-right notif-label-right-link">{{ item.label_right }}</span>{% endif %}
+                  </div>
+                </div>
+              </div>
             </a>
             {% elif item.type == 'admin_sas_activation_student' %}
             {% if item.show_sas_section %}
-            <div class="notif-section-title">{% trans "Students — ready for activation" %}</div>
+            <div class="notif-section-title">{% trans "SAS — student follow-up" %}</div>
             {% endif %}
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
-              <i class="fas {{ item.icon }} notif-icon"></i>
-              <strong>{{ item.label }}</strong>
-              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
-              {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+              <div class="notif-main-row">
+                <i class="fas {{ item.icon }} notif-icon"></i>
+                <div class="notif-content">
+                  <span class="notif-title"><strong>{{ item.label }}</strong></span>
+                  {% if item.sas_followup_hint %}
+                  <div class="notif-issue-desc">{{ item.sas_followup_hint }}</div>
+                  {% endif %}
+                  <div class="notif-meta">
+                    {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
+                    {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+                  </div>
+                </div>
+              </div>
             </a>
             {% elif item.type == 'admin_student_reg_item' %}
             {% if item.show_student_reg_section %}
             <div class="notif-section-title">{% trans "Student registrations" %}</div>
             {% endif %}
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
-              <i class="fas {{ item.icon }} notif-icon"></i>
-              <strong>{{ item.label }}</strong>
-              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
-              {% if item.label_right %}<span class="notif-label-right notif-label-right-link">{{ item.label_right }}</span>{% endif %}
+              <div class="notif-main-row">
+                <i class="fas {{ item.icon }} notif-icon"></i>
+                <div class="notif-content">
+                  <span class="notif-title"><strong>{{ item.label }}</strong></span>
+                  <div class="notif-meta">
+                    {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
+                    {% if item.label_right %}<span class="notif-label-right notif-label-right-link">{{ item.label_right }}</span>{% endif %}
+                  </div>
+                </div>
+              </div>
             </a>
             {% elif item.type == 'admin_staff_reg_summary' %}
             <div class="notif-section-title">{% trans "Staff / faculty registrations" %}</div>
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
-              <i class="fas {{ item.icon }} notif-icon"></i>
-              <strong>{{ item.label }}</strong>
-              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
-              {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+              <div class="notif-main-row">
+                <i class="fas {{ item.icon }} notif-icon"></i>
+                <div class="notif-content">
+                  <span class="notif-title"><strong>{{ item.label }}</strong></span>
+                  <div class="notif-meta">
+                    {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
+                    {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+                  </div>
+                </div>
+              </div>
             </a>
             {% elif item.type == 'admin_incident_item' %}
             {% if item.show_incident_section %}
-            <div class="notif-section-title">{% trans "Gate incidents" %}</div>
+            <div class="notif-section-title">{% if item.incident_nav_section_title %}{{ item.incident_nav_section_title }}{% else %}{% trans "Gate incidents" %}{% endif %}</div>
             {% endif %}
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
-              <i class="fas {{ item.icon }} notif-icon"></i>
-              <strong>{{ item.label }}</strong>
-              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
-              {% if item.label_right %}<span class="notif-label-right notif-label-right-link">{{ item.label_right }}</span>{% endif %}
+              <div class="notif-main-row">
+                <i class="fas {{ item.icon }} notif-icon"></i>
+                <div class="notif-content">
+                  <span class="notif-title"><strong>{{ item.label }}</strong></span>
+                  <div class="notif-meta">
+                    {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
+                    {% if item.label_right %}<span class="notif-label-right notif-label-right-link">{{ item.label_right }}</span>{% endif %}
+                  </div>
+                </div>
+              </div>
             </a>
             {% elif item.type == 'admin_incident_summary' %}
             <div class="notif-section-title">{% trans "Gate incidents" %}</div>
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
-              <i class="fas {{ item.icon }} notif-icon"></i>
-              <strong>{{ item.label }}</strong>
-              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
-              {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+              <div class="notif-main-row">
+                <i class="fas {{ item.icon }} notif-icon"></i>
+                <div class="notif-content">
+                  <span class="notif-title"><strong>{{ item.label }}</strong></span>
+                  <div class="notif-meta">
+                    {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
+                    {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+                  </div>
+                </div>
+              </div>
             </a>
             {% else %}
             <a href="{{ item.url }}" class="notif-item{% if item.is_read %} notification-read{% else %} notification-unread{% endif %}{% if forloop.counter > notification_dropdown_max %} notification-item-collapsed{% endif %}"{% if forloop.counter > notification_dropdown_max %} style="display: none;"{% endif %}>
-              <i class="fas {{ item.icon }} notif-icon"></i>
-              <strong>{{ item.label }}</strong>
-              {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
-              {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+              <div class="notif-main-row">
+                <i class="fas {{ item.icon }} notif-icon"></i>
+                <div class="notif-content">
+                  <span class="notif-title"><strong>{{ item.label }}</strong></span>
+                  <div class="notif-meta">
+                    {% if item.time_ago %}<span class="notif-time">{{ item.time_ago }}</span>{% endif %}
+                    {% if item.label_right %}<span class="notif-label-right">{{ item.label_right }}</span>{% endif %}
+                  </div>
+                </div>
+              </div>
             </a>
             {% endif %}
             {% endif %}
             {% endfor %}
-          </div>
-          {% if notification_has_more %}
-          <div class="notif-footer">
-            <a href="#" id="notifications-see-all">{% trans "See all notifications" %}</a>
+          {% else %}
+            <div class="notif-empty" id="notifications-empty-state"><i class="far fa-bell"></i><br>{% trans "No new notifications" %}</div>
+          {% endif %}
+          {% if show_notifications_history_link %}
+          <div id="notifications-history-i18n" class="d-none" aria-hidden="true"
+            data-empty="{% trans 'No notifications yet.' %}"
+            data-loading="{% trans 'Loading…' %}"
+            data-end="{% trans 'End of list' %}"
+            data-error="{% trans 'Could not load notifications.' %}"></div>
+          <div id="notifications-history-section" class="notifications-history-section" hidden>
+            <div class="notif-section-title" id="notifications-history-section-title" style="display:none;">{% trans "All notifications" %}</div>
+            <div id="notifications-history-list"></div>
+            <div id="notifications-history-status" class="text-muted" style="display:none;text-align:center;padding:6px 12px;font-size:0.8rem;"></div>
+            <div id="notifications-history-error" class="text-danger" style="display:none;text-align:center;padding:8px 12px;font-size:0.8rem;"></div>
           </div>
           {% endif %}
-          {% else %}
-          <div class="notif-body">
-            <div class="notif-empty"><i class="far fa-bell"></i><br>{% trans "No new notifications" %}</div>
+          </div>
+          {% if show_notifications_history_link %}
+          <div class="notif-footer">
+            <button type="button" class="notif-footer-text-action" id="notifications-view-all-btn">
+              <span class="notif-view-all-label">{% trans "View all notifications" %}</span>
+              <span class="notif-hide-archive-label" style="display:none;">{% trans "Hide older notifications" %}</span>
+            </button>
+            {% if notification_has_more %}
+            <button type="button" class="notif-footer-text-action" id="notifications-expand-in-dropdown">{% trans "Show more in this menu" %}</button>
+            {% endif %}
+          </div>
+          {% elif notification_has_more %}
+          <div class="notif-footer">
+            <button type="button" class="notif-footer-text-action" id="notifications-expand-in-dropdown">{% trans "Show more in this menu" %}</button>
           </div>
           {% endif %}
         </div>
@@ -401,15 +588,15 @@
             });
           });
         }
-        var seeAll = document.getElementById('notifications-see-all');
-        if (seeAll && dropdown) {
-          seeAll.addEventListener('click', function(e) {
+        var expandInMenu = document.getElementById('notifications-expand-in-dropdown');
+        if (expandInMenu && dropdown) {
+          expandInMenu.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
             dropdown.querySelectorAll('.notification-item-collapsed').forEach(function(el) {
               el.style.display = '';
             });
-            seeAll.parentElement.style.display = 'none';
+            expandInMenu.style.display = 'none';
             var menu = document.getElementById('notifications-dropdown');
             var dropdownParent = menu && menu.closest('.dropdown');
             if (dropdownParent && typeof jQuery !== 'undefined') {
@@ -418,6 +605,192 @@
                 jQuery(menu).addClass('show');
               }, 0);
             }
+          });
+        }
+        var bodyEl = document.getElementById('notifications-dropdown-body');
+        var historySection = document.getElementById('notifications-history-section');
+        var historyList = document.getElementById('notifications-history-list');
+        var historyTitle = document.getElementById('notifications-history-section-title');
+        var historyStatus = document.getElementById('notifications-history-status');
+        var historyError = document.getElementById('notifications-history-error');
+        var i18nEl = document.getElementById('notifications-history-i18n');
+        var viewAllBtn = document.getElementById('notifications-view-all-btn');
+        var historyApiUrl = '{% url "gate-notifications-history-api" %}';
+        var histPage = 0;
+        var histHasNext = false;
+        var histLoading = false;
+        var histScrollTimer = null;
+
+        function histStrings() {
+          if (!i18nEl || !i18nEl.dataset) return { empty: '', loading: '', end: '', error: '' };
+          return {
+            empty: i18nEl.dataset.empty || '',
+            loading: i18nEl.dataset.loading || '',
+            end: i18nEl.dataset.end || '',
+            error: i18nEl.dataset.error || ''
+          };
+        }
+
+        function setHistoryOpen(open) {
+          if (!dropdown) return;
+          dropdown.classList.toggle('notif-dropdown--history-open', !!open);
+          if (historySection) historySection.hidden = !open;
+          if (historyTitle) historyTitle.style.display = open ? '' : 'none';
+          if (viewAllBtn) {
+            var l1 = viewAllBtn.querySelector('.notif-view-all-label');
+            var l2 = viewAllBtn.querySelector('.notif-hide-archive-label');
+            if (l1 && l2) {
+              l1.style.display = open ? 'none' : '';
+              l2.style.display = open ? '' : 'none';
+            }
+          }
+          if (!open && historyError) {
+            historyError.style.display = 'none';
+            historyError.textContent = '';
+          }
+        }
+
+        function appendHistoryItem(it) {
+          if (!historyList) return;
+          var a = document.createElement('a');
+          a.className = 'notif-item notif-item--history ' + (it.is_read ? 'notification-read' : 'notification-unread');
+          if (it.href) {
+            a.href = it.href;
+          } else {
+            a.href = '#';
+            a.addEventListener('click', function(ev) { ev.preventDefault(); });
+            a.classList.add('notif-item-row-only');
+          }
+          var row = document.createElement('div');
+          row.className = 'notif-main-row';
+          var icon = document.createElement('i');
+          icon.className = 'fas fa-bell notif-icon';
+          var content = document.createElement('div');
+          content.className = 'notif-content';
+          var typeEl = document.createElement('div');
+          typeEl.className = 'notif-history-type';
+          typeEl.textContent = it.type_label || '';
+          var titleEl = document.createElement('span');
+          titleEl.className = 'notif-title';
+          var strong = document.createElement('strong');
+          strong.textContent = it.title || '';
+          titleEl.appendChild(strong);
+          var msg = document.createElement('div');
+          msg.className = 'notif-history-msg';
+          msg.textContent = it.message || '';
+          if (it.message_tooltip && it.message_tooltip !== (it.message || '')) {
+            msg.setAttribute('title', it.message_tooltip);
+          }
+          var meta = document.createElement('div');
+          meta.className = 'notif-meta';
+          var time = document.createElement('span');
+          time.className = 'notif-time';
+          time.textContent = it.created_display || '';
+          meta.appendChild(time);
+          if (it.href && it.link_label) {
+            var lr = document.createElement('span');
+            lr.className = 'notif-label-right notif-label-right-link';
+            lr.textContent = it.link_label;
+            meta.appendChild(lr);
+          }
+          content.appendChild(typeEl);
+          content.appendChild(titleEl);
+          content.appendChild(msg);
+          content.appendChild(meta);
+          row.appendChild(icon);
+          row.appendChild(content);
+          a.appendChild(row);
+          historyList.appendChild(a);
+        }
+
+        function updateHistStatus() {
+          if (!historyStatus) return;
+          var s = histStrings();
+          if (histLoading) {
+            historyStatus.style.display = '';
+            historyStatus.textContent = s.loading;
+            return;
+          }
+          var count = historyList ? historyList.querySelectorAll('a.notif-item--history').length : 0;
+          if (!histHasNext && count) {
+            historyStatus.style.display = '';
+            historyStatus.textContent = s.end;
+            return;
+          }
+          historyStatus.style.display = 'none';
+        }
+
+        function fetchHistoryPage(page) {
+          if (!historyApiUrl || histLoading) return Promise.resolve();
+          histLoading = true;
+          updateHistStatus();
+          if (historyError) {
+            historyError.style.display = 'none';
+            historyError.textContent = '';
+          }
+          return fetch(historyApiUrl + '?page=' + encodeURIComponent(page), {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+          }).then(function(r) {
+            if (!r.ok) throw new Error('bad');
+            return r.json();
+          }).then(function(data) {
+            var s = histStrings();
+            if (page === 1 && (!data.items || !data.items.length)) {
+              var p = document.createElement('p');
+              p.className = 'text-muted small px-3 py-2 mb-0';
+              p.style.textAlign = 'center';
+              p.textContent = s.empty;
+              historyList.appendChild(p);
+            } else if (data.items) {
+              data.items.forEach(appendHistoryItem);
+            }
+            histPage = data.page || page;
+            histHasNext = !!data.has_next;
+            histLoading = false;
+            updateHistStatus();
+          }).catch(function() {
+            histLoading = false;
+            updateHistStatus();
+            if (historyError) {
+              historyError.style.display = '';
+              historyError.textContent = histStrings().error;
+            }
+          });
+        }
+
+        if (viewAllBtn && dropdown && historySection && bodyEl && historyList) {
+          viewAllBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var open = !historySection.hidden;
+            if (open) {
+              setHistoryOpen(false);
+              return;
+            }
+            setHistoryOpen(true);
+            if (historyList.children.length === 0) {
+              histPage = 0;
+              histHasNext = false;
+              fetchHistoryPage(1);
+            }
+            var menu = document.getElementById('notifications-dropdown');
+            var dropdownParent = menu && menu.closest('.dropdown');
+            if (dropdownParent && typeof jQuery !== 'undefined') {
+              setTimeout(function() {
+                jQuery(dropdownParent).addClass('show');
+                jQuery(menu).addClass('show');
+              }, 0);
+            }
+          });
+          bodyEl.addEventListener('scroll', function() {
+            if (!historySection || historySection.hidden || !histHasNext || histLoading) return;
+            if (histScrollTimer) clearTimeout(histScrollTimer);
+            histScrollTimer = setTimeout(function() {
+              if (bodyEl.scrollHeight - bodyEl.scrollTop - bodyEl.clientHeight < 100) {
+                fetchHistoryPage(histPage + 1);
+              }
+            }, 150);
           });
         }
         var markAllBtn = document.getElementById('staff-mark-all-read-btn');

@@ -26,6 +26,9 @@
     padding-top: 0.25rem;
     padding-bottom: 0.25rem;
   }
+  .inc-filter-toolbar {
+    gap: 0.5rem 1rem;
+  }
   .inc-quick-filters {
     display: flex;
     flex-wrap: wrap;
@@ -178,6 +181,13 @@
       width: 100%;
       margin-right: 0 !important;
     }
+    .inc-search-apply-row .btn,
+    .inc-search-apply-row a.btn {
+      width: auto;
+    }
+    .inc-search-apply-row {
+      flex-wrap: wrap;
+    }
   }
   @media (max-width: 768px) {
     .inc-table thead {
@@ -234,48 +244,69 @@
   }
 </style>
 <div class="card inc-card">
-  <div class="card-header d-flex flex-wrap align-items-center justify-content-between">
+  <div class="card-header d-flex flex-wrap align-items-center gap-2">
     <h5 class="m-0">{% trans "Reported at gate" %}</h5>
-    <span class="text-muted small">{% trans "Includes ID mismatch and manual denials from gate verify." %}</span>
   </div>
   <div class="card-body border-bottom py-2">
     <div class="inc-quick-filters">
       <a
-        href="{% url 'gate-incident-list' %}{% if reason_filter or search_q %}?{% if reason_filter %}reason={{ reason_filter|urlencode }}{% endif %}{% if reason_filter and search_q %}&{% endif %}{% if search_q %}q={{ search_q|urlencode }}{% endif %}{% endif %}"
+        href="{{ incident_url_chip_all }}"
         class="inc-quick-chip {% if not sas_check_filter %}is-active{% endif %}">
         <i class="fas fa-list"></i> {% trans "All" %}
       </a>
       <a
-        href="{% url 'gate-incident-list' %}?sas_check=to_check{% if reason_filter %}&reason={{ reason_filter|urlencode }}{% endif %}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}"
+        href="{{ incident_url_chip_to_check }}"
         class="inc-quick-chip {% if sas_check_filter == 'to_check' %}is-active{% endif %}">
         <i class="fas fa-clock"></i> {% trans "To be checked" %}
       </a>
       <a
-        href="{% url 'gate-incident-list' %}?sas_check=verified{% if reason_filter %}&reason={{ reason_filter|urlencode }}{% endif %}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}"
+        href="{{ incident_url_chip_verified }}"
         class="inc-quick-chip {% if sas_check_filter == 'verified' %}is-active{% endif %}">
         <i class="fas fa-check-circle"></i> {% trans "Checked" %}
       </a>
     </div>
-    <form method="get" class="form-inline flex-wrap align-items-end inc-filter-row">
-      <input type="hidden" name="sas_check" value="{{ sas_check_filter }}">
-      <div class="form-group mr-2 mb-2">
-        <label for="inc-reason" class="small text-muted d-block">{% trans "Reason" %}</label>
-        <select name="reason" id="inc-reason" class="form-control form-control-sm">
-          <option value="">{% trans "All" %}</option>
-          {% for val, label in reason_choices %}
-          <option value="{{ val }}" {% if reason_filter == val %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="form-group mr-2 mb-2 flex-grow-1" style="min-width: 200px;">
-        <label for="inc-q" class="small text-muted d-block">{% trans "Search" %}</label>
-        <input type="text" name="q" id="inc-q" class="form-control form-control-sm" value="{{ search_q|default:'' }}" placeholder="{% trans 'Name, ID, details…' %}">
-      </div>
-      <button type="submit" class="btn btn-sm btn-success mb-2">{% trans "Apply" %}</button>
-      {% if reason_filter or search_q %}
-      <a href="{% url 'gate-incident-list' %}" class="btn btn-sm btn-link mb-2">{% trans "Clear" %}</a>
+    <div class="d-flex flex-wrap align-items-end justify-content-between inc-filter-toolbar">
+      <form method="get" class="form-inline flex-wrap align-items-end inc-filter-row flex-grow-1 mr-2" style="min-width: 0;">
+        <input type="hidden" name="sas_check" value="{{ sas_check_filter }}">
+        <div class="form-group mr-2 mb-2">
+          <label for="inc-date" class="small text-muted d-block">{% trans "Incident date" %}</label>
+          <input type="date" name="date" id="inc-date" class="form-control form-control-sm" value="{% if filter_date %}{{ filter_date|date:'Y-m-d' }}{% endif %}" title="{% trans 'Leave empty to show all dates' %}">
+        </div>
+        <div class="form-group mr-2 mb-2">
+          <label for="inc-reason" class="small text-muted d-block">{% trans "Reason" %}</label>
+          <select name="reason" id="inc-reason" class="form-control form-control-sm">
+            <option value="">{% trans "All" %}</option>
+            {% for val, label in reason_choices %}
+            <option value="{{ val }}" {% if reason_filter == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group mr-2 mb-2 flex-grow-1 inc-search-apply-group" style="min-width: 200px;">
+          <label for="inc-q" class="small text-muted d-block">{% trans "Search" %}</label>
+          <div class="d-flex align-items-center flex-nowrap inc-search-apply-row">
+            <input type="text" name="q" id="inc-q" class="form-control form-control-sm flex-grow-1 mr-2" value="{{ search_q|default:'' }}" placeholder="{% trans 'Name, ID, details…' %}" style="min-width: 0;">
+            <button type="submit" class="btn btn-sm btn-success flex-shrink-0">{% trans "Apply" %}</button>
+            {% if reason_filter or search_q or filter_date %}
+            <a href="{% url 'gate-incident-list' %}" class="btn btn-sm btn-link flex-shrink-0 ml-2 mb-0 py-0 align-self-center">{% trans "Clear" %}</a>
+            {% endif %}
+          </div>
+        </div>
+        {% if per_page %}
+        <input type="hidden" name="per_page" value="{{ per_page }}">
+        {% endif %}
+      </form>
+      {% if can_sas_review and gate_incident_total_count %}
+      <form
+        method="post"
+        action="{% url 'gate-incident-clear-all' %}"
+        class="mb-2 flex-shrink-0 inc-clear-all-form"
+        data-confirm-message="{% trans 'Remove ALL gate incident records? This cannot be undone. Student accounts are not deleted.' %}"
+        data-confirm-danger>
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-outline-danger">{% trans "Clear all incidents" %}</button>
+      </form>
       {% endif %}
-    </form>
+    </div>
   </div>
   <div class="table-responsive">
     <table class="table table-hover mb-0 inc-table">
@@ -344,11 +375,9 @@
       </tbody>
     </table>
   </div>
-  {% if page_obj.paginator.num_pages > 1 %}
-  <div class="card-footer">
+  <div class="card-footer py-3">
     {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options %}
   </div>
-  {% endif %}
 </div>
 <script>
 (function() {

@@ -365,6 +365,28 @@ class RecurringEventTemplateAdmin(PerPageListMixin, admin.ModelAdmin):
 class SiteThemeAdmin(PerPageListMixin, admin.ModelAdmin):
     list_per_page = 10
     list_display = ('site_name', 'primary_color', 'default_first_signatory_name', 'default_second_signatory_name', 'updated_at')
+    fieldsets = (
+        (None, {'fields': ('site_name', 'logo', 'primary_color')}),
+        ('E-ID back — signatory names', {
+            'fields': (
+                'default_first_signatory_name', 'default_first_signatory_title',
+                'default_second_signatory_name', 'default_second_signatory_title',
+            ),
+        }),
+        ('E-ID back — signatory signature images', {
+            'fields': ('first_signatory_signature', 'second_signatory_signature'),
+            'description': 'Shown above each signatory line on student/staff e-ID cards. Prefer PNG with transparent background.',
+        }),
+        ('Reports (exports & print)', {
+            'fields': (
+                'report_first_signatory_name', 'report_first_signatory_title',
+                'report_first_signatory_signature',
+            ),
+            'description': 'Single signatory line on Reports → Exports (CSV, Excel, PDF) and browser print. Separate from e-ID signatories above.',
+        }),
+        ('Meta', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
+    )
+    readonly_fields = ('created_at', 'updated_at')
 
 
 # Audit role (groups) changes in app View logs. Groups are saved in save_related, not save_model.

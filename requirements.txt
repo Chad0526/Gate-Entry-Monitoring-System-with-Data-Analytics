@@ -2,8 +2,10 @@
 Django>=3.0,<4.0
 # Pin 1.14.x: Crispy 2+ moved Bootstrap 4 templates out of core; 1.14 still bundles bootstrap4/ (needed for create/edit event, etc.).
 django-crispy-forms==1.14.0
-django-mapbox-location-field>=1.4.0
-django-ckeditor>=5.9.0
+# 2.1+ required for Django 4+ (gettext_lazy / removed ugettext_lazy).
+django-mapbox-location-field>=2.1.0
+# 6.7+ required for Django 4+ (force_str / removed force_text).
+django-ckeditor>=6.7.0
 django-betterforms>=1.2
 six>=1.16.0  # django-betterforms 1.2 still imports django.utils.six (removed in Django 3+); we alias to this
 
@@ -25,6 +27,7 @@ polib>=1.2.0
 
 # Image handling
 Pillow>=8.0.0
+qrcode>=7.0  # Gate student QR images
 
 # Load testing (optional, for pre-deployment tests)
 requests>=2.25.0

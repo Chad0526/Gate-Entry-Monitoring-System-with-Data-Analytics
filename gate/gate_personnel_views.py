@@ -16,6 +16,7 @@ from django.utils import timezone
 from django.contrib import messages
 from django.db.models import Q
 from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.csrf import csrf_exempt
 
 from gate_analytics.roles import get_user_role
 from .models import GateNotification, GateShift
@@ -29,6 +30,12 @@ from .gate_personnel_services import (
 logger = logging.getLogger(__name__)
 # Staff gate scanner only (camera started on /gate/). Guard monitor must NOT set this key.
 GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY = 'gate_staff_scanner_heartbeat_v2'
+# Set when staff clicks Start; cleared only on Stop. Unlocks guard display after logout until Stop or TTL.
+GATE_SESSION_ARMED_CACHE_KEY = 'gate_session_armed_v1'
+
+
+def gate_scanner_session_armed():
+    return bool(cache.get(GATE_SESSION_ARMED_CACHE_KEY))
 
 
 def _can_use_gate_tools(user):
@@ -209,14 +216,16 @@ def _guard_token_ok(request):
 
 
 @require_POST
+@csrf_exempt
 def scanner_heartbeat_view(request):
     """
     Staff gate scanner session ping. Only JSON with camera_running true/false is honored.
-    Legacy clients that POST {} no longer refresh TTL — otherwise the guard wall stays 'active'
-    without the camera running.
+    camera_running true: refreshes short-TTL heartbeat and sets a long-lived "armed" flag so the
+    guard display stays unlocked after staff log out until camera_running false (Stop).
     """
     ttl = getattr(settings, 'GATE_SCANNER_HEARTBEAT_TTL', 90)
     if not request.user.is_authenticated or not _can_post_scanner_heartbeat(request.user):
+        print(f"[Heartbeat] Unauthorized: authenticated={request.user.is_authenticated}, can_post={_can_post_scanner_heartbeat(request.user) if request.user.is_authenticated else False}")
         return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
     camera_running = None
@@ -228,11 +237,16 @@ def scanner_heartbeat_view(request):
         except (json.JSONDecodeError, ValueError, UnicodeDecodeError):
             pass
 
+    print(f"[Heartbeat] Received: camera_running={camera_running}, user={request.user.username}")
+
     if camera_running is None:
+        print(f"[Heartbeat] Ignored: camera_running not in body")
         return JsonResponse({'success': True, 'ignored': True})
 
     if not camera_running:
+        print(f"[Heartbeat] Deleting cache key: {GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY}")
         cache.delete(GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY)
+        cache.delete(GATE_SESSION_ARMED_CACHE_KEY)
         return JsonResponse({'success': True, 'scanner_active': False})
 
     user = request.user
@@ -242,7 +256,21 @@ def scanner_heartbeat_view(request):
         'username': user.get_username(),
         'display_name': (user.get_full_name() or '').strip() or user.get_username(),
     }
+    print(f"[Heartbeat] Setting cache: key={GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY}, ttl={ttl}, payload={payload}")
     cache.set(GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY, payload, ttl)
+    armed_ttl = getattr(settings, 'GATE_SESSION_ARMED_TIMEOUT', 86400 * 366)
+    armed_payload = {
+        'armed_at': payload['last_seen'],
+        'user_id': user.id,
+        'username': payload['username'],
+        'display_name': payload['display_name'],
+    }
+    cache.set(GATE_SESSION_ARMED_CACHE_KEY, armed_payload, armed_ttl)
+    
+    # Verify it was set
+    verify = cache.get(GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY)
+    print(f"[Heartbeat] Verify cache read: {verify}")
+    
     return JsonResponse({'success': True, 'ttl': ttl, 'scanner_active': True})
 
 
@@ -250,11 +278,20 @@ def scanner_heartbeat_view(request):
 def guard_dashboard_data_view(request):
     """JSON for guard wall display; requires GATE_GUARD_DISPLAY_TOKEN as ?token= (no login)."""
     if not _guard_token_ok(request):
+        print(f"[Guard API] Unauthorized: token mismatch")
         return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    
     hb = cache.get(GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY)
-    scanner_active = bool(hb)
+    armed = cache.get(GATE_SESSION_ARMED_CACHE_KEY)
+    scanner_active = bool(armed)
+
+    print(
+        f"[Guard API] Cache check: hb={bool(hb)}, armed={bool(armed)}, scanner_active={scanner_active}"
+    )
+
     minimal = (request.GET.get('minimal') or '').strip().lower() in ('1', 'true', 'yes')
     if minimal:
+        print(f"[Guard API] Returning minimal response: scanner_active={scanner_active}")
         return JsonResponse({
             'success': True,
             'scanner_active': scanner_active,
@@ -267,6 +304,12 @@ def guard_dashboard_data_view(request):
             'last_seen': hb.get('last_seen'),
             'display_name': hb.get('display_name') or hb.get('username') or '',
             'username': hb.get('username') or '',
+        }
+    elif armed:
+        scanner = {
+            'last_seen': armed.get('armed_at'),
+            'display_name': armed.get('display_name') or armed.get('username') or '',
+            'username': armed.get('username') or '',
         }
     recent = RealtimeDashboardService.get_guard_recent_entries(limit=30)
     return JsonResponse({

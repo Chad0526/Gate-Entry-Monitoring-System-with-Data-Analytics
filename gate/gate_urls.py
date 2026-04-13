@@ -9,6 +9,8 @@ urlpatterns = [
     path('embed-scanner/', gate_views.gate_scan_guard_embed, name='gate-embed-scanner'),
     path('sw.js', gate_views.gate_scan_sw, name='gate-scan-sw'),
     path('save-scan/', gate_views.save_scan, name='save_scan'),
+    # Token-only scanner clients (guard-display/embed): bypass CSRF, still requires valid guard token.
+    path('save-scan-guard/', gate_views.save_scan_guard, name='save_scan_guard'),
     path('scan-event/', gate_views.scan_event_qr, name='scan_event_qr'),
     path('record-early-out/', gate_views.record_early_out, name='record_early_out'),
     path('visitor-checkin/', gate_views.visitor_checkin_submit, name='visitor-checkin-submit'),
@@ -37,9 +39,12 @@ urlpatterns = [
     path('students/sample-50.csv', gate_views.student_sample_csv, name='gate-student-sample-csv'),
     path('students/create/', gate_views.student_create, name='gate-student-create'),
     path('students/create/done/', gate_views.student_create_modal_done, name='gate-student-create-modal-done'),
+    # Static paths under students/ must come before students/<int:pk>/… so nothing is captured as pk.
+    path('students/qr-labels/pdf/', gate_views.student_qr_labels_pdf, name='gate-student-qr-labels-pdf'),
     path('students/<int:pk>/edit/', gate_views.student_edit, name='gate-student-edit'),
     path('students/<int:pk>/qr/', gate_views.student_qr_image, name='gate-student-qr'),
     path('students/<int:pk>/eid/', gate_views.student_eid_card, name='gate-student-eid'),
+    path('settings/e-id-signatories/', gate_views.eid_signatory_settings, name='gate-eid-signatory-settings'),
     path('students/eid/print-all/', gate_views.student_eid_print_all, name='gate-student-eid-print-all'),
     path('entries/', gate_views.entry_list, name='gate-entry-list'),
     path('entries/event-attendees/', gate_views.event_attendees_embed, name='gate-event-attendees-embed'),
@@ -47,6 +52,7 @@ urlpatterns = [
     path('visitors/yearly/', gate_views.visitor_yearly_summary, name='gate-visitor-yearly'),
     path('entries/students/yearly/', gate_views.student_entries_yearly_summary, name='gate-student-entries-yearly'),
     path('incidents/', gate_views.incident_list, name='gate-incident-list'),
+    path('incidents/clear-all/', gate_views.incident_clear_all, name='gate-incident-clear-all'),
     path('incidents/<int:incident_id>/sas-verify/', gate_views.incident_sas_verify, name='gate-incident-sas-verify'),
     # Event attendance (token-based QR)
     path('events/attendance-scanner/', gate_views.event_attendance_scanner, name='event-attendance-scanner'),
@@ -62,6 +68,7 @@ urlpatterns = [
     path('events/<int:event_id>/live/', gate_views.event_live_dashboard, name='event-live-dashboard'),
     path('events/<int:event_id>/expected-today/', gate_views.event_expected_today, name='event-expected-today'),
     path('events/<int:event_id>/manual-checkin/', gate_views.event_manual_checkin, name='event-manual-checkin'),
+    path('events/<int:event_id>/live-entries-embed/', gate_views.event_attendance_live_embed, name='event-attendance-live-embed'),
     path('events/<int:event_id>/field-trip-scan/', gate_views.field_trip_event_scan, name='event-field-trip-scan'),
     path('reports/compare-events/', gate_views.report_compare_events, name='report-compare-events'),
     path('audit-log/', gate_views.audit_log_viewer, name='audit-log-viewer'),
@@ -102,6 +109,7 @@ urlpatterns = [
     path('api/attendance/', gate_views.api_attendance, name='api-attendance'),
     path('api/notification-count/', gate_views.api_notification_count, name='api-notification-count'),
     path('api/notifications/mark-all-read/', gate_views.notifications_mark_all_read, name='notifications-mark-all-read'),
+    path('api/notifications/history/', gate_views.notifications_history_api, name='gate-notifications-history-api'),
     path('admin/notifications/check-new/', gate_views.check_new_admin_notifications_api_view, name='admin-check-new-notifications'),
 ]
 

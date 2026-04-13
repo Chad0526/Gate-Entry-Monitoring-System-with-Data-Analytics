@@ -1,0 +1,22 @@
+{% load i18n %}
+{% load crispy_forms_tags %}
+{# Bound EventForm as `f` (e.g. form.event on create, form on edit). #}
+{% with show_custom=f.use_custom_category.value|default:'' %}
+<div class="col-md-4" id="ce-category-column" data-name-prefix="{{ f.prefix }}">
+  {{ f.use_custom_category.as_hidden }}
+  <div id="ce-category-select-block"{% if show_custom == '1' or f.errors.custom_category_name %} style="display:none;"{% endif %}>
+    {{ f.category|as_crispy_field }}
+  </div>
+  <div id="ce-category-custom-block" class="ce-category-custom-block"{% if show_custom != '1' and not f.errors.custom_category_name %} style="display:none;"{% endif %}>
+    <div class="form-group">
+      <label for="{{ f.custom_category_name.id_for_label }}" class="requiredField">{{ f.custom_category_name.label }}<span class="asteriskField">*</span></label>
+      {{ f.custom_category_name }}
+      {% if f.custom_category_name.errors %}
+        <div class="invalid-feedback d-block text-danger small">{{ f.custom_category_name.errors }}</div>
+      {% endif %}
+      <small class="form-text text-muted">{% trans "Creates a new category you can reuse for other events." %}</small>
+    </div>
+    <button type="button" class="btn btn-link btn-sm px-0" id="ce-category-show-select-btn">{% trans "Choose existing category" %}</button>
+  </div>
+</div>
+{% endwith %}

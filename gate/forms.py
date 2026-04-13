@@ -5,7 +5,8 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from betterforms.multiform import MultiModelForm
 
-from .models import Event, EventImage, EventAgenda, Student, EventCategory, JobCategory
+from .models import Event, EventImage, EventAgenda, Student, EventCategory, JobCategory, SiteTheme
+from .event_category_utils import get_or_create_custom_event_category
 
 
 class EventStatusForm(forms.ModelForm):
@@ -55,8 +56,27 @@ def validate_student_photo(file):
 
 
 class EventForm(forms.ModelForm):
+    use_custom_category = forms.CharField(
+        required=False,
+        max_length=1,
+        widget=forms.HiddenInput(),
+        initial='',
+    )
+    custom_category_name = forms.CharField(
+        required=False,
+        max_length=255,
+        label=_('Category name'),
+        widget=forms.TextInput(
+            attrs={
+                'class': 'form-control',
+                'placeholder': _('Type a new category name'),
+                'autocomplete': 'off',
+            }
+        ),
+    )
 
     def __init__(self, *args, **kwargs):
+        self._creating_user = kwargs.pop('creating_user', None) or kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         if 'category' in self.fields:
             category_qs = EventCategory.objects.filter(status='active').order_by('priority', 'name')
@@ -64,6 +84,7 @@ class EventForm(forms.ModelForm):
                 category_qs = EventCategory.objects.all().order_by('priority', 'name')
             self.fields['category'].queryset = category_qs
             self.fields['category'].widget.attrs.update({'class': 'form-control'})
+            self.fields['category'].required = False
         if 'job_category' in self.fields:
             self.fields['job_category'].queryset = JobCategory.objects.all().order_by('name')
             self.fields['job_category'].widget.attrs.update({'class': 'form-control'})
@@ -153,6 +174,29 @@ class EventForm(forms.ModelForm):
         else:
             cleaned_data['audience_section'] = section
 
+        use_custom = (cleaned_data.get('use_custom_category') or '').strip() == '1'
+        custom_name = (cleaned_data.get('custom_category_name') or '').strip()
+        user = getattr(self, '_creating_user', None)
+
+        if use_custom:
+            if not custom_name:
+                self.add_error('custom_category_name', _('Enter a name for your custom category.'))
+            elif user is None:
+                self.add_error(
+                    None,
+                    _('Unable to create a custom category on this form. Please refresh and try again.'),
+                )
+            else:
+                try:
+                    cleaned_data['category'] = get_or_create_custom_event_category(custom_name, user)
+                except ValueError as exc:
+                    self.add_error('custom_category_name', str(exc))
+        else:
+            cleaned_data['custom_category_name'] = ''
+            cleaned_data['use_custom_category'] = ''
+            if not cleaned_data.get('category'):
+                self.add_error('category', _('Please select a category.'))
+
         return cleaned_data
 
 
@@ -164,6 +208,7 @@ class EventForm(forms.ModelForm):
             'attendance_mode', 'event_location',
             'audience_scope', 'audience_course', 'audience_year_level', 'audience_section',
             'status',
+            'use_custom_category', 'custom_category_name',
         ]
         widgets = {
             'start_date': forms.TextInput(attrs={'class': 'form-control', 'type': 'date'}),
@@ -220,6 +265,12 @@ class EventCreateMultiForm(MultiModelForm):
         'event_image': EventImageForm,
         'event_agenda': EventAgendaForm,
     }
+
+    def __init__(self, *args, **kwargs):
+        creating_user = kwargs.pop('creating_user', None)
+        super().__init__(*args, **kwargs)
+        if creating_user is not None and getattr(self, 'forms', None) and 'event' in self.forms:
+            self.forms['event']._creating_user = creating_user
 
 
 class StudentForm(forms.ModelForm):
@@ -554,4 +605,77 @@ class StaffPersonnelCreateForm(forms.Form):
             raise ValidationError('Password must be at least 8 characters.')
         return data
 
+
+SIGNATURE_IMAGE_MAX_MB = 3
+
+
+class SiteThemeEidSignatoryForm(forms.ModelForm):
+    """In-app settings for printed e-ID back-of-card signatories (names + signature images)."""
+
+    class Meta:
+        model = SiteTheme
+        fields = [
+            'default_first_signatory_name',
+            'default_first_signatory_title',
+            'default_second_signatory_name',
+            'default_second_signatory_title',
+            'first_signatory_signature',
+            'second_signatory_signature',
+        ]
+        widgets = {
+            'default_first_signatory_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'default_first_signatory_title': forms.TextInput(attrs={'class': 'form-control'}),
+            'default_second_signatory_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'default_second_signatory_title': forms.TextInput(attrs={'class': 'form-control'}),
+            'first_signatory_signature': forms.ClearableFileInput(attrs={'class': 'form-control border-0 pl-0'}),
+            'second_signatory_signature': forms.ClearableFileInput(attrs={'class': 'form-control border-0 pl-0'}),
+        }
+
+    def _validate_sig_file(self, f, field_label):
+        if not f:
+            return f
+        if f.size > SIGNATURE_IMAGE_MAX_MB * 1024 * 1024:
+            raise ValidationError(
+                _('%(label)s must be under %(mb)s MB.'),
+                params={'label': field_label, 'mb': f'{SIGNATURE_IMAGE_MAX_MB:.2g}'},
+            )
+        try:
+            from PIL import Image
+            img = Image.open(f)
+            img.verify()
+        except ImportError:
+            return f
+        except Exception:
+            raise ValidationError(_('%(label)s is not a valid image file.'), params={'label': field_label})
+        f.seek(0)
+        return f
+
+    def clean_first_signatory_signature(self):
+        f = self.cleaned_data.get('first_signatory_signature')
+        return self._validate_sig_file(f, _('First signatory signature'))
+
+    def clean_second_signatory_signature(self):
+        f = self.cleaned_data.get('second_signatory_signature')
+        return self._validate_sig_file(f, _('Second signatory signature'))
+
+
+class SiteThemeReportSignatoryForm(forms.ModelForm):
+    """Single signatory for Reports → Exports (CSV/Excel/PDF/print only — not e-ID cards)."""
+
+    class Meta:
+        model = SiteTheme
+        fields = [
+            'report_first_signatory_name',
+            'report_first_signatory_title',
+            'report_first_signatory_signature',
+        ]
+        widgets = {
+            'report_first_signatory_name': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'report_first_signatory_title': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'report_first_signatory_signature': forms.ClearableFileInput(attrs={'class': 'form-control form-control-sm'}),
+        }
+
+    def clean_report_first_signatory_signature(self):
+        f = self.cleaned_data.get('report_first_signatory_signature')
+        return SiteThemeEidSignatoryForm()._validate_sig_file(f, _('Report signatory signature'))
 

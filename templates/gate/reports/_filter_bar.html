@@ -196,7 +196,7 @@
 </style>
 <div class="rf-card">
   <div class="rf-body">
-    <form method="get" action="" id="report-filter-form" class="report-filter-form">
+    <form method="get" action="" id="report-filter-form" class="report-filter-form"{% if reports_exports_ajax %} data-no-page-loader="1"{% endif %}>
       {% for key, value in request.GET.items %}
       {% if key != 'date_range' and key != 'from_date' and key != 'to_date' and key != 'from_time' and key != 'to_time' and key != 'search' and key != 'event_id' and key != 'scope' and key != 'all_day' %}{% if not show_report_type_filter or key != 'template' %}
       <input type="hidden" name="{{ key }}" value="{{ value }}">
@@ -206,6 +206,16 @@
       <div class="rf-controls report-filter-controls-row">
         {% if show_report_type_filter %}
           <input type="hidden" name="date_range" value="custom">
+          <div id="report-audience-wrap" class="rf-group" style="display:{% if template_type != 'event_attendance' %}flex{% else %}none{% endif %};">
+            <span class="rf-label">Audience</span>
+            {% with selected_audience=audience_filter|default:'all' %}
+            <select name="audience" class="form-control form-control-sm" style="width:150px;">
+              <option value="all"{% if selected_audience == 'all' %} selected{% endif %}>All</option>
+              <option value="students"{% if selected_audience == 'students' %} selected{% endif %}>Students only</option>
+              <option value="visitors"{% if selected_audience == 'visitors' %} selected{% endif %}>Visitors only</option>
+            </select>
+            {% endwith %}
+          </div>
           <div class="rf-group" style="min-width:220px;">
             <span class="rf-label">Gate entries / Events</span>
             <select name="template" id="reports-mode-select" class="form-control form-control-sm" style="width:220px;">
@@ -251,17 +261,6 @@
               <option value=""{% if selected_io == '' %} selected{% endif %}>Any</option>
               <option value="IN"{% if selected_io == 'IN' %} selected{% endif %}>IN</option>
               <option value="OUT"{% if selected_io == 'OUT' %} selected{% endif %}>OUT</option>
-            </select>
-            {% endwith %}
-          </div>
-
-          <div id="report-audience-wrap" class="rf-group" style="display:{% if template_type != 'event_attendance' %}flex{% else %}none{% endif %};">
-            <span class="rf-label">Audience</span>
-            {% with selected_audience=audience_filter|default:'all' %}
-            <select name="audience" class="form-control form-control-sm" style="width:150px;">
-              <option value="all"{% if selected_audience == 'all' %} selected{% endif %}>All</option>
-              <option value="students"{% if selected_audience == 'students' %} selected{% endif %}>Students only</option>
-              <option value="visitors"{% if selected_audience == 'visitors' %} selected{% endif %}>Visitors only</option>
             </select>
             {% endwith %}
           </div>

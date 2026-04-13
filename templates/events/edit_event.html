@@ -244,7 +244,7 @@
       <div class="ce-section-body">
         <div class="row">
           <div class="col-md-8">{{ form.name|as_crispy_field }}</div>
-          <div class="col-md-4">{{ form.category|as_crispy_field }}</div>
+          {% include 'events/includes/event_category_field_block.html' with f=form %}
         </div>
       </div>
     </div>
@@ -422,4 +422,5 @@
   }
 })();
 </script>
+{% include 'events/includes/event_category_custom_js.html' %}
 {% endblock extrascript_inner %}

@@ -461,7 +461,10 @@ class GuardScannerDashboardTests(TestCase):
         from django.contrib.auth.models import User, Group
         from django.core.cache import cache
         from django.test import Client
-        from gate.gate_personnel_views import GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY
+        from gate.gate_personnel_views import (
+            GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY,
+            GATE_SESSION_ARMED_CACHE_KEY,
+        )
 
         cache.clear()
         c = Client()
@@ -480,7 +483,34 @@ class GuardScannerDashboardTests(TestCase):
         r2 = c.post(url, json.dumps({'camera_running': True}), content_type='application/json')
         self.assertEqual(r2.status_code, 200)
         self.assertIsNotNone(cache.get(GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY))
+        self.assertIsNotNone(cache.get(GATE_SESSION_ARMED_CACHE_KEY))
 
         r3 = c.post(url, json.dumps({'camera_running': False}), content_type='application/json')
         self.assertEqual(r3.status_code, 200)
         self.assertIsNone(cache.get(GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY))
+        self.assertIsNone(cache.get(GATE_SESSION_ARMED_CACHE_KEY))
+
+    def test_guard_dashboard_scanner_active_when_session_armed_without_heartbeat(self):
+        """Guard wall unlocks from armed session even after short-TTL heartbeat expires (e.g. staff logged out)."""
+        import json
+        from django.core.cache import cache
+        from django.test import Client, override_settings
+        from django.utils import timezone
+
+        from gate.gate_personnel_views import GATE_SESSION_ARMED_CACHE_KEY, GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY
+
+        cache.clear()
+        tok = 'test-guard-token-armed-only'
+        c = Client()
+        with override_settings(GATE_GUARD_DISPLAY_TOKEN=tok):
+            cache.set(
+                GATE_SESSION_ARMED_CACHE_KEY,
+                {'armed_at': timezone.now().isoformat(), 'username': 'staff', 'display_name': 'Staff'},
+                3600,
+            )
+            self.assertIsNone(cache.get(GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY))
+            rb = c.get('/gate/api/guard-dashboard/', {'token': tok, 'minimal': '1'})
+            self.assertEqual(rb.status_code, 200)
+            data = json.loads(rb.content.decode())
+            self.assertTrue(data.get('success'))
+            self.assertTrue(data.get('scanner_active'))

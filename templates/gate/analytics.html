@@ -296,12 +296,14 @@
     fetch(fetchUrl.toString(), { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(function(r) { return r.text(); })
       .then(function(html) {
+        if (window.ccbHidePageLoader) window.ccbHidePageLoader();
         root.innerHTML = html;
         root.style.opacity = '';
         root.style.pointerEvents = '';
         gateAnalyticsAfterPartialLoad(fetchUrl);
       })
       .catch(function() {
+        if (window.ccbHidePageLoader) window.ccbHidePageLoader();
         root.style.opacity = '';
         root.style.pointerEvents = '';
         var u = new URL(fetchUrl.toString());

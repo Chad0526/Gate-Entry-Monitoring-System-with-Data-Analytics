@@ -2,7 +2,7 @@
 
 {% include 'gate/reports/_filter_bar.html' %}
 
-<div class="card mb-3">
+<div class="card mb-3 reports-exports-preview-card">
   <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
     <h6 class="m-0">Preview</h6>
     <span class="small text-muted">Report: <strong id="preview-report-label">{% if template_type == 'export_all' %}All reports (ZIP){% elif template_type == 'daily_gate_visits' %}Gate entries{% elif template_type == 'overview_summary' %}Summary{% elif template_type == 'recent_activity' %}Recent activity{% elif template_type == 'inside_now' %}Inside now{% elif template_type == 'raw_entries' %}Raw entries{% elif template_type == 'event_attendance' %}Events{% elif template_type == 'by_personnel' %}By recorder{% else %}{{ template_type }}{% endif %}</strong></span>
@@ -72,7 +72,9 @@
       {% endif %}
     {% elif preview_rows %}
       {% if template_type == 'event_attendance' %}
-      <p class="text-muted p-3 mb-0">Preview shows up to 50 attendees and covers anyone whose check‑in, check‑out, or record creation occurred in the window; use export for full data.</p>
+      <p class="text-muted p-3 mb-0 reports-exports-preview-desc">
+        Showing {{ page_obj.start_index|default:1 }}–{{ page_obj.end_index|default:0 }} of {{ page_obj.paginator.count|default:0 }} attendees (50 per page).
+      </p>
       {% endif %}
     <div class="table-responsive">
       <table class="table table-sm table-striped mb-0">
@@ -94,35 +96,55 @@
         </tbody>
       </table>
     </div>
+    {% if template_type == 'event_attendance' and page_obj %}
+      {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options %}
+    {% endif %}
     {% else %}
     <p class="text-muted p-3 mb-0">No data for this filter.</p>
     {% endif %}
   </div>
 </div>
 
-<div class="card">
-  <div class="card-header d-flex justify-content-between align-items-center flex-wrap" style="gap:10px;">
-    <h6 class="m-0">Export</h6>
-    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print();">
-      <i class="fas fa-print mr-1"></i> Print
-    </button>
-  </div>
+{% include 'snippets/report_signatories_block.html' %}
+
+<div class="card reports-export-card mb-3">
   <div class="card-body">
-    <p class="small text-muted mb-2">Downloads use the filters applied above.</p>
-    {% if template_type == 'export_all' %}
-    <p class="mb-0">
-      <a href="{% url 'reports-export-download' %}?{{ request.GET.urlencode }}&template=export_all" class="btn btn-sm btn-primary"><i class="fas fa-file-archive mr-1"></i> Download ZIP</a>
-    </p>
-    {% else %}
-    <div class="form-inline align-items-center">
-      <label class="mr-2 mb-0">Format:</label>
-      <select id="export-format-select" class="form-control form-control-sm mr-2" style="width:120px;">
-        <option value="csv">CSV</option>
-        <option value="xlsx">Excel</option>
-        <option value="pdf">PDF</option>
-      </select>
-      <button type="button" id="export-download-btn" class="btn btn-sm btn-primary" data-export-base="{% url 'reports-export-download' %}?{{ request.GET.urlencode }}">Export</button>
+    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between" style="gap: 14px;">
+      <div class="flex-shrink-0" style="min-width: 0;">
+        <h6 class="rf-export-title">Export</h6>
+        <p class="rf-export-hint">Download or print using the same filters as the preview above.</p>
+      </div>
+      {% if template_type == 'export_all' %}
+      <div class="reports-export-toolbar ml-lg-auto">
+        <div class="rf-export-actions">
+          <a href="{% url 'reports-export-download' %}?{{ request.GET.urlencode }}&template=export_all" class="btn btn-sm btn-primary">
+            <i class="fas fa-file-archive mr-1"></i> Download ZIP
+          </a>
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print();" title="Print preview">
+            <i class="fas fa-print mr-1"></i> Print
+          </button>
+        </div>
+      </div>
+      {% else %}
+      <div class="reports-export-toolbar ml-lg-auto">
+        <div class="rf-export-format">
+          <label for="export-format-select">Format</label>
+          <select id="export-format-select" class="form-control form-control-sm" aria-label="Export file format">
+            <option value="csv">CSV</option>
+            <option value="xlsx">Excel</option>
+            <option value="pdf">PDF</option>
+          </select>
+        </div>
+        <div class="rf-export-actions">
+          <button type="button" id="export-download-btn" class="btn btn-sm btn-primary" data-export-base="{% url 'reports-export-download' %}?{{ request.GET.urlencode }}">
+            <i class="fas fa-download mr-1"></i> Export
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print();" title="Print preview">
+            <i class="fas fa-print mr-1"></i> Print
+          </button>
+        </div>
+      </div>
+      {% endif %}
     </div>
-    {% endif %}
   </div>
 </div>

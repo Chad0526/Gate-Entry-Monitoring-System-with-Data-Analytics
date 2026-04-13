@@ -401,7 +401,7 @@
         <button type="button" class="btn btn-primary btn-sm ed-modal-btn" data-target="#edSummaryModal" data-src="{% url 'event-live-dashboard' event.id %}?embed=1&refresh=0"><i class="fas fa-chart-line mr-1"></i> Event summary</button>
         {% else %}
         <button type="button" class="btn btn-primary btn-sm ed-modal-btn" data-target="#edSummaryModal" data-src="{% url 'event-live-dashboard' event.id %}?embed=1&refresh=0"><i class="fas fa-broadcast-tower mr-1"></i> Live dashboard</button>
-        <a href="{% url 'event-currently-inside' event.id %}" class="btn btn-warning btn-sm"><i class="fas fa-user-check mr-1"></i> Currently inside</a>
+        <button type="button" class="btn btn-warning btn-sm ed-modal-btn" data-target="#edCurrentlyInsideModal" data-src="{% url 'event-currently-inside' event.id %}?embed=1"><i class="fas fa-user-check mr-1"></i> Currently inside</button>
         {% if event.event_location == 'field_trip' %}
         <a href="{% url 'gate-scan' %}?event={{ event.id }}" class="btn btn-success btn-sm"><i class="fas fa-clipboard-check mr-1"></i> Take attendance</a>
         {% endif %}
@@ -460,6 +460,24 @@
         </div>
         <div class="modal-body p-0">
           <iframe class="ed-modal-iframe" src="" title="Registrations"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Currently inside modal -->
+  <div class="modal fade ed-modal" id="edCurrentlyInsideModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+      <div class="modal-content">
+        <div class="modal-header ed-modal-header">
+          <h5 class="modal-title"><i class="fas fa-user-check mr-2"></i> Currently Inside</h5>
+          <div class="ed-modal-header-actions">
+            <a href="{% url 'event-currently-inside' event.id %}" class="btn btn-sm btn-outline-secondary" target="_blank" title="Open in new tab"><i class="fas fa-external-link-alt"></i></a>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          </div>
+        </div>
+        <div class="modal-body p-0">
+          <iframe class="ed-modal-iframe" src="" title="Currently Inside"></iframe>
         </div>
       </div>
     </div>

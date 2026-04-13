@@ -663,7 +663,7 @@
           </div>
           {% else %}
           <div class="w-100 p-2 rounded border" style="background:#f8fafc;border-color:#e2e8f0!important;">
-            <div class="small text-muted mb-2" style="line-height:1.35;">Arm the gate session so the scanner display can open the camera. Use <strong>Stop</strong> when gate duty ends.</div>
+            <div class="small text-muted mb-2" style="line-height:1.35;"><strong>Start</strong> arms the gate session so the scanner display (in a separate tab) automatically activates. Open the scanner display first using the link below. <strong>Stop</strong> deactivates the scanner.</div>
             <div class="d-flex flex-column gap-2">
               <button type="button" id="gateDashSessionStart" class="btn action-btn action-primary w-100">
                 <i class="fas fa-play"></i> Start gate session
@@ -672,7 +672,14 @@
                 <i class="fas fa-stop"></i> Stop gate session
               </button>
             </div>
-            <a href="{% url 'gate-scan' %}" class="btn btn-link btn-sm w-100 mt-1 p-0 small ccb-spa-nav">Open full scanner page (camera + manual entry here)</a>
+            {% if guard_display_url %}
+            <a id="gateDashOpenScannerDisplay" href="{{ guard_display_url }}" target="_blank" rel="noopener noreferrer" data-cc-full-nav="1" class="btn btn-outline-secondary btn-sm w-100 mt-2 font-weight-semibold" style="border-color:#cbd5e1;color:#14532d;">
+              <i class="fas fa-external-link-alt"></i> Open scanner display (new tab)
+            </a>
+            {% else %}
+            <p class="small text-warning mb-0 mt-2">Scanner display URL is not configured (set <code>GATE_GUARD_DISPLAY_TOKEN</code> in settings).</p>
+            {% endif %}
+            <a href="{% url 'gate-scan' %}" class="btn btn-link btn-sm w-100 mt-1 p-0 small ccb-spa-nav" style="text-decoration: none; transition: all 0.2s ease;" onmouseover="this.style.textDecoration='underline'; this.style.color='#15803d';" onmouseout="this.style.textDecoration='none'; this.style.color='';">Open full staff scanner page (logged-in, camera + manual entry)</a>
           </div>
           <a href="{% url 'visitor-pass-create' %}" class="btn action-btn w-100 ccb-spa-nav"><i class="fas fa-user-tag"></i> Visitor Pass</a>
           <a href="{% url 'gate-entry-list' %}" class="btn action-btn w-100 ccb-spa-nav"><i class="fas fa-list"></i> Gate Entries</a>
@@ -806,10 +813,15 @@
     body.innerHTML = html;
   }
 
+  /** Bumps when stopping the gate session so in-flight stats polls cannot overwrite UI with stale gate_session_armed. */
+  var __dashStatsGen = 0;
+
   function updateDashboardStats() {
+    var myGen = ++__dashStatsGen;
     fetch('{% url "dashboard-stats-api" %}')
       .then(function(response) { return response.json(); })
       .then(function(data) {
+        if (myGen !== __dashStatsGen) return;
         if (!data.success) return;
         setText('total_students', data.total_students);
         setText('granted_today', data.granted_today);
@@ -832,6 +844,9 @@
           statusEl.classList.toggle('status-active', (data.scanner_status || '').toUpperCase() === 'ACTIVE');
         }
         renderLiveActivity(data.recent_activity || []);
+        if (typeof window.ccbSyncGateSessionUiFromServer === 'function' && typeof data.gate_session_armed === 'boolean') {
+          window.ccbSyncGateSessionUiFromServer(data.gate_session_armed);
+        }
       })
       .catch(function(error) {
         console.error('Dashboard refresh error:', error);
@@ -850,7 +865,17 @@
     var hbUrl = '{% url "gate-scan-scanner-heartbeat" %}';
     var hbMs = 30000;
     var storageKey = 'gateDashGateSession';
+    /** Same-origin guard tabs listen for this and re-poll the API immediately (instant unlock with dashboard). */
+    var LS_GUARD_PING = 'ccb_gate_session_ping';
+    var LS_GUARD_STOP = 'ccb_gate_session_stop';
     var timer = null;
+
+    function signalGuardDisplaysPing() {
+      try { localStorage.setItem(LS_GUARD_PING, String(Date.now())); } catch (e) {}
+    }
+    function signalGuardDisplaysStop() {
+      try { localStorage.setItem(LS_GUARD_STOP, String(Date.now())); } catch (e) {}
+    }
 
     function csrfToken() {
       var m = document.cookie.match(/\bcsrftoken=([^;]+)/);
@@ -858,6 +883,7 @@
     }
 
     function sendHeartbeat(cameraOn) {
+      console.log('[Dashboard] Sending heartbeat with camera_running:', !!cameraOn);
       return fetch(hbUrl, {
         method: 'POST',
         credentials: 'same-origin',
@@ -867,7 +893,13 @@
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ camera_running: !!cameraOn }),
-      }).then(function(r) { return r.json().catch(function() { return {}; }); });
+      }).then(function(r) {
+        console.log('[Dashboard] Heartbeat response status:', r.status);
+        return r.json().catch(function() { return {}; });
+      }).then(function(data) {
+        console.log('[Dashboard] Heartbeat response data:', data);
+        return data;
+      });
     }
 
     function setSessionUi(running) {
@@ -881,25 +913,65 @@
       }
     }
 
-    function startSessionFromUi() {
+    function armHeartbeatTimer() {
       if (timer) clearInterval(timer);
-      sendHeartbeat(true).catch(function() {});
       timer = setInterval(function() {
-        sendHeartbeat(true).catch(function() {});
+        sendHeartbeat(true).then(function(res) {
+          if (res && res.success !== false && !(res && res.error)) {
+            signalGuardDisplaysPing();
+          }
+        }).catch(function() {});
       }, hbMs);
+    }
+
+    /** Resume session after reload: heartbeats only — no window.open (blocked without a click). */
+    function resumeSessionHeartbeatsOnly() {
+      if (timer) clearInterval(timer);
+      sendHeartbeat(true).then(function(res) {
+        if (res && res.success !== false && !(res && res.error)) {
+          signalGuardDisplaysPing();
+        }
+      }).catch(function() {});
+      armHeartbeatTimer();
+      setSessionUi(true);
+    }
+
+    function startSessionFromUi() {
+      console.log('[Dashboard] Starting gate session (heartbeat only)');
+      if (timer) clearInterval(timer);
+      sendHeartbeat(true).then(function(res) {
+        console.log('[Dashboard] Initial heartbeat sent, response:', res);
+        if (res && res.success === false && res.error) {
+          console.error('[Dashboard] Heartbeat failed:', res.error);
+          return;
+        }
+        signalGuardDisplaysPing();
+      }).catch(function(err) {
+        console.error('[Dashboard] Heartbeat error:', err);
+      });
+      armHeartbeatTimer();
       try { sessionStorage.setItem(storageKey, '1'); } catch (e) {}
       setSessionUi(true);
     }
 
     function stopSessionFromUi() {
+      console.log('[Dashboard] Stopping gate session');
+      __dashStatsGen += 1;
+      signalGuardDisplaysStop();
       if (timer) {
         clearInterval(timer);
         timer = null;
       }
-      sendHeartbeat(false).catch(function() {});
       try { sessionStorage.removeItem(storageKey); } catch (e) {}
       setSessionUi(false);
-      updateDashboardStats();
+      function refreshStatsAfterStop() {
+        updateDashboardStats();
+      }
+      sendHeartbeat(false).then(function() {
+        refreshStatsAfterStop();
+      }).catch(function() {
+        refreshStatsAfterStop();
+      });
     }
 
     var startBtn = document.getElementById('gateDashSessionStart');
@@ -909,9 +981,21 @@
 
     try {
       if (sessionStorage.getItem(storageKey) === '1') {
-        startSessionFromUi();
+        resumeSessionHeartbeatsOnly();
       }
     } catch (e) {}
+
+    window.ccbSyncGateSessionUiFromServer = function(armed) {
+      if (typeof armed !== 'boolean') return;
+      setSessionUi(armed);
+      if (!armed && timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+      try {
+        if (!armed) sessionStorage.removeItem(storageKey);
+      } catch (e) {}
+    };
   })();
 </script>
 {% endblock content %}

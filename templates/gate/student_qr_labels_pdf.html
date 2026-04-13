@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Student QR labels — {{ site_name }}</title>
+  <style>
+    @page {
+      size: letter;
+      margin: 0.45in;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: DejaVu Sans, Arial, Helvetica, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .sheet-title {
+      font-size: 9pt;
+      color: #374151;
+      margin: 0 0 0.2in 0;
+      font-weight: 600;
+    }
+    .grid {
+      display: flex;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      justify-content: flex-start;
+    }
+    .cell {
+      /* Light cut guides — thin border around each label (QR + text) */
+      box-sizing: content-box;
+      width: 1.5in;
+      margin: 0.1in 0.12in;
+      padding: 0.05in 0.06in 0.07in;
+      border: 0.6pt solid #d1d5db;
+      border-radius: 0.04in;
+      background: #fff;
+      page-break-inside: avoid;
+      text-align: center;
+    }
+    .cell img {
+      width: 1.5in;
+      height: 1.5in;
+      display: block;
+      margin: 0 auto;
+      object-fit: contain;
+    }
+    .name {
+      font-size: 7.5pt;
+      font-weight: 600;
+      margin-top: 2px;
+      line-height: 1.2;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    .sid {
+      font-size: 7pt;
+      color: #1f2937;
+      margin-top: 1px;
+    }
+  </style>
+</head>
+<body>
+  <p class="sheet-title">{{ site_name }} — student QR codes (1.5 x 1.5 in)</p>
+  <div class="grid">
+    {% for row in qr_rows %}
+    <div class="cell">
+      {% if row.qr_url %}
+      <img src="{{ row.qr_url }}" alt="">
+      {% endif %}
+      <div class="name">{{ row.full_name }}</div>
+      <div class="sid">{{ row.student_id }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</body>
+</html>

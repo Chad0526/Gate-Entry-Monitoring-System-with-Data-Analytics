@@ -1210,6 +1210,27 @@ class SiteTheme(models.Model):
     default_first_signatory_title = models.CharField(max_length=120, blank=True, default='')
     default_second_signatory_name = models.CharField(max_length=120, blank=True, default='')
     default_second_signatory_title = models.CharField(max_length=120, blank=True, default='')
+    first_signatory_signature = models.ImageField(
+        upload_to='theme/signatures/',
+        blank=True,
+        null=True,
+        help_text='Optional image (PNG/JPEG) shown above the 1st signatory line on the back of e-ID cards.',
+    )
+    second_signatory_signature = models.ImageField(
+        upload_to='theme/signatures/',
+        blank=True,
+        null=True,
+        help_text='Optional image shown above the 2nd signatory line on the back of e-ID cards.',
+    )
+    # Reports (CSV/Excel/PDF/print) — single signatory; independent from e-ID signatories above.
+    report_first_signatory_name = models.CharField(max_length=120, blank=True, default='')
+    report_first_signatory_title = models.CharField(max_length=120, blank=True, default='')
+    report_first_signatory_signature = models.ImageField(
+        upload_to='theme/report_signatures/',
+        blank=True,
+        null=True,
+        help_text='Optional image for PDF/printed reports (not e-ID cards).',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1456,13 +1477,15 @@ class AdminNotification(models.Model):
     Supports broadcast (all admins/staff) or targeted (specific user).
     """
     NOTIFICATION_TYPE_CHOICES = (
-        ('student_registration', 'Student Registration'),
-        ('staff_personnel_registration', 'Staff/Faculty/Personnel Registration'),
-        ('incident', 'Incident Alert'),
-        ('sas_inactive_ready_activation', 'SAS checked — inactive student ready to activate'),
-        ('capacity', 'Capacity Alert'),
-        ('system', 'System Message'),
-        ('personnel_alert', 'Personnel alert'),
+        ('student_registration', 'Student registration'),
+        ('staff_personnel_registration', 'Staff / faculty signup'),
+        ('incident', 'Gate incident'),
+        ('sas_inactive_ready_activation', 'SAS verified — needs activation'),
+        ('sas_verified_gate_followup', 'SAS verified — no action'),
+        ('gate_manual_referral', 'Guard manual — office route'),
+        ('capacity', 'Capacity'),
+        ('system', 'System'),
+        ('personnel_alert', 'Personnel'),
     )
     
     PRIORITY_CHOICES = (

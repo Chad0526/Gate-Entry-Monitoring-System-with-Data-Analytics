@@ -19,6 +19,9 @@
   </style>
 </head>
 <body class="student-modal-iframe-body">
+  {# jQuery/Bootstrap before the content block so inline scripts can use jQuery. #}
+  <script src="{% static 'plugins/jquery/jquery.min.js' %}"></script>
+  <script src="{% static 'plugins/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
   {# content_header_title: empty here; student_form uses block.super in modal branch. #}
   {% block content_header_title %}{% endblock %}
   {% if messages %}
@@ -34,7 +37,5 @@
   <div class="container-fluid px-3 pb-3">
   {% block content %}{% endblock %}
   </div>
-  <script src="{% static 'plugins/jquery/jquery.min.js' %}"></script>
-  <script src="{% static 'plugins/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
 </body>
 </html>

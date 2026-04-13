@@ -4,11 +4,296 @@
 {% block page_heading %}Reports{% endblock page_heading %}
 {% block extrahead %}
 <link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
+<style>
+/* Signatories: hidden on screen, visible when printing report */
+#reports-exports-root .reports-print-only {
+  display: none !important;
+}
+@media print {
+  /* Hide global layout chrome (sidebar/header/footer) */
+  .main-sidebar, .control-sidebar, .main-footer, .main-header, .content-header, .navbar { display: none !important; }
+  /* Ensure the printable area uses full width */
+  body { background: #fff !important; }
+  #reports-exports-root { margin: 0 !important; padding: 0 !important; }
+
+  /* Show print header */
+  .print-header {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 20px;
+    border-bottom: 2px solid #28a745;
+    margin-bottom: 20px;
+  }
+  
+  .print-header-logo {
+    width: 60px;
+    height: 60px;
+    margin-right: 20px;
+  }
+  
+  .print-header-content {
+    text-align: center;
+  }
+  
+  .print-header-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1e5631;
+    margin: 0 0 6px 0;
+  }
+  
+  .print-header-subtitle {
+    font-size: 15px;
+    color: #495057;
+    margin: 0 0 4px 0;
+  }
+  
+  .print-header-date {
+    font-size: 13px;
+    color: #6c757d;
+    margin: 0;
+  }
+
+  /* Print: header + preview table + signatories; hide filters/tabs/export. */
+  #reports-exports-root > *:not(.print-header):not(.reports-exports-preview-card):not(.reports-print-only) {
+    display: none !important;
+  }
+  #reports-exports-root .print-header {
+    display: flex !important;
+  }
+  #reports-exports-root .reports-exports-preview-card {
+    display: block !important;
+  }
+  #reports-exports-root .reports-print-only {
+    display: block !important;
+  }
+  .report-signatories-wrap {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 2px solid #28a745;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .report-signatories-heading {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #1e5631;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0 0 12px 0;
+  }
+  .report-sig-block {
+    min-height: 72px;
+  }
+  .report-sig-img {
+    max-height: 48px;
+    max-width: 180px;
+    object-fit: contain;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .report-sig-name {
+    font-weight: 700;
+    font-size: 12px;
+    color: #212529;
+  }
+  .report-sig-title {
+    font-size: 11px;
+    color: #6c757d;
+    margin-top: 2px;
+  }
+  /* Hide the preview header/description + pagination controls. */
+  #reports-exports-root .reports-exports-preview-card .card-header,
+  #reports-exports-root .reports-exports-preview-card .reports-exports-preview-desc,
+  #reports-exports-root .reports-exports-preview-card .ccb-pagination-wrap {
+    display: none !important;
+  }
+  
+  /* Optimize table for print */
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #dee2e6 !important;
+  }
+  
+  .table {
+    font-size: 11px !important;
+  }
+  
+  .table thead th {
+    background: #f8f9fa !important;
+    color: #212529 !important;
+    border: 1px solid #dee2e6 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  .table tbody td {
+    border: 1px solid #dee2e6 !important;
+  }
+  
+  .table tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+  
+  /* Page settings */
+  @page {
+    margin: 0.5in;
+  }
+
+  .reports-exports-footer,
+  .modal,
+  .modal-backdrop {
+    display: none !important;
+  }
+}
+
+/* Export card (screen) — aligned with filter bar */
+.reports-export-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+.reports-export-card .card-body {
+  padding: 16px 20px;
+}
+.reports-export-card .rf-export-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #14532d;
+  margin: 0;
+}
+.reports-export-card .rf-export-hint {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin: 4px 0 0 0;
+  line-height: 1.35;
+}
+.reports-export-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+.reports-export-toolbar .rf-export-format {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.reports-export-toolbar .rf-export-format label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #4d7c5e;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
+  white-space: nowrap;
+}
+.reports-export-toolbar .form-control-sm {
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  min-width: 118px;
+}
+.reports-export-toolbar .btn {
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 7px 16px;
+}
+.reports-export-toolbar .btn-outline-secondary {
+  border-color: #e2e8f0;
+  color: #4d7c5e;
+  background: #fff;
+}
+.reports-export-toolbar .btn-outline-secondary:hover {
+  border-color: #16a34a;
+  color: #15803d;
+  background: #f0fdf4;
+}
+.reports-export-toolbar .btn-primary {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  border: none;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.2);
+}
+.reports-export-toolbar .btn-primary:hover {
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.28);
+}
+.reports-export-toolbar .rf-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.reports-exports-footer {
+  border-top: 1px solid #e2e8f0;
+  background: #fafbfc;
+  border-radius: 0 0 14px 14px;
+  margin-bottom: 1rem;
+}
+@media (max-width: 575px) {
+  .reports-export-toolbar {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+  .reports-export-toolbar .rf-export-format {
+    width: 100%;
+  }
+  .reports-export-toolbar .rf-export-format select {
+    flex: 1;
+    min-width: 0;
+  }
+  .reports-export-toolbar .rf-export-actions {
+    width: 100%;
+  }
+  .reports-export-toolbar .rf-export-actions .btn {
+    flex: 1;
+    text-align: center;
+  }
+}
+</style>
 {% endblock extrahead %}
 
 {% block content %}
-<div id="reports-exports-root" class="monitor-wrap">
+<div class="monitor-wrap">
+<div id="reports-exports-root">
+
+<!-- Print header (only visible when printing) -->
+<div class="print-header" style="display: none;">
+  <img src="{% static 'img/logo.png' %}" alt="Logo" class="print-header-logo">
+  <div class="print-header-content">
+    <div class="print-header-title">{{ site_name|default:"City College of Bayawan" }}</div>
+    <div class="print-header-subtitle">
+      {% if template_type == 'daily_gate_visits' %}Gate Entry Report
+      {% elif template_type == 'overview_summary' %}Summary Report
+      {% elif template_type == 'recent_activity' %}Recent Activity Report
+      {% elif template_type == 'inside_now' %}Currently Inside Report
+      {% elif template_type == 'raw_entries' %}Raw Entries Report
+      {% elif template_type == 'event_attendance' %}Event Attendance Report
+      {% elif template_type == 'by_personnel' %}By Recorder Report
+      {% else %}Report{% endif %}
+    </div>
+    <div class="print-header-date">
+      {% if to_date_str and to_date_str != from_date_str %}
+        Date Range: {{ from_date_str }} to {{ to_date_str }}
+      {% else %}
+        Date: {{ from_date_str|default:"N/A" }}
+      {% endif %}
+      | Generated: {% now "Y-m-d H:i:s" %}
+    </div>
+  </div>
+</div>
+
 {% include 'gate/reports/exports_inner.html' %}
+</div>
+<div class="reports-exports-footer d-flex justify-content-end align-items-center px-3 py-2 mt-0 no-print">
+  <button type="button" class="btn btn-sm btn-outline-secondary" data-toggle="modal" data-target="#reportSignatoryModal" title="Who signs exported reports">
+    <i class="fas fa-signature mr-1"></i> Report signatory
+  </button>
+</div>
+{% include 'gate/reports/_report_signatory_modal.html' %}
 </div>
 {% endblock content %}
 

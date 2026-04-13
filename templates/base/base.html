@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   {% load static %}
+  {% load i18n %}
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,11 +11,50 @@
   {% include 'base/header.html' %}
   <style>
     .content-wrapper.ccb-nav-loading { opacity: 0.72; transition: opacity 0.12s ease; pointer-events: none; }
+    /* Full-page loader: centered on the page (tab spinner still may appear until navigation finishes). */
+    .ccb-page-loader {
+      position: fixed;
+      inset: 0;
+      z-index: 999999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+      transition: opacity 0.28s ease, visibility 0.28s ease;
+    }
+    .ccb-page-loader.ccb-page-loader--hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .ccb-page-loader__inner {
+      text-align: center;
+      color: #1a4d2e;
+    }
+    .ccb-page-loader__icon {
+      font-size: 2.75rem;
+      display: block;
+      margin: 0 auto 14px;
+      color: #15803d;
+    }
+    .ccb-page-loader__text {
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
   </style>
   {% block extrahead %}
   {% endblock extrahead %}
 </head>
 <body class="hold-transition sidebar-mini layout-fixed layout-navbar-fixed">
+<div id="ccb-page-loader" class="ccb-page-loader" role="status" aria-live="polite" aria-busy="true">
+  <div class="ccb-page-loader__inner">
+    <i class="fas fa-circle-notch fa-spin ccb-page-loader__icon" aria-hidden="true"></i>
+    <span class="ccb-page-loader__text">{% trans "Loading…" %}</span>
+  </div>
+</div>
 <div class="wrapper">
   <!-- Navbar -->
   {% include 'base/navbar.html' %}

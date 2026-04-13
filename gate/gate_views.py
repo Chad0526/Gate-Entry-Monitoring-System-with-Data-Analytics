@@ -9,6 +9,8 @@ import datetime
 import json
 import logging
 import calendar
+
+logger = logging.getLogger(__name__)
 import re
 from types import SimpleNamespace
 from urllib.parse import urlencode
@@ -21,12 +23,13 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
 from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.contrib import messages
 from django.db.models import Count, Q, Case, When, IntegerField, Sum, F
 from django.db.models.functions import ExtractYear, ExtractMonth
 from django.db import transaction
+from django.core.cache import cache
 from django.core.files.storage import default_storage
 from django.contrib.staticfiles import finders
 
@@ -56,7 +59,14 @@ from .models import (
     AdminNotification,
     BlockedIP,
 )
-from .forms import StudentForm, StudentModalForm, StudentStudentAffairsForm, StaffPersonnelCreateForm
+from .forms import (
+    StudentForm,
+    StudentModalForm,
+    StudentStudentAffairsForm,
+    StaffPersonnelCreateForm,
+    SiteThemeEidSignatoryForm,
+    SiteThemeReportSignatoryForm,
+)
 from .policy import (
     get_student_current_state,
     evaluate_scan,
@@ -152,47 +162,81 @@ def _normalize_manual_office_reason(raw_reason):
     return '', (raw_reason or '').strip()[:200]
 
 
-def _notify_sas_manual_office_referral(student, actor, entry, office_code, selected_event=None):
-    """Notify Student Affairs dashboard for manual ID-related office referrals from gate."""
-    if office_code != 'SAS_ID_CONCERN':
+def _notify_manual_office_referral(student, actor, entry, office_code, office_label, selected_event=None):
+    """
+    When guard uses manual entry with office routing: GateIncident + Admin/SAS incident alerts,
+    plus admin-only in-app rows with a direct link to edit the student (inactive if SAS unresolved).
+    """
+    if not office_code or office_code not in MANUAL_OFFICE_REASON_LABELS:
         return
+    label = (office_label or MANUAL_OFFICE_REASON_LABELS.get(office_code, office_code) or '').strip()
+    detail_prefix = (
+        'Manual gate referral to SAS for ID concern'
+        if office_code == 'SAS_ID_CONCERN'
+        else 'Manual gate referral: resolved at gate / endorse to proper office'
+    )
     try:
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        sas_users = User.objects.filter(
-            is_active=True,
-            groups__name__iexact='Student Affairs',
-        ).distinct()
         actor_name = (actor.get_full_name() if actor else '') or (actor.username if actor else 'Gate staff')
         event_label = f' | Event: {selected_event.name}' if selected_event else ''
         msg = (
-            f'Manual gate referral to SAS for ID concern.\n'
-            f'Student: {student.get_full_name()} ({student.student_id})\n'
-            f'Recorded by: {actor_name}{event_label}'
+            f'{detail_prefix}.\n'
+            f'{student.get_full_name()} ({student.student_id}) • {actor_name}{event_label}'
         )
-        for u in sas_users:
-            AdminNotification.objects.create(
-                notification_type='incident',
-                priority='high',
-                title='Gate office referral: SAS',
-                message=msg[:1000],
-                target_user=u,
-                broadcast=False,
-                related_student=student,
-                related_entry=entry,
-                related_event=selected_event,
-            )
+
+        # Create a GateIncident so it appears in /gate/incidents/ and in the navbar incident dropdown.
+        # De-dupe: don't create multiple identical referrals within a short window (per routing type).
         try:
-            from .notifications import send_announcement_emails
-            send_announcement_emails(
-                list(sas_users),
-                'Gate office referral: SAS',
-                msg[:2000],
+            recent_cutoff = timezone.now() - timezone.timedelta(minutes=10)
+            exists_recent = GateIncident.objects.filter(
+                student=student,
+                reason='other',
+                details__icontains=detail_prefix,
+                timestamp__gte=recent_cutoff,
+            ).exists()
+            incident = None
+            if not exists_recent:
+                incident = GateIncident.objects.create(
+                    student=student,
+                    scanned_id=student.student_id,
+                    reason='other',
+                    details=msg[:1000],
+                    staff_alerted=True,
+                    sas_review_status='to_check',
+                )
+        except Exception:
+            incident = None
+
+        try:
+            from .admin_notification_service import AdminNotificationService
+            if incident:
+                AdminNotificationService.notify_incident(incident, priority='high')
+            else:
+                AdminNotificationService.create_notification(
+                    notification_type='incident',
+                    title=f'Office referral: {label[:72]}',
+                    message=msg[:1000],
+                    priority='high',
+                    broadcast=True,
+                    related_student=student,
+                    related_entry=entry,
+                    related_event=selected_event,
+                )
+            AdminNotificationService.notify_admins_gate_manual_referral(
+                student=student,
+                actor=actor,
+                office_label=label,
+                related_incident=incident,
             )
         except Exception:
-            pass
+            logger.exception(
+                'Manual office referral: admin notification failed (student_id=%s)',
+                getattr(student, 'student_id', student.pk),
+            )
     except Exception:
-        pass
+        logger.exception(
+            'Manual office referral: unexpected error (student_id=%s)',
+            getattr(student, 'student_id', getattr(student, 'pk', '')),
+        )
 
 
 def _apply_student_office_hold(student, note):
@@ -1053,21 +1097,24 @@ def gate_scan_sw(request):
 def guard_scanner_dashboard(request):
     """Guard wall: same QR scanner UX as /gate/ (token auth, no login). Uses GATE_GUARD_DISPLAY_TOKEN."""
     expected = getattr(settings, 'GATE_GUARD_DISPLAY_TOKEN', '') or ''
+    print(f"[DEBUG Guard Dashboard] Expected token: '{expected}'")
     if not expected:
         return HttpResponseForbidden(
             'Guard display is not configured. Set GATE_GUARD_DISPLAY_TOKEN in the server environment.'
         )
     token = (request.GET.get('token') or '').strip()
+    print(f"[DEBUG Guard Dashboard] Received token: '{token}'")
     if token != expected:
+        print(f"[DEBUG Guard Dashboard] Token mismatch! Expected '{expected}', got '{token}'")
         return HttpResponseForbidden('Invalid or missing token.')
     active_events = _get_active_events()
-    # Block the entire guard-wall dashboard until staff/admin starts the gate scanner.
-    # The staff scanner heartbeat is written by `scanner_heartbeat_view` at:
-    #   POST gate-scan-scanner-heartbeat with JSON {camera_running: true|false}
-    from django.core.cache import cache
-    from gate.gate_personnel_views import GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY
-    scanner_active = bool(cache.get(GATE_STAFF_SCANNER_HEARTBEAT_CACHE_KEY))
-    return render(request, 'gate/gate_scan.html', {
+    # Block the guard-wall until staff clicks Start on the dashboard; stays open until Stop (even if they log out).
+    from gate.gate_personnel_views import gate_scanner_session_armed
+
+    scanner_active = gate_scanner_session_armed()
+    print(f"[DEBUG Guard Dashboard] Scanner active from cache: {scanner_active}")
+    print(f"[DEBUG Guard Dashboard] Rendering with guard_wall=True, guard_embed_token='{token}'")
+    resp = render(request, 'gate/gate_scan.html', {
         'site_name': getattr(settings, 'SITE_NAME', 'City College of Bayawan'),
         'page_title': 'Gate Entry - Scan Student ID',
         'active_events': active_events,
@@ -1079,7 +1126,14 @@ def guard_scanner_dashboard(request):
         'guard_embed_token': token,
         'guard_student_popup_style': getattr(settings, 'GATE_GUARD_STUDENT_POPUP_STYLE', 'split'),
         'guard_scanner_active': scanner_active,
+        # Visible build/debug id for field testing
+        'guard_build_id': getattr(settings, 'GATE_GUARD_BUILD_ID', '') or 'sw-v35',
     })
+    # Prevent any intermediate caching (ngrok/browser/proxy).
+    resp['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    resp['Pragma'] = 'no-cache'
+    resp['Expires'] = '0'
+    return resp
 
 
 @require_GET
@@ -1849,11 +1903,12 @@ def save_scan(request):
         **_audit_kwargs_for_gate_entry(request, device_id=device_id),
     )
     if gate_manual_entry == 'in' and (manual_reason_code or manual_entry_reason):
-        _notify_sas_manual_office_referral(
+        _notify_manual_office_referral(
             student=student,
             actor=actor,
             entry=entry,
             office_code=manual_reason_code,
+            office_label=manual_reason_label or manual_entry_reason,
             selected_event=selected_event,
         )
     
@@ -1929,6 +1984,22 @@ def save_scan(request):
             resp['forced_out_no_in'] = True
             resp['message'] = gate_eval_result.get('message', resp.get('message', ''))
     return JsonResponse(resp)
+
+
+@require_POST
+@csrf_exempt
+@transaction.atomic
+def save_scan_guard(request):
+    """
+    Guard-display/embed scanner submit endpoint.
+    CSRF is bypassed because these clients are token-authenticated and often not logged in.
+    Still requires a valid guard token (GATE_GUARD_DISPLAY_TOKEN) in POST or header.
+    """
+    token = (request.POST.get('guard_token') or request.headers.get('X-Gate-Guard-Token') or '').strip()
+    expected = getattr(settings, 'GATE_GUARD_DISPLAY_TOKEN', '') or ''
+    if not (token and expected and token == expected):
+        return JsonResponse({'success': False, 'message': 'Unauthorized', 'color': 'error'}, status=403)
+    return save_scan(request)
 
 
 @require_POST
@@ -3768,13 +3839,26 @@ def student_eid_card(request, pk):
     })
 
 
-def _student_qr_png_bytes(student):
+@login_required(login_url='/login/')
+@role_required('student affairs')
+def eid_signatory_settings(request):
+    """
+    Legacy / bookmark URL: opens the Student Affairs e-ID signatory modal on the student list.
+    Saving is done via POST on the student list (same form).
+    """
+    from django.urls import reverse
+    from urllib.parse import urlencode
+
+    return redirect(reverse('gate-student-list') + '?' + urlencode({'eid_sig': '1'}))
+
+
+def _student_qr_png_bytes(student, box_size=8):
     """Return QR code PNG bytes for a student (for embedding in PDF / print-all)."""
     payload = (getattr(student, 'student_id', None) or '').strip() or str(student.pk)
     payload = str(payload)
     try:
         import qrcode
-        qr = qrcode.QRCode(version=1, box_size=8, border=3)
+        qr = qrcode.QRCode(version=1, box_size=box_size, border=3)
         qr.add_data(payload)
         qr.make(fit=True)
         img = qr.make_image()
@@ -3786,17 +3870,199 @@ def _student_qr_png_bytes(student):
         return None
 
 
-@require_GET
-@login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty', 'student affairs')
-def student_eid_print_all(request):
-    """Printable page with all (filtered) student e-ID cards. Uses same filters as student list. download=1 → ZIP of PDFs."""
-    from django.db.models import Q
+def _build_student_eid_export_pdf_template_context(request, students):
+    """Build template context for gate/student_eid_export_pdf.html (data-URI assets, no external URLs)."""
+    site_name = getattr(settings, 'SITE_NAME', 'City College of Bayawan')
+
+    def _file_to_data_uri(filepath, mime='image/png'):
+        try:
+            with open(filepath, 'rb') as f:
+                return f'data:{mime};base64,{base64.b64encode(f.read()).decode("ascii")}'
+        except Exception:
+            return None
+
+    def _model_file_to_data_uri(field, mime='image/jpeg'):
+        try:
+            if field and field.path and os.path.isfile(field.path):
+                return _file_to_data_uri(field.path, mime)
+        except Exception:
+            pass
+        return None
+
+    def _model_file_to_resized_jpeg_data_uri(field, max_size=(210, 270), quality=70):
+        if not (field and getattr(field, "path", None) and os.path.isfile(field.path)):
+            return None
+        try:
+            from PIL import Image
+            img = Image.open(field.path)
+            img = img.convert("RGB")
+            img.thumbnail(max_size, Image.Resampling.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=quality, optimize=True)
+            buf.seek(0)
+            b = buf.getvalue()
+            return f"data:image/jpeg;base64,{base64.b64encode(b).decode('ascii')}"
+        except Exception:
+            try:
+                return _model_file_to_data_uri(field, mime="image/jpeg")
+            except Exception:
+                return None
+
+    logo_url = None
+    try:
+        theme = SiteTheme.objects.first()
+        if theme and theme.logo:
+            logo_url = _model_file_to_data_uri(theme.logo, 'image/png')
+    except Exception:
+        pass
+    if not logo_url:
+        logo_path = os.path.join(settings.BASE_DIR, 'static', 'gate', 'images', 'CBB.png')
+        logo_url = _file_to_data_uri(logo_path, 'image/png')
+
+    bg_path = os.path.join(settings.BASE_DIR, 'static', 'gate', 'images', 'CCB.jpg')
+    bg_data_uri = _file_to_data_uri(bg_path, 'image/jpeg')
+
+    def _mime_for_image_field(field):
+        if not field:
+            return 'image/png'
+        try:
+            path = field.path
+        except Exception:
+            return 'image/png'
+        ext = os.path.splitext(path)[1].lower()
+        if ext in ('.jpg', '.jpeg'):
+            return 'image/jpeg'
+        if ext == '.webp':
+            return 'image/webp'
+        return 'image/png'
+
+    pdf_theme = SiteTheme.objects.first()
+    pdf_fs_name = pdf_fs_title = pdf_ss_name = pdf_ss_title = ''
+    pdf_first_sig_data_uri = pdf_second_sig_data_uri = ''
+    if pdf_theme:
+        pdf_fs_name = (pdf_theme.default_first_signatory_name or '').strip()
+        pdf_fs_title = (pdf_theme.default_first_signatory_title or '').strip()
+        pdf_ss_name = (pdf_theme.default_second_signatory_name or '').strip()
+        pdf_ss_title = (pdf_theme.default_second_signatory_title or '').strip()
+        pdf_first_sig_data_uri = (
+            _model_file_to_data_uri(
+                pdf_theme.first_signatory_signature,
+                _mime_for_image_field(pdf_theme.first_signatory_signature),
+            )
+            or ''
+        )
+        pdf_second_sig_data_uri = (
+            _model_file_to_data_uri(
+                pdf_theme.second_signatory_signature,
+                _mime_for_image_field(pdf_theme.second_signatory_signature),
+            )
+            or ''
+        )
+
+    student_cards = []
+    for student in students:
+        qr_bytes = _student_qr_png_bytes(student)
+        if qr_bytes:
+            qr_url = f'data:image/png;base64,{base64.b64encode(qr_bytes).decode("ascii")}'
+        else:
+            qr_url = ''
+
+        photo_url = _model_file_to_resized_jpeg_data_uri(getattr(student, 'photo', None))
+        if not photo_url:
+            try:
+                if getattr(student, 'photo', None) and student.photo:
+                    photo_url = request.build_absolute_uri(student.photo.url)
+            except Exception:
+                photo_url = ''
+        student_cards.append({'student': student, 'qr_url': qr_url, 'photo_url': photo_url})
+
+    return {
+        'student_cards': student_cards,
+        'site_name': site_name,
+        'logo_url': logo_url,
+        'bg_data_uri': bg_data_uri,
+        'first_signatory_name': pdf_fs_name,
+        'first_signatory_title': pdf_fs_title,
+        'second_signatory_name': pdf_ss_name,
+        'second_signatory_title': pdf_ss_title,
+        'first_signatory_signature_data_uri': pdf_first_sig_data_uri,
+        'second_signatory_signature_data_uri': pdf_second_sig_data_uri,
+    }
+
+
+def _eid_student_cards_zip_response(request, template_ctx, image_format):
+    """
+    ZIP of per-card raster images (front/back .id-card elements) via Playwright screenshots.
+    image_format: 'png' or 'jpeg'.
+    """
+    import time
+
+    _log = logging.getLogger(__name__)
+    html = render_to_string('gate/student_eid_export_pdf.html', template_ctx, request=request)
+    started_at = time.monotonic()
+    cards_meta = template_ctx.get('student_cards') or []
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page(viewport={'width': 900, 'height': 600})
+            try:
+                n = max(120000, 15000 + len(cards_meta) * 400)
+                page.set_default_timeout(n)
+                try:
+                    page.emulate_media(media='print')
+                except Exception:
+                    pass
+                page.set_content(html, wait_until='domcontentloaded', timeout=n)
+                page.wait_for_timeout(min(4000, 800 + len(cards_meta) * 25))
+                handles = page.query_selector_all('.id-card')
+                buf = io.BytesIO()
+                ext = 'png' if image_format == 'png' else 'jpg'
+                with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+                    for idx, h in enumerate(handles):
+                        if image_format == 'png':
+                            shot = h.screenshot(type='png')
+                        else:
+                            shot = h.screenshot(type='jpeg', quality=92)
+                        student_idx = idx // 2
+                        side = 'front' if (idx % 2 == 0) else 'back'
+                        stu = cards_meta[student_idx]['student'] if student_idx < len(cards_meta) else None
+                        sid_raw = (
+                            (getattr(stu, 'student_id', None) or (str(stu.pk) if stu else 'card')).strip()
+                        )
+                        sid = re.sub(r'[^\w\-.]+', '_', sid_raw)[:80] or 'id'
+                        zf.writestr(f'eid-{sid}-{side}.{ext}', shot)
+            finally:
+                browser.close()
+    except Exception as e:
+        _log.warning('student_eid_print_all: ZIP image export failed: %s', e)
+        return HttpResponse(
+            'Image ZIP export failed. Install Playwright Chromium: pip install playwright && playwright install chromium',
+            status=503,
+            content_type='text/plain; charset=utf-8',
+        )
+
+    payload = buf.getvalue()
+    zip_name = 'student-eids-png.zip' if image_format == 'png' else 'student-eids-jpg.zip'
+    response = HttpResponse(payload, content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{zip_name}"'
+    _log.info(
+        'student_eid_print_all: ZIP %s cards=%s bytes=%s elapsed=%.2fs',
+        image_format,
+        len(cards_meta),
+        len(payload),
+        time.monotonic() - started_at,
+    )
+    return response
+
+
+def _students_for_eid_export(request):
+    """Same GET filters as e-ID print-all / CSV export: status, course, year_level, section, sex, q."""
     status_filter = (request.GET.get('status') or '').strip()
     if status_filter == 'all':
-        students = Student.objects.all().order_by('last_name', 'first_name')
+        students = Student.objects.all()
     else:
-        students = Student.objects.filter(account_status=Student.ACCOUNT_STATUS_APPROVED).order_by('last_name', 'first_name')
+        students = Student.objects.filter(account_status=Student.ACCOUNT_STATUS_APPROVED)
     filter_course = (request.GET.get('course') or '').strip()
     filter_year = (request.GET.get('year_level') or '').strip()
     filter_section = (request.GET.get('section') or '').strip()
@@ -3817,94 +4083,32 @@ def student_eid_print_all(request):
             Q(middle_name__icontains=search_q) |
             Q(student_id__icontains=search_q)
         )
-    students = list(students)
+    return students.order_by('last_name', 'first_name')
+
+
+@require_GET
+@login_required(login_url='/login/')
+@role_required('admin', 'staff', 'faculty', 'student affairs')
+def student_eid_print_all(request):
+    """Printable page with all (filtered) student e-ID cards. Same filters as student list. eid_zip_format=png|jpg → ZIP of card images."""
+    students = list(_students_for_eid_export(request))
     site_name = getattr(settings, 'SITE_NAME', 'City College of Bayawan')
+
+    eid_zip_fmt = (request.GET.get('eid_zip_format') or '').strip().lower()
+    if eid_zip_fmt == 'jpg':
+        eid_zip_fmt = 'jpeg'
+    if students and eid_zip_fmt in ('png', 'jpeg'):
+        ctx = _build_student_eid_export_pdf_template_context(request, students)
+        return _eid_student_cards_zip_response(request, ctx, eid_zip_fmt)
 
     # On Windows, weasyprint usually fails (GTK libs missing) and Playwright can be unstable,
     # which causes the browser "Server Closed Connection Suddenly" error.
     # Fallback: when pdf=1 on Windows, render the normal print HTML view instead.
     if request.GET.get('pdf') and students and platform.system() != 'Windows':
-        import base64
         import time
 
-        def _file_to_data_uri(filepath, mime='image/png'):
-            try:
-                with open(filepath, 'rb') as f:
-                    return f'data:{mime};base64,{base64.b64encode(f.read()).decode("ascii")}'
-            except Exception:
-                return None
-
-        def _model_file_to_data_uri(field, mime='image/jpeg'):
-            try:
-                if field and field.path and os.path.isfile(field.path):
-                    return _file_to_data_uri(field.path, mime)
-            except Exception:
-                pass
-            return None
-
-        def _model_file_to_resized_jpeg_data_uri(field, max_size=(220, 280), quality=70):
-            """
-            Reduce payload size for student photos by resizing and recompressing before embedding.
-            This keeps the generated HTML smaller and prevents PDF jobs from timing out.
-            """
-            if not (field and getattr(field, "path", None) and os.path.isfile(field.path)):
-                return None
-            try:
-                from PIL import Image
-                img = Image.open(field.path)
-                img = img.convert("RGB")
-                img.thumbnail(max_size, Image.Resampling.LANCZOS)
-                buf = io.BytesIO()
-                img.save(buf, format="JPEG", quality=quality, optimize=True)
-                buf.seek(0)
-                b = buf.getvalue()
-                return f"data:image/jpeg;base64,{base64.b64encode(b).decode('ascii')}"
-            except Exception:
-                # Fallback to raw embedding if resizing fails (still better than empty).
-                try:
-                    return _model_file_to_data_uri(field, mime="image/jpeg")
-                except Exception:
-                    return None
-
-        logo_url = None
-        try:
-            theme = SiteTheme.objects.first()
-            if theme and theme.logo:
-                logo_url = _model_file_to_data_uri(theme.logo, 'image/png')
-        except Exception:
-            pass
-        if not logo_url:
-            logo_path = os.path.join(settings.BASE_DIR, 'static', 'gate', 'images', 'CBB.png')
-            logo_url = _file_to_data_uri(logo_path, 'image/png')
-
-        bg_path = os.path.join(settings.BASE_DIR, 'static', 'gate', 'images', 'CCB.jpg')
-        bg_data_uri = _file_to_data_uri(bg_path, 'image/jpeg')
-
-        student_cards = []
-        for student in students:
-            qr_bytes = _student_qr_png_bytes(student)
-            if qr_bytes:
-                qr_url = f'data:image/png;base64,{base64.b64encode(qr_bytes).decode("ascii")}'
-            else:
-                qr_url = ''
-
-            photo_url = _model_file_to_resized_jpeg_data_uri(getattr(student, 'photo', None))
-            if not photo_url:
-                # If resizing fails (or PIL isn't available), at least provide an absolute URL.
-                # The template prefers card.photo_url when present.
-                try:
-                    if getattr(student, 'photo', None) and student.photo:
-                        photo_url = request.build_absolute_uri(student.photo.url)
-                except Exception:
-                    photo_url = ''
-            student_cards.append({'student': student, 'qr_url': qr_url, 'photo_url': photo_url})
-
-        html = render_to_string('gate/student_eid_export_pdf.html', {
-            'student_cards': student_cards,
-            'site_name': site_name,
-            'logo_url': logo_url,
-            'bg_data_uri': bg_data_uri,
-        }, request=request)
+        ctx = _build_student_eid_export_pdf_template_context(request, students)
+        html = render_to_string('gate/student_eid_export_pdf.html', ctx, request=request)
 
         base_url = (request.build_absolute_uri('/') or '/').rstrip('/') + '/'
         pdf_bytes = None
@@ -4004,6 +4208,104 @@ def student_eid_print_all(request):
         'site_name': site_name,
         'logo_url': logo_url,
     })
+
+
+@require_GET
+@login_required(login_url='/login/')
+@role_required('admin', 'staff', 'faculty', 'student affairs')
+def student_qr_labels_pdf(request):
+    """
+    PDF download: one 1.5in×1.5in QR per student (student_id payload), full name + ID label below.
+    Same GET filters as e-ID print-all (status, course, year_level, section, sex, q).
+    """
+    import time
+
+    students = list(_students_for_eid_export(request))
+    site_name = getattr(settings, 'SITE_NAME', 'City College of Bayawan')
+    qr_rows = []
+    for student in students:
+        qr_bytes = _student_qr_png_bytes(student, box_size=12)
+        if qr_bytes:
+            qr_url = f'data:image/png;base64,{base64.b64encode(qr_bytes).decode("ascii")}'
+        else:
+            qr_url = ''
+        sid = (getattr(student, 'student_id', None) or '').strip() or str(student.pk)
+        qr_rows.append({
+            'qr_url': qr_url,
+            'full_name': _fmt_student_name(student),
+            'student_id': sid,
+        })
+    if not qr_rows:
+        return HttpResponse(
+            'No students match the selected filters.',
+            status=404,
+            content_type='text/plain; charset=utf-8',
+        )
+    ctx = {'qr_rows': qr_rows, 'site_name': site_name}
+    html = render_to_string('gate/student_qr_labels_pdf.html', ctx, request=request)
+    base_url = (request.build_absolute_uri('/') or '/').rstrip('/') + '/'
+    pdf_bytes = None
+    _log = logging.getLogger(__name__)
+    started_at = time.monotonic()
+    pdf_method = None
+
+    try:
+        from weasyprint import HTML
+        pdf_bytes = HTML(string=html, base_url=base_url).write_pdf()
+        pdf_method = 'weasyprint'
+    except (ImportError, OSError) as e:
+        _log.debug('student_qr_labels_pdf: WeasyPrint unavailable: %s', e)
+    except Exception as e:
+        _log.warning('student_qr_labels_pdf: WeasyPrint failed: %s', e)
+
+    if not pdf_bytes:
+        try:
+            from playwright.sync_api import sync_playwright
+            pdf_method = 'playwright'
+            with sync_playwright() as p:
+                browser = p.chromium.launch()
+                page = browser.new_page(viewport={'width': 816, 'height': 1056})
+                try:
+                    page.set_default_timeout(120000)
+                    try:
+                        page.emulate_media(media='print')
+                    except Exception:
+                        pass
+                    page.set_content(html, wait_until='domcontentloaded', timeout=120000)
+                    page.wait_for_timeout(800)
+                    pdf_bytes = page.pdf(
+                        format='Letter',
+                        print_background=True,
+                        margin={'top': '0.45in', 'right': '0.45in', 'bottom': '0.45in', 'left': '0.45in'},
+                    )
+                finally:
+                    browser.close()
+        except Exception as e:
+            _log.warning('student_qr_labels_pdf: Playwright failed: %s', e)
+
+    if pdf_bytes:
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        # preview=1 → inline so the browser opens the PDF in a tab instead of forcing download
+        _preview = (request.GET.get('preview') or '').strip().lower() in ('1', 'true', 'yes')
+        if _preview:
+            response['Content-Disposition'] = 'inline; filename="student-qr-labels.pdf"'
+        else:
+            response['Content-Disposition'] = 'attachment; filename="student-qr-labels.pdf"'
+        _log.info(
+            'student_qr_labels_pdf: method=%s students=%s bytes=%s elapsed=%.2fs',
+            pdf_method,
+            len(qr_rows),
+            len(pdf_bytes),
+            time.monotonic() - started_at,
+        )
+        return response
+
+    return HttpResponse(
+        'PDF export failed. Install WeasyPrint (with GTK on Linux) or run '
+        '"pip install playwright && playwright install chromium" for a browser fallback.',
+        status=503,
+        content_type='text/plain; charset=utf-8',
+    )
 
 
 @require_GET
@@ -4412,6 +4714,7 @@ def student_list(request):
     from gate_analytics.roles import get_user_role
     role = get_user_role(request.user)
     can_edit_students = role in ('admin', 'staff', 'faculty', 'student affairs')
+    is_student_affairs = role == 'student affairs'
 
     embed = (request.GET.get('embed') or '').strip().lower() in ('1', 'true', 'yes')
     filter_course = (request.GET.get('course') or '').strip()
@@ -4423,6 +4726,38 @@ def student_list(request):
     highlight_pk = None
     if highlight_raw.isdigit():
         highlight_pk = int(highlight_raw)
+
+    # ---- Student Affairs: e-ID back-of-card signatories (modal on this page) ----
+    eid_signatory_form = None
+    eid_signatory_theme = None
+    signatory_post_invalid = False
+    eid_signatory_next_from_post = None
+    if request.method == 'POST' and (request.POST.get('_eid_signatory_save') or '').strip() == '1':
+        if not is_student_affairs:
+            return HttpResponseForbidden(
+                '<h1>403 Forbidden</h1><p>Only Student Affairs can update e-ID signatories.</p>'
+            )
+        eid_signatory_next_from_post = (request.POST.get('next') or '').strip()
+        eid_signatory_theme = SiteTheme.objects.first()
+        if eid_signatory_theme is None:
+            eid_signatory_theme = SiteTheme.objects.create(
+                site_name=getattr(settings, 'SITE_NAME', 'City College of Bayawan'),
+            )
+        eid_signatory_form = SiteThemeEidSignatoryForm(
+            request.POST, request.FILES, instance=eid_signatory_theme,
+        )
+        if eid_signatory_form.is_valid():
+            eid_signatory_form.save()
+            cache.delete('site_theme_context_v2')
+            messages.success(
+                request,
+                'E-ID signatory names and signatures saved. They appear on the back of printed student e-ID cards.',
+            )
+            next_path = (request.POST.get('next') or '').strip()
+            if next_path.startswith('/') and not next_path.startswith('//'):
+                return redirect(next_path)
+            return redirect('gate-student-list')
+        signatory_post_invalid = True
 
     students = Student.objects.all().order_by('last_name', 'first_name')
 
@@ -4458,6 +4793,20 @@ def student_list(request):
     from django.urls import reverse
     from django.core.paginator import Paginator
     clear_search_url = reverse('gate-student-list') + ('?' + urlencode(clear_params) if clear_params else '')
+
+    if is_student_affairs:
+        if eid_signatory_next_from_post is not None:
+            n = eid_signatory_next_from_post
+            eid_signatory_next_url = (
+                n if (n.startswith('/') and not n.startswith('//')) else reverse('gate-student-list')
+            )
+        else:
+            _next_pairs = [(k, v) for k, v in request.GET.items() if k not in ('eid_sig', 'partial')]
+            eid_signatory_next_url = reverse('gate-student-list') + (
+                '?' + urlencode(_next_pairs) if _next_pairs else ''
+            )
+    else:
+        eid_signatory_next_url = ''
 
     per_page, query_extra, query_extra_base = _get_per_page_and_query(request)
 
@@ -4512,9 +4861,27 @@ def student_list(request):
     # Student list sex filter: only show the two explicit options staff asked for.
     sex_choices = list(Student.SEX_CHOICES)
 
+    if is_student_affairs and eid_signatory_form is None:
+        eid_signatory_theme = SiteTheme.objects.first()
+        if eid_signatory_theme is None:
+            eid_signatory_theme = SiteTheme.objects.create(
+                site_name=getattr(settings, 'SITE_NAME', 'City College of Bayawan'),
+            )
+        eid_signatory_form = SiteThemeEidSignatoryForm(instance=eid_signatory_theme)
+
+    show_eid_signatory_modal = is_student_affairs and (
+        signatory_post_invalid
+        or (request.GET.get('eid_sig') or '').strip().lower() in ('1', 'true', 'yes', 'open')
+    )
+
     list_ctx = {
         'site_name': 'City College of Bayawan',
         'can_edit_students': can_edit_students,
+        'is_student_affairs': is_student_affairs,
+        'eid_signatory_form': eid_signatory_form,
+        'eid_signatory_theme': eid_signatory_theme,
+        'show_eid_signatory_modal': show_eid_signatory_modal,
+        'eid_signatory_next_url': eid_signatory_next_url,
         'embed': embed,
         'students': page_obj.object_list,
         'page_obj': page_obj,
@@ -4532,6 +4899,7 @@ def student_list(request):
         'year_level_choices': Student.YEAR_LEVEL_CHOICES,
         'sex_choices': sex_choices,
         'highlight_student_pk': highlight_pk,
+        'student_qr_labels_pdf_url': reverse('gate-student-qr-labels-pdf'),
     }
 
     partial_table = (request.GET.get('partial') or '').strip().lower() in ('1', 'table', 'true')
@@ -5583,7 +5951,8 @@ def entry_list(request):
         'per_page': per_page,
         'per_page_options': PER_PAGE_OPTIONS,
         'guard_token': (request.GET.get('guard_token') or '').strip(),
-        'hide_embed_filters': (
+        # Compact table CSS for guard live panel; filters stay visible (embed always).
+        'compact_live_panel': (
             (request.GET.get('live_panel') or '').strip().lower() in ('1', 'true', 'yes')
         ),
     }
@@ -5620,6 +5989,23 @@ def event_attendees_embed(request):
     except ValueError:
         filter_date = timezone.localdate()
     day_start, day_end = _local_day_bounds(filter_date)
+    if getattr(event, 'event_location', '') == 'field_trip':
+        ft_att = (
+            EventAttendance.objects.filter(event=event)
+            .filter(
+                Q(checked_in_at__gte=day_start, checked_in_at__lt=day_end)
+                | Q(checked_out_at__gte=day_start, checked_out_at__lt=day_end)
+            )
+            .select_related('student')
+            .distinct()
+            .order_by('-checked_in_at', '-checked_out_at')[:200]
+        )
+        return render(request, 'gate/event_attendees_embed.html', {
+            'event': event,
+            'event_visits': [],
+            'field_trip_attendances': list(ft_att),
+            'from_date': from_date,
+        })
     entries_qs = GateEntry.objects.filter(
         event_id=event.id,
         timestamp__gte=day_start, timestamp__lt=day_end,
@@ -5629,6 +6015,7 @@ def event_attendees_embed(request):
     return render(request, 'gate/event_attendees_embed.html', {
         'event': event,
         'event_visits': event_visits,
+        'field_trip_attendances': None,
         'from_date': from_date,
     })
 
@@ -5889,6 +6276,22 @@ def incident_list(request):
             | Q(student__student_id__icontains=search_q)
         ).distinct()
 
+    date_filter_raw = (request.GET.get('date') or '').strip()
+    filter_date = None
+    if date_filter_raw:
+        try:
+            filter_date = datetime.datetime.strptime(date_filter_raw, '%Y-%m-%d').date()
+        except ValueError:
+            filter_date = None
+        if filter_date:
+            tz = timezone.get_current_timezone()
+            day_start = timezone.make_aware(
+                datetime.datetime.combine(filter_date, datetime.time.min),
+                tz,
+            )
+            day_end = day_start + datetime.timedelta(days=1)
+            qs = qs.filter(timestamp__gte=day_start, timestamp__lt=day_end)
+
     per_page, query_extra, query_extra_base = _get_per_page_and_query(request)
 
     if highlight_pk:
@@ -5946,11 +6349,25 @@ def incident_list(request):
                 inc.display_student = resolved_students.get(sid)
     role = get_user_role(request.user)
     can_sas_review = role in ('student affairs', 'admin')
+
+    def _incident_chip_url(sas_val):
+        qp = request.GET.copy()
+        qp.pop('page', None)
+        if filter_date is None and date_filter_raw:
+            qp.pop('date', None)
+        if sas_val is None:
+            qp.pop('sas_check', None)
+        else:
+            qp['sas_check'] = sas_val
+        tail = qp.urlencode()
+        return reverse('gate-incident-list') + ('?' + tail if tail else '')
+
     return render(request, 'gate/incident_list.html', {
         'site_name': 'City College of Bayawan',
         'page_obj': page_obj,
         'incidents': incidents,
         'can_sas_review': can_sas_review,
+        'gate_incident_total_count': GateIncident.objects.count(),
         'query_extra': query_extra,
         'query_extra_base': query_extra_base,
         'per_page': per_page,
@@ -5959,6 +6376,10 @@ def incident_list(request):
         'reason_filter': reason_filter,
         'reason_choices': GateIncident.REASON_CHOICES,
         'search_q': search_q,
+        'filter_date': filter_date,
+        'incident_url_chip_all': _incident_chip_url(None),
+        'incident_url_chip_to_check': _incident_chip_url('to_check'),
+        'incident_url_chip_verified': _incident_chip_url('verified'),
         'highlight_incident_pk': highlight_pk,
     })
 
@@ -5973,35 +6394,100 @@ def _gate_incident_resolved_student(incident):
     return Student.objects.filter(student_id__iexact=sid).first()
 
 
+def _pending_sibling_incidents(incident):
+    """
+    Other incidents still awaiting SAS check for the same person (student FK or matching scanned_id).
+    Excludes the given incident; caller should only use while those rows are still to_check.
+    """
+    qs = GateIncident.objects.filter(sas_review_status='to_check').exclude(pk=incident.pk)
+    st = _gate_incident_resolved_student(incident)
+    if st:
+        sid = (st.student_id or '').strip()
+        if sid:
+            return qs.filter(Q(student=st) | Q(scanned_id__iexact=sid))
+        return qs.filter(student=st)
+    sid = (incident.scanned_id or '').strip()
+    if not sid:
+        return qs.none()
+    return qs.filter(Q(scanned_id__iexact=sid) | Q(student__student_id__iexact=sid))
+
+
 @require_POST
 @login_required(login_url='/login/')
 @role_required('admin', 'student affairs')
+@transaction.atomic
 def incident_sas_verify(request, incident_id):
     """SAS/Admin marks an incident as verified/checked."""
     incident = get_object_or_404(GateIncident, pk=incident_id)
     if incident.sas_review_status == 'verified':
         messages.info(request, 'Incident already verified.')
     else:
-        incident.sas_review_status = 'verified'
-        incident.sas_checked_by = request.user
-        incident.sas_checked_at = timezone.now()
+        now = timezone.now()
         if not incident.sas_check_notes:
             incident.sas_check_notes = 'Verified by Student Affairs.'
-        incident.save(update_fields=['sas_review_status', 'sas_checked_by', 'sas_checked_at', 'sas_check_notes'])
-        if incident.student_id:
-            _clear_student_office_hold_if_no_pending(incident.student)
-        # Inform admins when SAS (not admin acting alone) clears an inactive student for activation
+        incident.sas_review_status = 'verified'
+        incident.sas_checked_by = request.user
+        incident.sas_checked_at = now
+        incident.save(
+            update_fields=[
+                'sas_review_status',
+                'sas_checked_by',
+                'sas_checked_at',
+                'sas_check_notes',
+            ]
+        )
+        note = (incident.sas_check_notes or '')[:255]
+        n_extra = _pending_sibling_incidents(incident).update(
+            sas_review_status='verified',
+            sas_checked_by=request.user,
+            sas_checked_at=now,
+            sas_check_notes=note,
+        )
+        st = _gate_incident_resolved_student(incident)
+        if st:
+            _clear_student_office_hold_if_no_pending(st)
+        # When SAS marks checked: notify admins (activate if inactive; confirm resolved if already active)
         if get_user_role(request.user) == 'student affairs':
-            st = _gate_incident_resolved_student(incident)
-            if st and (
-                st.account_status == Student.ACCOUNT_STATUS_INACTIVE or not st.is_active
-            ):
+            if st:
                 from .admin_notification_service import AdminNotificationService
-                AdminNotificationService.notify_admins_inactive_student_sas_verified(
+
+                AdminNotificationService.notify_admins_sas_verified_incident(
                     incident, st, request.user
                 )
-        messages.success(request, 'Incident marked as verified.')
+        if n_extra:
+            messages.success(
+                request,
+                f'Incident marked as verified. {n_extra} related incident(s) for the same student '
+                f'were also marked checked.',
+            )
+        else:
+            messages.success(request, 'Incident marked as verified.')
     return redirect(request.META.get('HTTP_REFERER') or 'gate-incident-list')
+
+
+@require_POST
+@login_required(login_url='/login/')
+@role_required('admin', 'student affairs')
+def incident_clear_all(request):
+    """Delete every gate incident row and clear office holds tied to those students."""
+    qs = GateIncident.objects.exclude(student_id__isnull=True)
+    student_ids = list(qs.values_list('student_id', flat=True).distinct())
+    n = GateIncident.objects.count()
+    if n == 0:
+        messages.info(request, 'There are no gate incidents to remove.')
+        return redirect('gate-incident-list')
+    with transaction.atomic():
+        GateIncident.objects.all().delete()
+        if student_ids:
+            Student.objects.filter(pk__in=student_ids, office_clearance_hold=True).update(
+                office_clearance_hold=False,
+                office_clearance_note='',
+            )
+    messages.success(
+        request,
+        f'Removed {n} gate incident record(s). Student accounts were not deleted.',
+    )
+    return redirect('gate-incident-list')
 
 
 @login_required(login_url='/login/')
@@ -6827,7 +7313,10 @@ def event_currently_inside(request, event_id):
         checked_out_at__isnull=True,
     ).select_related('student').order_by('checked_in_at')
     
-    return render(request, 'gate/event_currently_inside.html', {
+    embed = request.GET.get('embed') == '1'
+    template = 'gate/event_currently_inside_embed.html' if embed else 'gate/event_currently_inside.html'
+    
+    return render(request, template, {
         'site_name': 'City College of Bayawan',
         'event': event,
         'inside': inside,
@@ -7283,6 +7772,32 @@ def reports_incidents_overrides(request):
 @role_required('admin', 'staff', 'faculty')
 def reports_exports(request):
     """Exports: all report types in one menu; choose one specific export or Export all (ZIP)."""
+    if request.method == 'POST' and (request.POST.get('_save_report_signatories') or '').strip() == '1':
+        theme = SiteTheme.objects.first()
+        if theme is None:
+            theme = SiteTheme.objects.create(
+                site_name=getattr(settings, 'SITE_NAME', 'City College of Bayawan'),
+            )
+        form_post = SiteThemeReportSignatoryForm(request.POST, request.FILES, instance=theme)
+        if form_post.is_valid():
+            form_post.save()
+            messages.success(
+                request,
+                'Report signatories saved. They appear on CSV, Excel, PDF exports and when you print.',
+            )
+            pq = (request.POST.get('preserve_query') or '').strip()
+            if pq:
+                return redirect(f'{request.path}?{pq}')
+            return redirect('reports-exports')
+        messages.error(
+            request,
+            'Could not save report signatories. Use PNG/JPEG images under 3 MB each.',
+        )
+        pq = (request.POST.get('preserve_query') or '').strip()
+        if pq:
+            return redirect(f'{request.path}?{pq}')
+        return redirect('reports-exports')
+
     filter_date, day_start, day_end, from_time, to_time, search_q, event_id, date_range_label, from_date_str, to_date_str, time_error, report_timestamp_q, report_checked_in_at_q, report_checked_out_at_q, report_recorded_at_q = _report_filter_from_request(request)
     VALID = (
         'export_all', 'overview_summary', 'recent_activity',
@@ -7311,22 +7826,108 @@ def reports_exports(request):
         section = None
     preview_rows = []
     visitor_preview_rows = []
+    # Pagination context (used by exports_inner for the event_attendance dashboard preview)
+    page_obj = None
+    per_page = None
+    per_page_options = None
+    query_extra = ''
+    query_extra_base = ''
     if template_type == 'export_all':
         preview_rows = []
     else:
-        preview_rows = _reports_export_preview(
-            filter_date, day_start, day_end,
-            template_type, search_q, event_id,
-            program_course=program_course or None,
-            event_io=event_io,
-            year_level=year_level,
-            section=section,
-            audience_filter=audience_filter,
-            report_timestamp_q=report_timestamp_q,
-            report_checked_in_at_q=report_checked_in_at_q,
-            report_checked_out_at_q=report_checked_out_at_q,
-            report_recorded_at_q=report_recorded_at_q,
-        )
+        if template_type == 'event_attendance':
+            # Event attendance preview: paginate so the dashboard can show all attendees.
+            from django.core.paginator import Paginator
+
+            per_page = 50  # fixed: matches your request ("preview of 50 attendees")
+            per_page_options = PER_PAGE_OPTIONS
+
+            # Pagination links should preserve every filter except `page` (and the fixed per_page).
+            q_extra = request.GET.copy()
+            q_extra.pop('page', None)
+            q_extra.pop('per_page', None)
+            q_extra.pop('partial', None)
+            query_extra = q_extra.urlencode()
+            query_extra_base = query_extra
+
+            try:
+                page_num = int((request.GET.get('page') or '1').strip())
+            except (TypeError, ValueError):
+                page_num = 1
+            page_num = max(1, page_num)
+
+            if event_io == 'IN':
+                qs = EventAttendance.objects.all()
+                qs = _apply_report_checked_in_at_filter(qs, report_checked_in_at_q, day_start, day_end)
+            elif event_io == 'OUT':
+                qs = EventAttendance.objects.all()
+                qs = _apply_report_checked_out_at_filter(qs, report_checked_out_at_q, day_start, day_end)
+            else:
+                from django.db.models import Q
+                if report_checked_in_at_q is not None:
+                    qs = EventAttendance.objects.filter(
+                        report_checked_in_at_q | report_checked_out_at_q | report_recorded_at_q
+                    )
+                else:
+                    qs = EventAttendance.objects.filter(
+                        Q(checked_in_at__gte=day_start, checked_in_at__lt=day_end) |
+                        Q(checked_out_at__gte=day_start, checked_out_at__lt=day_end) |
+                        Q(recorded_at__gte=day_start, recorded_at__lt=day_end)
+                    )
+
+            if event_id:
+                qs = qs.filter(event_id=event_id)
+
+            qs = qs.select_related('student', 'event').order_by('checked_in_at')
+            paginator = Paginator(qs, per_page)
+            page_obj = paginator.get_page(page_num)
+
+            preview_rows = []
+            attendees = list(page_obj.object_list)
+            for a in attendees:
+                cs = ''
+                if a.student:
+                    course = (a.student.course or '').strip()
+                    section_val = (a.student.section or '').strip()
+                    year_level_val = (a.student.year_level or '').strip()
+
+                    # Build course/section display (best-effort, mirrors older preview logic)
+                    if course and section_val:
+                        cs = f"{course} {section_val}"
+                    elif course:
+                        cs = course
+                    elif section_val:
+                        cs = section_val
+                    elif getattr(a.student, 'course_or_section', ''):
+                        cs = a.student.course_or_section
+
+                    if cs and year_level_val:
+                        cs = f"{cs} - {year_level_val}"
+                    elif year_level_val:
+                        cs = f"Year {year_level_val}"
+
+                preview_rows.append({
+                    'event': a.event.name if a.event else '',
+                    'student_id': a.student.student_id if a.student else '',
+                    'name': _fmt_student_name(a.student) if a.student else '',
+                    'Program/Section': cs,
+                    'checked_in_at': a.checked_in_at,
+                    'checked_out_at': getattr(a, 'checked_out_at', None),
+                })
+        else:
+            preview_rows = _reports_export_preview(
+                filter_date, day_start, day_end,
+                template_type, search_q, event_id,
+                program_course=program_course or None,
+                event_io=event_io,
+                year_level=year_level,
+                section=section,
+                audience_filter=audience_filter,
+                report_timestamp_q=report_timestamp_q,
+                report_checked_in_at_q=report_checked_in_at_q,
+                report_checked_out_at_q=report_checked_out_at_q,
+                report_recorded_at_q=report_recorded_at_q,
+            )
     if template_type == 'daily_gate_visits':
         visitor_preview_rows = _reports_export_visitor_preview(
             day_start, day_end, report_timestamp_q, report_checked_in_at_q,
@@ -7340,9 +7941,13 @@ def reports_exports(request):
     # so filtering here caused the dropdown to not render at all.
     active_events = Event.objects.order_by('-start_date', 'name')[:30]
     year_level_choices = Student.YEAR_LEVEL_CHOICES
-    section_choices = list(
-        Student.objects.exclude(section='').values_list('section', flat=True).distinct().order_by('section')
-    )
+    _section_cache_key = 'reports_exports_section_choices_v1'
+    section_choices = cache.get(_section_cache_key)
+    if section_choices is None:
+        section_choices = list(
+            Student.objects.exclude(section='').values_list('section', flat=True).distinct().order_by('section')
+        )
+        cache.set(_section_cache_key, section_choices, 120)
     ctx = {
         'site_name': 'City College of Bayawan',
         'filter_date': filter_date,
@@ -7366,6 +7971,16 @@ def reports_exports(request):
         'applied_filter_chips': _report_applied_filter_chips(request, date_range_label, from_time, to_time, search_q, event_id, active_events=active_events),
         'year_level_choices': year_level_choices,
         'section_choices': section_choices,
+        # Pagination for the dashboard preview table
+        'page_obj': page_obj,
+        'per_page': per_page,
+        'per_page_options': per_page_options,
+        'query_extra': query_extra,
+        'query_extra_base': query_extra_base,
+        'reports_exports_ajax': True,
+        'report_signatories': _report_signatories_context_for_template(request),
+        'report_signatories_form': SiteThemeReportSignatoryForm(instance=SiteTheme.objects.first()),
+        'preserve_query_string': request.GET.urlencode(),
     }
     if request.GET.get('partial') == '1':
         if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
@@ -7866,6 +8481,93 @@ def _reports_export_build_data(
     return headers, rows
 
 
+def _report_signatory_theme_fields(theme):
+    """Return (name, title) from SiteTheme report-only fields (not e-ID signatories)."""
+    if not theme:
+        return '', ''
+    n1 = (getattr(theme, 'report_first_signatory_name', '') or '').strip()
+    t1 = (getattr(theme, 'report_first_signatory_title', '') or '').strip()
+    return n1, t1
+
+
+def _report_signatories_nonempty(theme):
+    n1, t1 = _report_signatory_theme_fields(theme)
+    return bool(n1 or t1)
+
+
+def _append_report_signatories_csv(writer, num_cols, theme=None):
+    """Append a signatory block to a CSV export (uses first column; pads row width)."""
+    theme = theme if theme is not None else SiteTheme.objects.first()
+    if not _report_signatories_nonempty(theme):
+        return
+    n1, t1 = _report_signatory_theme_fields(theme)
+    pad = [''] * max(0, num_cols - 1)
+
+    def _line(name, title):
+        parts = []
+        if name:
+            parts.append(name)
+        if title:
+            parts.append(f'({title})')
+        return ' '.join(parts) if parts else ''
+
+    writer.writerow([])
+    writer.writerow(['— Signatory —'] + pad)
+    writer.writerow([_line(n1, t1)] + pad)
+
+
+def _append_report_signatories_xlsx(ws, start_row, theme=None):
+    """Write signatory rows starting at start_row; returns next free row index."""
+    theme = theme if theme is not None else SiteTheme.objects.first()
+    if not _report_signatories_nonempty(theme):
+        return start_row
+    n1, t1 = _report_signatory_theme_fields(theme)
+
+    def _line(name, title):
+        parts = []
+        if name:
+            parts.append(name)
+        if title:
+            parts.append(f'({title})')
+        return ' '.join(parts) if parts else ''
+
+    r = start_row
+    ws.cell(row=r, column=1, value='— Signatory —')
+    r += 1
+    ws.cell(row=r, column=1, value=_line(n1, t1))
+    return r + 1
+
+
+def _report_signatories_context_for_template(request):
+    """Context dict for print preview (single report signatory)."""
+    theme = SiteTheme.objects.first()
+    n1, t1 = _report_signatory_theme_fields(theme)
+
+    def _abs_url(f):
+        if not f or not getattr(f, 'name', None):
+            return ''
+        try:
+            url = f.url
+        except Exception:
+            return ''
+        if not url:
+            return ''
+        if request:
+            try:
+                return request.build_absolute_uri(url)
+            except Exception:
+                pass
+        return url
+
+    sig1 = _abs_url(getattr(theme, 'report_first_signatory_signature', None)) if theme else ''
+    return {
+        'has_signatories': bool(n1 or t1),
+        'first_name': n1,
+        'first_title': t1,
+        'first_signature_url': sig1,
+    }
+
+
 @login_required(login_url='/login/')
 @role_required('admin', 'staff', 'faculty')
 def reports_export_download(request):
@@ -7900,6 +8602,8 @@ def reports_export_download(request):
     if not section:
         section = None
 
+    export_theme = SiteTheme.objects.first()
+
     if template_type == 'export_all':
         safe_date = filter_date.strftime('%Y-%m-%d')
         buffer = io.BytesIO()
@@ -7925,6 +8629,7 @@ def reports_export_download(request):
                 w = csv.writer(buf)
                 w.writerow(headers)
                 w.writerows(rows)
+                _append_report_signatories_csv(w, len(headers), theme=export_theme)
                 zf.writestr(f'{t}_{safe_date}.csv', buf.getvalue())
         response = HttpResponse(buffer.getvalue(), content_type='application/zip')
         response['Content-Disposition'] = f'attachment; filename="reports_export_all_{safe_date}.zip"'
@@ -7949,6 +8654,7 @@ def reports_export_download(request):
         writer = csv.writer(response)
         writer.writerow(headers)
         writer.writerows(rows)
+        _append_report_signatories_csv(writer, len(headers), theme=export_theme)
         return response
 
     if fmt == 'xlsx':
@@ -7965,6 +8671,7 @@ def reports_export_download(request):
         for row_idx, row in enumerate(rows, 2):
             for col_idx, val in enumerate(row, 1):
                 ws.cell(row=row_idx, column=col_idx, value=val)
+        _append_report_signatories_xlsx(ws, len(rows) + 3, theme=export_theme)
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename="{base_name}.xlsx"'
         wb.save(response)
@@ -7973,26 +8680,212 @@ def reports_export_download(request):
     if fmt == 'pdf':
         try:
             from reportlab.lib import colors
-            from reportlab.lib.pagesizes import A4
-            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+            from reportlab.lib.pagesizes import A4, landscape
+            from reportlab.lib.styles import getSampleStyleSheet
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+            from reportlab.lib.units import cm
+            from reportlab.lib.utils import ImageReader
         except ImportError:
             return HttpResponse('PDF export requires reportlab. Install: pip install reportlab', status=501)
         response = HttpResponse(content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{base_name}.pdf"'
-        doc = SimpleDocTemplate(response, pagesize=A4, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
-        data = [headers] + rows
-        col_widths = [1.2 * (72.0/2.54)] * len(headers)  # ~1.2 cm per column
-        t = Table(data, colWidths=col_widths)
+        # Landscape PDF so tables match the on-screen preview columns.
+        doc = SimpleDocTemplate(
+            response,
+            pagesize=landscape(A4),
+            rightMargin=1.2 * cm,
+            leftMargin=1.2 * cm,
+            topMargin=3.0 * cm,  # leave room for logo/title header
+            bottomMargin=1.0 * cm,
+        )
+
+        # ----- Header (logo + title) drawn directly onto the PDF canvas -----
+        def _find_logo_path():
+            try:
+                from django.contrib.staticfiles import finders
+                p = finders.find('img/logo.png')
+                return p
+            except Exception:
+                return None
+
+        logo_path = _find_logo_path()
+        logo_img = None
+        if logo_path:
+            try:
+                logo_img = ImageReader(logo_path)
+            except Exception:
+                logo_img = None
+
+        def _draw_header(canvas, doc_obj):
+            canvas.saveState()
+            page_w, page_h = doc_obj.pagesize
+            left = doc_obj.leftMargin
+            right = page_w - doc_obj.rightMargin
+            top = page_h - doc_obj.topMargin + (2.1 * cm)  # header sits in the reserved top margin
+
+            # Logo (optional)
+            logo_size = 1.45 * cm
+            # Title + subtitle
+            title = getattr(settings, 'SITE_NAME', None) or 'City College of Bayawan'
+            report_title = template_type.replace('_', ' ').title()
+            subtitle = 'Gate Entry Report' if template_type == 'daily_gate_visits' else (report_title + ' Report')
+
+            # Meta line (date + generated)
+            generated = timezone.localtime(timezone.now()).strftime('%Y-%m-%d %H:%M:%S')
+            meta = f"Date: {safe_date}  |  Generated: {generated}"
+
+            # Center the whole header block (logo + text) for a cleaner look.
+            gap = 0.35 * cm
+            try:
+                title_w = canvas.stringWidth(str(title), 'Helvetica-Bold', 13)
+                sub_w = canvas.stringWidth(str(subtitle), 'Helvetica', 10)
+                meta_w = canvas.stringWidth(str(meta), 'Helvetica', 8.5)
+            except Exception:
+                title_w = sub_w = meta_w = 0
+            text_w = max(title_w, sub_w, meta_w)
+            group_w = (logo_size + gap + text_w) if logo_img else text_w
+            x0 = (page_w - group_w) / 2.0
+            if x0 < left:
+                x0 = left
+            tx = x0 + (logo_size + gap if logo_img else 0)
+
+            if logo_img:
+                try:
+                    canvas.drawImage(logo_img, x0, top - logo_size, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
+                except Exception:
+                    pass
+
+            canvas.setFillColor(colors.HexColor('#14532d'))
+            canvas.setFont('Helvetica-Bold', 13)
+            canvas.drawString(tx, top - 2, str(title))
+            canvas.setFillColor(colors.HexColor('#334155'))
+            canvas.setFont('Helvetica', 10)
+            canvas.drawString(tx, top - 16, str(subtitle))
+
+            canvas.setFillColor(colors.HexColor('#475569'))
+            canvas.setFont('Helvetica', 8.5)
+            canvas.drawString(tx, top - 30, meta)
+
+            # Accent rule (leave extra breathing room under header)
+            canvas.setStrokeColor(colors.HexColor('#16a34a'))
+            canvas.setLineWidth(1)
+            canvas.line(left, top - 48, right, top - 48)
+
+            canvas.restoreState()
+
+        # Build readable, full-width table.
+        styles = getSampleStyleSheet()
+        cell_style = styles['BodyText']
+        cell_style.fontName = 'Helvetica'
+        cell_style.fontSize = 8.5
+        cell_style.leading = 10.5
+        head_style = styles['BodyText']
+        head_style.fontName = 'Helvetica-Bold'
+        head_style.fontSize = 9
+        head_style.leading = 11
+
+        def _para(val, st):
+            if val is None:
+                val = ''
+            txt = str(val)
+            # Basic XML escaping for Paragraph
+            txt = txt.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            return Paragraph(txt, st)
+
+        data = [[_para(h, head_style) for h in headers]]
+        for r in rows:
+            data.append([_para(v, cell_style) for v in r])
+
+        # Smart column widths: allocate more space to Name/Program/Time columns.
+        weights = []
+        for h in headers:
+            hu = str(h).upper()
+            if 'NAME' in hu:
+                w = 2.6
+            elif 'PROGRAM' in hu or 'SECTION' in hu:
+                w = 2.2
+            elif 'TIME' in hu or 'DATE' in hu or 'TIMESTAMP' in hu:
+                w = 2.0
+            elif hu.strip() == 'ID' or 'STUDENT ID' in hu:
+                w = 1.4
+            else:
+                w = 1.6
+            weights.append(w)
+        total_w = sum(weights) or 1.0
+        col_widths = [doc.width * (w / total_w) for w in weights]
+
+        t = Table(data, colWidths=col_widths, repeatRows=1)
         t.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            # Clean, print-friendly palette (high contrast but not too dark)
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#eef2f7')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-            ('FONTSIZE', (0, 1), (-1, -1), 7),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('ALIGN', (0, 0), (-1, 0), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, 0), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 7),
+            ('TOPPADDING', (0, 1), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
+            ('LINEBELOW', (0, 0), (-1, 0), 0.8, colors.HexColor('#94a3b8')),
+            ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#cbd5e1')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
         ]))
-        doc.build([t])
+
+        title = f"{template_type.replace('_', ' ').title()} — {safe_date}"
+        subtitle = f"{date_range_label} · Audience: {audience_filter.title() if audience_filter else 'All'}"
+        story = [
+            # Header is drawn on the canvas; keep a small spacer so the table starts cleanly.
+            Spacer(1, 4),
+            Paragraph(subtitle.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'), styles['Normal']),
+            Spacer(1, 8),
+            t,
+        ]
+        n1, t1 = _report_signatory_theme_fields(export_theme)
+        if n1 or t1:
+            from reportlab.platypus import Image as RLImage
+
+            sig_h = styles['Heading4']
+            sig_h.fontName = 'Helvetica-Bold'
+            sig_h.fontSize = 11
+            sig_h.textColor = colors.HexColor('#14532d')
+            sig_h.leading = 14
+            sig_n = styles['Normal']
+            sig_n.fontSize = 9.5
+            sig_n.textColor = colors.HexColor('#334155')
+            story.append(Spacer(1, 18))
+            story.append(Paragraph('Signatory', sig_h))
+            story.append(Spacer(1, 8))
+            name, title = n1, t1
+            img_path = None
+            if export_theme:
+                f = getattr(export_theme, 'report_first_signatory_signature', None)
+                if f and getattr(f, 'name', None):
+                    try:
+                        pth = f.path
+                        if os.path.exists(pth):
+                            img_path = pth
+                    except Exception:
+                        pass
+            if img_path:
+                try:
+                    story.append(RLImage(img_path, width=3.4 * cm, height=1.5 * cm))
+                    story.append(Spacer(1, 6))
+                except Exception:
+                    pass
+            nm = (name or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            tl = (title or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            if nm and tl:
+                txt = f'<b>{nm}</b><br/><font size="8" color="#64748b">{tl}</font>'
+            elif nm:
+                txt = f'<b>{nm}</b>'
+            else:
+                txt = f'<font size="8" color="#64748b">{tl}</font>'
+            story.append(Paragraph(txt, sig_n))
+            story.append(Spacer(1, 14))
+        doc.build(story, onFirstPage=_draw_header, onLaterPages=_draw_header)
         return response
 
     return redirect('reports-exports')
@@ -8118,6 +9011,121 @@ def notifications_mark_all_read(request):
     return JsonResponse({'success': True, 'marked': created})
 
 
+def _notification_message_for_nav_dropdown(message):
+    """
+    Compact body text for the bell history list: remove path/URL lines and other
+    noise so each row fits without an inner scrollbar (row link covers navigation).
+    """
+    if not message or not str(message).strip():
+        return ''
+    kept = []
+    for raw in str(message).splitlines():
+        ln = raw.strip()
+        if not ln:
+            continue
+        low = ln.lower()
+        if ln.startswith('/'):
+            continue
+        if re.match(r'^https?://\S+$', ln, re.I):
+            continue
+        if re.search(r':\s*/gate/', low):
+            continue
+        if re.search(r':\s*/\S*/edit', low):
+            continue
+        if 'student (app)' in low and '/gate' in ln:
+            continue
+        if re.match(r'^incidents?\s*:', low) and '/' in ln:
+            continue
+        if low.startswith('recorded by:'):
+            continue
+        if re.fullmatch(r'^\([\w\-]+\)$', ln):
+            continue
+        kept.append(ln)
+    if not kept:
+        collapsed = ' '.join(str(message).split())
+        return (collapsed[:200] + '…') if len(collapsed) > 200 else collapsed
+    text = ' '.join(kept)
+    if len(text) > 220:
+        text = text[:217].rsplit(' ', 1)[0] + '…'
+    return text
+
+
+def _admin_notification_history_queryset(user):
+    """In-app AdminNotification rows for notification history (navbar + API)."""
+    role = get_user_role(user)
+    qs = (
+        AdminNotification.objects.filter(target_user=user)
+        .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now()))
+        .select_related('related_student', 'related_incident')
+        .order_by('-created_at')
+    )
+    if role in ('staff', 'faculty'):
+        qs = qs.exclude(notification_type='incident').exclude(
+            notification_type__in=(
+                'sas_inactive_ready_activation',
+                'sas_verified_gate_followup',
+                'gate_manual_referral',
+            )
+        )
+    elif role == 'student affairs':
+        qs = qs.exclude(notification_type='staff_personnel_registration')
+    return qs
+
+
+@login_required(login_url='/login/')
+@role_required('admin', 'staff', 'faculty', 'student affairs')
+@require_GET
+def notifications_history_api(request):
+    """JSON pages of AdminNotification history for the navbar (no full page load)."""
+    from django.core.paginator import Paginator
+    from django.utils.formats import date_format
+    from django.utils.translation import gettext as _
+
+    qs = _admin_notification_history_queryset(request.user)
+    paginator = Paginator(qs, 20)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+    items = []
+    for n in page_obj:
+        href = ''
+        link_label = ''
+        if n.related_student_id:
+            try:
+                href = reverse('gate-student-edit', kwargs={'pk': n.related_student_id})
+                link_label = _('Student')
+            except Exception:
+                pass
+        if not href and n.related_incident_id:
+            try:
+                href = f"{reverse('gate-incident-list')}?highlight={n.related_incident_id}"
+                link_label = _('Incident')
+            except Exception:
+                pass
+        raw_msg = n.message or ''
+        items.append(
+            {
+                'id': n.pk,
+                'created_display': date_format(
+                    timezone.localtime(n.created_at), 'SHORT_DATETIME_FORMAT'
+                ),
+                'type_label': n.get_notification_type_display(),
+                'title': n.title,
+                'message': _notification_message_for_nav_dropdown(raw_msg),
+                'message_tooltip': raw_msg[:800] + ('…' if len(raw_msg) > 800 else ''),
+                'is_read': n.is_read,
+                'href': href,
+                'link_label': link_label,
+            }
+        )
+    return JsonResponse(
+        {
+            'items': items,
+            'page': page_obj.number,
+            'num_pages': paginator.num_pages,
+            'has_next': page_obj.has_next(),
+        }
+    )
+
+
 @login_required(login_url='/login/')
 @role_required('admin', 'staff', 'faculty', 'student affairs')
 def check_new_admin_notifications_api_view(request):
@@ -8152,6 +9160,8 @@ def check_new_admin_notifications_api_view(request):
         notifications = notifications.exclude(notification_type='incident')
     if _api_role != 'admin':
         notifications = notifications.exclude(notification_type='sas_inactive_ready_activation')
+        notifications = notifications.exclude(notification_type='sas_verified_gate_followup')
+        notifications = notifications.exclude(notification_type='gate_manual_referral')
     if _api_role == 'student affairs':
         notifications = notifications.exclude(notification_type='staff_personnel_registration')
     notifications = notifications.order_by('-created_at')[:5]
@@ -8533,15 +9543,62 @@ def event_manual_checkin(request, event_id):
 
 @login_required(login_url='/login/')
 @role_required('admin', 'staff', 'faculty')
+@require_GET
+def event_attendance_live_embed(request, event_id):
+    """Embeddable list of today's event attendance scan logs (not daily gate entries)."""
+    event = get_object_or_404(Event, id=event_id)
+    from_date = (request.GET.get('from_date') or '').strip()
+    if not from_date:
+        from_date = timezone.localdate().isoformat()
+    try:
+        filter_date = datetime.date.fromisoformat(from_date)
+    except ValueError:
+        filter_date = timezone.localdate()
+    day_start, day_end = _local_day_bounds(filter_date)
+    logs = (
+        AttendanceLog.objects.filter(
+            event=event,
+            voided=False,
+            scan_time__gte=day_start,
+            scan_time__lt=day_end,
+        )
+        .select_related('student')
+        .order_by('-scan_time')[:200]
+    )
+    return render(request, 'gate/event_attendance_live_embed.html', {
+        'event': event,
+        'filter_date': filter_date,
+        'logs': logs,
+        'embed': (request.GET.get('embed') or '').strip().lower() in ('1', 'true', 'yes'),
+    })
+
+
+@login_required(login_url='/login/')
+@role_required('admin', 'staff', 'faculty')
+@ensure_csrf_cookie
 def field_trip_event_scan(request, event_id):
     """
-    Event attendance POSTs: scan student permanent QR (eEID) for any event.
-    GET redirects to the main gate scanner with this event selected.
+    Event attendance POSTs: scan student permanent QR (eEID) for field-trip / off-campus events.
+    GET serves the same scanner UI as /gate/ with this event locked (no daily gate entries).
     Records EventAttendance only (no GateEntry).
     """
     event = get_object_or_404(Event, id=event_id)
     if request.method == 'GET':
-        return _redirect_gate_scan_with_event(event_id)
+        if getattr(event, 'event_location', '') != 'field_trip':
+            return _redirect_gate_scan_with_event(event_id)
+        user_role = get_user_role(request.user)
+        kiosk_mode = (request.GET.get('kiosk') or '').strip().lower() in ('1', 'true', 'yes', 'on')
+        return render(request, 'gate/gate_scan.html', {
+            'site_name': getattr(settings, 'SITE_NAME', 'City College of Bayawan'),
+            'page_title': f'Event attendance – {event.name}',
+            'active_events': [],
+            'event_attendance_scanner_event': event,
+            'event_attendance_field_trip': True,
+            'campus_departments': CAMPUS_DEPARTMENT_CHOICES,
+            'user_role': user_role,
+            'kiosk_mode': kiosk_mode,
+            'guard_student_popup_style': getattr(settings, 'GATE_GUARD_STUDENT_POPUP_STYLE', 'split'),
+        })
 
     today = timezone.localdate()
     if event.start_date > today or event.end_date < today:
@@ -8554,9 +9611,9 @@ def field_trip_event_scan(request, event_id):
             requested_scan_type = 'IN'
         if not student_id:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'success': False, 'message': 'No student ID provided.'})
+                return JsonResponse({'success': False, 'message': 'No student ID provided.', 'color': 'error'})
             messages.error(request, 'Enter or scan student ID.')
-            return _redirect_gate_scan_with_event(event_id)
+            return redirect('event-field-trip-scan', event_id=event_id)
 
         student = Student.objects.filter(student_id=student_id, is_active=True).first()
         if not student:
@@ -8565,9 +9622,10 @@ def field_trip_event_scan(request, event_id):
                     'success': False,
                     'message': 'Student not found or inactive.',
                     'student_id': student_id,
+                    'color': 'error',
                 })
             messages.error(request, f'Student {student_id} not found or inactive.')
-            return _redirect_gate_scan_with_event(event_id)
+            return redirect('event-field-trip-scan', event_id=event_id)
 
         allowed = _is_student_allowed_for_event(event, student)
         override = _should_override_audience(request)
@@ -8583,9 +9641,10 @@ def field_trip_event_scan(request, event_id):
                         'message': message,
                         'student_id': student.student_id,
                         'not_allowed': True,
+                        'color': 'warning',
                     })
                 messages.error(request, message)
-                return _redirect_gate_scan_with_event(event_id)
+                return redirect('event-field-trip-scan', event_id=event_id)
 
         # Determine current attendance record (if any); create placeholder when first scanned
         att, _ = EventAttendance.objects.get_or_create(
@@ -8613,9 +9672,14 @@ def field_trip_event_scan(request, event_id):
         if scan_type == 'OUT' and att.checked_out_at is None and event.status in ('draft', 'scheduled', 'active'):
             msg = 'Event is not yet finished. Check-out will be allowed once the event is completed.'
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'success': False, 'message': msg, 'event_status': event.status}, status=400)
+                return JsonResponse({
+                    'success': False,
+                    'message': msg,
+                    'event_status': event.status,
+                    'color': 'warning',
+                }, status=400)
             messages.error(request, msg)
-            return _redirect_gate_scan_with_event(event_id)
+            return redirect('event-field-trip-scan', event_id=event_id)
 
         # OUT: require an existing check-in before allowing check-out
         if scan_type == 'OUT' and att.checked_in_at is None:
@@ -8633,9 +9697,14 @@ def field_trip_event_scan(request, event_id):
             )
             msg = f'{student.get_full_name()} has not checked in yet for this event.'
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'success': False, 'message': msg, 'student_id': student.student_id})
+                return JsonResponse({
+                    'success': False,
+                    'message': msg,
+                    'student_id': student.student_id,
+                    'color': 'warning',
+                })
             messages.error(request, msg)
-            return _redirect_gate_scan_with_event(event_id)
+            return redirect('event-field-trip-scan', event_id=event_id)
 
         already_checked_in = att.checked_in_at is not None
         already_checked_out = att.checked_out_at is not None
@@ -8698,15 +9767,33 @@ def field_trip_event_scan(request, event_id):
                 )
             if audience_overridden:
                 msg += ' (Override: outside target audience.)'
+            time_str = timezone.localtime(timezone.now()).strftime('%I:%M %p')
             return JsonResponse({
                 'success': True,
+                'ok': True,
+                'result': 'ALLOWED',
                 'message': msg,
+                'color': 'success',
+                'status': scan_type,
+                'scan_type': scan_type,
+                'time': time_str,
                 'student_name': student.get_full_name(),
                 'student_id': student.student_id,
                 'already_checked_in': already_checked_in,
                 'already_checked_out': already_checked_out,
                 'photo_url': photo_url or '',
                 'audience_overridden': audience_overridden,
+                'student': {
+                    'student_id': student.student_id,
+                    'name': student.get_full_name(),
+                    'first_name': student.first_name,
+                    'middle_name': student.middle_name or '',
+                    'last_name': student.last_name,
+                    'email': student.email or '',
+                    'photo_url': photo_url or '',
+                    'course_or_section': getattr(student, 'course_or_section', '') or '',
+                    'year_level': getattr(student, 'year_level', '') or '',
+                },
             })
 
         if scan_type == 'IN':
@@ -8722,7 +9809,7 @@ def field_trip_event_scan(request, event_id):
                 messages.info(request, f'{student.get_full_name()} was already checked out.')
             else:
                 messages.success(request, f'{student.get_full_name()} checked out.')
-        return _redirect_gate_scan_with_event(event_id)
+        return redirect('event-field-trip-scan', event_id=event_id)
 
 
 @login_required(login_url='/login/')

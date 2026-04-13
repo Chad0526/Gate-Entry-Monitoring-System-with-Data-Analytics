@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Currently Inside – {{ event.name }}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f8f9fa;
+      margin: 0;
+      padding: 20px;
+    }
+    .emb-header {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: #fff;
+      padding: 20px 24px;
+      border-radius: 12px 12px 0 0;
+      margin: -20px -20px 0 -20px;
+    }
+    .emb-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0 0 6px 0;
+    }
+    .emb-sub {
+      font-size: 0.9rem;
+      opacity: 0.95;
+      margin: 0;
+    }
+    .emb-count-badge {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.25);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      margin-top: 10px;
+    }
+    .emb-body {
+      background: #fff;
+      padding: 0;
+      border-radius: 0 0 12px 12px;
+      margin: 0 -20px -20px -20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .table {
+      margin: 0;
+    }
+    .table thead th {
+      background: #f8f9fa;
+      border-bottom: 2px solid #dee2e6;
+      font-weight: 700;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: #495057;
+      padding: 14px 16px;
+    }
+    .table tbody td {
+      padding: 12px 16px;
+      vertical-align: middle;
+      font-size: 0.9rem;
+    }
+    .table tbody tr:hover {
+      background: #f0fdf4;
+    }
+    .emb-empty {
+      padding: 60px 20px;
+      text-align: center;
+      color: #6c757d;
+    }
+    .emb-empty i {
+      font-size: 3rem;
+      opacity: 0.3;
+      margin-bottom: 16px;
+      color: #f59e0b;
+    }
+  </style>
+</head>
+<body>
+  <div class="emb-header">
+    <div class="emb-title"><i class="fas fa-user-check mr-2"></i> Currently Inside</div>
+    <div class="emb-sub">{{ event.name }}</div>
+    <div class="emb-count-badge">{{ count }} student{{ count|pluralize }}</div>
+  </div>
+  <div class="emb-body">
+    {% if inside %}
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th style="width: 60px;">#</th>
+            <th>Student ID</th>
+            <th>Name</th>
+            <th>Checked In At</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in inside %}
+          <tr>
+            <td>{{ forloop.counter }}</td>
+            <td><code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem;">{{ a.student.student_id }}</code></td>
+            <td style="font-weight: 600;">{{ a.student.get_full_name }}</td>
+            <td style="color: #6c757d;">{{ a.checked_in_at|date:"M d, Y H:i" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="emb-empty">
+      <i class="fas fa-user-check"></i>
+      <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 6px;">No one currently inside</div>
+      <div style="font-size: 0.9rem;">All students have checked out or no check-ins yet.</div>
+    </div>
+    {% endif %}
+  </div>
+</body>
+</html>

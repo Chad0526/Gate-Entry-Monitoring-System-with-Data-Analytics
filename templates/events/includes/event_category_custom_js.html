@@ -1,0 +1,96 @@
+<script>
+(function() {
+  function initCategoryCustomToggle() {
+    var col = document.getElementById('ce-category-column');
+    if (!col) return;
+    var prefix = (col.getAttribute('data-name-prefix') || '').trim();
+    var p = prefix ? prefix + '-' : '';
+    var nameCat = p + 'category';
+    var nameUse = p + 'use_custom_category';
+    var nameCustom = p + 'custom_category_name';
+
+    var sel = col.querySelector('select[name="' + nameCat + '"]');
+    var hiddenUse = col.querySelector('input[name="' + nameUse + '"]');
+    var customInput = col.querySelector('input[name="' + nameCustom + '"]');
+    var blockSel = col.querySelector('#ce-category-select-block');
+    var blockCust = col.querySelector('#ce-category-custom-block');
+    var btnPick = col.querySelector('#ce-category-show-select-btn');
+    if (!sel || !hiddenUse || !customInput || !blockSel || !blockCust) return;
+
+    var CUSTOM_VAL = '__custom__';
+
+    function appendCustomOption() {
+      if (sel.querySelector('option[value="' + CUSTOM_VAL + '"]')) return;
+      var opt = document.createElement('option');
+      opt.value = CUSTOM_VAL;
+      opt.textContent = 'Custom…';
+      sel.appendChild(opt);
+    }
+    appendCustomOption();
+
+    function setListMode() {
+      hiddenUse.value = '';
+      blockSel.style.display = '';
+      blockCust.style.display = 'none';
+      sel.disabled = false;
+      customInput.value = '';
+      customInput.disabled = true;
+      if (sel.value === CUSTOM_VAL) {
+        sel.selectedIndex = 0;
+      }
+    }
+
+    function setCustomMode() {
+      hiddenUse.value = '1';
+      blockSel.style.display = 'none';
+      blockCust.style.display = '';
+      sel.disabled = true;
+      customInput.disabled = false;
+      try { customInput.focus(); } catch (e) {}
+    }
+
+    sel.addEventListener('change', function() {
+      if (sel.value === CUSTOM_VAL) {
+        setCustomMode();
+      } else {
+        hiddenUse.value = '';
+        customInput.value = '';
+        sel.disabled = false;
+        customInput.disabled = true;
+      }
+    });
+
+    if (btnPick) {
+      btnPick.addEventListener('click', function() {
+        setListMode();
+        sel.selectedIndex = 0;
+        try { sel.focus(); } catch (e2) {}
+      });
+    }
+
+    var form = col.closest('form');
+    if (form) {
+      form.addEventListener('submit', function() {
+        if (hiddenUse.value === '1') {
+          sel.disabled = true;
+        } else {
+          customInput.disabled = true;
+          customInput.value = '';
+        }
+      });
+    }
+
+    if (hiddenUse.value === '1') {
+      setCustomMode();
+    }
+  }
+
+  if (window.ccbRunWhenDocumentReady) {
+    window.ccbRunWhenDocumentReady(initCategoryCustomToggle);
+  } else if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCategoryCustomToggle);
+  } else {
+    initCategoryCustomToggle();
+  }
+})();
+</script>

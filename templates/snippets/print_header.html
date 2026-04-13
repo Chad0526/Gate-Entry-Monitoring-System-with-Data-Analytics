@@ -1,0 +1,20 @@
+{% load static %}
+{# 
+  Reusable print header (logo + school title + subtitle + date line).
+  Usage:
+    {% include 'snippets/print_header.html' with print_title=site_name print_subtitle='...' print_date_line='...' %}
+  Note: Styling is expected to come from the parent template's @media print rules for .print-header* classes.
+#}
+<div class="print-header" style="display: none;">
+  <img src="{% static 'img/logo.png' %}" alt="Logo" class="print-header-logo">
+  <div class="print-header-content">
+    <div class="print-header-title">{{ print_title|default:site_name|default:"City College of Bayawan" }}</div>
+    {% if print_subtitle %}
+      <div class="print-header-subtitle">{{ print_subtitle }}</div>
+    {% endif %}
+    <div class="print-header-date">
+      {% if print_date_line %}{{ print_date_line }}{% else %}Generated: {% now "Y-m-d H:i:s" %}{% endif %}
+    </div>
+  </div>
+</div>
+

@@ -22,9 +22,13 @@ except ImportError:
                 line = _line.strip()
                 if not line or line.startswith('#') or '=' not in line:
                     continue
-                key, value = line.split('=', 1)
+                # Handle lines with leading whitespace before key
+                key, _, value = line.partition('=')
                 key = key.strip()
                 value = value.strip()
+                # Skip empty keys
+                if not key:
+                    continue
                 # Do not overwrite existing environment variables.
                 os.environ.setdefault(key, value)
 
@@ -39,6 +43,11 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'gvv(&d^k0f5^xgqa+#ct4sxcg5%&5q
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+
+# ngrok / reverse-proxy support (needed so Django sees the public host+https).
+# Fixes CSRF cookie domain + referer checks on HTTPS tunnels.
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # CSRF Trusted Origins (for AJAX requests)
 CSRF_TRUSTED_ORIGINS = [
@@ -298,14 +307,30 @@ CKEDITOR_CONFIGS = {
     },
 }
 
-# Cache for dashboard counts (1–2 min TTL). Use LocMem if no Redis/Memcached.
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'gate-analytics-default',
-        'OPTIONS': {'MAX_ENTRIES': 500},
+# Cache for dashboard counts + scanner heartbeat.
+# LocMemCache is per-process: Gunicorn/uWSGI with multiple workers (typical behind ngrok/nginx) means
+# POST /gate/api/scanner-heartbeat/ and GET /gate/api/guard-dashboard/ can hit different workers —
+# the guard display then stays on "Waiting" while the dashboard shows Scanner ACTIVE.
+# FileBasedCache is shared on disk across workers on the same host.
+# Opt into LocMem only for tests or single-process dev: USE_LOCMEM_CACHE=1
+_use_locmem_cache = (os.environ.get('USE_LOCMEM_CACHE', '') or '').strip().lower() in ('1', 'true', 'yes')
+_use_file_cache = not _use_locmem_cache
+if _use_file_cache:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+            'LOCATION': os.path.join(BASE_DIR, '.django_cache'),
+            'OPTIONS': {'MAX_ENTRIES': 2000},
+        }
     }
-}
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'gate-analytics-default',
+            'OPTIONS': {'MAX_ENTRIES': 500},
+        }
+    }
 CACHE_DASHBOARD_SECONDS = 120  # 2 minutes
 
 # After login, if the user did not open /login/?next=...
@@ -320,9 +345,18 @@ LOGIN_REDIRECT_DEFAULT_ADMIN = 'dashboard'
 API_ATTENDANCE_TOKEN = os.environ.get('API_ATTENDANCE_TOKEN', '')
 
 # Guard wall display: shared secret for /gate/guard-display/ and /gate/api/guard-dashboard/ (no login).
-# Staff gate scanner POSTs heartbeats; display shows "scanner active" while heartbeats arrive within TTL.
-GATE_GUARD_DISPLAY_TOKEN = os.environ.get('GATE_GUARD_DISPLAY_TOKEN', '')
+# Staff POSTs heartbeats for "live" TTL; guard wall stays unlocked until Stop while gate session is armed (see GATE_SESSION_ARMED_TIMEOUT).
+GATE_GUARD_DISPLAY_TOKEN = os.environ.get('GATE_GUARD_DISPLAY_TOKEN', '').strip()
+# Fallback: if .env didn't load, use the hardcoded value from .env file
+if not GATE_GUARD_DISPLAY_TOKEN:
+    GATE_GUARD_DISPLAY_TOKEN = 'scanner-dashboard'
 GATE_SCANNER_HEARTBEAT_TTL = int(os.environ.get('GATE_SCANNER_HEARTBEAT_TTL', '90'))
+# "Start gate session" sets a separate armed flag until "Stop" (survives staff logout). Seconds in cache; default ~1 year.
+try:
+    _gate_armed_ttl = int(os.environ.get('GATE_SESSION_ARMED_TIMEOUT', str(86400 * 366)))
+except (TypeError, ValueError):
+    _gate_armed_ttl = 86400 * 366
+GATE_SESSION_ARMED_TIMEOUT = max(300, _gate_armed_ttl)
 # Daily gate: minimum time between duplicate scans (same direction) while still inside / outside (minutes).
 try:
     _gate_cool = int(os.environ.get('GATE_SCAN_REPEAT_COOLDOWN_MINUTES', '5'))

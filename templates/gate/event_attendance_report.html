@@ -286,8 +286,63 @@
   }
 
   @media print {
+    /* Show print header */
+    .print-header {
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+      padding: 16px 20px;
+      border-bottom: 2px solid #28a745;
+      margin-bottom: 20px;
+    }
+    
+    .print-header-logo {
+      width: 60px;
+      height: 60px;
+      margin-right: 20px;
+    }
+    
+    .print-header-content {
+      text-align: center;
+    }
+    
+    .print-header-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1e5631;
+      margin: 0 0 6px 0;
+    }
+    
+    .print-header-subtitle {
+      font-size: 15px;
+      color: #495057;
+      margin: 0 0 4px 0;
+    }
+    
+    .print-header-date {
+      font-size: 13px;
+      color: #6c757d;
+      margin: 0;
+    }
+    
     .ear-action-bar, .ear-hero, .no-print { display: none !important; }
     .ear-stats { margin-top: 0; }
+    
+    /* Optimize for print */
+    .ear-table thead th {
+      background: #f8f9fa !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    
+    .ear-badge {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    
+    @page {
+      margin: 0.5in;
+    }
   }
   @media (max-width: 991px) { .ear-stats { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 575px) {
@@ -302,6 +357,19 @@
 
 {% block content %}
 <div class="monitor-wrap">
+  <!-- Print header (only visible when printing) -->
+  <div class="print-header" style="display: none;">
+    <img src="{% static 'img/logo.png' %}" alt="Logo" class="print-header-logo">
+    <div class="print-header-content">
+      <div class="print-header-title">{{ site_name|default:"City College of Bayawan" }}</div>
+      <div class="print-header-subtitle">Event Attendance Report - {{ event.name }}</div>
+      <div class="print-header-date">
+        Event Period: {{ event.start_date|date:"M d" }} – {{ event.end_date|date:"M d, Y" }}
+        | Generated: {% now "Y-m-d H:i:s" %}
+      </div>
+    </div>
+  </div>
+
   <!-- Hero -->
   <div class="ear-hero">
     <h2>{{ event.name }}</h2>
