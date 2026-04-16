@@ -11,10 +11,12 @@ from django.conf import settings as django_settings
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.db.models import Q
 
 User = get_user_model()
 from gate.models import EventCategory, Event, Student, GateEntry, GateIncident, AuditLog, GateShift, StaffPersonnelProfile
 from gate.gate_views import _local_day_bounds, _local_year_bounds
+from gate.page_loader_session import mark_post_login_loader_if_dashboard, pop_post_login_loader
 from gate.gate_personnel_services import RealtimeDashboardService
 from .forms import (
     LoginForm,
@@ -298,10 +300,12 @@ def _dashboard_scanner_and_activity(today):
     )
 
     day_start, day_end = _local_day_bounds(today)
+    # Only student or visitor rows — omit NOT_FOUND / unknown-ID rows (no FK; name came from notes).
+    _entry_identity = Q(student_id__isnull=False) | Q(visitor_visit_id__isnull=False)
     last_entry = GateEntry.objects.filter(
         timestamp__gte=day_start,
         timestamp__lt=day_end,
-    ).order_by('-timestamp').first()
+    ).filter(_entry_identity).order_by('-timestamp').first()
     if last_entry:
         last_scan_label = timezone.localtime(last_entry.timestamp).strftime('%Y-%m-%d %H:%M')
     else:
@@ -316,7 +320,7 @@ def _dashboard_scanner_and_activity(today):
     recent_qs = GateEntry.objects.filter(
         timestamp__gte=day_start,
         timestamp__lt=day_end,
-    ).select_related('student', 'visitor_visit').order_by('-timestamp')[:12]
+    ).filter(_entry_identity).select_related('student', 'visitor_visit').order_by('-timestamp')[:12]
     recent_activity = []
     for e in recent_qs:
         if e.student_id:
@@ -469,6 +473,7 @@ def dashboard(request):
         'personnel_on_duty_count': len(personnel_on_duty_list),
         **live,
         'guard_display_url': guard_display_url,
+        'ccb_post_login_loader': pop_post_login_loader(request),
     }
     print(f"[DEBUG Dashboard] Context guard_display_url: '{context.get('guard_display_url')}'")
     print(f"[DEBUG Dashboard] Context keys: {list(context.keys())}")
@@ -605,6 +610,7 @@ def login_page(request):
                             redirect_to = getattr(django_settings, 'LOGIN_REDIRECT_DEFAULT_GATE_STAFF', 'gate-scan')
                         else:
                             redirect_to = getattr(django_settings, 'LOGIN_REDIRECT_DEFAULT_ADMIN', 'dashboard')
+                    mark_post_login_loader_if_dashboard(request, redirect_to)
                     return redirect(redirect_to)
             else:
                 # Django's authenticate() returns None for inactive users; check if credentials are correct but account is pending approval
@@ -655,12 +661,11 @@ def profile_edit(request):
                 profile.birthdate = form.cleaned_data.get('birthdate')
                 profile.address = (form.cleaned_data.get('address') or '')[:500]
                 profile.contact_number = (form.cleaned_data.get('contact_number') or '')[:20]
-                profile.employee_id = (form.cleaned_data.get('employee_id') or '')[:50]
                 profile.department = (form.cleaned_data.get('department') or '')[:150]
                 profile.position = (form.cleaned_data.get('position') or '')[:150]
                 profile.save(update_fields=[
                     'middle_name', 'sex', 'birthdate', 'address',
-                    'contact_number', 'employee_id', 'department', 'position',
+                    'contact_number', 'department', 'position',
                 ])
             new_avatar = form.cleaned_data.get('avatar')
             if new_avatar:
@@ -687,7 +692,6 @@ def profile_edit(request):
                 'birthdate': profile.birthdate,
                 'address': profile.address or '',
                 'contact_number': profile.contact_number or '',
-                'employee_id': profile.employee_id or '',
                 'department': profile.department or '',
                 'position': profile.position or '',
             })
@@ -723,13 +727,12 @@ def staff_personnel_complete_profile(request):
             profile.birthdate = form.cleaned_data.get('birthdate')
             profile.address = (form.cleaned_data.get('address') or '').strip()[:500]
             profile.contact_number = (form.cleaned_data.get('contact_number') or '').strip()[:20]
-            profile.employee_id = (form.cleaned_data.get('employee_id') or '').strip()[:50]
             profile.department = (form.cleaned_data.get('department') or '').strip()[:150]
             profile.position = (form.cleaned_data.get('position') or '').strip()[:150]
             profile.profile_complete = True
             profile.save(update_fields=[
                 'sex', 'birthdate', 'address', 'contact_number',
-                'employee_id', 'department', 'position', 'profile_complete',
+                'department', 'position', 'profile_complete',
             ])
             avatar_file = form.cleaned_data.get('photo')
             if avatar_file:
@@ -744,6 +747,7 @@ def staff_personnel_complete_profile(request):
             gate_first = getattr(django_settings, 'LOGIN_REDIRECT_GATE_FIRST_ROLES', ('staff', 'faculty'))
             if role_after in gate_first:
                 return redirect(getattr(django_settings, 'LOGIN_REDIRECT_DEFAULT_GATE_STAFF', 'gate-scan'))
+            mark_post_login_loader_if_dashboard(request, 'dashboard')
             return redirect('dashboard')
     else:
         form = StaffPersonnelCompleteProfileForm(initial={
@@ -751,7 +755,6 @@ def staff_personnel_complete_profile(request):
             'birthdate': profile.birthdate,
             'address': profile.address or '',
             'contact_number': profile.contact_number or '',
-            'employee_id': profile.employee_id or '',
             'department': profile.department or '',
             'position': profile.position or '',
         })
@@ -765,7 +768,7 @@ def staff_personnel_complete_profile(request):
 
 @login_required
 def account_settings(request):
-    """Account details (username, email) only. For staff and faculty. Password change via login-page forgot password."""
+    """Account details (username, email) for staff/faculty. Change password: /password_change/ or profile."""
     from django.contrib import messages
     user = request.user
     role = get_user_role(user)

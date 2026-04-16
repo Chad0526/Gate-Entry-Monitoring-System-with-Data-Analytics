@@ -4,11 +4,9 @@
 {% block page_heading %}Reports{% endblock page_heading %}
 {% block extrahead %}
 <link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
+<link rel="stylesheet" href="{% static 'css/print-report-header.css' %}">
 <style>
-/* Signatories: hidden on screen, visible when printing report */
-#reports-exports-root .reports-print-only {
-  display: none !important;
-}
+/* Signatories: see static/css/print-report-header.css (.reports-print-only) */
 @media print {
   /* Hide global layout chrome (sidebar/header/footer) */
   .main-sidebar, .control-sidebar, .main-footer, .main-header, .content-header, .navbar { display: none !important; }
@@ -16,92 +14,15 @@
   body { background: #fff !important; }
   #reports-exports-root { margin: 0 !important; padding: 0 !important; }
 
-  /* Show print header */
-  .print-header {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    padding: 16px 20px;
-    border-bottom: 2px solid #28a745;
-    margin-bottom: 20px;
-  }
-  
-  .print-header-logo {
-    width: 60px;
-    height: 60px;
-    margin-right: 20px;
-  }
-  
-  .print-header-content {
-    text-align: center;
-  }
-  
-  .print-header-title {
-    font-size: 20px;
-    font-weight: 700;
-    color: #1e5631;
-    margin: 0 0 6px 0;
-  }
-  
-  .print-header-subtitle {
-    font-size: 15px;
-    color: #495057;
-    margin: 0 0 4px 0;
-  }
-  
-  .print-header-date {
-    font-size: 13px;
-    color: #6c757d;
-    margin: 0;
-  }
-
   /* Print: header + preview table + signatories; hide filters/tabs/export. */
   #reports-exports-root > *:not(.print-header):not(.reports-exports-preview-card):not(.reports-print-only) {
     display: none !important;
-  }
-  #reports-exports-root .print-header {
-    display: flex !important;
   }
   #reports-exports-root .reports-exports-preview-card {
     display: block !important;
   }
   #reports-exports-root .reports-print-only {
     display: block !important;
-  }
-  .report-signatories-wrap {
-    margin-top: 1.25rem;
-    padding-top: 1rem;
-    border-top: 2px solid #28a745;
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-  .report-signatories-heading {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #1e5631;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin: 0 0 12px 0;
-  }
-  .report-sig-block {
-    min-height: 72px;
-  }
-  .report-sig-img {
-    max-height: 48px;
-    max-width: 180px;
-    object-fit: contain;
-    margin-bottom: 8px;
-    display: block;
-  }
-  .report-sig-name {
-    font-weight: 700;
-    font-size: 12px;
-    color: #212529;
-  }
-  .report-sig-title {
-    font-size: 11px;
-    color: #6c757d;
-    margin-top: 2px;
   }
   /* Hide the preview header/description + pagination controls. */
   #reports-exports-root .reports-exports-preview-card .card-header,
@@ -259,32 +180,6 @@
 {% block content %}
 <div class="monitor-wrap">
 <div id="reports-exports-root">
-
-<!-- Print header (only visible when printing) -->
-<div class="print-header" style="display: none;">
-  <img src="{% static 'img/logo.png' %}" alt="Logo" class="print-header-logo">
-  <div class="print-header-content">
-    <div class="print-header-title">{{ site_name|default:"City College of Bayawan" }}</div>
-    <div class="print-header-subtitle">
-      {% if template_type == 'daily_gate_visits' %}Gate Entry Report
-      {% elif template_type == 'overview_summary' %}Summary Report
-      {% elif template_type == 'recent_activity' %}Recent Activity Report
-      {% elif template_type == 'inside_now' %}Currently Inside Report
-      {% elif template_type == 'raw_entries' %}Raw Entries Report
-      {% elif template_type == 'event_attendance' %}Event Attendance Report
-      {% elif template_type == 'by_personnel' %}By Recorder Report
-      {% else %}Report{% endif %}
-    </div>
-    <div class="print-header-date">
-      {% if to_date_str and to_date_str != from_date_str %}
-        Date Range: {{ from_date_str }} to {{ to_date_str }}
-      {% else %}
-        Date: {{ from_date_str|default:"N/A" }}
-      {% endif %}
-      | Generated: {% now "Y-m-d H:i:s" %}
-    </div>
-  </div>
-</div>
 
 {% include 'gate/reports/exports_inner.html' %}
 </div>

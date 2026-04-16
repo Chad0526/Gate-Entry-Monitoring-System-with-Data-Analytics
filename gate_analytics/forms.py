@@ -135,12 +135,6 @@ class StaffPersonnelCompleteProfileForm(forms.Form):
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Contact number', 'maxlength': '20'}),
         error_messages={'required': REQUIRED_MSG},
     )
-    employee_id = forms.CharField(
-        max_length=50,
-        required=True,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Employee / ID number'}),
-        error_messages={'required': REQUIRED_MSG},
-    )
     department = forms.CharField(
         max_length=150,
         required=True,
@@ -333,11 +327,6 @@ class UserProfileEditForm(forms.Form):
         max_length=20,
         required=False,
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Contact number'})
-    )
-    employee_id = forms.CharField(
-        max_length=50,
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Employee / ID number'})
     )
     department = forms.CharField(
         max_length=150,

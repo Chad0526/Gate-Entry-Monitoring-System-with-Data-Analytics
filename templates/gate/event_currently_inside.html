@@ -4,47 +4,9 @@
 {% block page_heading %}Currently Inside{% endblock page_heading %}
 
 {% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/print-report-header.css' %}">
 <style>
   @media print {
-    /* Show print header */
-    .print-header {
-      display: flex !important;
-      align-items: center;
-      justify-content: center;
-      padding: 16px 20px;
-      border-bottom: 2px solid #28a745;
-      margin-bottom: 20px;
-    }
-    
-    .print-header-logo {
-      width: 60px;
-      height: 60px;
-      margin-right: 20px;
-    }
-    
-    .print-header-content {
-      text-align: center;
-    }
-    
-    .print-header-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1e5631;
-      margin: 0 0 6px 0;
-    }
-    
-    .print-header-subtitle {
-      font-size: 15px;
-      color: #495057;
-      margin: 0 0 4px 0;
-    }
-    
-    .print-header-date {
-      font-size: 13px;
-      color: #6c757d;
-      margin: 0;
-    }
-    
     .no-print { display: none !important; }
     
     .card-header {
@@ -119,4 +81,6 @@
     </div>
   </div>
 </div>
+
+{% include 'snippets/report_signatories_block.html' %}
 {% endblock content %}

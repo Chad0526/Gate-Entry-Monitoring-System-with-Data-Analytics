@@ -655,6 +655,30 @@ def _eid_signatory_template_context(request, theme):
     return base
 
 
+def _report_signatories_dict(request, theme):
+    """
+    SiteTheme report signatory (Reports → Report signatory modal).
+    Same shape as gate.gate_views._report_signatories_context_for_template for templates/CSV.
+    """
+    n1, t1 = '', ''
+    sig1 = ''
+    if theme:
+        n1 = (getattr(theme, 'report_first_signatory_name', '') or '').strip()
+        t1 = (getattr(theme, 'report_first_signatory_title', '') or '').strip()
+        sig_field = getattr(theme, 'report_first_signatory_signature', None)
+        if sig_field and getattr(sig_field, 'name', None):
+            try:
+                sig1 = request.build_absolute_uri(sig_field.url)
+            except Exception:
+                sig1 = ''
+    return {
+        'has_signatories': bool(n1 or t1),
+        'first_name': n1,
+        'first_title': t1,
+        'first_signature_url': sig1,
+    }
+
+
 def theme_context(request):
     """Inject site theme (name, logo, primary color) for theming. Cached for anonymous to speed up login."""
     from django.core.cache import cache
@@ -663,7 +687,11 @@ def theme_context(request):
     if not request.user.is_authenticated:
         cached = cache.get(cache_key)
         if cached is not None:
-            return cached
+            merged = dict(cached)
+            merged['report_signatories'] = _report_signatories_dict(
+                request, merged.get('site_theme')
+            )
+            return merged
     try:
         from gate.models import SiteTheme
         theme = SiteTheme.objects.first()
@@ -683,6 +711,7 @@ def theme_context(request):
                 'site_logo': None,
             }
             result.update(_eid_signatory_template_context(request, None))
+        result['report_signatories'] = _report_signatories_dict(request, theme)
         cache.set(cache_key, result, 300)  # 5 min for all users
         return result
     except Exception:
@@ -694,6 +723,7 @@ def theme_context(request):
         'site_logo': None,
     }
     out.update(_eid_signatory_template_context(request, None))
+    out['report_signatories'] = _report_signatories_dict(request, None)
     return out
 
 

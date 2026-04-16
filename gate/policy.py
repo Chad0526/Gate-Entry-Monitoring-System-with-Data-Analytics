@@ -15,9 +15,27 @@ from .models import GateEntry, GatePolicy
 
 
 def daily_gate_repeat_cooldown():
-    """Minimum wait for daily gate repeat rules (minutes). Used with GATE_SCAN_REPEAT_COOLDOWN_SCOPE in save_scan / policy."""
-    mins = int(getattr(settings, 'GATE_SCAN_REPEAT_COOLDOWN_MINUTES', 5))
-    return datetime.timedelta(minutes=max(1, mins))
+    """Minimum wait for daily gate repeat rules. Used with GATE_SCAN_REPEAT_COOLDOWN_SCOPE in save_scan / policy."""
+    secs = int(getattr(settings, 'GATE_SCAN_REPEAT_COOLDOWN_SECONDS', 30))
+    return datetime.timedelta(seconds=max(1, secs))
+
+
+def format_cooldown_duration(cooldown_td):
+    """Human-readable window length (e.g. '30 second(s)' or '5 minute(s)')."""
+    secs = max(1, int(cooldown_td.total_seconds()))
+    if secs < 60:
+        return f'{secs} second(s)'
+    mins = (secs + 59) // 60
+    return f'{mins} minute(s)'
+
+
+def format_cooldown_wait_remaining(secs_left: float) -> str:
+    """Human-readable remaining wait from a seconds count."""
+    secs = max(0, int(math.ceil(secs_left)))
+    if secs < 60:
+        return f'{max(1, secs)} second(s)'
+    mins = max(1, (secs + 59) // 60)
+    return f'{mins} minute(s)'
 
 
 def get_gate_policy():
@@ -105,7 +123,7 @@ def evaluate_scan(student, scan_type, now=None, personnel_override_reason=None, 
         else timezone.make_aware(now, timezone.get_current_timezone())
     )
     cooldown_td = daily_gate_repeat_cooldown()
-    cooldown_mins = max(1, int(cooldown_td.total_seconds() // 60))
+    cooldown_human = format_cooldown_duration(cooldown_td)
 
     if scan_type == 'IN':
         if state == 'INSIDE':
@@ -127,7 +145,7 @@ def evaluate_scan(student, scan_type, now=None, personnel_override_reason=None, 
                             'schedule_based': schedule_based,
                         }
                 dup_msg = (
-                    f'Already inside. No duplicate IN within {cooldown_mins} minutes — scan OUT first or wait.'
+                    f'Already inside. No duplicate IN within {cooldown_human} — scan OUT first or wait.'
                 )
             else:
                 dup_msg = 'Already inside. No duplicate IN.'
@@ -176,11 +194,11 @@ def evaluate_scan(student, scan_type, now=None, personnel_override_reason=None, 
                 elapsed = now_local - last_ts
                 if elapsed < cooldown_td:
                     secs_left = (cooldown_td - elapsed).total_seconds()
-                    mins_left = max(1, math.ceil(secs_left / 60))
+                    wait_human = format_cooldown_wait_remaining(secs_left)
                     return {
                         'allowed': False,
                         'result': 'DUPLICATE',
-                        'message': f'Please wait {mins_left} more minute(s) before scanning again.',
+                        'message': f'Please wait {wait_human} before scanning again.',
                         'out_reason_code': '',
                         'out_reason_text': '',
                         'schedule_hint': schedule_hint,

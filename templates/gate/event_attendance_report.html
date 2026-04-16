@@ -5,6 +5,7 @@
 
 {% block extrahead %}
 <link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
+<link rel="stylesheet" href="{% static 'css/print-report-header.css' %}">
 <style>
   .ear-hero {
     position: relative;
@@ -286,47 +287,43 @@
   }
 
   @media print {
-    /* Show print header */
-    .print-header {
-      display: flex !important;
-      align-items: center;
-      justify-content: center;
-      padding: 16px 20px;
-      border-bottom: 2px solid #28a745;
-      margin-bottom: 20px;
+    /* Site chrome — report should look like a standalone document */
+    .main-header,
+    .main-sidebar,
+    .main-footer,
+    .content-header,
+    .control-sidebar,
+    #ccb-page-loader {
+      display: none !important;
     }
-    
-    .print-header-logo {
-      width: 60px;
-      height: 60px;
-      margin-right: 20px;
+    .wrapper .content-wrapper {
+      margin-left: 0 !important;
+      padding-top: 0 !important;
     }
-    
-    .print-header-content {
-      text-align: center;
+    .content-header + .content {
+      padding-top: 0 !important;
     }
-    
-    .print-header-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1e5631;
-      margin: 0 0 6px 0;
+
+    .ear-action-bar,
+    .ear-hero,
+    .no-print {
+      display: none !important;
     }
-    
-    .print-header-subtitle {
-      font-size: 15px;
-      color: #495057;
-      margin: 0 0 4px 0;
+
+    /* Summary stats, scan-log chrome, pagination — table only */
+    .ear-stats,
+    .ear-log-head,
+    .ear-log-footer,
+    .ear-print-hide,
+    .ccb-pagination-wrap {
+      display: none !important;
     }
-    
-    .print-header-date {
-      font-size: 13px;
-      color: #6c757d;
-      margin: 0;
+
+    .ear-log-card {
+      border: none !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
     }
-    
-    .ear-action-bar, .ear-hero, .no-print { display: none !important; }
-    .ear-stats { margin-top: 0; }
     
     /* Optimize for print */
     .ear-table thead th {
@@ -383,7 +380,7 @@
   <!-- Action bar -->
   <div class="ear-action-bar no-print">
     {% if not event_ended %}
-    <a href="{% url 'gate-scan' %}?event={{ event.id }}" class="ear-btn-primary">
+    <a href="{% url 'event-field-trip-scan' event.id %}" class="ear-btn-primary" target="_blank" rel="noopener noreferrer">
       <i class="fas fa-qrcode"></i> Open Scanner
     </a>
     {% endif %}
@@ -505,13 +502,15 @@
       </table>
     </div>
     {% if page_obj %}
-    <div class="px-3 py-2 text-muted small" style="border-top:1px solid #e2e8f0;">{{ page_obj.paginator.count }} total</div>
+    <div class="px-3 py-2 text-muted small ear-print-hide" style="border-top:1px solid #e2e8f0;">{{ page_obj.paginator.count }} total</div>
     {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options %}
     {% endif %}
     <div class="ear-log-footer">
       Showing {{ logs|length }} scan{{ logs|length|pluralize }} from <strong>{{ event.name }}</strong>
     </div>
   </div>
+
+  {% include 'snippets/report_signatories_block.html' %}
 </div>
 
 <script>

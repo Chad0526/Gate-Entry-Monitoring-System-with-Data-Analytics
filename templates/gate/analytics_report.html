@@ -3,6 +3,7 @@
 {% block title %}Analytics Report - {{ site_name }}{% endblock title %}
 
 {% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/print-report-header.css' %}">
 <style>
   @page {
     size: A4;
@@ -155,25 +156,16 @@
       padding: 0;
       max-width: 100%;
     }
-    
-    /* Use the shared print header (logo + title) for consistency */
+
     .print-header {
-      display: flex !important;
-      align-items: center;
-      justify-content: center;
-      padding: 16px 20px;
-      border-bottom: 2px solid #28a745;
-      margin-bottom: 16px;
       page-break-after: avoid;
     }
-    .print-header-logo { width: 60px; height: 60px; margin-right: 20px; }
-    .print-header-content { text-align: center; }
-    .print-header-title { font-size: 20px; font-weight: 700; color: #1e5631; margin: 0 0 6px 0; }
-    .print-header-subtitle { font-size: 15px; color: #495057; margin: 0 0 4px 0; }
-    .print-header-date { font-size: 13px; color: #6c757d; margin: 0; }
 
     /* Hide the older analytics header block during print */
     .report-header { display: none !important; }
+
+    /* Use SiteTheme "Report signatory" block instead of placeholder signature lines */
+    .report-page > .signatories { display: none !important; }
     
     .report-table th,
     .report-table td {
@@ -529,6 +521,8 @@
     {% endif %}
   </div>
   {% endif %}
+
+  {% include 'snippets/report_signatories_block.html' %}
 
   <div class="signatories">
     <div class="sig-block">

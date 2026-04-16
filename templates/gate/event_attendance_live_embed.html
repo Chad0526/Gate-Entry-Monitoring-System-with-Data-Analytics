@@ -15,6 +15,8 @@
     .table td { vertical-align: middle; }
     .embed-wrap { max-height: 360px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
     code { font-size: 0.78rem; }
+    .embed-photo-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 8px; border: 1px solid #dee2e6; vertical-align: middle; background: #f8f9fa; }
+    .embed-photo-placeholder { width: 40px; height: 40px; border-radius: 8px; background: #e9ecef; display: inline-flex; align-items: center; justify-content: center; color: #adb5bd; font-size: 0.7rem; }
   </style>
 </head>
 <body>
@@ -33,6 +35,9 @@
           <th>Result</th>
           <th>Student ID</th>
           <th>Name</th>
+          <th>Program</th>
+          <th>Picture</th>
+          <th>Year level</th>
           <th>Notes</th>
         </tr>
       </thead>
@@ -44,10 +49,13 @@
           <td><span class="badge {% if log.result == 'SUCCESS' %}badge-success{% elif log.result == 'DUPLICATE' %}badge-secondary{% else %}badge-warning text-dark{% endif %}">{{ log.result }}</span></td>
           <td>{% if log.student %}<code>{{ log.student.student_id }}</code>{% else %}—{% endif %}</td>
           <td>{% if log.student %}{{ log.student.get_full_name }}{% else %}—{% endif %}</td>
+          <td class="small">{% if log.student %}{% if log.student.course %}{{ log.student.get_course_display }}{% if log.student.section %} {{ log.student.section }}{% endif %}{% elif log.student.course_or_section %}{{ log.student.course_or_section }}{% else %}—{% endif %}{% else %}—{% endif %}</td>
+          <td class="text-center">{% if log.student and log.student.photo %}<img class="embed-photo-thumb" src="{{ log.student.photo.url }}" alt="" loading="lazy">{% elif log.student %}<span class="embed-photo-placeholder" title="No ID photo on file"><i class="fas fa-user"></i></span>{% else %}—{% endif %}</td>
+          <td class="small">{% if log.student %}{% if log.student.year_level %}{{ log.student.get_year_level_display }}{% else %}—{% endif %}{% else %}—{% endif %}</td>
           <td class="small text-muted">{{ log.remarks|default:"—" }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="6" class="text-muted text-center py-4">No scans recorded for this date yet.</td></tr>
+        <tr><td colspan="9" class="text-muted text-center py-4">No scans recorded for this date yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>

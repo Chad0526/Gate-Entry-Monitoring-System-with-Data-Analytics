@@ -44,6 +44,7 @@ from .models import (
     GateEntry,
     GateIncident,
     Event,
+    EventAgenda,
     EventAttendance,
     EventRegistration,
     AttendanceLog,
@@ -72,8 +73,10 @@ from .policy import (
     evaluate_scan,
     get_gate_policy,
     daily_gate_repeat_cooldown,
+    format_cooldown_wait_remaining,
     _entry_is_in_direction,
 )
+from .page_loader_session import pop_post_login_loader
 
 
 def _register_or_touch_scanner_device(device_id):
@@ -147,8 +150,9 @@ def _resolve_student_from_gate_input(raw: str):
 
 
 MANUAL_OFFICE_REASON_LABELS = {
-    'SAS_ID_CONCERN': 'Student Affairs (SAS) - ID concern',
-    'GATE_RESOLVED_OFFICE_ENDORSEMENT': 'Resolved at gate / Endorse to proper office',
+    # Guard-facing: scenario first, then who gets notified / what happens next.
+    'SAS_ID_CONCERN': 'ID or identity issue — notify Student Affairs (SAS)',
+    'GATE_RESOLVED_OFFICE_ENDORSEMENT': 'Others',
 }
 
 
@@ -170,11 +174,12 @@ def _notify_manual_office_referral(student, actor, entry, office_code, office_la
     if not office_code or office_code not in MANUAL_OFFICE_REASON_LABELS:
         return
     label = (office_label or MANUAL_OFFICE_REASON_LABELS.get(office_code, office_code) or '').strip()
-    detail_prefix = (
-        'Manual gate referral to SAS for ID concern'
-        if office_code == 'SAS_ID_CONCERN'
-        else 'Manual gate referral: resolved at gate / endorse to proper office'
-    )
+    if office_code == 'SAS_ID_CONCERN':
+        detail_prefix = 'Manual gate referral to SAS for ID concern'
+    elif office_code == 'GATE_RESOLVED_OFFICE_ENDORSEMENT':
+        detail_prefix = f'Manual gate referral (Others): {label}'
+    else:
+        detail_prefix = 'Manual gate referral'
     try:
         actor_name = (actor.get_full_name() if actor else '') or (actor.username if actor else 'Gate staff')
         event_label = f' | Event: {selected_event.name}' if selected_event else ''
@@ -331,6 +336,31 @@ def _resolve_save_scan_actor(request):
         if role in ('admin', 'staff', 'faculty'):
             return request.user
     return False
+
+
+def _scan_ui_photo_url(request, student):
+    """
+    Photo URL for scan JSON and gate popup <img>. Prefer relative /media/... paths so the
+    browser resolves against the current page origin (fixes 127.0.0.1 vs localhost and
+    similar host mismatches). Remote storage may return an absolute https URL — keep as-is.
+    """
+    if not student or not getattr(student, 'photo', None) or not student.photo:
+        return None
+    try:
+        url = student.photo.url
+    except Exception:
+        return None
+    if not url:
+        return None
+    url = str(url).strip()
+    if url.startswith('http://') or url.startswith('https://'):
+        return url
+    if url.startswith('/'):
+        return url
+    try:
+        return request.build_absolute_uri(url)
+    except Exception:
+        return None
 
 
 def _fmt_student_name(student):
@@ -1037,6 +1067,23 @@ def _is_lunch_exit_window(now=None):
     return LUNCH_EXIT_START <= now_time <= LUNCH_EXIT_END
 
 
+def _http_request_wants_json(request):
+    """
+    True when the client expects JSON (not an HTML redirect).
+    Some browsers/proxies omit X-Requested-With; jQuery still sends Accept: application/json for dataType=json.
+    """
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return True
+    accept = (request.headers.get('Accept') or '').lower()
+    if 'application/json' in accept:
+        return True
+    if (request.POST.get('ajax') or '').strip().lower() in ('1', 'true', 'yes', 'on'):
+        return True
+    if (request.POST.get('json') or '').strip().lower() in ('1', 'true', 'yes', 'on'):
+        return True
+    return False
+
+
 def _is_within_event_window(event, now=None, grace_minutes=30):
     """Check if current time is within event's time window (with grace period)."""
     if now is None:
@@ -1061,12 +1108,125 @@ def _is_within_event_window(event, now=None, grace_minutes=30):
     return start_grace <= now <= end_grace
 
 
+# Whole-day events: return IN only in this window (after lunch OUT)
+AFTERNOON_RETURN_IN_START = datetime.time(12, 45, 0)
+AFTERNOON_RETURN_IN_END = datetime.time(13, 0, 0)
+
+
+def _event_agenda_rows_with_start_end(event):
+    """Agenda rows that define a timed session (both start and end). Empty => treat as whole-day."""
+    return list(
+        EventAgenda.objects.filter(event=event)
+        .exclude(start_time__isnull=True)
+        .exclude(end_time__isnull=True)
+    )
+
+
+def _is_whole_day_event_schedule(event):
+    """No session times on agenda => whole-day rules (lunch OUT, afternoon return IN)."""
+    return len(_event_agenda_rows_with_start_end(event)) == 0
+
+
+def _time_in_afternoon_return_window(t):
+    """12:45 PM–1:00 PM inclusive (for whole-day return IN after lunch)."""
+    return AFTERNOON_RETURN_IN_START <= t <= AFTERNOON_RETURN_IN_END
+
+
+def _time_in_session_out_window(now_local, end_time, minutes_before=15, grace_after_minutes=5):
+    """
+    OUT allowed in the last `minutes_before` before end_time, plus optional grace after end.
+    Compares clock times on the same calendar day (no overnight sessions).
+    """
+    if not end_time:
+        return False
+    now_t = now_local.time() if hasattr(now_local, 'time') else now_local
+    end_m = end_time.hour * 60 + end_time.minute
+    start_m = max(0, end_m - minutes_before)
+    now_m = now_t.hour * 60 + now_t.minute
+    grace_end = end_m + grace_after_minutes
+    return start_m <= now_m <= grace_end
+
+
+def _format_time_ampm(t):
+    """Format datetime.time for messages (12-hour, portable)."""
+    if not t:
+        return ''
+    h = t.hour % 12 or 12
+    ampm = 'AM' if t.hour < 12 else 'PM'
+    return f'{h}:{t.minute:02d} {ampm}'
+
+
+def _scan_event_schedule_allowed(event, scan_type, now_local, attendance, reg, is_token_based):
+    """
+    Event attendance scanner only: enforce IN/OUT windows from agenda or whole-day rules.
+    Returns (ok: bool, message: str).
+    """
+    whole_day = _is_whole_day_event_schedule(event)
+    now_t = now_local.time() if hasattr(now_local, 'time') else now_local
+
+    if is_token_based and reg:
+        cin, cout = reg.checked_in_at, reg.checked_out_at
+    else:
+        cin, cout = attendance.checked_in_at, attendance.checked_out_at
+
+    if whole_day:
+        if scan_type == 'OUT':
+            if not _is_lunch_exit_window(now_local):
+                return False, (
+                    'For whole-day events, check-out is only allowed during lunch break '
+                    f'({_format_time_ampm(LUNCH_EXIT_START)}–{_format_time_ampm(LUNCH_EXIT_END)}).'
+                )
+            return True, ''
+        # IN
+        first_in = cin is None
+        if first_in:
+            if _time_in_afternoon_return_window(now_t):
+                return False, (
+                    'First check-in for whole-day events is not allowed between '
+                    f'{_format_time_ampm(AFTERNOON_RETURN_IN_START)} and '
+                    f'{_format_time_ampm(AFTERNOON_RETURN_IN_END)} '
+                    '(reserved for return after lunch).'
+                )
+            return True, ''
+        # Return IN after lunch OUT
+        if cin is not None and cout is not None and cout > cin:
+            if not _time_in_afternoon_return_window(now_t):
+                return False, (
+                    'After lunch, check-in again only between '
+                    f'{_format_time_ampm(AFTERNOON_RETURN_IN_START)} and '
+                    f'{_format_time_ampm(AFTERNOON_RETURN_IN_END)}.'
+                )
+            return True, ''
+        return True, ''
+
+    # Session(s) from agenda: OUT only in the last 15 minutes before each session end (per row).
+    rows = _event_agenda_rows_with_start_end(event)
+    if scan_type == 'OUT':
+        allowed = any(
+            _time_in_session_out_window(now_local, row.end_time)
+            for row in rows
+        )
+        if not allowed:
+            ends = sorted({_format_time_ampm(row.end_time) for row in rows})
+            return False, (
+                'Check-out is only allowed in the last 15 minutes before a scheduled session end '
+                f'(sessions end at {", ".join(ends)}).'
+            )
+        return True, ''
+    return True, ''
+
+
 @login_required(login_url='/login/')
 @role_required('admin', 'staff', 'faculty')
 @ensure_csrf_cookie
 def gate_scan(request):
     """Gate kiosk: assigned staff logs in and scans; physical security may assist (no separate login)."""
     from gate_analytics.roles import get_user_role
+    event_raw = (request.GET.get('event') or '').strip()
+    if event_raw.isdigit():
+        gd_url = _guard_display_scanner_url_for_event(request, event_raw)
+        if gd_url:
+            return redirect(gd_url)
     user_role = get_user_role(request.user)
     active_events = _get_active_events()
     kiosk_mode = (request.GET.get('kiosk') or '').strip().lower() in ('1', 'true', 'yes', 'on')
@@ -1114,9 +1274,16 @@ def guard_scanner_dashboard(request):
     scanner_active = gate_scanner_session_armed()
     print(f"[DEBUG Guard Dashboard] Scanner active from cache: {scanner_active}")
     print(f"[DEBUG Guard Dashboard] Rendering with guard_wall=True, guard_embed_token='{token}'")
+    event_attendance_scanner_event = None
+    event_raw = (request.GET.get('event') or '').strip()
+    if event_raw.isdigit():
+        event_attendance_scanner_event = Event.objects.filter(pk=int(event_raw)).first()
+    page_title = 'Gate Entry - Scan Student ID'
+    if event_attendance_scanner_event:
+        page_title = f'Event attendance – {event_attendance_scanner_event.name}'
     resp = render(request, 'gate/gate_scan.html', {
         'site_name': getattr(settings, 'SITE_NAME', 'City College of Bayawan'),
-        'page_title': 'Gate Entry - Scan Student ID',
+        'page_title': page_title,
         'active_events': active_events,
         'campus_departments': CAMPUS_DEPARTMENT_CHOICES,
         'user_role': 'staff',
@@ -1126,6 +1293,7 @@ def guard_scanner_dashboard(request):
         'guard_embed_token': token,
         'guard_student_popup_style': getattr(settings, 'GATE_GUARD_STUDENT_POPUP_STYLE', 'split'),
         'guard_scanner_active': scanner_active,
+        'event_attendance_scanner_event': event_attendance_scanner_event,
         # Visible build/debug id for field testing
         'guard_build_id': getattr(settings, 'GATE_GUARD_BUILD_ID', '') or 'sw-v35',
     })
@@ -1333,8 +1501,20 @@ def save_scan(request):
     student_id = (request.POST.get('student_id') or '').strip()
     manual_status = (request.POST.get('manual_status') or '').strip().upper()  # IN or OUT
     gate_manual_entry = (request.POST.get('gate_manual_entry') or '').strip().lower()  # 'in' | 'out' | ''
+    manual_gate_form = request.POST.get('manual_gate_form') == '1'  # gate_scan.html Manual Entry (Student) only
     manual_entry_reason = (request.POST.get('manual_entry_reason') or '').strip()[:200]
+    manual_entry_other_detail = (request.POST.get('manual_entry_other_detail') or '').strip()[:500]
     manual_reason_code, manual_reason_label = _normalize_manual_office_reason(manual_entry_reason)
+    if manual_gate_form and gate_manual_entry == 'in' and manual_reason_code == 'GATE_RESOLVED_OFFICE_ENDORSEMENT':
+        if len(manual_entry_other_detail) < 2:
+            return JsonResponse({
+                'success': False,
+                'message': (
+                    'When "Others" is selected, type a short reason (e.g. which office, or why manual check-in).'
+                ),
+                'color': 'warning',
+            })
+        manual_reason_label = f'Others — {manual_entry_other_detail}'
     local_time = request.POST.get('local_time', '').strip()
     event_id = request.POST.get('event_id', '').strip()
     device_id = (request.POST.get('device_id') or '').strip()
@@ -1479,22 +1659,12 @@ def save_scan(request):
             'color': 'warning',
         })
     if not student:
-        _save_scan_incident_and_entry(
-            student=None,
-            result='NOT_FOUND',
-            notes='Not registered',
-            incident_reason='not_registered',
-            incident_detail='Scan at gate: no matching student record.',
-            scanned_id=lookup_raw,
-            actor=actor,
-            request=request,
-            device_id=device_id,
-        )
+        # Do not create GateEntry, GateIncident, or other DB rows for unknown IDs — no attendance recorded.
         return JsonResponse({
             'success': False,
             'not_registered': True,
             'student_id': lookup_raw,
-            'message': 'Student is not registered in the system. Please register.',
+            'message': 'This student ID is not recognized. No attendance was recorded.',
             'color': 'warning',
         })
     student_id = student.student_id
@@ -1510,12 +1680,7 @@ def save_scan(request):
             request=request,
             device_id=device_id,
         )
-        photo_url = None
-        if student.photo:
-            try:
-                photo_url = request.build_absolute_uri(student.photo.url)
-            except Exception:
-                pass
+        photo_url = _scan_ui_photo_url(request, student)
         return JsonResponse({
             'success': False,
             'inactive': True,
@@ -1579,10 +1744,12 @@ def save_scan(request):
     selected_event = None
     if event_id:
         try:
+            # Match scan_event_qr: any active/scheduled event (on-campus + field trip).
+            # Requiring event_location='on_campus' here caused guard / locked-event scans to
+            # fall through to daily gate when the event was mis-tagged or when event_id was missing.
             selected_event = Event.objects.filter(
                 id=int(event_id),
                 status__in=('active', 'scheduled'),
-                event_location='on_campus',
             ).first()
         except ValueError:
             pass
@@ -1594,14 +1761,30 @@ def save_scan(request):
             'color': 'warning',
         })
 
+    # Manual Entry (Student): check-in must use office routing (gate_manual_entry=in + reason above).
+    # Blocks forged POSTs that send manual_status=IN without the manual gate path.
+    if manual_gate_form and manual_status == 'IN' and gate_manual_entry != 'in':
+        return JsonResponse({
+            'success': False,
+            'message': 'Select an office routing for manual check-in before recording entry.',
+            'color': 'warning',
+        })
+
     today = timezone.localdate()
     gate_eval_result = None  # set in daily-gate path for schedule_hint / out_reason_code
 
 
     # Event tracking: separate from daily gate. Only check event-specific attendance.
     if selected_event:
-        state = get_student_current_state(student, today)
-        suggested = 'OUT' if state == 'INSIDE' else 'IN'
+        # Must NOT use get_student_current_state() here — that mixes daily gate + all events and
+        # suggests OUT when the student is already "inside" from morning gate, breaking first
+        # event scan. Mirror scan_event_qr: IN until checked in for this event, then OUT.
+        att0, _ = EventAttendance.objects.get_or_create(
+            student=student,
+            event=selected_event,
+            defaults={'participated': False},
+        )
+        suggested = 'IN' if att0.checked_in_at is None else 'OUT'
         if gate_manual_entry == 'out':
             status = 'OUT'
         elif gate_manual_entry == 'in':
@@ -1625,12 +1808,7 @@ def save_scan(request):
                 device_id=device_id,
                 event=selected_event,
             )
-            photo_url = None
-            if student.photo:
-                try:
-                    photo_url = request.build_absolute_uri(student.photo.url)
-                except Exception:
-                    pass
+            photo_url = _scan_ui_photo_url(request, student)
             return JsonResponse({
                 'success': False,
                 'message': f'{student.get_full_name()} is not included in this event audience ({selected_event.audience_summary()}).',
@@ -1658,12 +1836,7 @@ def save_scan(request):
                 timestamp__gte=day_start, timestamp__lt=day_end,
             ).order_by('timestamp').first()
             first_time = timezone.localtime(first_today.timestamp).strftime('%I:%M %p') if first_today else ''
-            photo_url = None
-            if student.photo:
-                try:
-                    photo_url = request.build_absolute_uri(student.photo.url)
-                except Exception:
-                    pass
+            photo_url = _scan_ui_photo_url(request, student)
             return JsonResponse({
                 'success': False,
                 'already_scanned': True,
@@ -1736,12 +1909,7 @@ def save_scan(request):
                     **_audit_kwargs_for_gate_entry(request, device_id=device_id),
                 )
                 time_str = now_dt.strftime('%I:%M %p')
-                photo_url = None
-                if student.photo:
-                    try:
-                        photo_url = request.build_absolute_uri(student.photo.url)
-                    except Exception:
-                        pass
+                photo_url = _scan_ui_photo_url(request, student)
                 return JsonResponse({
                     'success': True,
                     'message': f'{student.get_full_name()} checked out (lunch break).',
@@ -1772,22 +1940,17 @@ def save_scan(request):
             elapsed_since_last = now_dt - timezone.localtime(latest_today.timestamp)
             if elapsed_since_last < cooldown_td:
                 secs_left = max(0.0, (cooldown_td - elapsed_since_last).total_seconds())
-                mins_left = max(1, int((secs_left + 59) // 60))
+                wait_human = format_cooldown_wait_remaining(secs_left)
                 first_today = today_entries.order_by('timestamp').first()
                 first_time = timezone.localtime(first_today.timestamp).strftime('%I:%M %p') if first_today else ''
-                photo_url = None
-                if student.photo:
-                    try:
-                        photo_url = request.build_absolute_uri(student.photo.url)
-                    except Exception:
-                        pass
+                photo_url = _scan_ui_photo_url(request, student)
                 return JsonResponse({
                     'success': False,
                     'already_scanned': True,
                     'repeat_cooldown': True,
                     'message': (
                         f'{student.get_full_name()} was scanned recently. '
-                        f'Please wait {mins_left} more minute(s) before the next gate scan.'
+                        f'Please wait {wait_human} before the next gate scan.'
                     ),
                     'color': 'warning',
                     'student_name': student.get_full_name(),
@@ -1840,12 +2003,7 @@ def save_scan(request):
                     'schedule_based': False,
                 }
         if not eval_result['allowed']:
-            photo_url = None
-            if student.photo:
-                try:
-                    photo_url = request.build_absolute_uri(student.photo.url)
-                except Exception:
-                    pass
+            photo_url = _scan_ui_photo_url(request, student)
             now_str = now_dt.strftime('%I:%M %p')
             in_class = False
             all_classes_done = True
@@ -1948,12 +2106,7 @@ def save_scan(request):
     else:
         message = f'{student.get_full_name()} checked out.'
 
-    photo_url = None
-    if student.photo:
-        try:
-            photo_url = request.build_absolute_uri(student.photo.url)
-        except Exception:
-            pass
+    photo_url = _scan_ui_photo_url(request, student)
 
     resp = {
         'success': True,
@@ -1974,6 +2127,8 @@ def save_scan(request):
             'year_level': getattr(student, 'year_level', '') or '',
         },
     }
+    if selected_event:
+        resp['event_attendance'] = True
     if gate_eval_result:
         resp['schedule_hint'] = gate_eval_result.get('schedule_hint', '')
         resp['next_suggested'] = gate_eval_result.get('next_suggested', 'OUT' if state == 'INSIDE' else 'IN')
@@ -2285,14 +2440,49 @@ def scan_event_qr(request):
         elif reg.checked_out_at is None:
             scan_type = 'OUT'
         else:
-            scan_type = 'OUT'
+            if reg.checked_out_at > reg.checked_in_at and _is_whole_day_event_schedule(event):
+                scan_type = 'IN'
+            else:
+                scan_type = 'OUT'
     else:
         if attendance.checked_in_at is None:
             scan_type = 'IN'
-        else:
+        elif attendance.checked_out_at is None:
             scan_type = 'OUT'
+        else:
+            if attendance.checked_out_at > attendance.checked_in_at and _is_whole_day_event_schedule(event):
+                scan_type = 'IN'
+            else:
+                scan_type = 'OUT'
     
     now = timezone.now()
+    now_local = timezone.localtime(now)
+    sched_ok, sched_msg = _scan_event_schedule_allowed(
+        event, scan_type, now_local, attendance, reg, is_token_based
+    )
+    if not sched_ok:
+        AttendanceLog.objects.create(
+            event=event,
+            student=student,
+            registration=reg,
+            scan_type=scan_type,
+            result='OUTSIDE_WINDOW',
+            token=reg.token if reg else '',
+            device_id=device_id,
+            recorded_by=recorded_by,
+            client_scan_time=client_scan_time,
+            remarks=sched_msg[:255],
+        )
+        return JsonResponse({
+            'ok': False,
+            'result': 'OUTSIDE_WINDOW',
+            'message': sched_msg,
+            'color': 'warning',
+            'student': {
+                'student_id': student.student_id,
+                'name': student.get_full_name(),
+            },
+        }, status=400)
     
     # For token-based: use EventRegistration timestamps
     # For student ID: use EventAttendance (we'll add fields) or check AttendanceLog
@@ -2300,32 +2490,40 @@ def scan_event_qr(request):
         # Use token registration timestamps
         if scan_type == 'IN':
             if reg.checked_in_at is not None:
-                AttendanceLog.objects.create(
-                    event=event,
-                    student=student,
-                    registration=reg,
-                    scan_type='IN',
-                    result='DUPLICATE',
-                    token=reg.token,
-                    device_id=device_id,
-                    recorded_by=recorded_by,
-                    client_scan_time=client_scan_time,
-                    remarks=f'Already checked in at {timezone.localtime(reg.checked_in_at).strftime("%Y-%m-%d %I:%M %p")}'
-                )
-                return JsonResponse({
-                    'ok': False,
-                    'result': 'DUPLICATE',
-                    'message': f'{student.get_full_name()} already checked in at {timezone.localtime(reg.checked_in_at).strftime("%I:%M %p")}.',
-                    'color': 'warning',
-                    'student': {
-                        'student_id': student.student_id,
-                        'name': student.get_full_name(),
-                    },
-                    'checked_in_at': timezone.localtime(reg.checked_in_at).strftime('%Y-%m-%d %I:%M %p'),
-                }, status=200)
-            
+                if reg.checked_out_at is None or reg.checked_out_at < reg.checked_in_at:
+                    AttendanceLog.objects.create(
+                        event=event,
+                        student=student,
+                        registration=reg,
+                        scan_type='IN',
+                        result='DUPLICATE',
+                        token=reg.token,
+                        device_id=device_id,
+                        recorded_by=recorded_by,
+                        client_scan_time=client_scan_time,
+                        remarks=f'Already checked in at {timezone.localtime(reg.checked_in_at).strftime("%Y-%m-%d %I:%M %p")}'
+                    )
+                    return JsonResponse({
+                        'ok': False,
+                        'result': 'DUPLICATE',
+                        'message': f'{student.get_full_name()} already checked in at {timezone.localtime(reg.checked_in_at).strftime("%I:%M %p")}.',
+                        'color': 'warning',
+                        'student': {
+                            'student_id': student.student_id,
+                            'name': student.get_full_name(),
+                        },
+                        'checked_in_at': timezone.localtime(reg.checked_in_at).strftime('%Y-%m-%d %I:%M %p'),
+                    }, status=200)
+            return_afternoon = (
+                _is_whole_day_event_schedule(event)
+                and reg.checked_in_at is not None
+                and reg.checked_out_at is not None
+                and reg.checked_out_at > reg.checked_in_at
+            )
             reg.checked_in_at = now
-            reg.save(update_fields=['checked_in_at'])
+            if return_afternoon:
+                reg.checked_out_at = None
+            reg.save(update_fields=['checked_in_at', 'checked_out_at'] if return_afternoon else ['checked_in_at'])
 
         elif scan_type == 'OUT':
             if reg.checked_in_at is None:
@@ -2352,7 +2550,7 @@ def scan_event_qr(request):
                     },
                 }, status=200)
             
-            if reg.checked_out_at is not None:
+            if reg.checked_out_at is not None and reg.checked_out_at > reg.checked_in_at:
                 AttendanceLog.objects.create(
                     event=event,
                     student=student,
@@ -2412,9 +2610,19 @@ def scan_event_qr(request):
                         'checked_in_at': timezone.localtime(attendance.checked_in_at).strftime('%Y-%m-%d %I:%M %p'),
                     }, status=200)
             
-            # Record check-in
+            # Record check-in (whole-day afternoon return: clear lunch OUT so end-of-day OUT works)
+            return_afternoon = (
+                _is_whole_day_event_schedule(event)
+                and attendance.checked_in_at is not None
+                and attendance.checked_out_at is not None
+                and attendance.checked_out_at > attendance.checked_in_at
+            )
             attendance.checked_in_at = now
-            attendance.save(update_fields=['checked_in_at'])
+            if return_afternoon:
+                attendance.checked_out_at = None
+            attendance.save(
+                update_fields=['checked_in_at', 'checked_out_at'] if return_afternoon else ['checked_in_at']
+            )
 
         elif scan_type == 'OUT':
             if attendance.checked_in_at is None:
@@ -2511,13 +2719,8 @@ def scan_event_qr(request):
     )
     
     # Get student photo URL
-    photo_url = None
-    if student.photo:
-        try:
-            photo_url = request.build_absolute_uri(student.photo.url)
-        except Exception:
-            pass
-    
+    photo_url = _scan_ui_photo_url(request, student)
+
     time_str = timezone.localtime(now).strftime('%I:%M %p')
     
     # Build response with check-in/out times
@@ -2543,6 +2746,7 @@ def scan_event_qr(request):
         'color': 'success',
         'scan_type': scan_type,
         'status': scan_type,
+        'event_attendance': True,
         'time': time_str,
         'student_name': student.get_full_name(),
         'qr_type': 'token' if is_token_based else 'student_id',
@@ -2560,6 +2764,26 @@ def scan_event_qr(request):
         'checked_in_at': checked_in_time,
         'checked_out_at': checked_out_time,
     }, status=200)
+
+
+@require_POST
+@csrf_exempt
+@transaction.atomic
+def scan_event_qr_guard(request):
+    """
+    Same as scan_event_qr but CSRF-exempt; requires GATE_GUARD_DISPLAY_TOKEN in POST/header.
+    Used by /gate/guard-display/ and embed scanner (token-only clients).
+    """
+    token = (request.POST.get('guard_token') or request.headers.get('X-Gate-Guard-Token') or '').strip()
+    expected = getattr(settings, 'GATE_GUARD_DISPLAY_TOKEN', '') or ''
+    if not (token and expected and token == expected):
+        return JsonResponse({
+            'ok': False,
+            'result': 'DENIED',
+            'message': 'Unauthorized',
+            'color': 'error',
+        }, status=403)
+    return scan_event_qr(request)
 
 
 @require_POST
@@ -2750,12 +2974,7 @@ def record_early_out(request):
 
     now = timezone.localtime(timezone.now())
     time_str = now.strftime('%I:%M %p')
-    photo_url = None
-    if student.photo:
-        try:
-            photo_url = request.build_absolute_uri(student.photo.url)
-        except Exception:
-            pass
+    photo_url = _scan_ui_photo_url(request, student)
 
     return JsonResponse({
         'success': True,
@@ -3562,6 +3781,7 @@ def analytics_dashboard(request):
         'profile_kpi_by_sex': profile_kpi_by_sex,
         'chart_meta': chart_meta,
     }
+    ctx['ccb_post_login_loader'] = pop_post_login_loader(request)
     if request.GET.get('partial') == '1':
         return render(request, 'gate/analytics_inner.html', ctx)
     return render(request, 'gate/analytics.html', ctx)
@@ -3889,7 +4109,7 @@ def _build_student_eid_export_pdf_template_context(request, students):
             pass
         return None
 
-    def _model_file_to_resized_jpeg_data_uri(field, max_size=(210, 270), quality=70):
+    def _model_file_to_resized_jpeg_data_uri(field, max_size=(480, 618), quality=88):
         if not (field and getattr(field, "path", None) and os.path.isfile(field.path)):
             return None
         try:
@@ -3961,7 +4181,7 @@ def _build_student_eid_export_pdf_template_context(request, students):
 
     student_cards = []
     for student in students:
-        qr_bytes = _student_qr_png_bytes(student)
+        qr_bytes = _student_qr_png_bytes(student, box_size=12)
         if qr_bytes:
             qr_url = f'data:image/png;base64,{base64.b64encode(qr_bytes).decode("ascii")}'
         else:
@@ -4005,8 +4225,15 @@ def _eid_student_cards_zip_response(request, template_ctx, image_format):
         from playwright.sync_api import sync_playwright
         with sync_playwright() as p:
             browser = p.chromium.launch()
-            page = browser.new_page(viewport={'width': 900, 'height': 600})
+            context = None
+            n_students = max(1, len(cards_meta))
+            vp_h = min(12000, 800 + n_students * 520)
             try:
+                context = browser.new_context(
+                    device_scale_factor=2,
+                    viewport={'width': 1200, 'height': vp_h},
+                )
+                page = context.new_page()
                 n = max(120000, 15000 + len(cards_meta) * 400)
                 page.set_default_timeout(n)
                 try:
@@ -4021,9 +4248,15 @@ def _eid_student_cards_zip_response(request, template_ctx, image_format):
                 with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
                     for idx, h in enumerate(handles):
                         if image_format == 'png':
-                            shot = h.screenshot(type='png')
+                            try:
+                                shot = h.screenshot(type='png', scale='device')
+                            except TypeError:
+                                shot = h.screenshot(type='png')
                         else:
-                            shot = h.screenshot(type='jpeg', quality=92)
+                            try:
+                                shot = h.screenshot(type='jpeg', quality=92, scale='device')
+                            except TypeError:
+                                shot = h.screenshot(type='jpeg', quality=92)
                         student_idx = idx // 2
                         side = 'front' if (idx % 2 == 0) else 'back'
                         stu = cards_meta[student_idx]['student'] if student_idx < len(cards_meta) else None
@@ -4033,6 +4266,11 @@ def _eid_student_cards_zip_response(request, template_ctx, image_format):
                         sid = re.sub(r'[^\w\-.]+', '_', sid_raw)[:80] or 'id'
                         zf.writestr(f'eid-{sid}-{side}.{ext}', shot)
             finally:
+                try:
+                    if context is not None:
+                        context.close()
+                except Exception:
+                    pass
                 browser.close()
     except Exception as e:
         _log.warning('student_eid_print_all: ZIP image export failed: %s', e)
@@ -4140,8 +4378,15 @@ def student_eid_print_all(request):
                 pdf_method = 'playwright'
                 with sync_playwright() as p:
                     browser = p.chromium.launch()
-                    page = browser.new_page(viewport={'width': 500, 'height': 340})
+                    context = None
+                    n_pdf = max(1, len(students))
+                    vp_h_pdf = min(12000, 600 + n_pdf * 220)
                     try:
+                        context = browser.new_context(
+                            device_scale_factor=2,
+                            viewport={'width': 1040, 'height': vp_h_pdf},
+                        )
+                        page = context.new_page()
                         page.set_default_timeout(20000)
                         # Ensure print-specific CSS applies.
                         try:
@@ -4156,8 +4401,14 @@ def student_eid_print_all(request):
                             height='2.127in',
                             print_background=True,
                             margin={'top': '0', 'right': '0', 'bottom': '0', 'left': '0'},
+                            scale=2,
                         )
                     finally:
+                        try:
+                            if context is not None:
+                                context.close()
+                        except Exception:
+                            pass
                         browser.close()
             except Exception as e:
                 _log.warning('student_eid_print_all: Playwright PDF failed: %s', e)
@@ -4959,8 +5210,7 @@ def _query_staff_registry_users(request):
             Q(username__icontains=search_q) |
             Q(first_name__icontains=search_q) |
             Q(last_name__icontains=search_q) |
-            Q(email__icontains=search_q) |
-            Q(staff_personnel_profile__employee_id__icontains=search_q)
+            Q(email__icontains=search_q)
         ).distinct()
 
     return qs
@@ -5057,9 +5307,8 @@ def pending_staff_personnel_list(request):
                     profile.contact_number = (request.POST.get('contact_number') or '')[:20]
                     profile.department = (request.POST.get('department') or '')[:150]
                     profile.position = (request.POST.get('position') or '')[:150]
-                    profile.employee_id = (request.POST.get('employee_id') or '')[:50]
                     profile.address = (request.POST.get('address') or '')[:500]
-                    profile.save(update_fields=['middle_name', 'contact_number', 'department', 'position', 'employee_id', 'address'])
+                    profile.save(update_fields=['middle_name', 'contact_number', 'department', 'position', 'address'])
                 messages.success(request, f'Account for {u.get_full_name() or u.username} has been updated.')
             except User.DoesNotExist:
                 messages.error(request, 'User not found.')
@@ -5107,11 +5356,10 @@ def pending_staff_personnel_list(request):
                 'contact_number': p.contact_number or '',
                 'department': p.department or '',
                 'position': p.position or '',
-                'employee_id': p.employee_id or '',
                 'address': p.address or '',
             }
         except Exception:
-            return {'middle_name': '', 'contact_number': '', 'department': '', 'position': '', 'employee_id': '', 'address': ''}
+            return {'middle_name': '', 'contact_number': '', 'department': '', 'position': '', 'address': ''}
 
     from django.core.paginator import Paginator
     per_page, query_extra, query_extra_base = _get_per_page_and_query(request)
@@ -5472,7 +5720,6 @@ def staff_personnel_create(request):
                 user.groups.add(grp)
             profile, _ = StaffPersonnelProfile.objects.get_or_create(user=user, defaults={})
             profile.middle_name = (d.get('middle_name') or '')[:100]
-            profile.employee_id = (d.get('employee_id') or '')[:50]
             profile.department = (d.get('department') or '')[:150]
             profile.position = (d.get('position') or '')[:150]
             profile.contact_number = (d.get('contact_number') or '')[:20]
@@ -5782,8 +6029,19 @@ def entry_list(request):
         if not request.user.is_authenticated:
             return redirect_to_login(next=request.get_full_path())
         user_role = get_user_role(request.user)
-        if user_role not in ('admin', 'staff', 'faculty'):
+        if user_role not in ('admin', 'staff', 'faculty', 'student affairs'):
             return HttpResponseForbidden('Access denied')
+
+    def _entry_list_tab_query(tab):
+        p = request.GET.copy()
+        p['tab'] = tab
+        return p.urlencode()
+
+    entries_tab = (request.GET.get('tab') or 'entries').strip().lower()
+    if entries_tab not in ('entries', 'visitors', 'incidents'):
+        entries_tab = 'entries'
+    if request.GET.get('embed'):
+        entries_tab = 'entries'
 
     q = (request.GET.get('q') or '').strip()
     f = (request.GET.get('filter') or '').strip().lower()
@@ -5920,9 +6178,6 @@ def entry_list(request):
             ))
     visitors = sorted(visitor_entries + visit_rows, key=lambda x: x.timestamp, reverse=True)[:200]
 
-    # Incidents feature removed: no incidents tab or proxy report
-    incidents = []
-
     # Students currently inside — only meaningful for a single calendar day (not a multi-day range)
     if filter_date and not range_mode:
         currently_inside = _currently_inside_list(filter_date)
@@ -5936,7 +6191,6 @@ def entry_list(request):
         'event_visits': event_visits,
         'entries_visitor': entries_visitor,
         'visitors': visitors,
-        'incidents': incidents,
         'currently_inside': currently_inside,
         'q': q,
         'filter': f,
@@ -5955,7 +6209,36 @@ def entry_list(request):
         'compact_live_panel': (
             (request.GET.get('live_panel') or '').strip().lower() in ('1', 'true', 'yes')
         ),
+        'entries_tab': entries_tab,
+        'tab_q_entries': _entry_list_tab_query('entries'),
+        'tab_q_visitors': _entry_list_tab_query('visitors'),
+        'tab_q_incidents': _entry_list_tab_query('incidents'),
     }
+    if entries_tab == 'incidents':
+        inc_ctx, inc_early = _build_incident_list_context(request, embed_in_gate_entries=True)
+        if inc_early is not None:
+            return inc_early
+        context['incident_page_obj'] = inc_ctx['page_obj']
+        context['incident_query_extra'] = inc_ctx['query_extra']
+        context['incident_query_extra_base'] = inc_ctx['query_extra_base']
+        context['incident_per_page'] = inc_ctx['per_page']
+        context['incident_per_page_options'] = inc_ctx['per_page_options']
+        context['incidents'] = inc_ctx['incidents']
+        context['can_sas_review'] = inc_ctx['can_sas_review']
+        context['gate_incident_total_count'] = inc_ctx['gate_incident_total_count']
+        context['sas_check_filter'] = inc_ctx['sas_check_filter']
+        context['reason_filter'] = inc_ctx['reason_filter']
+        context['reason_choices'] = inc_ctx['reason_choices']
+        context['search_q'] = inc_ctx['search_q']
+        context['filter_date'] = inc_ctx['filter_date']
+        context['incident_url_chip_all'] = inc_ctx['incident_url_chip_all']
+        context['incident_url_chip_to_check'] = inc_ctx['incident_url_chip_to_check']
+        context['incident_url_chip_verified'] = inc_ctx['incident_url_chip_verified']
+        context['highlight_incident_pk'] = inc_ctx['highlight_incident_pk']
+        context['incident_embed_in_entries'] = True
+        context['incident_list_clear_url'] = inc_ctx['incident_list_clear_url']
+    else:
+        context['incidents'] = []
     if request.GET.get('embed'):
         context['embed'] = True
         return render(request, 'gate/entry_list_embed.html', context)
@@ -6251,11 +6534,10 @@ def student_entries_yearly_summary(request):
     return render(request, 'gate/student_entries_yearly.html', context)
 
 
-@ensure_csrf_cookie
-@login_required(login_url='/login/')
-@role_required('admin', 'student affairs')
-def incident_list(request):
-    """List gate incidents (ID mismatch, proxy, etc.) — Student Affairs follow-up and admin oversight."""
+def _build_incident_list_context(request, embed_in_gate_entries=False):
+    """
+    Shared context for gate incidents table (standalone /gate/incidents/ or Gate entries ?tab=incidents).
+    """
     highlight_raw = (request.GET.get('highlight') or '').strip()
     highlight_pk = int(highlight_raw) if highlight_raw.isdigit() else None
 
@@ -6294,11 +6576,13 @@ def incident_list(request):
 
     per_page, query_extra, query_extra_base = _get_per_page_and_query(request)
 
-    if highlight_pk:
+    list_name = 'gate-entry-list' if embed_in_gate_entries else 'gate-incident-list'
+
+    if highlight_pk and not embed_in_gate_entries:
         inc_hi = GateIncident.objects.filter(pk=highlight_pk).first()
         if inc_hi:
             if not qs.filter(pk=highlight_pk).exists():
-                return redirect(f'{reverse("gate-incident-list")}?highlight={highlight_pk}')
+                return None, redirect(f'{reverse("gate-incident-list")}?highlight={highlight_pk}')
             pks = list(qs.values_list('pk', flat=True))
             try:
                 idx = pks.index(highlight_pk)
@@ -6312,13 +6596,13 @@ def incident_list(request):
             if need_page != cur_page:
                 qp = request.GET.copy()
                 qp['page'] = str(need_page)
-                return redirect(reverse('gate-incident-list') + '?' + qp.urlencode())
+                return None, redirect(reverse('gate-incident-list') + '?' + qp.urlencode())
 
     from django.core.paginator import Paginator
     paginator = Paginator(qs, per_page)
     page_obj = paginator.get_page(request.GET.get('page', 1))
 
-    if highlight_pk:
+    if highlight_pk and request.user.is_authenticated:
         AdminNotification.objects.filter(
             target_user=request.user,
             notification_type='incident',
@@ -6326,7 +6610,6 @@ def incident_list(request):
             is_read=False,
         ).update(is_read=True, read_at=timezone.now())
     incidents = list(page_obj.object_list)
-    # Backward compatibility: older incidents may have null student even when scanned_id is a real student ID.
     missing_student_ids = {
         (inc.scanned_id or '').strip()
         for inc in incidents
@@ -6353,6 +6636,8 @@ def incident_list(request):
     def _incident_chip_url(sas_val):
         qp = request.GET.copy()
         qp.pop('page', None)
+        if embed_in_gate_entries:
+            qp['tab'] = 'incidents'
         if filter_date is None and date_filter_raw:
             qp.pop('date', None)
         if sas_val is None:
@@ -6360,9 +6645,14 @@ def incident_list(request):
         else:
             qp['sas_check'] = sas_val
         tail = qp.urlencode()
-        return reverse('gate-incident-list') + ('?' + tail if tail else '')
+        return reverse(list_name) + ('?' + tail if tail else '')
 
-    return render(request, 'gate/incident_list.html', {
+    incident_list_clear_url = (
+        reverse('gate-entry-list') + '?tab=incidents'
+        if embed_in_gate_entries else reverse('gate-incident-list')
+    )
+
+    ctx = {
         'site_name': 'City College of Bayawan',
         'page_obj': page_obj,
         'incidents': incidents,
@@ -6381,7 +6671,21 @@ def incident_list(request):
         'incident_url_chip_to_check': _incident_chip_url('to_check'),
         'incident_url_chip_verified': _incident_chip_url('verified'),
         'highlight_incident_pk': highlight_pk,
-    })
+        'incident_embed_in_entries': embed_in_gate_entries,
+        'incident_list_clear_url': incident_list_clear_url,
+    }
+    return ctx, None
+
+
+@ensure_csrf_cookie
+@login_required(login_url='/login/')
+@role_required('admin', 'student affairs', 'staff', 'faculty')
+def incident_list(request):
+    """List gate incidents (ID mismatch, proxy, etc.) — SAS follow-up, admin, and gate staff."""
+    ctx, early = _build_incident_list_context(request, embed_in_gate_entries=False)
+    if early is not None:
+        return early
+    return render(request, 'gate/incident_list.html', ctx)
 
 
 def _gate_incident_resolved_student(incident):
@@ -6948,8 +7252,26 @@ def event_registrations_export_csv(request, event_id):
     return response
 
 
-def _redirect_gate_scan_with_event(event_id):
-    """Main QR scanner at /gate/ with event pre-selected (single scanner UI)."""
+def _guard_display_scanner_url_for_event(request, event_id):
+    """
+    Same UX as the wall scanner dashboard (/gate/guard-display/?token=…) with event pre-selected.
+    Returns None if GATE_GUARD_DISPLAY_TOKEN is not set (caller falls back to /gate/?event=).
+    """
+    token = (getattr(settings, 'GATE_GUARD_DISPLAY_TOKEN', '') or '').strip()
+    if not token:
+        return None
+    params = {'token': token, 'event': str(event_id)}
+    kiosk = (request.GET.get('kiosk') or '').strip().lower() in ('1', 'true', 'yes', 'on')
+    if kiosk:
+        params['kiosk'] = '1'
+    return f"{reverse('gate-guard-display')}?{urlencode(params)}"
+
+
+def _redirect_gate_scan_with_event(request, event_id):
+    """Prefer guard scanner dashboard when token is configured; else /gate/?event=…"""
+    url = _guard_display_scanner_url_for_event(request, event_id)
+    if url:
+        return redirect(url)
     return redirect(f"{reverse('gate-scan')}?{urlencode({'event': str(event_id)})}")
 
 
@@ -7978,7 +8300,6 @@ def reports_exports(request):
         'query_extra': query_extra,
         'query_extra_base': query_extra_base,
         'reports_exports_ajax': True,
-        'report_signatories': _report_signatories_context_for_template(request),
         'report_signatories_form': SiteThemeReportSignatoryForm(instance=SiteTheme.objects.first()),
         'preserve_query_string': request.GET.urlencode(),
     }
@@ -9541,11 +9862,20 @@ def event_manual_checkin(request, event_id):
     })
 
 
-@login_required(login_url='/login/')
-@role_required('admin', 'staff', 'faculty')
 @require_GET
+@ensure_csrf_cookie
 def event_attendance_live_embed(request, event_id):
-    """Embeddable list of today's event attendance scan logs (not daily gate entries)."""
+    """Embeddable list of event attendance scan logs (AttendanceLog), not daily GateEntry rows."""
+    from django.contrib.auth.views import redirect_to_login
+    from gate_analytics.roles import get_user_role
+    if _guard_embed_query_token_ok(request):
+        user_role = 'staff'
+    else:
+        if not request.user.is_authenticated:
+            return redirect_to_login(next=request.get_full_path())
+        user_role = get_user_role(request.user)
+        if user_role not in ('admin', 'staff', 'faculty', 'student affairs'):
+            return HttpResponseForbidden('Access denied')
     event = get_object_or_404(Event, id=event_id)
     from_date = (request.GET.get('from_date') or '').strip()
     if not from_date:
@@ -9585,7 +9915,7 @@ def field_trip_event_scan(request, event_id):
     event = get_object_or_404(Event, id=event_id)
     if request.method == 'GET':
         if getattr(event, 'event_location', '') != 'field_trip':
-            return _redirect_gate_scan_with_event(event_id)
+            return _redirect_gate_scan_with_event(request, event_id)
         user_role = get_user_role(request.user)
         kiosk_mode = (request.GET.get('kiosk') or '').strip().lower() in ('1', 'true', 'yes', 'on')
         return render(request, 'gate/gate_scan.html', {
@@ -9610,14 +9940,14 @@ def field_trip_event_scan(request, event_id):
         if requested_scan_type not in ('IN', 'OUT'):
             requested_scan_type = 'IN'
         if not student_id:
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            if _http_request_wants_json(request):
                 return JsonResponse({'success': False, 'message': 'No student ID provided.', 'color': 'error'})
             messages.error(request, 'Enter or scan student ID.')
             return redirect('event-field-trip-scan', event_id=event_id)
 
         student = Student.objects.filter(student_id=student_id, is_active=True).first()
         if not student:
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            if _http_request_wants_json(request):
                 return JsonResponse({
                     'success': False,
                     'message': 'Student not found or inactive.',
@@ -9635,7 +9965,7 @@ def field_trip_event_scan(request, event_id):
                 audience_overridden = True
             else:
                 message = f'{student.get_full_name()} is not included in this event audience ({event.audience_summary()}).'
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                if _http_request_wants_json(request):
                     return JsonResponse({
                         'success': False,
                         'message': message,
@@ -9671,7 +10001,7 @@ def field_trip_event_scan(request, event_id):
         # through so the "already checked out" message is shown instead.
         if scan_type == 'OUT' and att.checked_out_at is None and event.status in ('draft', 'scheduled', 'active'):
             msg = 'Event is not yet finished. Check-out will be allowed once the event is completed.'
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            if _http_request_wants_json(request):
                 return JsonResponse({
                     'success': False,
                     'message': msg,
@@ -9696,7 +10026,7 @@ def field_trip_event_scan(request, event_id):
                 recorded_by=request.user if getattr(request, 'user', None) and request.user.is_authenticated else None,
             )
             msg = f'{student.get_full_name()} has not checked in yet for this event.'
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            if _http_request_wants_json(request):
                 return JsonResponse({
                     'success': False,
                     'message': msg,
@@ -9746,13 +10076,8 @@ def field_trip_event_scan(request, event_id):
             recorded_by=request.user if getattr(request, 'user', None) and request.user.is_authenticated else None,
         )
 
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            photo_url = None
-            if student.photo:
-                try:
-                    photo_url = request.build_absolute_uri(student.photo.url)
-                except Exception:
-                    photo_url = None
+        if _http_request_wants_json(request):
+            photo_url = _scan_ui_photo_url(request, student)
             if scan_type == 'IN':
                 msg = (
                     f'{student.get_full_name()} checked in.'

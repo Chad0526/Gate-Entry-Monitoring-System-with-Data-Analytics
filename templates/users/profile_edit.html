@@ -46,6 +46,9 @@
 {% endblock extrahead %}
 
 {% block content %}
+<div class="mb-3" style="max-width:640px;">
+  <a href="{% url 'password_change' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-key mr-1"></i>{% trans "Change password" %}</a>
+</div>
 <div class="profile-card card">
   <div class="card-header"><i class="fas fa-user-edit mr-2"></i>Edit your profile</div>
   <div class="card-body">
@@ -106,10 +109,6 @@
       <div class="form-group">
         <label for="id_contact_number">Contact number</label>
         {{ form.contact_number }}
-      </div>
-      <div class="form-group">
-        <label for="id_employee_id">Employee / ID number</label>
-        {{ form.employee_id }}
       </div>
       <div class="form-group">
         <label for="id_department">Department / Office</label>

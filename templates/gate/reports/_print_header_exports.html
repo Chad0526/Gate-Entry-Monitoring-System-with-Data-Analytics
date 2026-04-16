@@ -1,0 +1,27 @@
+{% load static %}
+{# Must live inside exports_inner so AJAX partial=1 responses still include the print header. #}
+<div class="print-header" style="display: none;">
+  <img src="{% static 'img/logo.png' %}" alt="Logo" class="print-header-logo">
+  <div class="print-header-content">
+    <div class="print-header-title">{{ site_name|default:"City College of Bayawan" }}</div>
+    <div class="print-header-subtitle">
+      {% if template_type == 'export_all' %}All reports (ZIP)
+      {% elif template_type == 'daily_gate_visits' %}Gate Entry Report
+      {% elif template_type == 'overview_summary' %}Summary Report
+      {% elif template_type == 'recent_activity' %}Recent Activity Report
+      {% elif template_type == 'inside_now' %}Currently Inside Report
+      {% elif template_type == 'raw_entries' %}Raw Entries Report
+      {% elif template_type == 'event_attendance' %}Event Attendance Report
+      {% elif template_type == 'by_personnel' %}By Recorder Report
+      {% else %}Report{% endif %}
+    </div>
+    <div class="print-header-date">
+      {% if to_date_str and to_date_str != from_date_str %}
+        Date Range: {{ from_date_str }} to {{ to_date_str }}
+      {% else %}
+        Date: {{ from_date_str|default:"N/A" }}
+      {% endif %}
+      | Generated: {% now "Y-m-d H:i:s" %}
+    </div>
+  </div>
+</div>

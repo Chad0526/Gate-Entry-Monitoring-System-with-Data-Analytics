@@ -46,7 +46,7 @@
             </a>
           </li>
           <li class="nav-item">
-            <a href="{% url 'gate-incident-list' %}" class="nav-link {% if current == 'gate-incident-list' %}active{% endif %}">
+            <a href="{% url 'gate-entry-list' %}?tab=incidents" class="nav-link {% if current == 'gate-entry-list' and request.GET.tab|default:'' == 'incidents' %}active{% endif %}">
               <i class="nav-icon fas fa-exclamation-triangle"></i>
               <p>{% trans "Gate incidents" %}</p>
             </a>
@@ -68,9 +68,15 @@
           </li>
           {% endif %}
           <li class="nav-item">
-            <a href="{% url 'gate-entry-list' %}" class="nav-link {% if current == 'gate-entry-list' or current == 'gate-visitor-list' %}active{% endif %}">
+            <a href="{% url 'gate-entry-list' %}" class="nav-link {% if current == 'gate-visitor-list' or current == 'gate-entry-list' and request.GET.tab|default:'' != 'incidents' %}active{% endif %}">
               <i class="nav-icon fas fa-door-open"></i>
               <p>{% trans "Gate entries" %}</p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{% url 'gate-entry-list' %}?tab=incidents" class="nav-link {% if current == 'gate-entry-list' and request.GET.tab|default:'' == 'incidents' %}active{% endif %}">
+              <i class="nav-icon fas fa-exclamation-triangle"></i>
+              <p>{% trans "Gate incidents" %}</p>
             </a>
           </li>
           <li class="nav-item">

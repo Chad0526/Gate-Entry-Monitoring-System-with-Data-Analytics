@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.test import TestCase, override_settings
 from django.utils import timezone
 import datetime
@@ -42,7 +44,7 @@ class GatePolicyTests(TestCase):
         self.assertTrue(result['allowed'])
         self.assertEqual(result['result'], 'SUCCESS')
 
-    @override_settings(GATE_SCAN_REPEAT_COOLDOWN_MINUTES=5)
+    @override_settings(GATE_SCAN_REPEAT_COOLDOWN_SECONDS=300)
     def test_daily_gate_duplicate_in_within_cooldown(self):
         # Fixed local day so "soon" and entry timestamp stay on the same calendar date.
         tz = timezone.get_current_timezone()
@@ -61,7 +63,7 @@ class GatePolicyTests(TestCase):
         self.assertFalse(result['allowed'])
         self.assertEqual(result['result'], 'DUPLICATE')
 
-    @override_settings(GATE_SCAN_REPEAT_COOLDOWN_MINUTES=5)
+    @override_settings(GATE_SCAN_REPEAT_COOLDOWN_SECONDS=300)
     def test_daily_gate_second_in_after_cooldown_allowed(self):
         tz = timezone.get_current_timezone()
         base = timezone.make_aware(datetime.datetime(2025, 9, 1, 10, 0, 0), tz)
@@ -80,7 +82,7 @@ class GatePolicyTests(TestCase):
         self.assertEqual(result['result'], 'SUCCESS')
 
     @override_settings(
-        GATE_SCAN_REPEAT_COOLDOWN_MINUTES=5,
+        GATE_SCAN_REPEAT_COOLDOWN_SECONDS=300,
         GATE_SCAN_REPEAT_COOLDOWN_SCOPE='global',
         GATE_GUARD_DISPLAY_TOKEN='test-guard-tok',
         GATE_GUARD_EMBED_RECORDED_BY_USER_ID=None,
@@ -102,7 +104,7 @@ class GatePolicyTests(TestCase):
         self.assertTrue(data2.get('repeat_cooldown') or data2.get('already_scanned'))
 
     @override_settings(
-        GATE_SCAN_REPEAT_COOLDOWN_MINUTES=5,
+        GATE_SCAN_REPEAT_COOLDOWN_SECONDS=300,
         GATE_SCAN_REPEAT_COOLDOWN_SCOPE='same_direction',
         GATE_GUARD_DISPLAY_TOKEN='test-guard-tok2',
         GATE_GUARD_EMBED_RECORDED_BY_USER_ID=None,
@@ -318,7 +320,7 @@ class GatePolicyTests(TestCase):
     def test_scan_event_qr_endpoint_student(self):
         """POSTing a student ID to scan_event_qr should succeed for current event."""
         from django.urls import reverse
-        from .models import Event, EventCategory
+        from .models import Event, EventCategory, EventAgenda
         from django.contrib.auth import get_user_model
         User = get_user_model()
         cat_user = User.objects.create(username='scanuser')
@@ -333,38 +335,58 @@ class GatePolicyTests(TestCase):
         cat = EventCategory.objects.create(name='ScanCat', code='SC', priority=1, created_user=cat_user, updated_user=cat_user, status='active')
         today = timezone.localdate()
         ev = Event.objects.create(name='ScanEvent', category=cat, start_date=today, end_date=today, status='active')
+        # Timed session (not whole-day): schedule rules use agenda end; freeze time inside OUT window.
+        EventAgenda.objects.create(
+            event=ev, session_name='Morning', start_time=datetime.time(8, 0), end_time=datetime.time(10, 15)
+        )
+        fixed_now = timezone.make_aware(datetime.datetime.combine(today, datetime.time(10, 0)))
         from gate_analytics.roles import get_user_role
         self.assertEqual(get_user_role(cat_user), 'staff')
         self.assertTrue(self.client.login(username='scanuser', password='secret'))
         url = reverse('scan_event_qr')
-        resp = self.client.post(url, {
-            'event_id': ev.id,
-            'qr': self.student.student_id,
-            'scan_type': 'IN',
-            'device_id': 'DEV123',
-        })
+        with patch('gate.gate_views.timezone.now', return_value=fixed_now):
+            resp = self.client.post(url, {
+                'event_id': ev.id,
+                'qr': self.student.student_id,
+                'scan_type': 'IN',
+                'device_id': 'DEV123',
+            })
         self.assertEqual(resp.status_code, 200,
                          f"expected 200 but got {resp.status_code}, body={resp.content!r}")
         data = resp.json()
         self.assertTrue(data.get('ok'))
         self.assertEqual(data.get('result'), 'SUCCESS')
-        # second scan should return DUPLICATE but still 200
-        resp2 = self.client.post(url, {
-            'event_id': ev.id,
-            'qr': self.student.student_id,
-            'scan_type': 'IN',
-            'device_id': 'DEV123',
-        })
+        # Second scan auto-selects OUT (checked in, not checked out yet).
+        with patch('gate.gate_views.timezone.now', return_value=fixed_now):
+            resp2 = self.client.post(url, {
+                'event_id': ev.id,
+                'qr': self.student.student_id,
+                'scan_type': 'IN',
+                'device_id': 'DEV123',
+            })
         self.assertEqual(resp2.status_code, 200,
                          f"expected 200 but got {resp2.status_code}, body={resp2.content!r}")
         data2 = resp2.json()
-        self.assertEqual(data2.get('result'), 'DUPLICATE')
-        self.assertIn('already checked in', data2.get('message','').lower())
+        self.assertTrue(data2.get('ok'))
+        self.assertEqual(data2.get('result'), 'SUCCESS')
+        self.assertEqual(data2.get('scan_type'), 'OUT')
+        # Third scan: duplicate OUT (session already completed).
+        with patch('gate.gate_views.timezone.now', return_value=fixed_now):
+            resp3 = self.client.post(url, {
+                'event_id': ev.id,
+                'qr': self.student.student_id,
+                'scan_type': 'IN',
+                'device_id': 'DEV123',
+            })
+        self.assertEqual(resp3.status_code, 200)
+        data3 = resp3.json()
+        self.assertEqual(data3.get('result'), 'DUPLICATE')
+        self.assertIn('already checked out', data3.get('message', '').lower())
 
     def test_scan_event_qr_endpoint_token(self):
         """Token-based event scan should also work."""
         from django.urls import reverse
-        from .models import Event, EventCategory, EventRegistration
+        from .models import Event, EventCategory, EventRegistration, EventAgenda
         from django.contrib.auth import get_user_model
         User = get_user_model()
         cat_user = User.objects.create(username='scanuser2')
@@ -379,17 +401,22 @@ class GatePolicyTests(TestCase):
         cat = EventCategory.objects.create(name='ScanCat2', code='SC2', priority=1, created_user=cat_user, updated_user=cat_user, status='active')
         today = timezone.localdate()
         ev = Event.objects.create(name='Secure', category=cat, start_date=today, end_date=today, status='active')
+        EventAgenda.objects.create(
+            event=ev, session_name='Morning', start_time=datetime.time(8, 0), end_time=datetime.time(10, 15)
+        )
         reg = EventRegistration.objects.create(event=ev, student=self.student, token='TOKEN123', status='active')
+        fixed_now = timezone.make_aware(datetime.datetime.combine(today, datetime.time(10, 0)))
         from gate_analytics.roles import get_user_role
         self.assertEqual(get_user_role(cat_user), 'staff')
         self.assertTrue(self.client.login(username='scanuser2', password='secret2'))
         url = reverse('scan_event_qr')
-        resp = self.client.post(url, {
-            'event_id': ev.id,
-            'qr': f'EVT:{ev.id}:{reg.token}',
-            'scan_type': 'IN',
-            'device_id': 'DEV456',
-        })
+        with patch('gate.gate_views.timezone.now', return_value=fixed_now):
+            resp = self.client.post(url, {
+                'event_id': ev.id,
+                'qr': f'EVT:{ev.id}:{reg.token}',
+                'scan_type': 'IN',
+                'device_id': 'DEV456',
+            })
         self.assertEqual(resp.status_code, 200,
                          f"expected 200 but got {resp.status_code}, body={resp.content!r}")
         data = resp.json()

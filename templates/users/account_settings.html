@@ -39,6 +39,13 @@
 
 {% block content %}
 <div class="account-card card">
+  <div class="card-header">{% trans 'Security' %}</div>
+  <div class="card-body pb-2">
+    <p class="text-muted small mb-2">{% trans 'Update your login password anytime.' %}</p>
+    <a href="{% url 'password_change' %}" class="btn btn-outline-secondary btn-sm mb-0"><i class="fas fa-key mr-1"></i>{% trans 'Change password' %}</a>
+  </div>
+</div>
+<div class="account-card card">
   <div class="card-header">{% trans 'Account details' %}</div>
   <div class="card-body">
     <form method="post" action="{% url 'account-settings' %}">

@@ -852,6 +852,10 @@
             <i class="fas fa-user-edit user-dropdown-icon"></i>
             {% trans "My profile" %}
           </a>
+          <a href="{% url 'password_change' %}" class="dropdown-item user-dropdown-item">
+            <i class="fas fa-key user-dropdown-icon"></i>
+            {% trans "Change password" %}
+          </a>
           {% if user_role == 'staff' or user_role == 'faculty' %}
           <a href="{% url 'account-settings' %}" class="dropdown-item user-dropdown-item">
             <i class="fas fa-cog user-dropdown-icon"></i>

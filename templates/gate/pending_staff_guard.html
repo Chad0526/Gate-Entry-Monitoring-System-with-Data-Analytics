@@ -30,7 +30,7 @@
   #staff-list-card .search-row .search-input-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #858585; pointer-events: none; }
   #staff-list-card .search-row .search-input-wrap input { padding-left: 36px; border-radius: 8px; border: 1px solid #e0d555; }
   #staff-list-card .table-wrap { overflow-x: auto; margin: 0 -1px; }
-  #staff-list-card .table-wrap .table { min-width: 980px; margin-bottom: 0; font-size: 0.8125rem; }
+  #staff-list-card .table-wrap .table { min-width: 860px; margin-bottom: 0; font-size: 0.8125rem; }
   .psg-toolbar {
     display: flex;
     align-items: center;
@@ -220,7 +220,7 @@
           {% if filter_role %}<input type="hidden" name="role" value="{{ filter_role }}">{% endif %}
           <div class="search-input-wrap">
             <i class="fas fa-search"></i>
-            <input type="text" name="q" value="{{ search_q|default:'' }}" class="form-control form-control-sm" placeholder="Search name, username, email, or employee ID…" autocomplete="off">
+            <input type="text" name="q" value="{{ search_q|default:'' }}" class="form-control form-control-sm" placeholder="Search name, username, or email…" autocomplete="off">
           </div>
           <button type="submit" class="btn btn-sm btn-success"><i class="fas fa-search mr-1"></i> Search</button>
           {% if search_q %}
@@ -238,7 +238,6 @@
       <thead>
         <tr>
           <th>Name</th>
-          <th>Employee ID</th>
           <th>Username</th>
           <th>Role</th>
           <th>Dept / Position</th>
@@ -251,7 +250,6 @@
         {% for user, role, profile in users_with_role %}
         <tr id="user-{{ user.pk }}">
           <td>{{ user.get_full_name|default:user.username }}</td>
-          <td class="text-nowrap">{% if profile.employee_id %}<span class="registry-id-emphasis">{{ profile.employee_id }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
           <td><code>{{ user.username }}</code></td>
           <td class="col-role">{% if role|lower == 'staff' %}<span class="badge badge-success">{{ role }}</span>{% elif role|lower == 'faculty' %}<span class="badge badge-info">{{ role }}</span>{% elif 'student affairs' in role|lower %}<span class="badge badge-warning text-dark">{{ role }}</span>{% else %}<span class="badge badge-secondary">{{ role }}</span>{% endif %}</td>
           <td class="text-center small">{% if profile.department %}<span class="d-block">{{ profile.department }}</span>{% endif %}{% if profile.position %}<span class="d-block text-muted">{{ profile.position }}</span>{% endif %}{% if not profile.department and not profile.position %}—{% endif %}</td>
@@ -265,7 +263,7 @@
           </td>
           <td class="psg-actions-cell">
             {% if can_edit_staff_registry %}
-            <button type="button" class="btn btn-sm btn-info psg-btn-edit" data-user-id="{{ user.pk }}" data-username="{{ user.username }}" data-first-name="{{ user.first_name }}" data-last-name="{{ user.last_name }}" data-email="{{ user.email }}" data-role="{{ role }}" data-middle-name="{{ profile.middle_name }}" data-contact-number="{{ profile.contact_number }}" data-department="{{ profile.department }}" data-position="{{ profile.position }}" data-employee-id="{{ profile.employee_id }}" data-address="{{ profile.address }}" title="Edit user">
+            <button type="button" class="btn btn-sm btn-info psg-btn-edit" data-user-id="{{ user.pk }}" data-username="{{ user.username }}" data-first-name="{{ user.first_name }}" data-last-name="{{ user.last_name }}" data-email="{{ user.email }}" data-role="{{ role }}" data-middle-name="{{ profile.middle_name }}" data-contact-number="{{ profile.contact_number }}" data-department="{{ profile.department }}" data-position="{{ profile.position }}" data-address="{{ profile.address }}" title="Edit user">
               <i class="fas fa-edit"></i>
             </button>
             {% endif %}
@@ -416,10 +414,6 @@
             <input type="text" class="form-control" id="psgEditContactNumber" name="contact_number" maxlength="20">
           </div>
           <div class="form-group">
-            <label for="psgEditEmployeeId">Employee ID</label>
-            <input type="text" class="form-control" id="psgEditEmployeeId" name="employee_id" maxlength="50">
-          </div>
-          <div class="form-group">
             <label for="psgEditDepartment">Department</label>
             <input type="text" class="form-control" id="psgEditDepartment" name="department" maxlength="150">
           </div>
@@ -471,7 +465,6 @@
           roleEl.value = (rl === 'staff' || rl === 'faculty' || rl === 'student_affairs') ? rl : 'staff';
         }
         document.getElementById('psgEditContactNumber').value = this.getAttribute('data-contact-number') || '';
-        document.getElementById('psgEditEmployeeId').value = this.getAttribute('data-employee-id') || '';
         document.getElementById('psgEditDepartment').value = this.getAttribute('data-department') || '';
         document.getElementById('psgEditPosition').value = this.getAttribute('data-position') || '';
         document.getElementById('psgEditAddress').value = this.getAttribute('data-address') || '';

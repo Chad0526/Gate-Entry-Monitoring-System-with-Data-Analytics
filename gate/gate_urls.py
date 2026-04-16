@@ -12,6 +12,7 @@ urlpatterns = [
     # Token-only scanner clients (guard-display/embed): bypass CSRF, still requires valid guard token.
     path('save-scan-guard/', gate_views.save_scan_guard, name='save_scan_guard'),
     path('scan-event/', gate_views.scan_event_qr, name='scan_event_qr'),
+    path('scan-event-guard/', gate_views.scan_event_qr_guard, name='scan_event_qr_guard'),
     path('record-early-out/', gate_views.record_early_out, name='record_early_out'),
     path('visitor-checkin/', gate_views.visitor_checkin_submit, name='visitor-checkin-submit'),
     path('visitor-checkout/', gate_views.visitor_checkout_submit, name='visitor-checkout-submit'),

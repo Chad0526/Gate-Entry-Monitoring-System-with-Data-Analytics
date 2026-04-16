@@ -1,7 +1,7 @@
 {% extends 'base/base.html' %}
 {% load static %}
-{% block title %}Gate entries - {{ site_name }}{% endblock title %}
-{% block page_heading %}Gate entries{% endblock page_heading %}
+{% block title %}{% if entries_tab == 'incidents' %}Gate incidents{% else %}Gate entries{% endif %} - {{ site_name }}{% endblock title %}
+{% block page_heading %}{% if entries_tab == 'incidents' %}Gate incidents{% else %}Gate entries{% endif %}{% endblock page_heading %}
 
 {% block extrahead %}
 <link rel="stylesheet" href="{% static 'css/dashboard-monitor.css' %}">
@@ -202,12 +202,13 @@
 
 {% block content %}
 <div class="entries-hero">
-  <h2>Gate Entries</h2>
-  <p>Monitor student entries and visitors in one live view.</p>
+  <h2>{% if entries_tab == 'incidents' %}Gate incidents{% else %}Gate Entries{% endif %}</h2>
+  <p>{% if entries_tab == 'incidents' %}Review reported incidents and SAS follow-up.{% else %}Monitor student entries and visitors in one live view.{% endif %}</p>
 </div>
 <div class="row">
   <div class="col-12">
     <div class="card" id="gate-entries-card">
+      {% if entries_tab != 'incidents' %}
       <div class="card-header">
         <div class="d-flex flex-wrap align-items-center justify-content-between" style="gap:10px;">
           <h5 class="m-0">Search & filter</h5>
@@ -233,7 +234,8 @@
           </div>
         </div>
       </div>
-      {% if currently_inside is not None %}
+      {% endif %}
+      {% if currently_inside is not None and entries_tab != 'incidents' %}
       <div class="border-bottom px-3 py-2 bg-light" style="border-left: 4px solid #17a2b8;">
         <h6 class="mb-2 mt-1 text-dark"><i class="fas fa-user-friends text-info mr-1"></i> Currently inside <span class="badge badge-info">{{ currently_inside|length }}</span></h6>
         {% if currently_inside %}
@@ -270,18 +272,20 @@
         {% endif %}
       </div>
       {% endif %}
+      {% if entries_tab != 'incidents' %}
       <div class="entry-tabs-wrap">
         <ul class="nav entry-tabs" role="tablist">
           <li class="nav-item" role="presentation">
-            <a class="nav-link active" href="#" data-tab="entries" role="tab" aria-selected="true" aria-controls="pane-entries" id="tab-entries"><i class="fas fa-door-open mr-2"></i> Student entries</a>
+            <a class="nav-link {% if entries_tab == 'entries' %}active{% endif %}" href="{% url 'gate-entry-list' %}?{{ tab_q_entries }}" role="tab" aria-selected="{% if entries_tab == 'entries' %}true{% else %}false{% endif %}" aria-controls="pane-entries" id="tab-entries"><i class="fas fa-door-open mr-2"></i> Student entries</a>
           </li>
           <li class="nav-item" role="presentation">
-            <a class="nav-link" href="#" data-tab="visitors" role="tab" aria-selected="false" aria-controls="pane-visitors" id="tab-visitors"><i class="fas fa-user-tag mr-2"></i> Visitors</a>
+            <a class="nav-link {% if entries_tab == 'visitors' %}active{% endif %}" href="{% url 'gate-entry-list' %}?{{ tab_q_visitors }}" role="tab" aria-selected="{% if entries_tab == 'visitors' %}true{% else %}false{% endif %}" aria-controls="pane-visitors" id="tab-visitors"><i class="fas fa-user-tag mr-2"></i> Visitors</a>
           </li>
         </ul>
       </div>
+      {% endif %}
       <div class="card-body p-0">
-        <div id="pane-entries" class="entries-pane" role="tabpanel" aria-labelledby="tab-entries">
+        <div id="pane-entries" class="entries-pane" role="tabpanel" aria-labelledby="tab-entries"{% if entries_tab != 'entries' %} style="display:none;"{% endif %}>
           {% if page_obj %}
           {% include 'snippets/pagination.html' with page_obj=page_obj query_extra=query_extra query_extra_base=query_extra_base per_page=per_page per_page_options=per_page_options position='top' %}
           {% endif %}
@@ -345,7 +349,7 @@
           {% endif %}
           </div>
         </div>
-        <div id="pane-visitors" class="entries-pane" role="tabpanel" aria-labelledby="tab-visitors" style="display:none;">
+        <div id="pane-visitors" class="entries-pane" role="tabpanel" aria-labelledby="tab-visitors"{% if entries_tab != 'visitors' %} style="display:none;"{% endif %}>
           <div class="table-responsive">
           <table class="table table-striped table-hover mb-0">
             <thead>
@@ -379,6 +383,16 @@
           </table>
           </div>
         </div>
+        {% if entries_tab == 'incidents' %}
+        <div id="pane-incidents" class="entries-pane" role="region" aria-label="Gate incidents">
+          <div class="px-3 py-2 border-bottom bg-light">
+            <a href="{% url 'gate-entry-list' %}?{{ tab_q_entries }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-left mr-1"></i> Student entries</a>
+          </div>
+          <div class="px-3 py-3">
+            {% include 'gate/incident_list_card.html' %}
+          </div>
+        </div>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -435,21 +449,24 @@
 </div>
 
 <script>
-document.querySelectorAll('#gate-entries-card [data-tab]').forEach(function(a) {
-  a.addEventListener('click', function(e) {
-    e.preventDefault();
-    var tab = this.getAttribute('data-tab');
-    document.querySelectorAll('#gate-entries-card .nav-link[data-tab]').forEach(function(x) {
-      x.classList.remove('active');
-      x.setAttribute('aria-selected', 'false');
-    });
-    this.classList.add('active');
-    this.setAttribute('aria-selected', 'true');
-    document.querySelectorAll('#pane-entries, #pane-visitors').forEach(function(p) { p.style.display = 'none'; });
-    document.getElementById('pane-' + tab).style.display = 'block';
-  });
-});
-
+{% if entries_tab == 'incidents' %}
+(function() {
+  function scrollToHighlight() {
+    var row = document.querySelector('tr.inc-row-highlight');
+    if (!row) return;
+    try {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (e) {
+      row.scrollIntoView(true);
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', scrollToHighlight);
+  } else {
+    scrollToHighlight();
+  }
+})();
+{% endif %}
 (function() {
   var btn = document.getElementById('toggle-currently-inside-list');
   var panel = document.getElementById('currently-inside-list');

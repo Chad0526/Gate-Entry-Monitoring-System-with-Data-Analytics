@@ -667,6 +667,7 @@ select.gate-input-mode-select{
 .student-popup-name{ font-size:16px; font-weight:600; color:#1a1a1a; margin-bottom:2px; line-height:1.25 }
 .student-popup-id{ font-size:12px; color:var(--muted); margin-bottom:2px }
 .student-popup-course{ font-size:11px; color:#555; margin-bottom:6px }
+.student-popup-course:empty{ display:none; }
 .student-popup-details{
   list-style:none; padding:0; margin:0;
   border-top:1px solid rgba(0,0,0,0.06); padding-top:8px; margin-top:6px;
@@ -674,6 +675,11 @@ select.gate-input-mode-select{
 .student-popup-details li{
   display:flex; align-items:center; gap:8px; padding:3px 0;
   font-size:12px; color:#333;
+}
+.student-popup-details li span{
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  min-width:0;
 }
 .student-popup-details li i{ width:16px; color:var(--accent); text-align:center; font-size:11px }
 .student-popup-status{
@@ -684,6 +690,15 @@ select.gate-input-mode-select{
 .student-popup-status.out{ background:#e8f5e9; color:#2e7d32 }
 .student-popup-status.duplicate{ background:#fff9c4; color:#5d4e00; border:1px solid var(--yellow) }
 .student-popup-header.duplicate{ background: linear-gradient(90deg, var(--yellow) 0%, #e0a800 100%); color:#1b5e20; }
+/* Unknown ID — compact centered card (~45–50% viewport); overrides wide guard-wall / split layouts */
+.student-popup.student-popup--unknown-id{
+  width: clamp(260px, 50vw, 420px);
+  max-width: min(92vw, 420px);
+  min-height: 0;
+  height: auto;
+  max-height: min(90vh, 520px);
+  overflow: visible;
+}
 .popup-early-out-form{ margin-top:10px; padding-top:10px; border-top:1px solid rgba(0,0,0,0.08); display:none }
 .popup-early-out-form.show{ display:block }
 .popup-early-out-form label{ display:block; font-size:12px; font-weight:600; color:#333; margin-bottom:4px }
@@ -823,16 +838,19 @@ body.guard-embed-mode .student-popup{
   box-shadow: 0 20px 56px rgba(0,0,0,0.38);
 }
 /* Guard wall: enlarge the scan-result popup and disable inner scrolling */
-body.guard-wall-mode .student-popup-overlay{
+body.guard-wall-mode .student-popup-overlay,
+body.event-scanner-dashboard-mode .student-popup-overlay{
   padding: 6px;
   background: rgba(0,0,0,0.55);
   align-items: center;
   justify-content: center;
 }
-body.guard-wall-mode .student-popup{
+body.guard-wall-mode .student-popup,
+body.event-scanner-dashboard-mode .student-popup{
   width: 100%;
-  max-width: min(98vw, 1040px);
-  max-height: calc(100vh - 12px);
+  max-width: min(92vw, 1120px);
+  max-height: min(88vh, calc(100vh - 16px));
+  min-height: min(58vh, 480px);
   height: auto;
   overflow: hidden; /* prevents guard from scrolling inside the modal */
   display: flex;
@@ -840,105 +858,140 @@ body.guard-wall-mode .student-popup{
   border-radius: 16px;
   box-shadow: 0 20px 56px rgba(0,0,0,0.42);
 }
-body.guard-wall-mode .student-popup-header{
+body.guard-wall-mode .student-popup-header,
+body.event-scanner-dashboard-mode .student-popup-header{
   flex-shrink: 0;
-  padding: 8px 14px;
+  padding: 12px 18px;
 }
-body.guard-wall-mode .student-popup-header h2{
-  font-size: clamp(0.95rem, 2.4vmin, 1.35rem);
-  gap: 8px;
+body.guard-wall-mode .student-popup-header h2,
+body.event-scanner-dashboard-mode .student-popup-header h2{
+  font-size: clamp(1.05rem, 2.8vmin, 1.5rem);
+  gap: 10px;
 }
-body.guard-wall-mode .student-popup-close{
-  width: 36px;
-  height: 36px;
-  font-size: 1rem;
+body.guard-wall-mode .student-popup-close,
+body.event-scanner-dashboard-mode .student-popup-close{
+  width: 42px;
+  height: 42px;
+  font-size: 1.1rem;
 }
-body.guard-wall-mode .student-popup-status{
+body.guard-wall-mode .student-popup-status,
+body.event-scanner-dashboard-mode .student-popup-status{
   flex-shrink: 0;
   margin-top: 0;
-  padding: 8px 12px;
-  font-size: clamp(0.9rem, 2.3vmin, 1.15rem);
-  line-height: 1.3;
+  padding: 12px 16px;
+  font-size: clamp(1rem, 2.6vmin, 1.35rem);
+  line-height: 1.35;
+  border-radius: 12px;
+}
+body.guard-wall-mode .popup-schedule-status,
+body.event-scanner-dashboard-mode .popup-schedule-status{
+  flex-shrink: 0;
+  margin-top: 0;
+  padding: 10px 14px;
+  font-size: clamp(0.9rem, 2.2vmin, 1.15rem);
   border-radius: 10px;
 }
-body.guard-wall-mode .popup-schedule-status{
-  flex-shrink: 0;
-  margin-top: 0;
-  padding: 6px 10px;
-  font-size: clamp(0.82rem, 2vmin, 1.05rem);
-  border-radius: 8px;
-}
-body.guard-wall-mode .popup-schedule-status i{ font-size: 1em; }
-body.guard-wall-mode .popup-in-class-notice{
+body.guard-wall-mode .popup-schedule-status i,
+body.event-scanner-dashboard-mode .popup-schedule-status i{ font-size: 1em; }
+body.guard-wall-mode .popup-in-class-notice,
+body.event-scanner-dashboard-mode .popup-in-class-notice{
   flex-shrink: 0;
   font-size: clamp(0.82rem, 2vmin, 1rem);
   padding: 6px 10px;
   margin-bottom: 0;
 }
-/* Guard wall: use a larger split layout (photo left | details right) */
-body.guard-wall-mode.student-popup-style--split .student-popup{
-  /* Make the popup larger on the guard wall while staying within screen bounds */
-  max-width: min(96vw, 980px);
-  /* Don't clip the enlarged photo/details inside the guard wall popup. */
-  overflow: visible !important;
-  overflow-x: hidden;
-  overflow-y: visible;
+body.guard-wall-mode .popup-early-out-form label,
+body.event-scanner-dashboard-mode .popup-early-out-form label{
+  font-size: clamp(0.95rem, 2.2vmin, 1.1rem);
 }
-body.guard-wall-mode.student-popup-style--split .student-popup-body{
-  padding: 14px 22px 16px;
-  overflow: visible; /* guard wall: avoid clipping photo; modal itself stays non-scrollable */
+body.guard-wall-mode .popup-early-out-form textarea,
+body.event-scanner-dashboard-mode .popup-early-out-form textarea{
+  font-size: clamp(0.95rem, 2vmin, 1.05rem);
+  min-height: 72px;
+  padding: 10px 12px;
+}
+body.guard-wall-mode .popup-early-out-form .form-actions,
+body.event-scanner-dashboard-mode .popup-early-out-form .form-actions{
+  margin-top: 12px;
+  gap: 10px;
+}
+body.guard-wall-mode .popup-early-out-form .form-actions button,
+body.event-scanner-dashboard-mode .popup-early-out-form .form-actions button{
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: clamp(0.95rem, 2.2vmin, 1.1rem);
+}
+/* Guard wall: split layout — large presentation display (photo + details scale with modal) */
+body.guard-wall-mode.student-popup-style--split .student-popup, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup{
+  max-width: min(92vw, 1120px);
+  min-height: min(72vh, 780px);
+  max-height: min(88vh, calc(100vh - 16px));
+  overflow: hidden;
+}
+@media (max-height: 640px){
+  body.guard-wall-mode.student-popup-style--split .student-popup, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup{
+    min-height: 0;
+  }
+}
+body.guard-wall-mode.student-popup-style--split .student-popup-body, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-body{
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: clamp(14px, 2.2vmin, 22px) clamp(18px, 2.8vmin, 28px) clamp(16px, 2vmin, 24px);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: clamp(8px, 1.2vmin, 14px);
 }
-body.guard-wall-mode.student-popup-style--split .student-popup-top{
+body.guard-wall-mode.student-popup-style--split .student-popup-top, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-top{
   flex: 1 1 auto;
   min-height: 0;
   flex-direction: row;
   align-items: stretch;
   justify-content: flex-start;
-  gap: clamp(16px, 3.2vw, 36px);
+  gap: clamp(18px, 3vw, 40px);
   margin-bottom: 0;
 }
-body.guard-wall-mode.student-popup-style--split .student-popup-photo-wrap{
-  flex: 0 0 auto;
-  /* Bigger face preview for guard verification */
-  width: min(44vmin, 380px);
-  max-width: 52%;
+body.guard-wall-mode.student-popup-style--split .student-popup-photo-wrap, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-photo-wrap{
+  flex: 0 1 44%;
+  width: auto;
+  max-width: 46%;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   box-sizing: border-box;
-  height: 100%;
+  min-height: 0;
   align-self: stretch;
+  justify-content: center;
 }
-body.guard-wall-mode.student-popup-style--split .student-popup-photo{
-  /* Fill the wrapper height so it follows the same "rectangle" bounds as details. */
-  width: 100%;
+body.guard-wall-mode.student-popup-style--split .student-popup-photo, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-photo{
+  flex: 0 1 auto;
+  width: auto;
   max-width: 100%;
-  height: 100%;
-  max-height: 100%;
-  border-radius: 16px;
-  /* Use contain so the full face/photo is visible (no "half image" cropping). */
+  height: min(58vh, 560px);
+  max-height: min(58vh, 560px);
+  min-height: 0;
+  aspect-ratio: 3 / 4;
+  border-radius: clamp(14px, 1.8vmin, 22px);
   object-fit: contain !important;
   object-position: center !important;
-  border: 3px solid rgba(40,167,69,0.4);
+  border: clamp(3px, 0.4vmin, 5px) solid rgba(40,167,69,0.4);
   display: block;
   box-sizing: border-box;
 }
-body.guard-wall-mode.student-popup-style--split .student-popup-badge{
-  font-size: clamp(0.75rem, 1.8vmin, 1rem);
-  padding: 5px 12px;
+body.guard-wall-mode.student-popup-style--split .student-popup-badge, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-badge{
+  font-size: clamp(0.8rem, 2vmin, 1.15rem);
+  padding: clamp(6px, 1vmin, 10px) clamp(12px, 2vmin, 18px);
+  margin-top: clamp(8px, 1.2vmin, 14px);
 }
-body.guard-wall-mode.student-popup-style--split .student-popup-name{
-  font-size: clamp(1.15rem, 3.4vmin, 2.0rem);
-  line-height: 1.15;
-  margin-bottom: 4px;
+body.guard-wall-mode.student-popup-style--split .student-popup-name, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-name{
+  font-size: clamp(1.35rem, 3.6vmin, 2.35rem);
+  line-height: 1.2;
+  margin-bottom: 8px;
   overflow-wrap: anywhere;
   word-wrap: break-word;
 }
-body.guard-wall-mode.student-popup-style--split .student-popup-info{
+body.guard-wall-mode.student-popup-style--split .student-popup-info, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-info{
   flex: 1 1 auto;
   min-width: 0;
   text-align: left;
@@ -946,31 +999,88 @@ body.guard-wall-mode.student-popup-style--split .student-popup-info{
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 6px;
-  /* Prevent details from getting too narrow when photo is widened */
-  min-width: min(44vw, 420px);
+  gap: clamp(4px, 0.8vmin, 8px);
+  padding: clamp(12px, 2vmin, 18px) clamp(14px, 2.2vmin, 22px);
+  border-radius: clamp(10px, 1.2vmin, 14px);
+  background: rgba(0,0,0,0.035);
+  border: 1px solid rgba(0,0,0,0.06);
 }
-body.guard-wall-mode.student-popup-style--split .student-popup-id{
-  font-size: 13px;
+body.guard-wall-mode.student-popup-style--split .student-popup-id, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-id{
+  font-size: clamp(0.95rem, 2.4vmin, 1.25rem);
 }
-body.guard-wall-mode.student-popup-style--split .student-popup-course{
-  font-size: 12px;
+body.guard-wall-mode.student-popup-style--split .student-popup-course, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-course{
+  font-size: clamp(0.88rem, 2.1vmin, 1.1rem);
 }
-body.guard-wall-mode.student-popup-style--split .student-popup-details li{
-  font-size: 13px;
-  padding: 2px 0;
+body.guard-wall-mode.student-popup-style--split .student-popup-details, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-details{
+  padding-top: clamp(8px, 1.2vmin, 12px);
+  margin-top: clamp(4px, 0.8vmin, 8px);
 }
-body.guard-wall-mode.student-popup-style--split .student-popup-status{
-  font-size: 13px;
+body.guard-wall-mode.student-popup-style--split .student-popup-details li, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-details li{
+  align-items: flex-start;
+  font-size: clamp(0.95rem, 2.3vmin, 1.2rem);
+  padding: clamp(3px, 0.5vmin, 6px) 0;
+  line-height: 1.4;
+  gap: clamp(8px, 1.2vmin, 12px);
 }
-body.guard-wall-mode.student-popup-style--split .popup-schedule-status{
-  font-size: 12px;
+body.guard-wall-mode.student-popup-style--split .student-popup-details li i, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-details li i{
+  margin-top: 4px;
+  width: clamp(16px, 2vmin, 22px);
+  font-size: clamp(0.95em, 2vmin, 1.1em);
+}
+body.guard-wall-mode.student-popup-style--split .student-popup-status, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-status{
+  font-size: clamp(0.95rem, 2.3vmin, 1.2rem);
+}
+body.guard-wall-mode.student-popup-style--split .popup-schedule-status, body.event-scanner-dashboard-mode.student-popup-style--split .popup-schedule-status{
+  font-size: clamp(0.88rem, 2vmin, 1.05rem);
+}
+@media (max-height: 560px){
+  body.guard-wall-mode.student-popup-style--split .student-popup, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup{
+    min-height: 0;
+  }
+  body.guard-wall-mode.student-popup-style--split .student-popup-photo, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-photo{
+    width: auto;
+    height: min(36vh, 280px);
+    max-height: min(36vh, 280px);
+  }
+  body.guard-wall-mode.student-popup-style--split .student-popup-top, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-top{
+    gap: 12px;
+  }
+  body.guard-wall-mode.student-popup-style--split .student-popup-body, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-body{
+    padding: 10px 14px 12px;
+  }
+}
+/* Narrow / small windows: stack photo above details so nothing sits in a wide empty row */
+@media (max-width: 540px){
+  body.guard-wall-mode.student-popup-style--split .student-popup, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup{
+    max-width: min(96vw, 100%);
+  }
+  body.guard-wall-mode.student-popup-style--split .student-popup-top, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-top{
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  body.guard-wall-mode.student-popup-style--split .student-popup-photo-wrap, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-photo-wrap{
+    max-width: none;
+    align-self: center;
+  }
+  body.guard-wall-mode.student-popup-style--split .student-popup-photo, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-photo{
+    width: auto;
+    max-width: 100%;
+    height: min(42vh, 260px);
+    max-height: min(42vh, 260px);
+  }
+  body.guard-wall-mode.student-popup-style--split .student-popup-info, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-info{
+    padding: 10px 12px;
+  }
 }
 
 /* Guard wall: remove only the "Note for OUT" block from the student popup modal */
 body.guard-wall-mode #popupOutNoteBlock,
 body.guard-wall-mode label[for="popupOutNote"],
-body.guard-wall-mode #popupOutNote{
+body.guard-wall-mode #popupOutNote,
+body.event-scanner-dashboard-mode #popupOutNoteBlock,
+body.event-scanner-dashboard-mode label[for="popupOutNote"],
+body.event-scanner-dashboard-mode #popupOutNote{
   display: none !important;
 }
 body.guard-embed-mode .student-popup-header{
@@ -1310,6 +1420,67 @@ body.guard-embed-mode.student-popup-style--idcard .student-popup-details li i{ w
 .entries-popup-close:hover{ background:rgba(255,255,255,0.4) }
 .entries-popup-body{ flex:1; min-height:0; display:flex; flex-direction:column; }
 .entries-popup-body iframe{ width:100%; height:70vh; min-height:320px; border:none; display:block }
+/* Unknown ID on guard display / embed — shrink full-width modal to a compact readable card */
+body.guard-wall-mode .student-popup.student-popup--unknown-id,
+body.event-scanner-dashboard-mode .student-popup.student-popup--unknown-id,
+body.guard-embed-mode .student-popup.student-popup--unknown-id,
+body.guard-wall-mode.student-popup-style--split .student-popup.student-popup--unknown-id, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup.student-popup--unknown-id,
+body.guard-embed-mode.student-popup-style--split .student-popup.student-popup--unknown-id,
+body.guard-wall-mode.student-popup-style--poster .student-popup.student-popup--unknown-id,
+body.guard-embed-mode.student-popup-style--poster .student-popup.student-popup--unknown-id,
+body.guard-wall-mode.student-popup-style--idcard .student-popup.student-popup--unknown-id,
+body.guard-embed-mode.student-popup-style--idcard .student-popup.student-popup--unknown-id{
+  width: clamp(260px, 50vw, 420px) !important;
+  max-width: min(92vw, 420px) !important;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: min(90vh, 520px);
+  overflow: visible;
+}
+body.guard-wall-mode .student-popup.student-popup--unknown-id .student-popup-body,
+body.event-scanner-dashboard-mode .student-popup.student-popup--unknown-id .student-popup-body,
+body.guard-embed-mode .student-popup.student-popup--unknown-id .student-popup-body{
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: visible;
+  padding: clamp(12px, 2.2vmin, 18px) clamp(14px, 2.5vmin, 22px);
+}
+body.guard-wall-mode .student-popup.student-popup--unknown-id .student-popup-top,
+body.event-scanner-dashboard-mode .student-popup.student-popup--unknown-id .student-popup-top,
+body.guard-embed-mode .student-popup.student-popup--unknown-id .student-popup-top{
+  flex: 0 1 auto;
+  min-height: 0;
+  margin-bottom: 8px;
+}
+body.guard-wall-mode .student-popup.student-popup--unknown-id .student-popup-header,
+body.event-scanner-dashboard-mode .student-popup.student-popup--unknown-id .student-popup-header,
+body.guard-embed-mode .student-popup.student-popup--unknown-id .student-popup-header{
+  padding: 10px 14px;
+}
+body.guard-wall-mode .student-popup.student-popup--unknown-id .student-popup-header h2,
+body.event-scanner-dashboard-mode .student-popup.student-popup--unknown-id .student-popup-header h2,
+body.guard-embed-mode .student-popup.student-popup--unknown-id .student-popup-header h2{
+  font-size: clamp(0.95rem, 2.4vmin, 1.2rem);
+}
+body.guard-wall-mode .student-popup.student-popup--unknown-id .student-popup-name,
+body.event-scanner-dashboard-mode .student-popup.student-popup--unknown-id .student-popup-name,
+body.guard-embed-mode .student-popup.student-popup--unknown-id .student-popup-name{
+  font-size: clamp(1rem, 2.6vmin, 1.35rem);
+  line-height: 1.3;
+}
+body.guard-wall-mode .student-popup.student-popup--unknown-id .student-popup-id,
+body.event-scanner-dashboard-mode .student-popup.student-popup--unknown-id .student-popup-id,
+body.guard-embed-mode .student-popup.student-popup--unknown-id .student-popup-id{
+  font-size: clamp(0.88rem, 2vmin, 1.05rem);
+}
+body.guard-wall-mode .student-popup.student-popup--unknown-id .student-popup-status,
+body.event-scanner-dashboard-mode .student-popup.student-popup--unknown-id .student-popup-status,
+body.guard-embed-mode .student-popup.student-popup--unknown-id .student-popup-status{
+  font-size: clamp(0.88rem, 2vmin, 1.05rem);
+  line-height: 1.35;
+  padding: 10px 12px;
+  margin-top: 10px;
+}
 /* Offline banner */
 .offline-banner{
   display:none; position:fixed; top:0; left:0; right:0; z-index:2000;
@@ -2221,6 +2392,32 @@ body.guard-wall-mode .guard-scanner-frame-wrap{ position:relative; z-index:1; }
 .manual-input .input-group select#manualReason option[value=""]{
   color:#6b7280;
 }
+.manual-input .manual-other-reason-wrap{
+  display:none;
+  margin-top:10px;
+  max-width:100%;
+}
+.manual-input .manual-other-reason-wrap label{
+  display:block;
+  font-size:12px;
+  font-weight:600;
+  color:#475569;
+  margin-bottom:6px;
+}
+.manual-input .manual-other-reason-wrap textarea#manualOtherReason{
+  width:100%;
+  min-height:64px;
+  padding:10px 12px;
+  border:1px solid #e2e8f0;
+  border-radius:8px;
+  font-size:14px;
+  resize:vertical;
+}
+.manual-input .manual-other-reason-wrap textarea#manualOtherReason:focus{
+  outline:none;
+  border-color:#28a745;
+  box-shadow:0 0 0 3px rgba(40,167,69,0.12);
+}
 .manual-input .input-group button{
   background: linear-gradient(135deg, #28a745, #1e7e34);
   border:none; border-radius:8px; padding:10px 16px;
@@ -2357,16 +2554,16 @@ body.guard-wall-mode .camera-control-row{
   }
 
   /* Logged-in staff (non-guard-wall): keep side-by-side */
-  body.staff-gate-scan:not(.guard-embed-mode):not(.guard-wall-mode) .main-content{
+  body.staff-gate-scan:not(.guard-embed-mode):not(.guard-wall-mode):not(.event-scanner-dashboard-mode) .main-content{
     flex-wrap:nowrap;
     align-items:stretch;
   }
-  body.staff-gate-scan:not(.guard-embed-mode):not(.guard-wall-mode) .main-content .scan-column{
+  body.staff-gate-scan:not(.guard-embed-mode):not(.guard-wall-mode):not(.event-scanner-dashboard-mode) .main-content .scan-column{
     flex:0 0 auto;
     width:min(520px, 38vw);
     max-width:520px;
   }
-  body.staff-gate-scan:not(.guard-embed-mode):not(.guard-wall-mode) .main-content .info-column{
+  body.staff-gate-scan:not(.guard-embed-mode):not(.guard-wall-mode):not(.event-scanner-dashboard-mode) .main-content .info-column{
     flex:1 1 0;
     min-width:0;
     align-self:stretch;
@@ -2384,6 +2581,55 @@ body.guard-wall-mode .camera-control-row{
     flex:0 0 auto;
     display:block;
   }
+
+  /* Event-only scanner (field-trip): side-by-side with instructions column */
+  body.event-scanner-dashboard-mode .main-content{
+    flex-wrap:nowrap;
+    flex-direction:row;
+    align-items:stretch;
+  }
+  body.event-scanner-dashboard-mode .main-content .scan-column{
+    flex:0 0 auto;
+    width:min(640px, 46vw);
+    max-width:640px;
+    align-self:stretch;
+  }
+  body.event-scanner-dashboard-mode .main-content .info-column{
+    flex:1 1 0;
+    min-width:0;
+    align-self:stretch;
+    overflow:visible;
+  }
+}
+/* Full-bleed page + framed camera like guard display (event scanner dashboard only) */
+body.event-scanner-dashboard-mode{
+  padding:0 !important;
+  min-height:100vh;
+  min-height:100dvh;
+  overflow-x:hidden;
+}
+body.event-scanner-dashboard-mode .container{
+  max-width:none !important;
+  width:100%;
+  margin-top:0;
+  border-radius:0;
+}
+body.event-scanner-dashboard-mode .scanner-container{
+  position:relative;
+  overflow:visible;
+}
+body.event-scanner-dashboard-mode .event-scanner-frame-wrap{
+  flex:0 0 auto;
+  margin:0 auto;
+  width:100%;
+  max-width:min(96vw, 980px);
+  display:block;
+}
+body.event-scanner-dashboard-mode .event-scanner-frame-wrap #reader{
+  width:100% !important;
+  max-width:100% !important;
+  height:clamp(320px, 52vh, 620px);
+  min-height:320px;
 }
 .kiosk-topbar{
   display:flex; align-items:center; gap:12px; flex-wrap:wrap;
@@ -2398,7 +2644,7 @@ body.guard-wall-mode .camera-control-row{
 .kiosk-fs-btn:hover{ filter:brightness(1.05); }
   </style>
 </head>
-<body{% if kiosk_mode %} class="gate-kiosk-mode staff-gate-scan{% if guard_embed %} guard-embed-mode student-popup-style--{{ guard_student_popup_style|default:'split' }}{% endif %}{% if guard_wall %} guard-wall-mode student-popup-style--{{ guard_student_popup_style|default:'split' }}{% endif %}"{% elif guard_embed %} class="guard-embed-mode student-popup-style--{{ guard_student_popup_style|default:'split' }}"{% else %} class="staff-gate-scan"{% endif %}>
+<body{% if kiosk_mode %} class="gate-kiosk-mode staff-gate-scan{% if guard_embed %} guard-embed-mode student-popup-style--{{ guard_student_popup_style|default:'split' }}{% endif %}{% if guard_wall %} guard-wall-mode student-popup-style--{{ guard_student_popup_style|default:'split' }}{% endif %}"{% elif guard_embed %} class="guard-embed-mode student-popup-style--{{ guard_student_popup_style|default:'split' }}"{% else %} class="staff-gate-scan{% if event_attendance_field_trip and event_attendance_scanner_event %} event-scanner-dashboard-mode student-popup-style--{{ guard_student_popup_style|default:'split' }}{% endif %}"{% endif %}>
 {% include 'base/confirm_modal.html' %}
     <!-- Offline / pending sync: clear messaging so staff see status and queue -->
     <div class="offline-banner" id="offlineBanner" aria-live="polite" role="status">
@@ -2442,24 +2688,8 @@ body.guard-wall-mode .camera-control-row{
                 </div>
                 <div class="student-popup-status in" id="studentPopupStatus"></div>
                 <div class="popup-schedule-status" id="popupScheduleStatus" style="display:none;" aria-live="polite"></div>
-                <div class="popup-early-out-form" id="popupRegistrationForm" style="display:none;">
-                    <label for="popupRegFirstName">First name</label>
-                    <textarea id="popupRegFirstName" style="min-height:44px; resize:none;" placeholder="First name"></textarea>
-                    <label for="popupRegLastName" style="margin-top:10px;">Last name</label>
-                    <textarea id="popupRegLastName" style="min-height:44px; resize:none;" placeholder="Last name"></textarea>
-                    <label for="popupRegSex" style="margin-top:10px;">Sex / Gender</label>
-                    <select id="popupRegSex" style="min-height:44px; width:100%;">
-                        <option value="">-- Select sex/gender --</option>
-                        <option value="MALE">Male</option>
-                        <option value="FEMALE">Female</option>
-                    </select>
-                    <label for="popupRegEmail" style="margin-top:10px;">Email (optional)</label>
-                    <textarea id="popupRegEmail" style="min-height:44px; resize:none;" placeholder="Email"></textarea>
-                    <div class="form-actions">
-                        <button type="button" class="popup-btn-back" id="popupBtnRegCancel"><i class="fas fa-times"></i> Cancel</button>
-                        <button type="button" class="popup-btn-submit-out" id="popupBtnRegSubmit"><i class="fas fa-check"></i> Register</button>
-                    </div>
-                </div>
+                <!-- Unknown IDs: no inline registration — only the standard popup message (see showStudentPopup). -->
+                <div id="popupRegistrationForm" style="display:none;" aria-hidden="true"></div>
                 <div class="popup-early-out-form" id="popupEarlyOutForm">
                     <div class="popup-in-class-notice" id="popupInClassNotice" style="display:none;"></div>
                     <div id="popupOutNoteBlock">
@@ -2763,7 +2993,7 @@ body.guard-wall-mode .camera-control-row{
                     <div class="live-entries-head">
                         <h3 id="live-entries-anchor"><i class="fas fa-door-open"></i> {% if event_attendance_scanner_event %}{% trans "Live event scans" %}{% else %}{% trans "Live Entries" %}{% endif %}</h3>
                     </div>
-                    <iframe id="liveEntriesIframe" class="live-entries-frame" src="{% if event_attendance_scanner_event %}{% url 'event-attendance-live-embed' event_attendance_scanner_event.id %}?embed=1{% else %}{% url 'gate-entry-list' %}?embed=1&amp;student_gate_only=1{% if guard_embed_token %}&amp;guard_token={{ guard_embed_token|urlencode }}{% endif %}{% if guard_wall %}&amp;live_panel=1{% endif %}{% endif %}" title="{% if event_attendance_scanner_event %}{% trans 'Live event attendance scans' %}{% else %}{% trans 'Live gate entries' %}{% endif %}"></iframe>
+                    <iframe id="liveEntriesIframe" class="live-entries-frame" src="{% if event_attendance_scanner_event %}{% url 'event-attendance-live-embed' event_attendance_scanner_event.id %}?embed=1{% if guard_embed_token %}&amp;guard_token={{ guard_embed_token|urlencode }}{% endif %}{% else %}{% url 'gate-entry-list' %}?embed=1&amp;student_gate_only=1{% if guard_embed_token %}&amp;guard_token={{ guard_embed_token|urlencode }}{% endif %}{% if guard_wall %}&amp;live_panel=1{% endif %}{% endif %}" title="{% if event_attendance_scanner_event %}{% trans 'Live event attendance scans' %}{% else %}{% trans 'Live gate entries' %}{% endif %}"></iframe>
                     <div class="live-entries-meta">
                         {% trans "Last refresh" %}: <span id="liveEntriesLastRefresh">--:--:--</span>
                         <a href="#gate-scan-scanner" class="live-entries-goto-scanner" id="liveEntriesGotoScanner" aria-label="{% trans 'Scroll to scanner' %}">↓ {% trans "Go to scanner" %}</a>
@@ -2783,8 +3013,112 @@ body.guard-wall-mode .camera-control-row{
         </div>
         <script>
         (function() {
+            /* Must run before any scan — guard wall script loads before the main gate_scan <script> block. */
+            if (typeof window.resolveGateScanPhotoUrl !== 'function') {
+                window.resolveGateScanPhotoUrl = function(student, response) {
+                    var u = (student && student.photo_url) || (response && response.photo_url) || '';
+                    if (u === null || u === undefined) u = '';
+                    u = String(u).trim();
+                    var sid = String((student && student.student_id) || (response && response.student_id) || '').trim();
+                    if (u && u !== 'null' && u !== 'undefined') {
+                        if (u.indexOf('/') === 0 && u.indexOf('//') !== 0) {
+                            return window.location.origin + u;
+                        }
+                        try {
+                            var parsed = new URL(u, window.location.href);
+                            var path = parsed.pathname || '';
+                            if ((path.indexOf('/media/') === 0 || path.indexOf('/static/') === 0) && parsed.origin !== window.location.origin) {
+                                return window.location.origin + path + (parsed.search || '') + (parsed.hash || '');
+                            }
+                        } catch (_e) {}
+                        return u;
+                    }
+                    /* Same file Live Entries uses: gate.models student_photo_upload_to → students/<id>/face.jpg */
+                    if (sid) {
+                        return window.location.origin + '/media/students/' + encodeURIComponent(sid) + '/face.jpg';
+                    }
+                    return '';
+                };
+            }
+            if (typeof window.applyGateScanPopupPhoto !== 'function') {
+                window.applyGateScanPopupPhoto = function(student, response) {
+                    var photoEl = document.getElementById('studentPopupPhoto');
+                    if (!photoEl) return;
+                    student = student || {};
+                    response = response || {};
+                    function initials() {
+                        var fn = (student.first_name || '').trim();
+                        var ln = (student.last_name || '').trim();
+                        if (fn && ln) return (fn.charAt(0) + ln.charAt(0)).toUpperCase();
+                        if (fn.length >= 2) return fn.substring(0, 2).toUpperCase();
+                        if (fn.length === 1) return (fn.charAt(0) + '·').toUpperCase();
+                        var nm = (response.student_name || '').trim();
+                        var parts = nm.split(/\s+/).filter(Boolean);
+                        if (parts.length >= 2) return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+                        if (parts.length === 1 && parts[0].length >= 2) return parts[0].substring(0, 2).toUpperCase();
+                        return '?';
+                    }
+                    function svgDataUrl(t) {
+                        var text = String(t || '?').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').substring(0, 3);
+                        var svg = '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" width="240" height="320" viewBox="0 0 240 320"><rect fill="#e8f5e9" width="240" height="320" rx="18"/><text x="120" y="188" text-anchor="middle" font-size="96" font-family="system-ui,sans-serif" fill="#1e7e34" font-weight="700">' + text + '</text></svg>';
+                        return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+                    }
+                    var ini = initials();
+                    var _pu = (typeof window.resolveGateScanPhotoUrl === 'function') ? window.resolveGateScanPhotoUrl(student, response) : '';
+                    var _sid = String((student && student.student_id) || (response && response.student_id) || '').trim();
+                    var _canon = _sid ? (window.location.origin + '/media/students/' + encodeURIComponent(_sid) + '/face.jpg') : '';
+                    photoEl._gatePhotoTriedCanon = false;
+                    photoEl._gatePhotoTriedSvg = false;
+                    photoEl.onload = function() {
+                        photoEl.style.display = 'block';
+                    };
+                    photoEl.onerror = function() {
+                        if (_canon && _pu !== _canon && !photoEl._gatePhotoTriedCanon) {
+                            photoEl._gatePhotoTriedCanon = true;
+                            photoEl.src = _canon;
+                            return;
+                        }
+                        if (!photoEl._gatePhotoTriedSvg) {
+                            photoEl._gatePhotoTriedSvg = true;
+                            photoEl.src = svgDataUrl(ini);
+                            return;
+                        }
+                        photoEl.style.display = 'none';
+                    };
+                    if (!_pu) {
+                        photoEl._gatePhotoTriedSvg = true;
+                        photoEl.src = svgDataUrl(ini);
+                        photoEl.style.display = 'block';
+                        return;
+                    }
+                    photoEl.style.display = 'block';
+                    photoEl.src = _pu;
+                };
+            }
+            /* Matches gate.models Student.YEAR_LEVEL_CHOICES display labels */
+            if (typeof window.formatGatePopupCourseLine !== 'function') {
+                window.formatGatePopupCourseLine = function(student) {
+                    student = student || {};
+                    var map = { '1': '1st Year', '2': '2nd Year', '3': '3rd Year', '4': '4th Year' };
+                    var c = (student.course_or_section || '').trim();
+                    var raw = (student.year_level || '').trim();
+                    var y = map[raw] || raw;
+                    if (c && y) return c + ' · ' + y;
+                    if (c) return c;
+                    if (y) return y;
+                    return '';
+                };
+            }
             var token = '{{ guard_embed_token|escapejs }}';
-            if (!token) return;
+            if (!token) {
+                try {
+                    token = (new URLSearchParams(window.location.search).get('token') || '').trim();
+                } catch (_eTok) {}
+            }
+            if (!token) {
+                console.warn('[Guard Wall] No guard token in page or ?token= — camera/switch/poll disabled.');
+                return;
+            }
             var url = '/gate/api/guard-dashboard/?token=' + encodeURIComponent(token) + '&minimal=1';
             var unlocked = false;
 
@@ -2796,6 +3130,9 @@ body.guard-wall-mode .camera-control-row{
             var _gwLastCode = '';
             var _gwLastTime = 0;
             var _gwSaveScanUrl = "{% url 'save_scan_guard' %}";
+            /* Event attendance on guard wall must hit scan_event_qr_guard (AttendanceLog + EventAttendance), not save_scan_guard. */
+            var _gwEventId = {% if event_attendance_scanner_event %}{{ event_attendance_scanner_event.id }}{% else %}null{% endif %};
+            var _gwEventScanUrl = "{% url 'scan_event_qr_guard' %}";
             var _gwCsrf = "{{ csrf_token }}";
             var _gwGuardToken = token;
 
@@ -2958,11 +3295,14 @@ body.guard-wall-mode .camera-control-row{
                 var headerEl = overlay.querySelector('.student-popup-header h2');
                 var formEl = el('popupEarlyOutForm');
                 var regEl = el('popupRegistrationForm');
+                var _gwShell = overlay.querySelector('.student-popup');
+                if (_gwShell) _gwShell.classList.toggle('student-popup--unknown-id', !!response.not_registered);
+                var _gwDet = document.querySelector('.student-popup-details');
+                if (_gwDet) _gwDet.style.display = '';
 
                 if (nameEl) nameEl.textContent = response.student_name || (student.first_name + ' ' + student.last_name).trim() || '';
                 if (idEl) idEl.textContent = 'ID: ' + (student.student_id || '');
-                var courseParts = [student.course_or_section || '', student.year_level || ''].filter(Boolean);
-                if (courseEl) courseEl.textContent = courseParts.join(' · ');
+                if (courseEl) courseEl.textContent = (typeof window.formatGatePopupCourseLine === 'function') ? window.formatGatePopupCourseLine(student) : '';
                 if (emailEl) emailEl.textContent = student.email || 'No email';
                 if (scanTypeEl) scanTypeEl.textContent = (response.status === 'OUT' ? 'OUT' : 'IN');
                 if (timeEl) timeEl.textContent = response.time || new Date().toLocaleTimeString();
@@ -2976,16 +3316,35 @@ body.guard-wall-mode .camera-control-row{
                     statusEl.className = 'student-popup-status ' + (response.status === 'OUT' ? 'out' : 'in');
                 }
                 if (headerEl) {
-                    if (response.not_registered) headerEl.innerHTML = '<i class="fas fa-user-plus"></i> Not Registered';
+                    if (response.not_registered) headerEl.innerHTML = '<i class="fas fa-id-card"></i> Unknown student ID';
                     else if (response.inactive) headerEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Activation Required';
                     else headerEl.innerHTML = '<i class="fas fa-user-check"></i> Scan successful';
                 }
+                if (response.not_registered) {
+                    if (nameEl) nameEl.textContent = 'This ID is not in the system.';
+                    if (idEl) {
+                        var _uid = (response.student_id || '').trim();
+                        idEl.textContent = _uid ? ('Scanned ID: ' + _uid) : '—';
+                    }
+                    if (courseEl) courseEl.textContent = '';
+                    var _det = document.querySelector('.student-popup-details');
+                    if (_det) _det.style.display = 'none';
+                    if (statusEl) {
+                        statusEl.textContent = response.message || 'This student ID is not recognized. No attendance was recorded.';
+                        statusEl.className = 'student-popup-status duplicate';
+                    }
+                    var _pw = document.querySelector('.student-popup-photo-wrap');
+                    if (_pw) _pw.style.display = 'none';
+                }
                 if (formEl) { formEl.classList.remove('show'); formEl.style.display = 'none'; }
                 if (regEl) regEl.style.display = 'none';
+                if (!response.not_registered && typeof window.applyGateScanPopupPhoto === 'function') {
+                  window.applyGateScanPopupPhoto(student, response);
+                }
                 overlay.classList.add('show');
 
                 if (window._gwPopupTimer) clearTimeout(window._gwPopupTimer);
-                if (!response.not_registered && !response.inactive && !response.require_note && !response.denied) {
+                if (!response.inactive && !response.require_note && !response.denied) {
                     window._gwPopupTimer = setTimeout(function() {
                         overlay.classList.remove('show');
                     }, 5000);
@@ -3114,14 +3473,27 @@ body.guard-wall-mode .camera-control-row{
                 var item = _gwOfflineQueue[0];
                 if (!item) { _gwSyncing = false; _gwUpdateBanner(); return; }
 
-                var postBody = 'student_id=' + encodeURIComponent(item.student_id)
-                    + '&device_id=' + encodeURIComponent(item.device_id || 'guard-wall')
-                    + '&csrfmiddlewaretoken=' + encodeURIComponent(_gwGetCsrf())
-                    + '&guard_token=' + encodeURIComponent(_gwGuardToken);
-                if (item.local_time) postBody += '&local_time=' + encodeURIComponent(item.local_time);
+                var postBody;
+                var syncUrl = _gwSaveScanUrl;
+                if (item.event_id) {
+                    syncUrl = _gwEventScanUrl;
+                    postBody = 'event_id=' + encodeURIComponent(item.event_id)
+                        + '&qr=' + encodeURIComponent(item.student_id)
+                        + '&scan_type=IN'
+                        + '&device_id=' + encodeURIComponent(item.device_id || 'guard-wall')
+                        + '&csrfmiddlewaretoken=' + encodeURIComponent(_gwGetCsrf())
+                        + '&guard_token=' + encodeURIComponent(_gwGuardToken);
+                    if (item.client_ts) postBody += '&client_scan_time=' + encodeURIComponent(item.client_ts);
+                } else {
+                    postBody = 'student_id=' + encodeURIComponent(item.student_id)
+                        + '&device_id=' + encodeURIComponent(item.device_id || 'guard-wall')
+                        + '&csrfmiddlewaretoken=' + encodeURIComponent(_gwGetCsrf())
+                        + '&guard_token=' + encodeURIComponent(_gwGuardToken);
+                    if (item.local_time) postBody += '&local_time=' + encodeURIComponent(item.local_time);
+                }
 
                 var xhr = new XMLHttpRequest();
-                xhr.open('POST', _gwSaveScanUrl, true);
+                xhr.open('POST', syncUrl, true);
                 xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
                 xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
                 xhr.timeout = 10000;
@@ -3188,6 +3560,7 @@ body.guard-wall-mode .camera-control-row{
 
                 var record = {
                     student_id: parsedQr,
+                    event_id: _gwEventId || null,
                     device_id: localStorage.getItem('scanner_device_id') || 'guard-wall',
                     timestamp: Date.now(),
                     local_time: new Date().toISOString(),
@@ -3246,14 +3619,26 @@ body.guard-wall-mode .camera-control-row{
                     if (sp) sp.textContent = 'Processing QR code...';
                 }
 
-                console.log('[Guard Wall Scan] Sending to server:', parsedQr);
-                var postBody = 'student_id=' + encodeURIComponent(parsedQr)
-                    + '&device_id=' + encodeURIComponent(localStorage.getItem('scanner_device_id') || 'guard-wall')
-                    + '&csrfmiddlewaretoken=' + encodeURIComponent(_gwGetCsrf())
-                    + '&guard_token=' + encodeURIComponent(_gwGuardToken);
+                console.log('[Guard Wall Scan] Sending to server:', parsedQr, 'eventId:', _gwEventId);
+                var postBody;
+                var reqUrl = _gwSaveScanUrl;
+                if (_gwEventId) {
+                    reqUrl = _gwEventScanUrl;
+                    postBody = 'event_id=' + encodeURIComponent(_gwEventId)
+                        + '&qr=' + encodeURIComponent(parsedQr)
+                        + '&scan_type=IN'
+                        + '&device_id=' + encodeURIComponent(localStorage.getItem('scanner_device_id') || 'guard-wall')
+                        + '&csrfmiddlewaretoken=' + encodeURIComponent(_gwGetCsrf())
+                        + '&guard_token=' + encodeURIComponent(_gwGuardToken);
+                } else {
+                    postBody = 'student_id=' + encodeURIComponent(parsedQr)
+                        + '&device_id=' + encodeURIComponent(localStorage.getItem('scanner_device_id') || 'guard-wall')
+                        + '&csrfmiddlewaretoken=' + encodeURIComponent(_gwGetCsrf())
+                        + '&guard_token=' + encodeURIComponent(_gwGuardToken);
+                }
 
                 var xhr = new XMLHttpRequest();
-                xhr.open('POST', _gwSaveScanUrl, true);
+                xhr.open('POST', reqUrl, true);
                 xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
                 xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
                 xhr.timeout = 8000;
@@ -3279,12 +3664,49 @@ body.guard-wall-mode .camera-control-row{
                         var resultDiv = document.getElementById('result');
                         var currentTime = new Date().toLocaleTimeString();
 
-                        if (resp.success) {
+                        if (resp.ok && resp.result === 'SUCCESS') {
+                            /* Event scan (scan_event_qr_guard) */
+                            var stu = resp.student || {};
+                            var evNorm = {
+                                success: true,
+                                message: resp.message || 'Recorded',
+                                status: resp.status || resp.scan_type || 'IN',
+                                time: resp.time,
+                                student_name: resp.student_name || stu.name || ((stu.first_name || '') + ' ' + (stu.last_name || '')).trim(),
+                                student: stu,
+                                event_attendance: true
+                            };
+                            _gwBeepSuccess();
+                            if (resultDiv) { resultDiv.innerHTML = resp.message || 'Scan recorded'; resultDiv.className = 'success'; }
+                            var notifTypeEv = (evNorm.status === 'OUT') ? 'out' : 'in';
+                            _gwNotify(resp.message || 'Scan recorded', notifTypeEv, evNorm.student_name, resp.time || currentTime);
+                            _gwShowPopup(evNorm);
+                            try {
+                                if (typeof refreshLiveEntriesPanel === 'function') refreshLiveEntriesPanel(true);
+                            } catch (_rlp) {}
+                        } else if (resp.result === 'DUPLICATE' || resp.result === 'INVALID' || resp.result === 'NOT_CHECKED_IN') {
+                            /* Event scan endpoint uses ok/result (not success) */
+                            _gwBeepError();
+                            if (resultDiv) { resultDiv.innerHTML = resp.message || 'Scan not recorded'; resultDiv.className = 'warning'; }
+                            _gwNotify(resp.message || 'Scan not recorded', 'warning', '', currentTime);
+                            if (resp.student && (resp.student.name || resp.student.student_id)) {
+                                _gwShowPopup({
+                                    success: false,
+                                    message: resp.message,
+                                    student: resp.student,
+                                    student_name: resp.student.name,
+                                    already_scanned: resp.result === 'DUPLICATE'
+                                });
+                            }
+                        } else if (resp.success) {
                             _gwBeepSuccess();
                             if (resultDiv) { resultDiv.innerHTML = resp.message || 'Scan recorded'; resultDiv.className = 'success'; }
                             var notifType = (resp.status === 'OUT') ? 'out' : 'in';
                             _gwNotify(resp.message || 'Scan recorded', notifType, resp.student_name, resp.time || currentTime);
                             _gwShowPopup(resp);
+                            try {
+                                if (typeof refreshLiveEntriesPanel === 'function') refreshLiveEntriesPanel(true);
+                            } catch (_rlp2) {}
                         } else if (resp.not_registered || resp.inactive) {
                             _gwBeepError();
                             if (resultDiv) { resultDiv.innerHTML = resp.message || 'Not registered'; resultDiv.className = 'warning'; }
@@ -3442,6 +3864,60 @@ body.guard-wall-mode .camera-control-row{
                 return out;
             }
 
+            /**
+             * List video input devices for guard-inline / guard-display. Html5Qrcode.getCameras()
+             * can reject or return [] until camera permission is granted (Edge/Chrome behavior).
+             * Prime with getUserMedia, then retry; finally map enumerateDevices() if needed.
+             */
+            function guardInlineMapEnumerateToCams() {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+                    return Promise.resolve([]);
+                }
+                return navigator.mediaDevices.enumerateDevices().then(function(devices) {
+                    var out = [];
+                    for (var i = 0; i < devices.length; i++) {
+                        if (devices[i].kind === 'videoinput') {
+                            out.push({ id: devices[i].deviceId, label: devices[i].label || '' });
+                        }
+                    }
+                    return out;
+                });
+            }
+            function guardInlinePrimeCameraPermission() {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    return Promise.reject(new Error('getUserMedia unavailable'));
+                }
+                return navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) {
+                    try { stream.getTracks().forEach(function(t) { t.stop(); }); } catch (_e) {}
+                });
+            }
+            function guardInlineListCameras() {
+                if (typeof Html5Qrcode === 'undefined') {
+                    return Promise.resolve([]);
+                }
+                function recoverAfterEmptyOrError() {
+                    return guardInlineMapEnumerateToCams().then(function(mapped) {
+                        if (mapped && mapped.length) return mapped;
+                        return guardInlinePrimeCameraPermission().then(function() {
+                            return Html5Qrcode.getCameras();
+                        }).then(function(c2) {
+                            if (c2 && c2.length) return c2;
+                            return guardInlineMapEnumerateToCams();
+                        });
+                    }).catch(function(e) {
+                        console.warn('[Guard Inline] camera list recovery failed:', e);
+                        return [];
+                    });
+                }
+                return Html5Qrcode.getCameras().then(function(cams) {
+                    if (cams && cams.length) return cams;
+                    return recoverAfterEmptyOrError();
+                }).catch(function(err) {
+                    console.warn('[Guard Inline] getCameras failed, falling back to enumerate / prime:', err);
+                    return recoverAfterEmptyOrError();
+                });
+            }
+
             function tryStartCameraCandidate(instance, candidates, config, onSuccess, idx) {
                 if (idx >= candidates.length) {
                     console.error('[Guard Inline Poll] No camera candidate worked');
@@ -3491,7 +3967,7 @@ body.guard-wall-mode .camera-control-row{
                         _gwHandleScan(decoded);
                     };
                     var config = { fps: 10, qrbox: qrbox, disableFlip: false };
-                    Html5Qrcode.getCameras().then(function(cams) {
+                    guardInlineListCameras().then(function(cams) {
                         var candidates = buildCameraCandidates(pref, cams || []);
                         tryStartCameraCandidate(instance, candidates, config, onSuccess, 0);
                     }).catch(function() {
@@ -3636,6 +4112,7 @@ body.guard-wall-mode .camera-control-row{
                     return;
                 }
                 _switching = true;
+                try { window._guardInlineCameraSwitching = true; } catch (_sw) {}
                 var btn = document.getElementById('gateSwitchCameraBtn');
                 if (btn) btn.disabled = true;
                 if (btn) btn.textContent = 'Switching…';
@@ -3667,7 +4144,7 @@ body.guard-wall-mode .camera-control-row{
 
                 // Step 2: Get camera list.
                 console.log('[Switch] Step 1: enumerating cameras…');
-                Html5Qrcode.getCameras().then(function(cams) {
+                guardInlineListCameras().then(function(cams) {
                     _allCameras = cams || [];
                     setStatus('Found ' + _allCameras.length + ' camera(s)');
                     console.log('[Switch] Found ' + _allCameras.length + ' camera(s):');
@@ -3743,8 +4220,8 @@ body.guard-wall-mode .camera-control-row{
                         }, 400);
                     });
                 }).catch(function(err) {
-                    console.error('[Switch] getCameras() failed:', err);
-                    done('Cannot list cameras');
+                    console.error('[Switch] guardInlineListCameras() failed:', err);
+                    done('Cannot list cameras. Allow camera access for this site, then try again.');
                 });
             }
 
@@ -3794,7 +4271,7 @@ body.guard-wall-mode .camera-control-row{
 
                 // Initial populate
                 try {
-                    Html5Qrcode.getCameras().then(populate).catch(function() {});
+                    guardInlineListCameras().then(populate).catch(function() {});
                 } catch (_e0) {}
 
                 // On change: switch to selected device id
@@ -4060,6 +4537,7 @@ body.guard-wall-mode .camera-control-row{
                         <div class="header-user-dropdown-menu" id="headerUserDropdownMenu" role="menu">
                             <a href="{% url 'dashboard' %}" role="menuitem"><i class="fas fa-th-large"></i> {% trans "Dashboard" %}</a>
                             <a href="{% url 'profile-edit' %}" role="menuitem"><i class="fas fa-user-edit"></i> {% trans "My profile" %}</a>
+                            <a href="{% url 'password_change' %}" role="menuitem"><i class="fas fa-key"></i> {% trans "Change password" %}</a>
                             {% if user_role == 'staff' or user_role == 'faculty' %}
                             <a href="{% url 'account-settings' %}" role="menuitem"><i class="fas fa-cog"></i> {% trans "Account" %}</a>
                             <a href="{% url 'preferences' %}" role="menuitem"><i class="fas fa-sliders-h"></i> {% trans "Preferences" %}</a>
@@ -4090,52 +4568,6 @@ body.guard-wall-mode .camera-control-row{
                     <i class="fas fa-door-open"></i> {% if event_attendance_scanner_event %}{% trans "Event scans" %}{% else %}{% trans "Live Entries" %}{% endif %}
                 </button>
             </div>
-        </div>
-        {% endif %}
-
-        <!-- Event selector: on-campus events (staff can scan students for events) — not on guard-only monitor -->
-        {% if not guard_embed and event_attendance_scanner_event %}
-        <div class="event-selector-bar event-selector-bar--locked">
-            <div class="event-label">
-                <i class="fas fa-calendar-check"></i>
-                <span>Event:</span>
-            </div>
-            <div class="event-locked-name" style="flex:1; min-width:0; font-weight:600; color:#1b5e20;">
-                {{ event_attendance_scanner_event.name }}
-                <span class="text-muted font-weight-normal small">({{ event_attendance_scanner_event.start_date|date:"M d" }} – {{ event_attendance_scanner_event.end_date|date:"M d, Y" }})</span>
-            </div>
-            <a href="{% url 'event-attendance-scanner' %}" class="btn btn-sm btn-outline-secondary" style="white-space:nowrap;"><i class="fas fa-arrow-left"></i> {% trans "Events" %}</a>
-            <a href="{% url 'event-attendance-report' event_attendance_scanner_event.id %}" class="btn btn-sm btn-outline-success" style="white-space:nowrap;"><i class="fas fa-chart-bar"></i> {% trans "Report" %}</a>
-            <div class="event-current-badge" id="currentEventBadge" style="display:inline-flex;">
-                <i class="fas fa-flag"></i>
-                <span id="currentEventName">{{ event_attendance_scanner_event.name }}</span>
-            </div>
-            <button type="button" id="eventAttendeesBtn" class="event-attendees-btn" style="display:inline-flex; margin-left:auto;" title="{% trans 'View event attendees' %}">
-                <i class="fas fa-users"></i> {% trans "Event attendees" %}
-            </button>
-        </div>
-        <select id="eventSelector" style="display:none;" aria-hidden="true">
-            <option value="{{ event_attendance_scanner_event.id }}" selected>{{ event_attendance_scanner_event.name }}</option>
-        </select>
-        {% elif active_events and not guard_embed %}
-        <div class="event-selector-bar">
-            <div class="event-label">
-                <i class="fas fa-calendar-check"></i>
-                <span>Tracking event:</span>
-            </div>
-            <select id="eventSelector">
-                <option value="">Daily Gate Entry (No event)</option>
-                {% for event in active_events %}
-                <option value="{{ event.id }}">{{ event.name }} ({{ event.start_date|date:"M d" }} - {{ event.end_date|date:"M d, Y" }})</option>
-                {% endfor %}
-            </select>
-            <div class="event-current-badge" id="currentEventBadge" style="display:none;">
-                <i class="fas fa-flag"></i>
-                <span id="currentEventName"></span>
-            </div>
-            <button type="button" id="eventAttendeesBtn" class="event-attendees-btn" style="display:none; margin-left:auto;" title="View event attendees">
-                <i class="fas fa-users"></i> Event attendees
-            </button>
         </div>
         {% endif %}
 
@@ -4195,12 +4627,18 @@ body.guard-wall-mode .camera-control-row{
                         <p class="guard-scanner-instruction__text" data-hint-camera="{% trans 'Ensure the QR code is clearly visible within the scanner frame' %}" data-hint-usb="{% trans 'USB scanner mode: aim the handheld scanner at the phone or card. The camera preview is paused.' %}">{% trans "Ensure the QR code is clearly visible within the scanner frame" %}</p>
                     </div>
                     {% else %}
+                    {% if event_attendance_field_trip and event_attendance_scanner_event %}
+                    <div class="guard-scanner-frame-wrap event-scanner-frame-wrap">
+                        <div id="reader"></div>
+                    </div>
+                    {% else %}
                     <div id="reader"></div>
+                    {% endif %}
                     {% endif %}
                     {% if not guard_wall %}
                     <div class="camera-control-row">
-                        <div class="camera-controls {% if not guard_embed and not event_attendance_field_trip %}camera-controls--with-entry-mode{% endif %}">
-                            {% if not guard_embed and not event_attendance_field_trip %}
+                        <div class="camera-controls {% if not guard_embed %}camera-controls--with-entry-mode{% endif %}">
+                            {% if not guard_embed %}
                             <div class="camera-controls__entry-mode">
                                 <label for="gateInputMode" class="entry-mode-label">{% trans "Entry input" %}</label>
                                 <select id="gateInputMode" class="gate-input-mode-select" title="{% trans 'Use the webcam for on-screen QR codes, or a USB handheld scanner (keyboard wedge).' %}">
@@ -4228,14 +4666,18 @@ body.guard-wall-mode .camera-control-row{
                         </div>
                         <div id="gateCameraHelp" class="camera-help-note"></div>
                         <p class="small text-muted mb-0 mt-1">{% trans "Default / auto uses this device’s current camera (last used or system default). Use Switch to pick another camera if needed." %}</p>
-                        {% if not guard_embed and not event_attendance_field_trip %}
+                        {% if not guard_embed %}
                         <div class="scan-column-usb-extras">
                             <div id="gateUsbScannerHint">
                                 <details class="usb-help">
                                     <summary>{% trans "USB scanner help" %}</summary>
                                     <div class="usb-help__body">
                                         <p><strong>{% trans "USB mode" %}:</strong> {% trans "the camera is paused; scans are read from the handheld scanner." %}</p>
+                                        {% if event_attendance_field_trip %}
+                                        <p class="usb-help__muted">{% trans "If nothing appears when you scan, test in Notepad. The device must be in USB HID keyboard mode." %}</p>
+                                        {% else %}
                                         <p class="usb-help__muted">{% trans "Lost IDs: use Manual Entry on the right (Ctrl+M)." %}</p>
+                                        {% endif %}
                                     </div>
                                 </details>
                             </div>
@@ -4246,7 +4688,7 @@ body.guard-wall-mode .camera-control-row{
                         {% endif %}
                     </div>
                     {% if not guard_embed %}
-                    <p class="scanner-text" id="gateScannerFramingHint" data-hint-camera="{% trans 'Position the QR code within the frame' %}" data-hint-usb="{% trans 'USB scanner mode — camera paused. Use manual entry on the right for lost IDs (Ctrl+M).' %}">{% trans "Position the QR code within the frame" %}</p>
+                    <p class="scanner-text" id="gateScannerFramingHint" data-hint-camera="{% trans 'Position the QR code within the frame' %}" data-hint-usb="{% if event_attendance_field_trip %}{% trans 'USB scanner mode — camera paused. Point the scanner at the QR; ensure the device is in keyboard (HID) mode.' %}{% else %}{% trans 'USB scanner mode — camera paused. Use manual entry on the right for lost IDs (Ctrl+M).' %}{% endif %}">{% trans "Position the QR code within the frame" %}</p>
                     {% endif %}
                     {% endif %}
                     <div class="status-indicator">
@@ -4261,17 +4703,21 @@ body.guard-wall-mode .camera-control-row{
                 <div class="manual-input manual-input--side-column">
                     <h3><i class="fas fa-keyboard"></i> Manual Entry (Student)</h3>
                     <p id="manualEntryEventHint" class="small text-muted mb-2" style="display:none;"></p>
-                    <p class="small text-muted mb-2">{% trans "Check out: enter name or student ID only, leave office routing blank, then Enter or Submit. Check in with concern: choose office routing (ID concern -> Student Affairs), then Enter or Submit." %}</p>
+                    <p class="small text-muted mb-2">{% trans "Check-in (arriving): enter name or ID, choose routing, then Submit. If you choose Others, type the reason. Check-out (leaving): enter name or ID only — leave routing blank, then Submit." %}</p>
                     <div class="input-group">
                         <input type="text" id="manualInput" placeholder="{% trans 'Name or student ID' %}" autocomplete="off">
                         <span id="manualStatusWrap">
-                        <select id="manualReason" class="is-placeholder" title="{% trans 'Office routing for manual concern handling' %}">
-                            <option value="">{% trans "Office routing (optional for check-out)" %}</option>
-                            <option value="SAS_ID_CONCERN">{% trans "Student Affairs (SAS) - ID concern" %}</option>
-                            <option value="GATE_RESOLVED_OFFICE_ENDORSEMENT">{% trans "Resolved at gate / Endorse to proper office" %}</option>
+                        <select id="manualReason" class="is-placeholder" title="{% trans 'Required for check-in; leave blank for check-out' %}">
+                            <option value="">{% trans "Choose reason (required for check-in)" %}</option>
+                            <option value="SAS_ID_CONCERN">{% trans "ID concerns — notify Student Affairs (SAS)" %}</option>
+                            <option value="GATE_RESOLVED_OFFICE_ENDORSEMENT">{% trans "Others" %}</option>
                         </select>
                         </span>
                         <button type="button" id="manualSubmit"><i class="fas fa-paper-plane"></i> {% trans "Submit" %}</button>
+                    </div>
+                    <div id="manualOtherReasonWrap" class="manual-other-reason-wrap" style="display:none;">
+                        <label for="manualOtherReason">{% trans "Reason (required for Others)" %}</label>
+                        <textarea id="manualOtherReason" maxlength="500" rows="2" placeholder="{% trans 'e.g. lost ID or why manual check-in' %}" autocomplete="off"></textarea>
                     </div>
                 </div>
                 {% endif %}
@@ -4301,6 +4747,18 @@ body.guard-wall-mode .camera-control-row{
             </div>
                 </div>
                 {% if not guard_embed %}
+                {% if event_attendance_field_trip %}
+                <div class="instructions instructions--field-trip">
+                    <h3><i class="fas fa-info-circle"></i> {% trans "Instructions" %}</h3>
+                    <ol>
+                        <li>{% trans "Ensure the QR code is clearly visible within the scanner frame." %}</li>
+                        <li>{% trans "Hold your device steady for accurate scanning." %}</li>
+                        <li>{% trans "The system will automatically process valid student ID QR codes." %}</li>
+                        <li>{% trans "To view today's full scan list for this event, open Event scans in the bar above." %}</li>
+                        <li>{% trans "Check-in is recorded on the first scan; check-out is allowed after the event is marked completed." %}</li>
+                    </ol>
+                </div>
+                {% else %}
                 <div class="instructions">
                     <h3><i class="fas fa-info-circle"></i> Instructions</h3>
                     <ol>
@@ -4308,10 +4766,10 @@ body.guard-wall-mode .camera-control-row{
                         <li>Hold your device steady for accurate scanning</li>
                         <li>The system will automatically process valid student ID QR codes</li>
                         <li>Results will be displayed in the scan area after scanning</li>
-                        {% if not event_attendance_field_trip %}<li>Use manual entry if QR code is not scanning properly</li>{% endif %}
-                        {% if event_attendance_field_trip %}<li>{% trans "Check-in is recorded on first scan; check-out when the event is marked completed." %}</li>{% endif %}
+                        <li>Use manual entry if QR code is not scanning properly</li>
                     </ol>
                 </div>
+                {% endif %}
                 {% endif %}
             </div>
         </div>
@@ -4326,6 +4784,9 @@ window.GATE_GUARD_DASHBOARD_MINIMAL_URL = {% if guard_embed_token %}"{% url 'gat
 window.GATE_SAVE_SCAN_URL = (window.GUARD_EMBED_TOKEN && (window.GATE_GUARD_WALL || window.GATE_GUARD_EMBED))
   ? "{% url 'save_scan_guard' %}"
   : "{% url 'save_scan' %}";
+window.SCAN_EVENT_QR_URL = (window.GUARD_EMBED_TOKEN && (window.GATE_GUARD_WALL || window.GATE_GUARD_EMBED))
+  ? "{% url 'scan_event_qr_guard' %}"
+  : "{% url 'scan_event_qr' %}";
 
 // Guard-display page: force wall mode and poll URL (token must match server GATE_GUARD_DISPLAY_TOKEN).
 if (window.location.pathname.indexOf('/guard-display/') !== -1) {
@@ -4354,6 +4815,9 @@ window.EVENT_FIELD_TRIP_POST_URL = {% if event_attendance_field_trip and event_a
 console.log('=== WINDOW VARIABLES DIAGNOSTIC ===');
 console.log('URL pathname:', window.location.pathname);
 console.log('URL search:', window.location.search);
+console.log('EVENT_ATTENDANCE_FIELD_TRIP_MODE:', window.EVENT_ATTENDANCE_FIELD_TRIP_MODE);
+console.log('EVENT_ATTENDANCE_SCANNER_EVENT_ID:', window.EVENT_ATTENDANCE_SCANNER_EVENT_ID);
+console.log('EVENT_FIELD_TRIP_POST_URL:', window.EVENT_FIELD_TRIP_POST_URL);
 console.log('GUARD_EMBED_TOKEN:', window.GUARD_EMBED_TOKEN);
 console.log('GATE_GUARD_EMBED:', window.GATE_GUARD_EMBED);
 console.log('GATE_GUARD_WALL:', window.GATE_GUARD_WALL);
@@ -4373,6 +4837,119 @@ function guardTokenPayload() {
     return { guard_token: window.GUARD_EMBED_TOKEN };
   }
   return {};
+}
+/** Django CSRF cookie — used by scan POSTs, offline sync, etc. (must be global; field-trip layout omits manual-entry block where a partial fallback lived). */
+function getCookie(name) {
+  var cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    var cookies = document.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++) {
+      var cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+function getCsrfFromCookie() {
+  return getCookie('csrftoken') || '';
+}
+/** Scan popup <img src> (non–guard-wall pages only if guard block did not run). */
+if (typeof window.resolveGateScanPhotoUrl !== 'function') {
+  window.resolveGateScanPhotoUrl = function(student, response) {
+    var u = (student && student.photo_url) || (response && response.photo_url) || '';
+    if (u === null || u === undefined) u = '';
+    u = String(u).trim();
+    var sid = String((student && student.student_id) || (response && response.student_id) || '').trim();
+    if (u && u !== 'null' && u !== 'undefined') {
+      if (u.indexOf('/') === 0 && u.indexOf('//') !== 0) {
+        return window.location.origin + u;
+      }
+      try {
+        var parsed = new URL(u, window.location.href);
+        var path = parsed.pathname || '';
+        if ((path.indexOf('/media/') === 0 || path.indexOf('/static/') === 0) && parsed.origin !== window.location.origin) {
+          return window.location.origin + path + (parsed.search || '') + (parsed.hash || '');
+        }
+      } catch (_e) {}
+      return u;
+    }
+    if (sid) {
+      return window.location.origin + '/media/students/' + encodeURIComponent(sid) + '/face.jpg';
+    }
+    return '';
+  };
+}
+/** When no file on disk (404) or no photo in DB, show initials in the scan popup instead of an empty column (guard wall split layout). */
+if (typeof window.applyGateScanPopupPhoto !== 'function') {
+  window.applyGateScanPopupPhoto = function(student, response) {
+    var photoEl = document.getElementById('studentPopupPhoto');
+    if (!photoEl) return;
+    student = student || {};
+    response = response || {};
+    function initials() {
+      var fn = (student.first_name || '').trim();
+      var ln = (student.last_name || '').trim();
+      if (fn && ln) return (fn.charAt(0) + ln.charAt(0)).toUpperCase();
+      if (fn.length >= 2) return fn.substring(0, 2).toUpperCase();
+      if (fn.length === 1) return (fn.charAt(0) + '·').toUpperCase();
+      var nm = (response.student_name || '').trim();
+      var parts = nm.split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+      if (parts.length === 1 && parts[0].length >= 2) return parts[0].substring(0, 2).toUpperCase();
+      return '?';
+    }
+    function svgDataUrl(t) {
+      var text = String(t || '?').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').substring(0, 3);
+      var svg = '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" width="240" height="320" viewBox="0 0 240 320"><rect fill="#e8f5e9" width="240" height="320" rx="18"/><text x="120" y="188" text-anchor="middle" font-size="96" font-family="system-ui,sans-serif" fill="#1e7e34" font-weight="700">' + text + '</text></svg>';
+      return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    }
+    var ini = initials();
+    var _pu = (typeof window.resolveGateScanPhotoUrl === 'function') ? window.resolveGateScanPhotoUrl(student, response) : '';
+    var _sid = String((student && student.student_id) || (response && response.student_id) || '').trim();
+    var _canon = _sid ? (window.location.origin + '/media/students/' + encodeURIComponent(_sid) + '/face.jpg') : '';
+    photoEl._gatePhotoTriedCanon = false;
+    photoEl._gatePhotoTriedSvg = false;
+    photoEl.onload = function() {
+      photoEl.style.display = 'block';
+    };
+    photoEl.onerror = function() {
+      if (_canon && _pu !== _canon && !photoEl._gatePhotoTriedCanon) {
+        photoEl._gatePhotoTriedCanon = true;
+        photoEl.src = _canon;
+        return;
+      }
+      if (!photoEl._gatePhotoTriedSvg) {
+        photoEl._gatePhotoTriedSvg = true;
+        photoEl.src = svgDataUrl(ini);
+        return;
+      }
+      photoEl.style.display = 'none';
+    };
+    if (!_pu) {
+      photoEl._gatePhotoTriedSvg = true;
+      photoEl.src = svgDataUrl(ini);
+      photoEl.style.display = 'block';
+      return;
+    }
+    photoEl.style.display = 'block';
+    photoEl.src = _pu;
+  };
+}
+if (typeof window.formatGatePopupCourseLine !== 'function') {
+  window.formatGatePopupCourseLine = function(student) {
+    student = student || {};
+    var map = { '1': '1st Year', '2': '2nd Year', '3': '3rd Year', '4': '4th Year' };
+    var c = (student.course_or_section || '').trim();
+    var raw = (student.year_level || '').trim();
+    var y = map[raw] || raw;
+    if (c && y) return c + ' · ' + y;
+    if (c) return c;
+    if (y) return y;
+    return '';
+  };
 }
 (function() {
   // -------------------------
@@ -4586,6 +5163,7 @@ function guardTokenPayload() {
       selectedEventId = eventSelector.value || null;
       selectedEventName = opt.text || '';
       updateEventTrackingUI();
+      if (typeof refreshLiveEntriesPanel === 'function') refreshLiveEntriesPanel(true, 'entries');
     });
     var opt = eventSelector.options[eventSelector.selectedIndex];
     if (opt && eventSelector.value) {
@@ -4593,6 +5171,7 @@ function guardTokenPayload() {
       selectedEventName = opt.text || '';
     }
     updateEventTrackingUI(); // Apply initial state (e.g. Daily Gate = auto IN/OUT, hide toggle)
+    if (selectedEventId && typeof refreshLiveEntriesPanel === 'function') refreshLiveEntriesPanel(true, 'entries');
   }
 
   function refreshEventAttendeesIframe() {
@@ -4804,7 +5383,9 @@ function guardTokenPayload() {
       event_id: item.event_id || null,
       client_ts: item.client_ts || new Date().toISOString(),
       gate_manual_entry: item.gate_manual_entry || null,
+      manual_gate_form: item.manual_gate_form || null,
       manual_entry_reason: item.manual_entry_reason || null,
+      manual_entry_other_detail: item.manual_entry_other_detail || null,
       use_save_scan: item.use_save_scan || false,
       use_field_trip_scan: item.use_field_trip_scan || item.use_field_trip_sync || false
     };
@@ -4942,7 +5523,7 @@ function guardTokenPayload() {
     }
     var csrf = getCsrfFromCookie();
     var saveScanUrl = (window.GATE_SAVE_SCAN_URL || "{% url 'save_scan' %}");
-    var eventScanUrl = "{% url 'scan_event_qr' %}";
+    var eventScanUrl = (typeof window.SCAN_EVENT_QR_URL === 'string' && window.SCAN_EVENT_QR_URL) ? window.SCAN_EVENT_QR_URL : "{% url 'scan_event_qr' %}";
     
     function sendNext() {
       if (_offlineQueueCache.length === 0) {
@@ -4969,6 +5550,8 @@ function guardTokenPayload() {
         body.manual_status = (stEv === 'OUT') ? 'OUT' : 'IN';
         if (item.gate_manual_entry) body.gate_manual_entry = item.gate_manual_entry;
         if (item.manual_entry_reason) body.manual_entry_reason = item.manual_entry_reason;
+        if (item.manual_entry_other_detail) body.manual_entry_other_detail = item.manual_entry_other_detail;
+        if (item.manual_gate_form) body.manual_gate_form = '1';
         if (item.local_time) body.local_time = item.local_time;
         body.device_id = DEVICE_ID + '-OFFLINE';
       } else if (item.event_id && item.use_field_trip_scan) {
@@ -4996,6 +5579,8 @@ function guardTokenPayload() {
         if (status) body.manual_status = status;
         if (item.gate_manual_entry) body.gate_manual_entry = item.gate_manual_entry;
         if (item.manual_entry_reason) body.manual_entry_reason = item.manual_entry_reason;
+        if (item.manual_entry_other_detail) body.manual_entry_other_detail = item.manual_entry_other_detail;
+        if (item.manual_gate_form) body.manual_gate_form = '1';
         if (item.local_time) body.local_time = item.local_time;
       }
       
@@ -5116,17 +5701,29 @@ function guardTokenPayload() {
   // -------------------------
   // Live entries: modal for /gate/ and /gate/guard-display/ (not token embed)
   // -------------------------
-  /* Gate /guard-display: always daily gate entries. Event-only scanner page sets EVENT_ATTENDANCE_SCANNER_EVENT_ID. */
+  /* Live panel: daily gate entries, or event attendance embed when EVENT_ATTENDANCE_SCANNER_EVENT_ID or event selector has an event. */
   var entriesPopupUrl = "{% url 'gate-entry-list' %}?embed=1&student_gate_only=1{% if guard_embed_token %}&guard_token={{ guard_embed_token|urlencode }}{% endif %}{% if guard_wall %}&live_panel=1{% endif %}";
   function getLiveEntriesEmbedUrl() {
+    var evId = null;
     if (typeof window.EVENT_ATTENDANCE_SCANNER_EVENT_ID !== 'undefined' && window.EVENT_ATTENDANCE_SCANNER_EVENT_ID) {
-      return eventLiveEmbedUrlFor(String(window.EVENT_ATTENDANCE_SCANNER_EVENT_ID)) + '?embed=1&from_date=' + encodeURIComponent(getTodayISO());
+      evId = window.EVENT_ATTENDANCE_SCANNER_EVENT_ID;
+    } else if (typeof selectedEventId !== 'undefined' && selectedEventId) {
+      evId = selectedEventId;
+    }
+    if (evId) {
+      var u = eventLiveEmbedUrlFor(String(evId)) + '?embed=1&from_date=' + encodeURIComponent(getTodayISO());
+      if (typeof window.GUARD_EMBED_TOKEN === 'string' && window.GUARD_EMBED_TOKEN) {
+        u += '&guard_token=' + encodeURIComponent(window.GUARD_EMBED_TOKEN);
+      }
+      return u;
     }
     return entriesPopupUrl;
   }
   var liveEntriesPanel = document.getElementById('liveEntriesPanel');
   var liveEntriesIframe = document.getElementById('liveEntriesIframe');
   var liveEntriesLastRefresh = document.getElementById('liveEntriesLastRefresh');
+  var eventLiveInlineIframe = document.getElementById('eventLiveInlineIframe');
+  var eventLiveInlineLastRefresh = document.getElementById('eventLiveInlineLastRefresh');
 
   function getLiveEntriesActiveTab() {
     if (!liveEntriesIframe) return '';
@@ -5141,8 +5738,9 @@ function guardTokenPayload() {
   }
 
   function markLiveEntriesRefresh() {
-    if (!liveEntriesLastRefresh) return;
-    liveEntriesLastRefresh.textContent = new Date().toLocaleTimeString();
+    var t = new Date().toLocaleTimeString();
+    if (liveEntriesLastRefresh) liveEntriesLastRefresh.textContent = t;
+    if (eventLiveInlineLastRefresh) eventLiveInlineLastRefresh.textContent = t;
   }
 
   function fitLiveEntriesFrameHeight() {
@@ -5196,7 +5794,8 @@ function guardTokenPayload() {
   }
 
   function refreshLiveEntriesPanel(forceRefresh, preferredTab) {
-    if (!liveEntriesIframe || !navigator.onLine) return;
+    if (!navigator.onLine) return;
+    if (!liveEntriesIframe && !eventLiveInlineIframe) return;
     var leModalOv = document.getElementById('liveEntriesModalOverlay');
     var modalIsOpen = leModalOv && leModalOv.style.display === 'flex';
     if (!forceRefresh && !modalIsOpen && window.GATE_GUARD_WALL && window._gateGuardWallScannerActive === false) return;
@@ -5206,7 +5805,15 @@ function guardTokenPayload() {
     nextUrl += '&_ts=' + Date.now();
     // Must navigate with a real iframe load — fetch()+document.write() leaves the iframe document
     // on about:blank/wrong URL so GET forms (Apply / Reset) do not submit to /gate/entries/.
-    liveEntriesIframe.src = nextUrl;
+    if (liveEntriesIframe) {
+      liveEntriesIframe.src = nextUrl;
+    }
+    // Event scanner dashboard: always-visible live table (same URL as modal when event is locked)
+    if (eventLiveInlineIframe && typeof window.EVENT_ATTENDANCE_FIELD_TRIP_MODE !== 'undefined' && window.EVENT_ATTENDANCE_FIELD_TRIP_MODE) {
+      var evUrl = getLiveEntriesEmbedUrl();
+      evUrl += '&_ts=' + Date.now();
+      eventLiveInlineIframe.src = evUrl;
+    }
   }
 
   if (liveEntriesIframe) {
@@ -5264,6 +5871,21 @@ function guardTokenPayload() {
       });
     }
   })();
+
+  (function eventLiveInlineRefreshBind() {
+    var evInlineBtn = document.getElementById('eventLiveInlineRefreshBtn');
+    if (evInlineBtn) {
+      evInlineBtn.addEventListener('click', function() {
+        refreshLiveEntriesPanel(true);
+      });
+    }
+  })();
+
+  if (eventLiveInlineIframe) {
+    eventLiveInlineIframe.addEventListener('load', function() {
+      markLiveEntriesRefresh();
+    });
+  }
 
   // -------------------------
   // Live Entries iframe → full-page SAS report feedback (postMessage)
@@ -5378,7 +6000,6 @@ function guardTokenPayload() {
   var duplicateScanInLunchWindow = false;
   var duplicateScanAllClassesDone = false;
   var lastScanStudentId = null;
-  var pendingRegistrationStudentId = null;
 
   // -------------------------
   // Student info popup (shown on successful scan)
@@ -5397,9 +6018,17 @@ function guardTokenPayload() {
         return;
       }
       var headerEl = overlay.querySelector('.student-popup-header');
+      if (!headerEl) {
+        try {
+          showNotification((response && response.message) ? response.message : 'Scan processed.', (response && (response.success || response.ok)) ? 'success' : 'info');
+        } catch (_eHdr) {}
+        return;
+      }
       var statusEl = document.getElementById('studentPopupStatus');
       var formEl = document.getElementById('popupEarlyOutForm');
       var regEl = document.getElementById('popupRegistrationForm');
+      var popupShellEl = overlay.querySelector('.student-popup');
+      if (popupShellEl) popupShellEl.classList.toggle('student-popup--unknown-id', !!response.not_registered);
 
     var badgeEl = document.getElementById('studentPopupBadge');
     if (badgeEl) {
@@ -5409,15 +6038,15 @@ function guardTokenPayload() {
     }
     document.getElementById('studentPopupName').textContent = response.student_name || (student.first_name + ' ' + student.last_name).trim() || '—';
     document.getElementById('studentPopupId').textContent = 'ID: ' + (student.student_id || '—');
-    var courseParts = [student.course_or_section || '', student.year_level || ''].filter(Boolean);
     var courseEl = document.getElementById('studentPopupCourse');
-    if (courseEl) courseEl.textContent = courseParts.length ? courseParts.join(' · ') : '';
+    if (courseEl) courseEl.textContent = (typeof window.formatGatePopupCourseLine === 'function') ? window.formatGatePopupCourseLine(student) : '';
     document.getElementById('studentPopupEmail').textContent = student.email || 'No email';
     var scanTypeEl = document.getElementById('studentPopupScanType');
     if (scanTypeEl) scanTypeEl.textContent = (response.status === 'OUT' ? 'OUT' : 'IN');
     document.getElementById('studentPopupTime').textContent = response.time || new Date().toLocaleTimeString();
     if (regEl) regEl.style.display = 'none';
-    pendingRegistrationStudentId = null;
+    var detailsListEl = document.querySelector('.student-popup-details');
+    if (detailsListEl) detailsListEl.style.display = '';
     if (response.require_note) {
       var isInScan = (response.status || '').toUpperCase() === 'IN' || (response.next_suggested || '').toUpperCase() === 'IN';
       if (isInScan) {
@@ -5547,15 +6176,20 @@ function guardTokenPayload() {
         headerEl.querySelector('h2').innerHTML = '<i class="fas fa-user-lock"></i> Activation Required';
         document.getElementById('studentPopupName').textContent = 'Activation Required';
         if (regEl) regEl.style.display = 'none';
-        pendingRegistrationStudentId = null;
       } else {
-        headerEl.querySelector('h2').innerHTML = '<i class="fas fa-user-plus"></i> Registration required';
-        document.getElementById('studentPopupName').textContent = 'Registration required';
-        pendingRegistrationStudentId = response.student_id || null;
-        if (regEl) regEl.style.display = 'block';
+        headerEl.querySelector('h2').innerHTML = '<i class="fas fa-id-card"></i> Unknown student ID';
+        document.getElementById('studentPopupName').textContent = 'This ID is not in the system.';
+        if (regEl) regEl.style.display = 'none';
+        var unkId = (response.student_id || '').trim();
+        document.getElementById('studentPopupId').textContent = unkId ? ('Scanned ID: ' + unkId) : '—';
+        var courseUnk = document.getElementById('studentPopupCourse');
+        if (courseUnk) courseUnk.textContent = '';
+        if (detailsListEl) detailsListEl.style.display = 'none';
+        var photoWrapUnk = document.querySelector('.student-popup-photo-wrap');
+        if (photoWrapUnk) photoWrapUnk.style.display = 'none';
       }
       headerEl.classList.add('duplicate');
-      statusEl.textContent = response.message || (response.inactive ? 'Student is registered but not active (pending approval).' : 'Student is not registered.');
+      statusEl.textContent = response.message || (response.inactive ? 'Student is registered but not active (pending approval).' : 'This student ID is not recognized. No attendance was recorded.');
       if (response.inactive) {
         statusEl.textContent = statusEl.textContent + ' An admin can reactivate the account in Gate → Students.';
       }
@@ -5566,7 +6200,9 @@ function guardTokenPayload() {
       duplicateScanStudentId = null;
       duplicateScanInLunchWindow = false;
       duplicateScanAllClassesDone = false;
-      document.getElementById('studentPopupId').textContent = 'ID: ' + (response.student_id || '—');
+      if (response.inactive) {
+        document.getElementById('studentPopupId').textContent = 'ID: ' + (response.student_id || '—');
+      }
       document.getElementById('studentPopupEmail').textContent = '—';
     } else if (response.registered) {
       headerEl.querySelector('h2').innerHTML = '<i class="fas fa-user-clock"></i> Registration submitted';
@@ -5579,16 +6215,21 @@ function guardTokenPayload() {
       duplicateScanStudentId = null;
       duplicateScanInLunchWindow = false;
       duplicateScanAllClassesDone = false;
-      pendingRegistrationStudentId = null;
     } else {
       headerEl.querySelector('h2').innerHTML = '<i class="fas fa-user-check"></i> Scan successful';
       headerEl.classList.remove('duplicate');
-      statusEl.textContent = (response.status === 'OUT' ? 'Checked out' : 'Checked in') + ' at ' + (response.time || '');
+      if (response.event_attendance) {
+        statusEl.textContent = (response.message || ((response.status === 'OUT' ? 'Event check-out' : 'Event check-in') + ' at ' + (response.time || '')));
+      } else {
+        statusEl.textContent = (response.status === 'OUT' ? 'Checked out' : 'Checked in') + ' at ' + (response.time || '');
+      }
       statusEl.className = 'student-popup-status ' + (response.status === 'OUT' ? 'out' : 'in');
       formEl.classList.remove('show');
       var scheduleStatusEl = document.getElementById('popupScheduleStatus');
       if (scheduleStatusEl) {
-        if (response.forced_out_no_in) {
+        if (response.event_attendance) {
+          scheduleStatusEl.style.display = 'none';
+        } else if (response.forced_out_no_in) {
           scheduleStatusEl.style.display = 'flex';
           scheduleStatusEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span><strong>Forced OUT</strong> recorded (no prior IN today). Staff note saved for audit.</span>';
           scheduleStatusEl.className = 'popup-schedule-status schedule-warning';
@@ -5609,22 +6250,20 @@ function guardTokenPayload() {
       duplicateScanAllClassesDone = false;
       lastScanStudentId = student.student_id || null;
     }
-    var photoEl = document.getElementById('studentPopupPhoto');
-    if (student.photo_url) {
-      photoEl.src = student.photo_url;
-      photoEl.style.display = 'block';
-      photoEl.onerror = function() { photoEl.style.display = 'none'; };
-    } else {
-      photoEl.style.display = 'none';
+    if (response.not_registered) {
+      var pe = document.getElementById('studentPopupPhoto');
+      if (pe) { pe.style.display = 'none'; pe.removeAttribute('src'); }
+    } else if (typeof window.applyGateScanPopupPhoto === 'function') {
+      window.applyGateScanPopupPhoto(student, response);
     }
       overlay.classList.add('show');
     if (_studentPopupAutoCloseTimer) {
       clearTimeout(_studentPopupAutoCloseTimer);
       _studentPopupAutoCloseTimer = null;
     }
-    // Auto-dismiss after a few seconds for simple success scans only (checked in/out OK).
-    // Activation required, notes, denied, duplicate, etc. stay open until the user closes them.
-      if (!response.already_scanned && !response.require_note && !response.denied && !response.not_registered && !response.inactive) {
+    // Auto-dismiss after a few seconds for simple success scans and unknown-ID (not registered) scans.
+    // Notes, denied, duplicate, inactive, etc. stay open until the user closes them.
+      if (!response.already_scanned && !response.require_note && !response.denied && !response.inactive) {
         _studentPopupAutoCloseTimer = setTimeout(function() {
           _studentPopupAutoCloseTimer = null;
           var ov = document.getElementById('studentPopupOverlay');
@@ -5653,18 +6292,15 @@ function guardTokenPayload() {
     if (noteBlock) noteBlock.style.display = '';
     var regEl = document.getElementById('popupRegistrationForm');
     if (regEl) regEl.style.display = 'none';
-    var fn = document.getElementById('popupRegFirstName');
-    var ln = document.getElementById('popupRegLastName');
-    var sx = document.getElementById('popupRegSex');
-    var em = document.getElementById('popupRegEmail');
-    if (fn) fn.value = '';
-    if (ln) ln.value = '';
-    if (sx) sx.value = '';
-    if (em) em.value = '';
+    var popupShellReset = document.querySelector('#studentPopupOverlay .student-popup');
+    if (popupShellReset) popupShellReset.classList.remove('student-popup--unknown-id');
+    var photoWrapReset = document.querySelector('.student-popup-photo-wrap');
+    if (photoWrapReset) photoWrapReset.style.display = '';
+    var detailsListReset = document.querySelector('.student-popup-details');
+    if (detailsListReset) detailsListReset.style.display = '';
     duplicateScanStudentId = null;
     duplicateScanInLunchWindow = false;
     duplicateScanAllClassesDone = false;
-    pendingRegistrationStudentId = null;
   }
 
   document.getElementById('studentPopupClose').addEventListener('click', closeStudentPopup);
@@ -5677,51 +6313,6 @@ function guardTokenPayload() {
     document.getElementById('popupEarlyOutForm').style.display = 'none';
     document.getElementById('popupOutNote').value = '';
     closeStudentPopup();
-  });
-
-  document.getElementById('popupBtnRegCancel').addEventListener('click', closeStudentPopup);
-
-  document.getElementById('popupBtnRegSubmit').addEventListener('click', function() {
-    if (!pendingRegistrationStudentId) {
-      showNotification('Session expired. Please scan again.', 'error');
-      return;
-    }
-    var firstName = (document.getElementById('popupRegFirstName').value || '').trim();
-    var lastName = (document.getElementById('popupRegLastName').value || '').trim();
-    var sex = (document.getElementById('popupRegSex').value || '').trim();
-    var email = (document.getElementById('popupRegEmail').value || '').trim();
-    if (!firstName || !lastName) {
-      showNotification('Please enter first name and last name.', 'warning');
-      return;
-    }
-    if (!sex) {
-      showNotification('Please select sex/gender.', 'warning');
-      return;
-    }
-    var btn = this;
-    btn.disabled = true;
-    $.post("{% url 'gate-register-student' %}", $.extend({
-      student_id: pendingRegistrationStudentId,
-      first_name: firstName,
-      last_name: lastName,
-      sex: sex,
-      email: email,
-      csrfmiddlewaretoken: (getCsrfFromCookie() || "{{ csrf_token }}")
-    }, guardTokenPayload()), function(response) {
-      btn.disabled = false;
-      if (response && response.registered) {
-        playSuccessBeep();
-        showNotification(response.message, 'info', response.student_name, response.time);
-        showStudentPopup(response);
-      } else {
-        showNotification(response.message || 'Registration failed.', 'error');
-      }
-    }).fail(function(xhr) {
-      btn.disabled = false;
-      var msg = 'Registration failed.';
-      if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
-      showNotification(msg, 'error');
-    });
   });
 
   document.getElementById('popupBtnSubmitOut').addEventListener('click', function() {
@@ -5814,36 +6405,16 @@ function guardTokenPayload() {
   });
 
   // -------------------------
-  // Beep on successful scan (Web Audio API)
+  // Scan beeps: HTML5 Audio only (generated WAV data URLs). No AudioContext — avoids
+  // "The AudioContext encountered an error from the audio device or the WebAudio renderer"
+  // on some Windows/Chrome setups when resume() runs with no usable output device.
   // -------------------------
-  // Many browsers block audio until a user gesture. We unlock once and reuse a single AudioContext.
-  var _gateBeepCtx = null;
   var _gateBeepUnlocked = false;
   var _gateBeepWarned = false;
   var _gateBeepPromptEl = null;
 
-  function _gateEnsureBeepCtx() {
-    if (!_gateBeepCtx) {
-      try { _gateBeepCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { _gateBeepCtx = null; }
-    }
-    return _gateBeepCtx;
-  }
-
   function _gateUnlockBeepAudio() {
-    var ctx = _gateEnsureBeepCtx();
-    // Don't mark unlocked until we at least attempted resume.
     _gateBeepUnlocked = true;
-    try {
-      if (ctx && ctx.state === 'suspended' && typeof ctx.resume === 'function') {
-        ctx.resume().then(function() {
-          try { console.info('[BEEP] AudioContext resumed (unlocked).'); } catch (_) {}
-        }).catch(function(err) {
-          _gateBeepUnlocked = false;
-          try { console.warn('[BEEP] AudioContext resume blocked:', err); } catch (_) {}
-        });
-      }
-    } catch (_) {}
-    // Also poke HTMLAudio very quietly to satisfy some autoplay policies.
     try {
       var a = new Audio();
       a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
@@ -5860,6 +6431,58 @@ function guardTokenPayload() {
     }
     events.forEach(function(ev) { document.addEventListener(ev, handler, true); });
   })();
+
+  /**
+   * Short WAV beep via HTMLAudioElement — works when Web Audio gain automation fails or context stays suspended.
+   * Uses data:audio/wav;base64 (not blob:) so strict CSP media-src does not block scan beeps.
+   * freqOverride: Hz (e.g. 880 success / 220 error second tone).
+   */
+  function _gatePlayBeepHtmlFallback(isSuccess, freqOverride) {
+    var freq = (freqOverride != null && freqOverride > 0) ? freqOverride : (isSuccess ? 880 : 220);
+    var sampleRate = 8000;
+    var duration = 0.13;
+    var n = Math.floor(sampleRate * duration);
+    try {
+      var buffer = new ArrayBuffer(44 + n * 2);
+      var dv = new DataView(buffer);
+      function wStr(off, s) {
+        for (var i = 0; i < s.length; i++) dv.setUint8(off + i, s.charCodeAt(i));
+      }
+      wStr(0, 'RIFF');
+      dv.setUint32(4, 36 + n * 2, true);
+      wStr(8, 'WAVE');
+      wStr(12, 'fmt ');
+      dv.setUint32(16, 16, true);
+      dv.setUint16(20, 1, true);
+      dv.setUint16(22, 1, true);
+      dv.setUint32(24, sampleRate, true);
+      dv.setUint32(28, sampleRate * 2, true);
+      dv.setUint16(32, 2, true);
+      dv.setUint16(34, 16, true);
+      wStr(36, 'data');
+      dv.setUint32(40, n * 2, true);
+      for (var i = 0; i < n; i++) {
+        var t = i / sampleRate;
+        var env = Math.sin((Math.PI * i) / Math.max(1, n - 1));
+        var s = Math.sin(2 * Math.PI * freq * t) * 0.4 * env;
+        dv.setInt16(44 + i * 2, Math.max(-32768, Math.min(32767, Math.round(s * 32767))), true);
+      }
+      var bytes = new Uint8Array(buffer);
+      var bin = '';
+      var chunk = 0x8000;
+      for (var bi = 0; bi < bytes.length; bi += chunk) {
+        var sub = bytes.subarray(bi, Math.min(bi + chunk, bytes.length));
+        bin += String.fromCharCode.apply(null, sub);
+      }
+      var a = new Audio('data:audio/wav;base64,' + btoa(bin));
+      a.volume = 0.65;
+      a.play().catch(function() {
+        try { if (typeof _gateMaybeWarnAudioLocked === 'function') _gateMaybeWarnAudioLocked(); } catch (_) {}
+      });
+    } catch (e) {
+      try { console.warn('[BEEP] HTML fallback failed:', e); } catch (_) {}
+    }
+  }
 
   function _gateMaybeWarnAudioLocked() {
     if (_gateBeepWarned) return;
@@ -5903,8 +6526,7 @@ function guardTokenPayload() {
       if (btn) {
         btn.addEventListener('click', function() {
           _gateUnlockBeepAudio();
-          // Attempt a tiny test tone after unlocking.
-          setTimeout(function() { _gatePlayTone(880, 80, 'sine', 0.10); }, 80);
+          setTimeout(function() { _gatePlayBeepHtmlFallback(true, 880); }, 80);
           if (_gateBeepPromptEl) _gateBeepPromptEl.remove();
           _gateBeepPromptEl = null;
         });
@@ -5918,72 +6540,21 @@ function guardTokenPayload() {
     } catch (_) {}
   }
 
-  function _gatePlayTone(freq, durationMs, type, gain) {
-    var ctx = _gateEnsureBeepCtx();
-    if (!ctx) return false;
-    function doPlay() {
-      try {
-        var osc = ctx.createOscillator();
-        var g = ctx.createGain();
-        osc.connect(g);
-        g.connect(ctx.destination);
-        osc.frequency.value = freq;
-        osc.type = type || 'sine';
-        var now = ctx.currentTime;
-        var dur = Math.max(0.05, (durationMs || 150) / 1000);
-        var vol = (typeof gain === 'number') ? gain : 0.18;
-        g.gain.setValueAtTime(vol, now);
-        g.gain.exponentialRampToValueAtTime(0.001, now + dur);
-        osc.start(now);
-        osc.stop(now + dur);
-        return true;
-      } catch (e) {
-        try { console.warn('[BEEP] play failed:', e); } catch (_) {}
-        return false;
-      }
-    }
-    try {
-      if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
-        // Fire-and-forget: resume then play.
-        ctx.resume().then(doPlay).catch(function(err) {
-          try { console.warn('[BEEP] resume blocked:', err); } catch (_) {}
-        });
-        return true;
-      }
-    } catch (_) {}
-    return doPlay();
-  }
-
   function playSuccessBeep() {
-    // Try to unlock on-demand at scan time (still may be blocked without user gesture).
     if (!_gateBeepUnlocked) _gateUnlockBeepAudio();
-    try {
-      var ctx = _gateEnsureBeepCtx();
-      console.log('[BEEP] success attempt. ctx:', !!ctx, 'state:', ctx ? ctx.state : 'none');
-    } catch (_) {}
-    // Two-tone success beep (more noticeable in noisy areas).
-    var ok1 = _gatePlayTone(880, 120, 'sine', 0.16);
-    setTimeout(function() { _gatePlayTone(1175, 120, 'sine', 0.14); }, 140);
-    if (!ok1) {
-      _gateMaybeWarnAudioLocked();
-      try { if (navigator.vibrate) navigator.vibrate([80, 40, 80]); } catch (_) {}
-    }
-    return ok1;
+    /* Short WAV via HTMLAudioElement: reliable across Chrome/Safari/Edge; Web Audio gain ramps often fail silently. */
+    _gatePlayBeepHtmlFallback(true, 880);
+    setTimeout(function() { _gatePlayBeepHtmlFallback(true, 1175); }, 140);
+    try { if (navigator.vibrate) navigator.vibrate([80, 40, 80]); } catch (_) {}
+    return true;
   }
 
   function playErrorBeep() {
     if (!_gateBeepUnlocked) _gateUnlockBeepAudio();
-    try {
-      var ctx = _gateEnsureBeepCtx();
-      console.log('[BEEP] error attempt. ctx:', !!ctx, 'state:', ctx ? ctx.state : 'none');
-    } catch (_) {}
-    var ok1 = _gatePlayTone(260, 130, 'square', 0.15);
-    setTimeout(function() { _gatePlayTone(210, 140, 'square', 0.14); }, 170);
-    if (!ok1) {
-      _gateMaybeWarnAudioLocked();
-      try { if (navigator.vibrate) navigator.vibrate([120, 60, 120]); } catch (_) {}
-    }
-    return ok1;
+    _gatePlayBeepHtmlFallback(false, 260);
+    setTimeout(function() { _gatePlayBeepHtmlFallback(false, 210); }, 170);
+    try { if (navigator.vibrate) navigator.vibrate([120, 60, 120]); } catch (_) {}
+    return true;
   }
 
   // -------------------------
@@ -6077,7 +6648,7 @@ function guardTokenPayload() {
       csrfmiddlewaretoken: (getCsrfFromCookie() || "{{ csrf_token }}")
     }, guardTokenPayload());
 
-    $.post("{% url 'scan_event_qr' %}", postData, function(response) {
+    $.post((typeof window.SCAN_EVENT_QR_URL === 'string' && window.SCAN_EVENT_QR_URL) ? window.SCAN_EVENT_QR_URL : "{% url 'scan_event_qr' %}", postData, function(response) {
       closeEventEarlyOutModal();
       var resultDiv = document.getElementById('result');
       var currentTime = new Date().toLocaleTimeString();
@@ -6212,7 +6783,8 @@ function guardTokenPayload() {
   // Parse QR code: detect type (student ID or event token)
   // -------------------------
   function parseStudentId(decodedText) {
-    var text = (decodedText || '').trim();
+    /* Coerce to string: html5-qrcode (or wrappers) may pass non-strings; object.trim() throws. */
+    var text = String(decodedText == null ? '' : decodedText).trim();
     if (!text) return '';
     if (text.toUpperCase().indexOf('EVT:') === 0) return text;
     var lines = text.split(/\r?\n/);
@@ -6264,6 +6836,7 @@ function guardTokenPayload() {
 
   window.onScanSuccess = onScanSuccess;
   function onScanSuccess(decodedText, decodedResult) {
+    try {
     if (isProcessingScan) {
       if (scanProcessingStartedAt && (Date.now() - scanProcessingStartedAt) > 12000) {
         forceScannerReadyState();
@@ -6271,7 +6844,7 @@ function guardTokenPayload() {
         return;
       }
     }
-    var normalizedDecoded = (decodedText || '').trim();
+    var normalizedDecoded = String(decodedText == null ? '' : decodedText).trim();
     var now = Date.now();
     if (normalizedDecoded === lastScannedCode && (now - lastScannedTime) < SCAN_COOLDOWN_MS) {
       return;
@@ -6282,18 +6855,25 @@ function guardTokenPayload() {
     scanProcessingStartedAt = now;
 
     var statusIndicator = document.querySelector('.status-indicator');
+    if (!statusIndicator) {
+      console.error('[Gate scan] Missing .status-indicator — cannot update UI.');
+      isProcessingScan = false;
+      scanProcessingStartedAt = 0;
+      return;
+    }
+    var statusSpan = statusIndicator.querySelector('span');
     statusIndicator.classList.add('scanning');
-    statusIndicator.querySelector('span').textContent = 'Processing QR code...';
+    if (statusSpan) statusSpan.textContent = 'Processing QR code...';
 
     var parsedQr = parseStudentId(decodedText);
     if (!parsedQr) {
       playErrorBeep();
-      document.getElementById('result').innerHTML = 'Invalid QR format';
-      document.getElementById('result').className = 'error';
+      var rd = document.getElementById('result');
+      if (rd) { rd.innerHTML = 'Invalid QR format'; rd.className = 'error'; }
       showNotification('Invalid QR code format.', 'error');
       setTimeout(function() {
         statusIndicator.classList.remove('scanning');
-        statusIndicator.querySelector('span').textContent = 'Scanner ready';
+        if (statusSpan) statusSpan.textContent = 'Scanner ready';
         isProcessingScan = false;
         scanProcessingStartedAt = 0;
       }, 2000);
@@ -6302,10 +6882,28 @@ function guardTokenPayload() {
 
     var eventIdAtScan = getCurrentEventId();
     processStudentId(parsedQr, statusIndicator, eventIdAtScan);
+    } catch (e) {
+      try { console.error('[Gate scan] onScanSuccess:', e); } catch (_e) {}
+      forceScannerReadyState();
+      try { showNotification('Scanner error. Please try again.', 'error'); } catch (_e2) {}
+    }
   }
 
   function processStudentId(qr_or_student_id, statusIndicator, eventIdAtScan) {
+    if (!statusIndicator) statusIndicator = document.querySelector('.status-indicator');
+    if (!statusIndicator) {
+      try { console.error('[Gate scan] processStudentId: missing .status-indicator'); } catch (_e) {}
+      forceScannerReadyState();
+      return;
+    }
+    qr_or_student_id = String(qr_or_student_id == null ? '' : qr_or_student_id);
     var currentEventId = (eventIdAtScan !== undefined && eventIdAtScan !== null) ? String(eventIdAtScan).trim() : getCurrentEventId();
+    /* Locked field-trip / event scanner page: always use server-provided event id (no dropdown). */
+    if (typeof window.EVENT_ATTENDANCE_FIELD_TRIP_MODE !== 'undefined' && window.EVENT_ATTENDANCE_FIELD_TRIP_MODE
+        && typeof window.EVENT_ATTENDANCE_SCANNER_EVENT_ID !== 'undefined' && window.EVENT_ATTENDANCE_SCANNER_EVENT_ID !== null
+        && String(window.EVENT_ATTENDANCE_SCANNER_EVENT_ID).trim() !== '') {
+      currentEventId = String(window.EVENT_ATTENDANCE_SCANNER_EVENT_ID).trim();
+    }
     if (currentEventId === '') currentEventId = null;
     var isEventScan = currentEventId && currentEventId.length > 0;
     var isEventToken = qr_or_student_id.startsWith('EVT:');
@@ -6314,38 +6912,53 @@ function guardTokenPayload() {
     }
 
     if (!navigator.onLine) {
+      var _ftQUrl = (typeof window.EVENT_FIELD_TRIP_POST_URL === 'string' && window.EVENT_FIELD_TRIP_POST_URL.length > 0)
+        ? window.EVENT_FIELD_TRIP_POST_URL
+        : (typeof window.EVENT_ATTENDANCE_SCANNER_EVENT_ID !== 'undefined' && window.EVENT_ATTENDANCE_SCANNER_EVENT_ID && typeof fieldTripScanUrlFor === 'function')
+          ? fieldTripScanUrlFor(window.EVENT_ATTENDANCE_SCANNER_EVENT_ID)
+          : '';
       var queueItem = {
         qr: qr_or_student_id,
         event_id: currentEventId,
         scan_type: currentScanMode,
         client_ts: new Date().toISOString(),
-        use_field_trip_scan: !!(typeof window.EVENT_ATTENDANCE_FIELD_TRIP_MODE !== 'undefined' && window.EVENT_ATTENDANCE_FIELD_TRIP_MODE && window.EVENT_FIELD_TRIP_POST_URL)
+        use_field_trip_scan: !!(typeof window.EVENT_ATTENDANCE_FIELD_TRIP_MODE !== 'undefined' && window.EVENT_ATTENDANCE_FIELD_TRIP_MODE && _ftQUrl.length > 0)
       };
       addToOfflineQueue(queueItem, function(result) {
+        var rdOffFt = document.getElementById('result');
         if (!result || !result.ok) {
           playErrorBeep();
           if (result && result.reason === 'duplicate') {
-            document.getElementById('result').innerHTML = 'Already scanned. No duplicate recorded.';
-            document.getElementById('result').className = 'warning';
+            if (rdOffFt) {
+              rdOffFt.innerHTML = 'Already scanned. No duplicate recorded.';
+              rdOffFt.className = 'warning';
+            }
             showNotification('Already scanned. No duplicate recorded.', 'warning');
           } else if (result && result.reason === 'full') {
-            document.getElementById('result').innerHTML = 'Offline queue is full. Please reconnect and sync.';
-            document.getElementById('result').className = 'error';
+            if (rdOffFt) {
+              rdOffFt.innerHTML = 'Offline queue is full. Please reconnect and sync.';
+              rdOffFt.className = 'error';
+            }
             showNotification('Offline queue is full. Please reconnect and sync.', 'error');
           } else {
-            document.getElementById('result').innerHTML = 'Could not save offline scan on this device.';
-            document.getElementById('result').className = 'error';
+            if (rdOffFt) {
+              rdOffFt.innerHTML = 'Could not save offline scan on this device.';
+              rdOffFt.className = 'error';
+            }
             showNotification('Could not save offline scan on this device.', 'error');
           }
         } else {
           playSuccessBeep();
           var n = _offlineQueueCache.length;
-          document.getElementById('result').innerHTML = 'Saved offline' + (n ? ' (' + n + ' scan(s) pending sync). ' : '. ') + 'Will sync when online.';
-          document.getElementById('result').className = 'success';
+          if (rdOffFt) {
+            rdOffFt.innerHTML = 'Saved offline' + (n ? ' (' + n + ' scan(s) pending sync). ' : '. ') + 'Will sync when online.';
+            rdOffFt.className = 'success';
+          }
           showNotification('Scan saved to local database. Will sync to server when back online.', 'info');
         }
         statusIndicator.classList.remove('scanning');
-        statusIndicator.querySelector('span').textContent = 'Scanner ready';
+        var _spOff = statusIndicator.querySelector('span');
+        if (_spOff) _spOff.textContent = 'Scanner ready';
         isProcessingScan = false;
         scanProcessingStartedAt = 0;
       });
@@ -6353,6 +6966,157 @@ function guardTokenPayload() {
     }
 
     if (isEventScan || isEventToken) {
+      // Field trip / off-campus event scanner: POST to field_trip_event_scan (JSON result ALLOWED).
+      // EVT:… token QRs still use scan_event_qr (secure registration flow).
+      var ftUrl = (typeof window.EVENT_FIELD_TRIP_POST_URL === 'string' && window.EVENT_FIELD_TRIP_POST_URL.length > 0)
+        ? window.EVENT_FIELD_TRIP_POST_URL
+        : (typeof window.EVENT_ATTENDANCE_SCANNER_EVENT_ID !== 'undefined' && window.EVENT_ATTENDANCE_SCANNER_EVENT_ID && typeof fieldTripScanUrlFor === 'function')
+          ? fieldTripScanUrlFor(window.EVENT_ATTENDANCE_SCANNER_EVENT_ID)
+          : '';
+      var useFieldTripOnline = (
+        typeof window.EVENT_ATTENDANCE_FIELD_TRIP_MODE !== 'undefined' && window.EVENT_ATTENDANCE_FIELD_TRIP_MODE
+        && ftUrl.length > 0
+        && !isEventToken
+      );
+      if (useFieldTripOnline) {
+        var ftPost = {
+          student_id: qr_or_student_id,
+          scan_type: currentScanMode,
+          device_id: DEVICE_ID,
+          ajax: '1',
+          json: '1',
+          csrfmiddlewaretoken: (getCsrfFromCookie() || "{{ csrf_token }}")
+        };
+        $.ajax({
+          url: ftUrl,
+          type: 'POST',
+          data: ftPost,
+          dataType: 'json',
+          timeout: 30000,
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json, text/javascript, */*; q=0.01'
+          }
+        }).done(function(response) {
+          var resultDiv = document.getElementById('result');
+          var currentTime = new Date().toLocaleTimeString();
+          try {
+            if (typeof response === 'string') response = JSON.parse(response);
+          } catch (_e) {}
+          try {
+          var stu = response && response.student ? response.student : {};
+          var stuName = (stu && stu.name) ? stu.name : ((response && response.student_name) ? response.student_name : '');
+          var okFt = response && (response.success || response.ok) && (response.result === 'ALLOWED' || response.result === 'SUCCESS');
+          if (okFt) {
+            playSuccessBeep();
+            if (resultDiv) {
+              resultDiv.innerHTML = response.message || 'OK';
+              resultDiv.className = 'success';
+            }
+            var st = (response.scan_type || response.status || 'IN').toString().toUpperCase();
+            showNotification(response.message, st === 'IN' ? 'in' : 'out', stuName, response.time || currentTime);
+            showStudentPopup({
+              success: true,
+              ok: true,
+              result: response.result || 'ALLOWED',
+              status: response.scan_type || response.status || 'IN',
+              time: response.time,
+              student_name: stuName,
+              student: stu,
+              event_attendance: true,
+              message: response.message
+            });
+          } else {
+            playErrorBeep();
+            if (resultDiv) {
+              resultDiv.innerHTML = (response && response.message) ? response.message : 'Scan failed';
+              resultDiv.className = (response && response.color === 'warning') ? 'warning' : 'error';
+            }
+            showNotification((response && response.message) ? response.message : 'Scan failed', (response && response.color === 'warning') ? 'warning' : 'error');
+          }
+          if (response && (response.ok || response.success)) {
+            if (typeof refreshEventAttendeesIframe === 'function') refreshEventAttendeesIframe();
+            refreshLiveEntriesPanel(true);
+          }
+          } catch (eFt) {
+            try { console.error('[Gate scan] field-trip scan handler:', eFt); } catch (_e) {}
+            playErrorBeep();
+            if (resultDiv) {
+              resultDiv.innerHTML = 'Scan processing error. Please try again.';
+              resultDiv.className = 'error';
+            }
+            try { showNotification('Scan processing error. Please try again.', 'error'); } catch (_e2) {}
+          }
+          setTimeout(function() {
+            if (statusIndicator) {
+              statusIndicator.classList.remove('scanning');
+              var _spFt = statusIndicator.querySelector('span');
+              if (_spFt) _spFt.textContent = 'Scanner ready';
+            }
+            isProcessingScan = false;
+            scanProcessingStartedAt = 0;
+          }, 2000);
+        }).fail(function(xhr) {
+          if (shouldQueueOfflineFromXhr(xhr)) {
+            addToOfflineQueue({
+              qr: qr_or_student_id,
+              event_id: currentEventId,
+              scan_type: currentScanMode,
+              client_ts: new Date().toISOString(),
+              use_field_trip_scan: true
+            }, function(result) {
+              var rdFt = document.getElementById('result');
+              if (result && result.ok) {
+                playSuccessBeep();
+                var n = _offlineQueueCache.length;
+                if (rdFt) {
+                  rdFt.innerHTML = 'Saved offline' + (n ? ' (' + n + ' scan(s) pending sync). ' : '. ') + 'Will sync when online.';
+                  rdFt.className = 'success';
+                }
+                showNotification('Scan saved to local database. Will sync to server when back online.', 'info');
+              } else if (result && result.reason === 'duplicate') {
+                playErrorBeep();
+                if (rdFt) {
+                  rdFt.innerHTML = 'Already scanned. No duplicate recorded.';
+                  rdFt.className = 'warning';
+                }
+                showNotification('Already scanned. No duplicate recorded.', 'warning');
+              } else {
+                playErrorBeep();
+                if (rdFt) {
+                  rdFt.innerHTML = 'Network lost and offline save failed on this device.';
+                  rdFt.className = 'error';
+                }
+                showNotification('Network lost and offline save failed on this device.', 'error');
+              }
+              statusIndicator.classList.remove('scanning');
+              var _spFtFail = statusIndicator.querySelector('span');
+              if (_spFtFail) _spFtFail.textContent = 'Scanner ready';
+              isProcessingScan = false;
+              scanProcessingStartedAt = 0;
+            });
+            return;
+          }
+          playErrorBeep();
+          var msg = (xhr.status >= 500) ? 'Server error. Please try again or contact support.' : 'Network error. Please check your connection.';
+          if (xhr && xhr.status === 403) msg = 'Security token expired. Please refresh the scanner page and try again.';
+          var j = xhr.responseJSON || {};
+          if (j.message) msg = j.message;
+          var rdFailFt = document.getElementById('result');
+          if (rdFailFt) {
+            rdFailFt.innerHTML = msg;
+            rdFailFt.className = (j.color === 'warning') ? 'warning' : 'error';
+          }
+          showNotification(msg, j.color === 'warning' ? 'warning' : 'error');
+          statusIndicator.classList.remove('scanning');
+          var _spFtFail2 = statusIndicator.querySelector('span');
+          if (_spFtFail2) _spFtFail2.textContent = 'Scanner ready';
+          isProcessingScan = false;
+          scanProcessingStartedAt = 0;
+        });
+        return;
+      }
+
       // Event attendance scan (token or student ID) – use current dropdown value
       var postData = $.extend({
         event_id: currentEventId,
@@ -6362,23 +7126,26 @@ function guardTokenPayload() {
         csrfmiddlewaretoken: (getCsrfFromCookie() || "{{ csrf_token }}")
       }, guardTokenPayload());
       
-      $.post("{% url 'scan_event_qr' %}", postData, function(response) {
+      $.post((typeof window.SCAN_EVENT_QR_URL === 'string' && window.SCAN_EVENT_QR_URL) ? window.SCAN_EVENT_QR_URL : "{% url 'scan_event_qr' %}", postData, function(response) {
         var resultDiv = document.getElementById('result');
         var currentTime = new Date().toLocaleTimeString();
+        var studentObj = response.student || {};
+        var studentDisplayName = studentObj.name || response.student_name || '';
         
-        if (response.ok && response.result === 'SUCCESS') {
+        if (response.ok && (response.result === 'SUCCESS' || response.result === 'ALLOWED')) {
           playSuccessBeep();
           resultDiv.innerHTML = response.message;
           resultDiv.className = 'success';
-          showNotification(response.message, response.scan_type === 'IN' ? 'in' : 'out', response.student.name, response.time || currentTime);
+          showNotification(response.message, response.scan_type === 'IN' ? 'in' : 'out', studentDisplayName, response.time || currentTime);
           // Show student popup with event info
           showStudentPopup({
             success: true,
             status: response.scan_type,
             time: response.time,
-            student_name: response.student.name,
-            student: response.student,
-            event_attendance: true
+            student_name: studentDisplayName,
+            student: studentObj,
+            event_attendance: true,
+            message: response.message
           });
         } else if (response.require_event_reason || response.result === 'REQUIRE_EVENT_REASON') {
           // Student is leaving event early - show event early-out modal (NOT the daily gate popup)
@@ -6488,8 +7255,12 @@ function guardTokenPayload() {
       device_id: DEVICE_ID,
       csrfmiddlewaretoken: (getCsrfFromCookie() || "{{ csrf_token }}")
     };
-    if (selectedEventId) {
-      postData.event_id = selectedEventId;
+    var evForSave = (typeof selectedEventId !== 'undefined' && selectedEventId) ? selectedEventId : null;
+    if (!evForSave && typeof window.EVENT_ATTENDANCE_SCANNER_EVENT_ID !== 'undefined' && window.EVENT_ATTENDANCE_SCANNER_EVENT_ID) {
+      evForSave = String(window.EVENT_ATTENDANCE_SCANNER_EVENT_ID);
+    }
+    if (evForSave) {
+      postData.event_id = evForSave;
       postData.manual_status = currentScanMode;
     }
 
@@ -6576,7 +7347,7 @@ function guardTokenPayload() {
         resultDiv.innerHTML = escapeHtml(response.message);
         resultDiv.className = 'warning';
         showStudentPopup(response);
-        showNotification(response.message, 'warning', response.inactive ? 'Activation Required' : 'Registration required', currentTime);
+        showNotification(response.message, 'warning', response.inactive ? 'Activation Required' : 'Unknown student ID', currentTime);
       } else if (response.already_scanned) {
         playErrorBeep();
         resultDiv.innerHTML = escapeHtml(response.message);
@@ -6777,7 +7548,12 @@ function guardTokenPayload() {
     var swBtn = document.getElementById('gateSwitchCameraBtn');
     var usbMode = !!window._gateUsbScannerMode;
     // Guard wall uses its own inline Html5Qrcode instance and tracks state on window.scannerRunning.
-    var running = (window.GATE_GUARD_WALL ? !!window.scannerRunning : scannerRunning);
+    // Status text can already say "Scanner active" from the session API before the camera promise
+    // sets window.scannerRunning; keep Switch usable whenever staff session is armed so users can
+    // cycle devices or recover from a blank/failed preview.
+    var running = (window.GATE_GUARD_WALL
+      ? (!!window.scannerRunning || window._gateGuardWallScannerActive === true)
+      : scannerRunning);
     if (extBtn) {
       if (running) {
         extBtn.style.display = 'none';
@@ -6955,24 +7731,58 @@ function guardTokenPayload() {
     }
     return list;
   }
-  function listCameras(done) {
-    if (typeof Html5Qrcode === 'undefined') { done([]); return; }
-    Html5Qrcode.getCameras().then(function(cams) {
-      if (cams && cams.length) { done(cams); return; }
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) {
-          try { stream.getTracks().forEach(function(t) { t.stop(); }); } catch (e) {}
+  /** Same strategy as guard-inline: enumerate + prime permission when Html5Qrcode.getCameras is flaky (event scanner, /gate/). */
+  function gateScanMapEnumerateToCams() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+      return Promise.resolve([]);
+    }
+    return navigator.mediaDevices.enumerateDevices().then(function(devices) {
+      var out = [];
+      for (var i = 0; i < devices.length; i++) {
+        if (devices[i].kind === 'videoinput') {
+          out.push({ id: devices[i].deviceId, label: devices[i].label || '' });
+        }
+      }
+      return out;
+    });
+  }
+  function gateScanPrimeCameraPermission() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return Promise.reject(new Error('getUserMedia unavailable'));
+    }
+    return navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) {
+      try { stream.getTracks().forEach(function(t) { t.stop(); }); } catch (e) {}
+    });
+  }
+  function gateScanListCamerasRobust() {
+    if (typeof Html5Qrcode === 'undefined') {
+      return Promise.resolve([]);
+    }
+    function recoverAfterEmptyOrError() {
+      return gateScanMapEnumerateToCams().then(function(mapped) {
+        if (mapped && mapped.length) return mapped;
+        return gateScanPrimeCameraPermission().then(function() {
           return Html5Qrcode.getCameras();
         }).then(function(c2) {
-          done(c2 || []);
-        }).catch(function() {
-          done([]);
+          if (c2 && c2.length) return c2;
+          return gateScanMapEnumerateToCams();
         });
-        return;
-      }
-      done([]);
-    }).catch(function() {
-      done([]);
+      }).catch(function(e) {
+        console.warn('[Gate scan] camera list recovery failed:', e);
+        return [];
+      });
+    }
+    return Html5Qrcode.getCameras().then(function(cams) {
+      if (cams && cams.length) return cams;
+      return recoverAfterEmptyOrError();
+    }).catch(function(err) {
+      console.warn('[Gate scan] getCameras failed, falling back to enumerate / prime:', err);
+      return recoverAfterEmptyOrError();
+    });
+  }
+  function listCameras(done) {
+    gateScanListCamerasRobust().then(function(cams) {
+      done(cams || []);
     });
   }
   function startScannerWithPreference(pref, done) {
@@ -7026,6 +7836,8 @@ function guardTokenPayload() {
               try {
                 if (activeCameraId) localStorage.setItem('gate_scan_last_camera_id', activeCameraId);
               } catch (e) {}
+              /* Same gesture chain as getUserMedia — unlock beeps for scan results (event scanner + daily gate). */
+              try { if (typeof _gateUnlockBeepAudio === 'function') _gateUnlockBeepAudio(); } catch (_be) {}
               setStaffScannerHeartbeatActive(true);
               scheduleFitScanRegionToReader();
               updateExternalCameraButtonState();
@@ -7053,6 +7865,7 @@ function guardTokenPayload() {
       'Scanner library could not load. Try: (1) Refresh the page, (2) Disable ad blocker or privacy extensions for this site, (3) Try another browser (Chrome/Firefox).</p>';
   }
   function startCameraFromExternalButton() {
+    try { if (typeof _gateUnlockBeepAudio === 'function') _gateUnlockBeepAudio(); } catch (_be) {}
     startScannerWithPreference(getCameraPreference(), function() {});
   }
   /** Guard embed / guard wall: no Start button — begin preview only after staff scanner is active (heartbeat). */
@@ -7175,6 +7988,7 @@ function guardTokenPayload() {
       showNotification('Switch Entry input to Camera to switch camera.', 'info');
       return;
     }
+    try { if (typeof _gateUnlockBeepAudio === 'function') _gateUnlockBeepAudio(); } catch (_be) {}
     if (window.GATE_GUARD_WALL && typeof window._guardInlineSwitchCamera === 'function') {
       window._guardInlineSwitchCamera();
       return;
@@ -7287,6 +8101,7 @@ function guardTokenPayload() {
       }
     } catch (e) {}
     cameraPrefSelect.addEventListener('change', function() {
+      try { if (typeof _gateUnlockBeepAudio === 'function') _gateUnlockBeepAudio(); } catch (_be) {}
       setCameraPreference(cameraPrefSelect.value);
       if (window.GATE_GUARD_WALL) return;
       if (scannerRunning) {
@@ -7348,13 +8163,17 @@ function guardTokenPayload() {
 
   // -------------------------
   // Manual Entry (omitted on guard-only embed)
-  // Check-in: reason + Submit (or Enter when reason selected). Check-out: name/ID + Enter (no reason).
+  // Check-in: choose office routing + Submit (manual_gate_form; server requires routing for IN).
+  // Check-out: leave routing blank + Submit — records OUT only.
   // -------------------------
   (function() {
     var manualSubmitEl = document.getElementById('manualSubmit');
     var manualInputEl = document.getElementById('manualInput');
     var manualReasonEl = document.getElementById('manualReason');
-    if (!manualSubmitEl || !manualInputEl || !manualReasonEl) return;
+    var manualOtherEl = document.getElementById('manualOtherReason');
+    var manualOtherWrap = document.getElementById('manualOtherReasonWrap');
+    var MANUAL_REASON_OTHERS = 'GATE_RESOLVED_OFFICE_ENDORSEMENT';
+    var manualEntryAvailable = !!(manualSubmitEl && manualInputEl && manualReasonEl);
 
     // Manual entry should not be blocked by camera-scan processing flags (guard-display/guard-wall).
     // Use a dedicated lock to prevent double-submits from Enter/Submit/scanner suffix.
@@ -7391,6 +8210,8 @@ function guardTokenPayload() {
     }
 
     function finalizeUsbWedgePayload(raw) {
+      /* Keyboard wedge fires in a real key event — unlock audio in the same gesture as the scan. */
+      try { if (typeof _gateUnlockBeepAudio === 'function') _gateUnlockBeepAudio(); } catch (_be) {}
       var payload = (raw || '').trim();
       if (!payload) {
         if (gateUsbSignalEl && window._gateUsbScannerMode) {
@@ -7534,6 +8355,7 @@ function guardTokenPayload() {
         if (gCam && gUsb) guardInstr.textContent = usb ? gUsb : gCam;
       }
       if (usb) {
+        try { if (typeof _gateUnlockBeepAudio === 'function') _gateUnlockBeepAudio(); } catch (_be) {}
         if (typeof window._gateGuardWallStopCamera === 'function') {
           window._gateGuardWallStopCamera(function() {});
         }
@@ -7596,6 +8418,39 @@ function guardTokenPayload() {
       return "{{ csrf_token }}";
     }
 
+    // USB keyboard wedge (global): scanner may type into the page before focus reaches the hidden wedge field.
+    // Must run on field-trip pages too (no Manual Entry column — manual-entry IIFE used to early-return).
+    var _usbScanBuf = '';
+    var _usbScanTimer = null;
+    var USB_SCAN_IDLE_MS = 200;
+    function _usbScanResetTimer() {
+      if (_usbScanTimer) clearTimeout(_usbScanTimer);
+      _usbScanTimer = setTimeout(function() { _usbScanFinalize('idle'); }, USB_SCAN_IDLE_MS);
+    }
+    function _usbScanFinalize(_why) {
+      if (_usbScanTimer) { clearTimeout(_usbScanTimer); _usbScanTimer = null; }
+      var payload = (_usbScanBuf || '').trim();
+      _usbScanBuf = '';
+      finalizeUsbWedgePayload(payload);
+    }
+    document.addEventListener('keydown', function(e) {
+      if (!usbScannerShouldCaptureKeydown(e)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'Enter') {
+        if (!_usbScanBuf) return;
+        e.preventDefault();
+        _usbScanFinalize('enter');
+        return;
+      }
+      if (e.key && e.key.length === 1) {
+        e.preventDefault();
+        _usbScanBuf += e.key;
+        _usbScanResetTimer();
+      }
+    }, true);
+
+    if (manualEntryAvailable) {
+
     function clearManualInputError() {
       manualInputEl.classList.remove('manual-input-error');
     }
@@ -7608,8 +8463,18 @@ function guardTokenPayload() {
         manualReasonEl.classList.remove('is-placeholder');
       }
     }
-    manualReasonEl.addEventListener('change', manualReasonPlaceholderSync);
+    function syncManualOtherReasonVisibility() {
+      if (!manualOtherWrap || !manualOtherEl) return;
+      var show = (manualReasonEl.value || '').trim() === MANUAL_REASON_OTHERS;
+      manualOtherWrap.style.display = show ? 'block' : 'none';
+      if (!show) manualOtherEl.value = '';
+    }
+    manualReasonEl.addEventListener('change', function() {
+      manualReasonPlaceholderSync();
+      syncManualOtherReasonVisibility();
+    });
     manualReasonPlaceholderSync();
+    syncManualOtherReasonVisibility();
 
     function manualEntryLocalDateTime() {
       var d = new Date();
@@ -7621,7 +8486,7 @@ function guardTokenPayload() {
       return y + '-' + mo + '-' + day + 'T' + h + ':' + mi + ':00';
     }
 
-    function doManualSubmit(studentInput, gateKind, reasonText, reasonLabelText, skipConfirm) {
+    function doManualSubmit(studentInput, gateKind, reasonText, reasonLabelText, skipConfirm, otherDetail) {
       if (manualProcessing) {
         showNotification('Please wait while the manual entry is being processed', 'warning');
         return;
@@ -7631,6 +8496,9 @@ function guardTokenPayload() {
         manualProcessing = true;
         var manualProcessingStartedAt = Date.now();
         var selectedEventIdSafe = (typeof selectedEventId !== 'undefined' && selectedEventId) ? selectedEventId : null;
+        if (!selectedEventIdSafe && typeof window.EVENT_ATTENDANCE_SCANNER_EVENT_ID !== 'undefined' && window.EVENT_ATTENDANCE_SCANNER_EVENT_ID) {
+          selectedEventIdSafe = String(window.EVENT_ATTENDANCE_SCANNER_EVENT_ID);
+        }
         try { console.log('[Manual Entry] Sending request', { studentInput: studentInput, gateKind: gateKind, scanStatus: scanStatus, reasonText: reasonText, eventId: selectedEventIdSafe }); } catch (_e0) {}
 
         var statusIndicator = document.querySelector('.status-indicator');
@@ -7659,7 +8527,9 @@ function guardTokenPayload() {
             student_id: studentInput,
             manual_status: scanStatus,
             gate_manual_entry: gateKind,
+            manual_gate_form: '1',
             manual_entry_reason: gateKind === 'in' ? (reasonText || '') : '',
+            manual_entry_other_detail: gateKind === 'in' && otherDetail ? otherDetail : '',
             use_save_scan: true,
             local_time: fullDateTime,
             event_id: selectedEventIdSafe,
@@ -7691,6 +8561,8 @@ function guardTokenPayload() {
             manualInputEl.value = '';
             manualReasonEl.value = '';
             manualReasonPlaceholderSync();
+            if (manualOtherEl) manualOtherEl.value = '';
+            syncManualOtherReasonVisibility();
           });
           return;
         }
@@ -7701,9 +8573,11 @@ function guardTokenPayload() {
           device_id: DEVICE_ID,
           csrfmiddlewaretoken: getCsrfTokenSafe(),
           manual_status: scanStatus,
-          gate_manual_entry: gateKind
+          gate_manual_entry: gateKind,
+          manual_gate_form: '1'
         };
         if (gateKind === 'in' && reasonText) postData.manual_entry_reason = reasonText;
+        if (gateKind === 'in' && otherDetail) postData.manual_entry_other_detail = otherDetail;
         if (selectedEventIdSafe) postData.event_id = selectedEventIdSafe;
 
         $.ajax({
@@ -7778,6 +8652,8 @@ function guardTokenPayload() {
         manualInputEl.value = '';
         manualReasonEl.value = '';
         manualReasonPlaceholderSync();
+        if (manualOtherEl) manualOtherEl.value = '';
+        syncManualOtherReasonVisibility();
         clearManualInputError();
         manualProcessing = false;
         if (response.status === 'IN') {
@@ -7820,7 +8696,7 @@ function guardTokenPayload() {
         resultDiv.innerHTML = escapeHtml(_manualFailMsg);
         resultDiv.className = 'warning';
         showStudentPopup(response);
-        showNotification(_manualFailMsg, 'warning', (response && response.inactive) ? 'Activation Required' : 'Not registered', currentTime);
+        showNotification(_manualFailMsg, 'warning', (response && response.inactive) ? 'Activation Required' : 'Unknown student ID', currentTime);
         manualProcessing = false;
       } else if (response.already_scanned) {
         playErrorBeep();
@@ -7863,7 +8739,9 @@ function guardTokenPayload() {
           student_id: studentInput,
           manual_status: scanStatus,
           gate_manual_entry: gateKind,
+          manual_gate_form: '1',
           manual_entry_reason: gateKind === 'in' ? (reasonText || '') : '',
+          manual_entry_other_detail: gateKind === 'in' && otherDetail ? otherDetail : '',
           use_save_scan: true,
           local_time: fullDateTime,
           event_id: selectedEventId,
@@ -7893,6 +8771,8 @@ function guardTokenPayload() {
           manualInputEl.value = '';
           manualReasonEl.value = '';
           manualReasonPlaceholderSync();
+          if (manualOtherEl) manualOtherEl.value = '';
+          syncManualOtherReasonVisibility();
         });
         return;
       }
@@ -7938,9 +8818,18 @@ function guardTokenPayload() {
           return;
         }
         var reasonLabel = reason ? ((manualReasonEl.options[manualReasonEl.selectedIndex] || {}).text || reason) : '';
+        var otherDetail = '';
+        if (reason === MANUAL_REASON_OTHERS) {
+          otherDetail = manualOtherEl ? (manualOtherEl.value || '').trim() : '';
+          if (otherDetail.length < 2) {
+            showNotification('Please type a reason when Others is selected (e.g. which office or why manual check-in).', 'warning');
+            return;
+          }
+        }
         if (reason) {
-          doManualSubmit(raw, 'in', reason, reasonLabel, false);
+          doManualSubmit(raw, 'in', reason, reasonLabel, false, otherDetail);
         } else {
+          /* Blank routing = check-out only; check-in always requires SAS / endorsement (server + gate_manual_form). */
           doManualSubmit(raw, 'out', '', '', true);
         }
       } catch (err) {
@@ -7948,38 +8837,6 @@ function guardTokenPayload() {
         try { showNotification('Manual entry error. Please refresh the page and try again.', 'error'); } catch (_e2) {}
       }
     }
-
-    // USB handheld scanners typically behave like a keyboard that types the QR payload fast
-    // and ends with Enter (or sometimes just a short pause). In USB scanner mode we treat
-    // that payload as a normal QR scan (same handler as the camera), not a manual entry.
-    var _usbScanBuf = '';
-    var _usbScanTimer = null;
-    var USB_SCAN_IDLE_MS = 200;
-    function _usbScanResetTimer() {
-      if (_usbScanTimer) clearTimeout(_usbScanTimer);
-      _usbScanTimer = setTimeout(function() { _usbScanFinalize('idle'); }, USB_SCAN_IDLE_MS);
-    }
-    function _usbScanFinalize(_why) {
-      if (_usbScanTimer) { clearTimeout(_usbScanTimer); _usbScanTimer = null; }
-      var payload = (_usbScanBuf || '').trim();
-      _usbScanBuf = '';
-      finalizeUsbWedgePayload(payload);
-    }
-    document.addEventListener('keydown', function(e) {
-      if (!usbScannerShouldCaptureKeydown(e)) return;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.key === 'Enter') {
-        if (!_usbScanBuf) return;
-        e.preventDefault();
-        _usbScanFinalize('enter');
-        return;
-      }
-      if (e.key && e.key.length === 1) {
-        e.preventDefault();
-        _usbScanBuf += e.key;
-        _usbScanResetTimer();
-      }
-    }, true);
 
     manualSubmitEl.addEventListener('click', function() {
       try { console.log('[Manual Entry] Submit clicked'); } catch (_l) {}
@@ -8012,6 +8869,8 @@ function guardTokenPayload() {
       try { console.log('[Manual Entry] Enter pressed'); } catch (_l2) {}
       runManualSubmitFromUi();
     });
+
+    }
   })();
 
   // -------------------------

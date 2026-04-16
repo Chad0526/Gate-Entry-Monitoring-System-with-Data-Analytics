@@ -357,13 +357,23 @@ try:
 except (TypeError, ValueError):
     _gate_armed_ttl = 86400 * 366
 GATE_SESSION_ARMED_TIMEOUT = max(300, _gate_armed_ttl)
-# Daily gate: minimum time between duplicate scans (same direction) while still inside / outside (minutes).
+# Daily gate: minimum time between scans (seconds). Default 30. Legacy env: GATE_SCAN_REPEAT_COOLDOWN_MINUTES (whole minutes).
 try:
-    _gate_cool = int(os.environ.get('GATE_SCAN_REPEAT_COOLDOWN_MINUTES', '5'))
+    if 'GATE_SCAN_REPEAT_COOLDOWN_SECONDS' in os.environ:
+        _sec_raw = (os.environ.get('GATE_SCAN_REPEAT_COOLDOWN_SECONDS') or '').strip()
+        _gate_cool_sec = int(_sec_raw) if _sec_raw else 30
+    elif 'GATE_SCAN_REPEAT_COOLDOWN_MINUTES' in os.environ:
+        _min_raw = (os.environ.get('GATE_SCAN_REPEAT_COOLDOWN_MINUTES') or '').strip()
+        _m = int(_min_raw) if _min_raw else 5
+        _gate_cool_sec = max(1, min(_m, 24 * 60)) * 60
+    else:
+        _gate_cool_sec = 30
 except (TypeError, ValueError):
-    _gate_cool = 5
-GATE_SCAN_REPEAT_COOLDOWN_MINUTES = max(1, min(_gate_cool, 24 * 60))
-# Daily gate: global = wait GATE_SCAN_REPEAT_COOLDOWN_MINUTES after any scan before the next (recommended).
+    _gate_cool_sec = 30
+GATE_SCAN_REPEAT_COOLDOWN_SECONDS = max(1, min(int(_gate_cool_sec), 86400))
+# Deprecated alias (approximate); prefer GATE_SCAN_REPEAT_COOLDOWN_SECONDS.
+GATE_SCAN_REPEAT_COOLDOWN_MINUTES = max(1, (GATE_SCAN_REPEAT_COOLDOWN_SECONDS + 59) // 60)
+# Daily gate: global = wait this long after any scan before the next (recommended).
 # same_direction = only block duplicate IN or duplicate OUT (allows immediate IN↔OUT alternation when UI auto-suggests).
 _raw_gate_cool_scope = (os.environ.get('GATE_SCAN_REPEAT_COOLDOWN_SCOPE', 'global') or '').strip().lower()
 GATE_SCAN_REPEAT_COOLDOWN_SCOPE = _raw_gate_cool_scope if _raw_gate_cool_scope in ('global', 'same_direction') else 'global'

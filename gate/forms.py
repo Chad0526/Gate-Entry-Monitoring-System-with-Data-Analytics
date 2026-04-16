@@ -580,7 +580,6 @@ class StaffPersonnelCreateForm(forms.Form):
         choices=(('staff', 'Staff'), ('faculty', 'Faculty')),
         widget=forms.Select(attrs={'class': 'form-control'}),
     )
-    employee_id = forms.CharField(max_length=50, required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
     department = forms.CharField(max_length=150, required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
     position = forms.CharField(max_length=150, required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
     contact_number = forms.CharField(max_length=20, required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))

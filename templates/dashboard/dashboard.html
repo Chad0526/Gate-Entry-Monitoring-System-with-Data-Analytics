@@ -172,6 +172,12 @@
     text-decoration: none; letter-spacing: 0.02em;
   }
   .dash-stat-link:hover { color: #14532d; text-decoration: underline; }
+  .dash-stat-link.dash-stat-link--amber {
+    color: #d97706;
+  }
+  .dash-stat-link.dash-stat-link--amber:hover {
+    color: #b45309;
+  }
 
   /* Gate entries by program (BST / BSE) — two cards only */
   .dash-program-grid {
@@ -516,28 +522,24 @@
       </div>
       <div class="dash-kpi-iconbox orange" aria-hidden="true"><i class="fas fa-user-tag"></i></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-accent-amber">
+    <div class="dash-kpi-card dash-kpi-accent-green">
       <div class="dash-kpi-body">
-        {% if user_role == 'student affairs' %}
-        <div class="dash-kpi-val" id="incidents_today">{{ incidents_today|default:0 }}</div>
-        <div class="dash-kpi-label">Gate incidents today</div>
-        {% else %}
-        <div class="dash-kpi-val" id="denied_today">{{ denied_today|default:0 }}</div>
-        <div class="dash-kpi-label">Denied attempts</div>
-        {% endif %}
+        <div class="dash-kpi-val" id="total_students">{{ total_students|default:0 }}</div>
+        <div class="dash-kpi-label">Active students</div>
       </div>
-      <div class="dash-kpi-iconbox amber" aria-hidden="true">
-        {% if user_role == 'student affairs' %}<i class="fas fa-exclamation-triangle"></i>{% else %}<i class="fas fa-ban"></i>{% endif %}
-      </div>
+      <div class="dash-kpi-iconbox green" aria-hidden="true"><i class="fas fa-user-graduate"></i></div>
     </div>
   </div>
 
   <div class="dash-stats-secondary">
     <div class="dash-sec-card">
-      <div class="dash-kpi-iconbox green" style="width:44px;height:44px;font-size:1.1rem;"><i class="fas fa-user-graduate"></i></div>
+      <div class="dash-kpi-iconbox amber" style="width:44px;height:44px;font-size:1.1rem;">
+        <i class="fas fa-exclamation-triangle"></i>
+      </div>
       <div>
-        <div class="dash-kpi-label">Active students</div>
-        <div class="dash-kpi-val" id="total_students">{{ total_students|default:0 }}</div>
+        <div class="dash-kpi-label">Gate incidents</div>
+        <div class="dash-kpi-val" id="denied_today">{{ denied_today|default:0 }}</div>
+        <a href="{% url 'gate-entry-list' %}?tab=incidents&amp;date={{ today|date:'Y-m-d' }}" class="dash-stat-link dash-stat-link--amber">View gate incidents <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i></a>
       </div>
     </div>
     <div class="dash-sec-card">
@@ -650,7 +652,7 @@
                 <span class="sas-quick-tile__title">Visitor passes</span>
                 <span class="sas-quick-tile__desc">Issue QR codes for guests</span>
               </a>
-              <a href="{% url 'gate-incident-list' %}" class="sas-quick-tile ccb-spa-nav">
+              <a href="{% url 'gate-entry-list' %}?tab=incidents&amp;date={{ today|date:'Y-m-d' }}" class="sas-quick-tile ccb-spa-nav">
                 <span class="sas-quick-tile__icon"><i class="fas fa-exclamation-triangle"></i></span>
                 <span class="sas-quick-tile__title">Gate incidents</span>
                 <span class="sas-quick-tile__desc">Review and verify reports</span>
@@ -826,7 +828,6 @@
         setText('total_students', data.total_students);
         setText('granted_today', data.granted_today);
         setText('denied_today', data.denied_today);
-        if (data.incidents_today !== undefined) setText('incidents_today', data.incidents_today);
         if (data.visitors_today !== undefined) setText('visitors_today', data.visitors_today);
         if (data.students_male !== undefined) setText('students_male', data.students_male);
         if (data.students_female !== undefined) setText('students_female', data.students_female);

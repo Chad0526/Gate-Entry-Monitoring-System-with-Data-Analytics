@@ -3,7 +3,7 @@
   Reusable print header (logo + school title + subtitle + date line).
   Usage:
     {% include 'snippets/print_header.html' with print_title=site_name print_subtitle='...' print_date_line='...' %}
-  Note: Styling is expected to come from the parent template's @media print rules for .print-header* classes.
+  Link static/css/print-report-header.css in the page extrahead for .print-header* styles.
 #}
 <div class="print-header" style="display: none;">
   <img src="{% static 'img/logo.png' %}" alt="Logo" class="print-header-logo">

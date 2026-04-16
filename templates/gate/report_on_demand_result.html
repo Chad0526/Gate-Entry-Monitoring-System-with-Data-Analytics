@@ -1,12 +1,55 @@
 {% extends 'base/base.html' %}
+{% load static %}
 {% block title %}Report result - {{ site_name }}{% endblock title %}
 {% block page_heading %}Report result{% endblock page_heading %}
 
+{% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/print-report-header.css' %}">
+<style>
+@media print {
+  .main-sidebar, .main-header, .main-footer, .content-header, .control-sidebar, .navbar, #ccb-page-loader {
+    display: none !important;
+  }
+  .wrapper .content-wrapper {
+    margin-left: 0 !important;
+    padding-top: 0 !important;
+  }
+  .no-print { display: none !important; }
+  .card {
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .table thead th {
+    background: #f8f9fa !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  @page { margin: 0.5in; }
+}
+</style>
+{% endblock extrahead %}
+
 {% block content %}
-<div class="row mb-3">
-  <div class="col-12">
+<div class="print-header" style="display: none;">
+  <img src="{% static 'img/logo.png' %}" alt="Logo" class="print-header-logo">
+  <div class="print-header-content">
+    <div class="print-header-title">{{ site_name|default:"City College of Bayawan" }}</div>
+    <div class="print-header-subtitle">On-demand report</div>
+    <div class="print-header-date">
+      Period: {{ date_from|date:"M d, Y" }} – {{ date_to|date:"M d, Y" }}
+      | Group by: {{ group_by }}
+      | Generated: {% now "Y-m-d H:i:s" %}
+    </div>
+  </div>
+</div>
+
+<div class="row mb-3 no-print">
+  <div class="col-12 d-flex flex-wrap align-items-center" style="gap: 8px;">
     <a href="{% url 'report-on-demand' %}" class="btn btn-outline-secondary ccb-spa-nav"><i class="fas fa-arrow-left mr-1"></i> New report</a>
-    <a href="{% url 'reports-hub' %}" class="btn btn-outline-primary ml-2 ccb-spa-nav">Reports hub</a>
+    <a href="{% url 'reports-hub' %}" class="btn btn-outline-primary ccb-spa-nav">Reports hub</a>
+    <button type="button" class="btn btn-secondary ml-auto" onclick="window.print();">
+      <i class="fas fa-print mr-1"></i> Print
+    </button>
   </div>
 </div>
 
@@ -41,4 +84,6 @@
     {% endif %}
   </div>
 </div>
+
+{% include 'snippets/report_signatories_block.html' %}
 {% endblock content %}

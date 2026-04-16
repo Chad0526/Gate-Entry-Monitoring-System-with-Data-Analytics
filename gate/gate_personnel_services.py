@@ -1003,6 +1003,8 @@ class RealtimeDashboardService:
         qs = GateEntry.objects.filter(
             timestamp__gte=day_start,
             timestamp__lt=day_end,
+        ).filter(
+            Q(student_id__isnull=False) | Q(visitor_visit_id__isnull=False)
         ).select_related('student', 'event', 'visitor_visit').order_by('-timestamp')[:limit]
         rows = []
         for e in qs:
@@ -1123,6 +1125,8 @@ class RealtimeDashboardService:
         # Recent entries
         recent_entries = GateEntry.objects.filter(
             timestamp__gte=recent_cutoff
+        ).filter(
+            Q(student_id__isnull=False) | Q(visitor_visit_id__isnull=False)
         ).select_related('student', 'recorded_by').order_by('-timestamp')[:limit]
         
         for entry in recent_entries:
