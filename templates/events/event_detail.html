@@ -393,7 +393,7 @@
     <div class="ed-card-head"><i class="fas fa-chart-bar"></i> Attendance & reports</div>
     <div class="ed-card-body">
       {% if event.end_date < today %}
-      <p class="text-muted small mb-2"><i class="fas fa-info-circle mr-1"></i> Event ended. Report and Registrations are available for records.</p>
+      <p class="text-muted small mb-2"><i class="fas fa-info-circle mr-1"></i> Event ended. Reports are available for records.</p>
       {% endif %}
       <div class="ed-actions">
         <button type="button" class="btn btn-info btn-sm ed-modal-btn" data-target="#edReportModal" data-src="{% url 'event-attendance-report' event.id %}?embed=1"><i class="fas fa-file-alt mr-1"></i> Report</button>
@@ -406,7 +406,6 @@
         <a href="{% url 'gate-scan' %}?event={{ event.id }}" class="btn btn-success btn-sm"><i class="fas fa-clipboard-check mr-1"></i> Take attendance</a>
         {% endif %}
         {% endif %}
-        <button type="button" class="btn btn-secondary btn-sm ed-modal-btn" data-target="#edRegsModal" data-src="{% url 'event-manage-registrations' event.id %}?embed=1"><i class="fas fa-list-alt mr-1"></i> Registrations</button>
       </div>
     </div>
   </div>
@@ -442,24 +441,6 @@
         </div>
         <div class="modal-body p-0">
           <iframe class="ed-modal-iframe" src="" title="Event Summary"></iframe>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Registrations modal -->
-  <div class="modal fade ed-modal" id="edRegsModal" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
-      <div class="modal-content">
-        <div class="modal-header ed-modal-header">
-          <h5 class="modal-title"><i class="fas fa-list-alt mr-2"></i> Registrations</h5>
-          <div class="ed-modal-header-actions">
-            <a href="{% url 'event-manage-registrations' event.id %}" class="btn btn-sm btn-outline-secondary" target="_blank" title="Open in new tab"><i class="fas fa-external-link-alt"></i></a>
-            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-          </div>
-        </div>
-        <div class="modal-body p-0">
-          <iframe class="ed-modal-iframe" src="" title="Registrations"></iframe>
         </div>
       </div>
     </div>

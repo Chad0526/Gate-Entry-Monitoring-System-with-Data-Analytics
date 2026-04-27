@@ -97,10 +97,10 @@ class Command(BaseCommand):
                 except Exception:
                     st_path = ''
                 if t == 'sas_inactive_ready_activation':
-                    title = f'Activate account: {st.student_id}'
+                    title = f'SAS verified — {st.student_id}'
                     msg = (
-                        f'SAS cleared {st.get_full_name()} ({st.student_id}). '
-                        f'Account still inactive — activate in profile.\n'
+                        f'SAS completed follow-up for {st.get_full_name()} ({st.student_id}) after the gate incident. '
+                        f'Open the student profile to set the account to Active if access should be enabled.\n'
                         f'Note: {note}\n'
                         f'{list_path}'
                     )

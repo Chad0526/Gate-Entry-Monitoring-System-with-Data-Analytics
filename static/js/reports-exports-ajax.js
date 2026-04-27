@@ -29,6 +29,7 @@
       headers: {
         'X-Requested-With': 'XMLHttpRequest',
         Accept: 'text/html',
+        'ngrok-skip-browser-warning': '1',
       },
     })
       .then(function (r) {
@@ -57,16 +58,32 @@
       });
   }
 
+  function _defaultExportName(format) {
+    var f = (format || 'csv').toLowerCase();
+    if (f === 'xlsx') return 'report.xlsx';
+    if (f === 'pdf') return 'report.pdf';
+    return 'report.csv';
+  }
+
   window.initReportsExportsExportButtons = function () {
     var btn = document.getElementById('export-download-btn');
     var select = document.getElementById('export-format-select');
     if (!btn || !select) return;
     var baseUrl = btn.getAttribute('data-export-base');
     if (!baseUrl) return;
-    btn.onclick = function () {
+    btn.onclick = function (e) {
+      e.preventDefault();
       var format = select.value || 'csv';
       var sep = baseUrl.indexOf('?') !== -1 ? '&' : '?';
-      window.location.href = baseUrl + sep + 'format=' + encodeURIComponent(format);
+      var url = baseUrl + sep + 'format=' + encodeURIComponent(format);
+      if (url.indexOf('http') !== 0) {
+        url = new URL(url, window.location.origin).toString();
+      }
+      if (typeof window.gateFetchDownload === 'function') {
+        window.gateFetchDownload(url, _defaultExportName(format));
+        return;
+      }
+      window.location.href = url;
     };
   };
 
@@ -95,6 +112,21 @@
       if (chip && chip.getAttribute('href') && root.contains(chip)) {
         e.preventDefault();
         fetchPartial(chip.getAttribute('href'));
+        return;
+      }
+      var zipA = e.target.closest('a.rf-export-zip-link');
+      if (zipA && root.contains(zipA)) {
+        e.preventDefault();
+        var zurl = zipA.getAttribute('href');
+        if (!zurl) return;
+        if (zurl.indexOf('http') !== 0) {
+          zurl = new URL(zurl, window.location.origin).toString();
+        }
+        if (typeof window.gateFetchDownload === 'function') {
+          window.gateFetchDownload(zurl, 'reports-export.zip');
+        } else {
+          window.location.href = zurl;
+        }
       }
     });
   };

@@ -38,7 +38,7 @@
           {% if can_edit_students %}
           <a href="{% url 'gate-student-edit' s.pk %}" class="btn btn-sm btn-info" title="Edit"><i class="fas fa-edit"></i></a>
           {% endif %}
-          <button type="button" class="btn btn-sm btn-outline-primary student-eid-btn" title="View / print student e-ID card" data-card-url="{% url 'gate-student-eid' s.pk %}"><i class="fas fa-id-card mr-1"></i> e-ID</button>
+          <button type="button" class="btn btn-sm btn-outline-primary student-eid-btn" title="View / print student e-ID card" data-card-url="{% url 'gate-student-eid' s.pk %}" data-eid-download-name="student-eid-{{ s.pk }}.html"><i class="fas fa-id-card mr-1"></i> e-ID</button>
         </td>
       </tr>
     {% empty %}

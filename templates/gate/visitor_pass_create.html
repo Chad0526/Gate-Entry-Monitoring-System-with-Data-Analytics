@@ -152,6 +152,11 @@
     text-decoration: none;
     background: #f0fdf4;
   }
+  button.vqr-btn-outline {
+    cursor: pointer;
+    font: inherit;
+    font-family: inherit;
+  }
   .vqr-table {
     width: 100%;
     border-collapse: collapse;
@@ -372,7 +377,7 @@
       {% if passes %}
       <div class="vqr-action-bar" style="margin:0;">
         <a href="{% url 'visitor-pass-print-all' %}{% if display_start is not None and display_end is not None %}?start={{ display_start }}&end={{ display_end }}{% endif %}" target="_blank" class="vqr-btn-outline"><i class="fas fa-print"></i> Print all e-ID</a>
-        <a href="{% url 'visitor-pass-print-all' %}{% if display_start is not None and display_end is not None %}?start={{ display_start }}&end={{ display_end }}&{% else %}?{% endif %}download=1" class="vqr-btn-outline"><i class="fas fa-download"></i> Download all e-ID</a>
+        <button type="button" class="vqr-btn-outline" id="vqrDownloadAllEidBtn" data-download-href="{% url 'visitor-pass-print-all' %}{% if display_start is not None and display_end is not None %}?start={{ display_start }}&end={{ display_end }}&{% else %}?{% endif %}download=1&format=png"><i class="fas fa-download"></i> Download all e-ID</button>
       </div>
       {% endif %}
     </div>
@@ -393,7 +398,7 @@
                 <a href="{% url 'visitor-qr-image' code=p.code %}" target="_blank" class="vqr-qr-link" title="Open QR (print or download)">
                   <img src="{% url 'visitor-qr-image' code=p.code %}" alt="QR {{ p.code }}" width="64" height="64">
                 </a>
-                <a href="{% url 'visitor-qr-image' code=p.code %}" download="visitor-qr-{{ p.code }}.png" target="_blank" class="vqr-btn-outline mt-1" style="padding:6px 10px; font-size:0.78rem;" title="Download QR"><i class="fas fa-download"></i></a>
+                <a href="{% url 'visitor-qr-image' code=p.code %}?download=1&format=png" class="vqr-btn-outline mt-1 vqr-ngrok-fetch-download" style="padding:6px 10px; font-size:0.78rem;" title="Download QR" data-default-filename="visitor-qr-{{ p.code }}.png"><i class="fas fa-download"></i></a>
               </td>
               <td><code>{{ p.code }}</code></td>
               <td>
@@ -504,18 +509,56 @@
   var modal = document.getElementById('eidCardModal');
   var iframe = document.getElementById('eidCardIframe');
   var openNewTabLink = document.getElementById('eidCardOpenNewTab');
+  var downloadLink = document.getElementById('eidCardDownload');
   var printBtn = document.getElementById('eidCardPrint');
+  var lastEidDownloadCode = '';
+
+  if (typeof window.gateFetchDownload === 'function') {
+    var batchBtn = document.getElementById('vqrDownloadAllEidBtn');
+    if (batchBtn) {
+      batchBtn.addEventListener('click', function() {
+        var u = batchBtn.getAttribute('data-download-href');
+        if (!u) return;
+        if (typeof normalizeGateEidUrl === 'function' && u.charAt(0) === '/') {
+          u = window.location.origin + u;
+        }
+        window.gateFetchDownload(u, 'visitor-eids-png.zip');
+      });
+    }
+    document.querySelectorAll('a.vqr-ngrok-fetch-download').forEach(function(a) {
+      a.addEventListener('click', function(e) {
+        e.preventDefault();
+        var href = a.getAttribute('href');
+        var fn = a.getAttribute('data-default-filename') || 'visitor-qr.png';
+        if (typeof normalizeGateEidUrl === 'function' && href && href.charAt(0) === '/') {
+          href = window.location.origin + href;
+        }
+        window.gateFetchDownload(href, fn);
+      });
+    });
+  }
+
   if (!modal || !iframe) return;
   document.querySelectorAll('.e-id-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
+      var code = this.getAttribute('data-code');
+      lastEidDownloadCode = code || '';
       var url = typeof normalizeGateEidUrl === 'function'
         ? normalizeGateEidUrl(this.getAttribute('data-card-url'))
         : this.getAttribute('data-card-url');
       if (!url) return;
       iframe.src = url;
       openNewTabLink.href = url;
-      var downloadLink = document.getElementById('eidCardDownload');
-      if (downloadLink) downloadLink.href = url;
+      if (downloadLink) {
+        if (code) {
+          downloadLink.href = "{% url 'visitor-pass-card' code='__CODE__' %}"
+            .replace('__CODE__', encodeURIComponent(code)) + '?download=1&format=png';
+          downloadLink.setAttribute('download', 'visitor-eid-' + code + '.png');
+        } else {
+          // Fallback: keep prior behavior if code is unavailable.
+          downloadLink.href = url;
+        }
+      }
       $(modal).modal('show');
     });
   });
@@ -524,6 +567,16 @@
       try {
         if (iframe.contentWindow && iframe.contentWindow.print) iframe.contentWindow.print();
       } catch (e) {}
+    });
+  }
+  if (downloadLink && typeof window.gateFetchDownload === 'function') {
+    downloadLink.addEventListener('click', function(e) {
+      var h = downloadLink.getAttribute('href');
+      if (!h || h === '#') return;
+      e.preventDefault();
+      if (h.charAt(0) === '/') h = window.location.origin + h;
+      var name = (lastEidDownloadCode ? 'visitor-eid-' + lastEidDownloadCode + '.png' : 'visitor-eid.png');
+      window.gateFetchDownload(h, name);
     });
   }
   $(modal).on('hidden.bs.modal', function() { iframe.src = 'about:blank'; });

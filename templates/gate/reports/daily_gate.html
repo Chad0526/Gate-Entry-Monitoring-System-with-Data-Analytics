@@ -49,7 +49,7 @@
             <td>{{ r.name }}</td>
             <td>{% if r.in_time %}{{ r.in_time|date:"H:i" }}{% else %}—{% endif %}</td>
             <td>{% if r.out_time %}{{ r.out_time|date:"H:i" }}{% else %}—{% endif %}</td>
-            <td>{% if r.duration_min %}{{ r.duration_min|floatformat:0 }} min{% else %}—{% endif %}</td>
+            <td>{% if r.duration_hm %}{{ r.duration_hm }}{% else %}—{% endif %}</td>
             <td>
               {% if r.status == 'Inside' %}<span class="badge badge-info">Inside</span>
               {% elif r.status == 'Completed' %}<span class="badge badge-success">Completed</span>

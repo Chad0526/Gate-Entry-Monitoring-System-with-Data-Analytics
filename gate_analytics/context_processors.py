@@ -365,7 +365,8 @@ def notifications_context(request):
                 except Exception:
                     st_url = '#'
                 if notif.notification_type == 'sas_inactive_ready_activation':
-                    sas_followup_hint = _('Inactive account — open profile to activate.')
+                    # Student/SAS incident flow is done; admin may still need to set Active in profile.
+                    sas_followup_hint = _('SAS follow-up complete — open profile to enable access (set Active if needed).')
                 else:
                     sas_followup_hint = _('Already active — no action needed.')
                 notification_all.append({

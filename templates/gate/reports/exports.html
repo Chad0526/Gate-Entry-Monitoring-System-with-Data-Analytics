@@ -193,6 +193,7 @@
 {% endblock content %}
 
 {% block extrascript_inner %}
+{% include 'snippets/eid_iframe_url_script.html' %}
 <script src="{% static 'js/reports-filter-bar.js' %}"></script>
 <script src="{% static 'js/reports-exports-ajax.js' %}"></script>
 <script>

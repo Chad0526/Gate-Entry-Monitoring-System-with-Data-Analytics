@@ -1406,6 +1406,7 @@
   var iframe = document.getElementById('studentEidCardIframe');
   var openNewTabLink = document.getElementById('studentEidCardOpenNewTab');
   var downloadLink = document.getElementById('studentEidCardDownload');
+  var lastEidDownloadFilename = 'student-eid.html';
 
   if (modal && iframe) {
     document.addEventListener('click', function(e) {
@@ -1417,12 +1418,33 @@
         : btn.getAttribute('data-card-url');
       if (!url) return;
       e.preventDefault();
+      var dn = btn.getAttribute('data-eid-download-name');
+      if (dn) lastEidDownloadFilename = dn;
       iframe.src = url;
       if (openNewTabLink) openNewTabLink.href = url;
       if (downloadLink) downloadLink.href = url;
       $(modal).modal('show');
     });
     $(modal).on('hidden.bs.modal', function() { iframe.src = 'about:blank'; });
+  }
+
+  if (downloadLink && typeof window.gateFetchDownload === 'function') {
+    downloadLink.addEventListener('click', function(e) {
+      var h = downloadLink.getAttribute('href');
+      if (!h || h === '#') return;
+      e.preventDefault();
+      if (h.charAt(0) === '/') h = window.location.origin + h;
+      window.gateFetchDownload(h, lastEidDownloadFilename, { allowHtml: true });
+    });
+  }
+
+  if (openNewTabLink && typeof window.gateOpenUrlSameOrigin === 'function') {
+    openNewTabLink.addEventListener('click', function(e) {
+      var h = openNewTabLink.getAttribute('href');
+      if (!h || h === '#') return;
+      e.preventDefault();
+      window.gateOpenUrlSameOrigin(h);
+    });
   }
 
   function buildEidUrl(download) {
@@ -1490,7 +1512,13 @@
   var exportCsvDownloadBtn = document.getElementById('exportCsvDownloadBtn');
   if (exportCsvDownloadBtn) {
     exportCsvDownloadBtn.addEventListener('click', function() {
-      window.location.href = buildExportCsvUrl();
+      var csvUrl = buildExportCsvUrl();
+      if (typeof window.gateFetchDownload === 'function' && csvUrl && csvUrl !== '#') {
+        window.gateFetchDownload(csvUrl, 'students_export.csv');
+        $('#exportCsvModal').modal('hide');
+        return;
+      }
+      window.location.href = csvUrl;
       $('#exportCsvModal').modal('hide');
     });
   }
@@ -1541,7 +1569,12 @@
       var u = buildQrLabelsPdfUrl();
       if (!u || u === '#') return;
       var sep = u.indexOf('?') >= 0 ? '&' : '?';
-      window.open(u + sep + 'preview=1', '_blank', 'noopener,noreferrer');
+      var previewUrl = u + sep + 'preview=1';
+      if (typeof window.gateOpenUrlSameOrigin === 'function') {
+        window.gateOpenUrlSameOrigin(previewUrl);
+      } else {
+        window.open(previewUrl, '_blank', 'noopener,noreferrer');
+      }
     });
   }
   var qrLabelsPdfDownloadBtn = document.getElementById('qrLabelsPdfDownloadBtn');
@@ -1549,7 +1582,11 @@
     qrLabelsPdfDownloadBtn.addEventListener('click', function() {
       var u = buildQrLabelsPdfUrl();
       if (!u || u === '#') return;
-      window.location.href = u;
+      if (typeof window.gateFetchDownload === 'function') {
+        window.gateFetchDownload(u, 'student-qr-labels.pdf');
+      } else {
+        window.location.href = u;
+      }
       $('#qrLabelsPdfModal').modal('hide');
     });
   }
@@ -1557,7 +1594,13 @@
   var printBtn = document.getElementById('printEidPrintBtn');
   if (printBtn) {
     printBtn.addEventListener('click', function() {
-      window.open(buildEidUrl(false), '_blank');
+      var u = buildEidUrl(false);
+      if (!u || u === '#') return;
+      if (typeof window.gateOpenUrlSameOrigin === 'function') {
+        window.gateOpenUrlSameOrigin(u);
+      } else {
+        window.open(u, '_blank');
+      }
       $('#printEidModal').modal('hide');
     });
   }
@@ -1569,7 +1612,12 @@
       if (!u || u === '#') return;
       var sep = u.indexOf('?') >= 0 ? '&' : '?';
       // Browser print → Save as PDF; server-side PDF can fail on some hosts.
-      window.open(u + sep + 'print=1&auto_print=1', '_blank');
+      var printUrl = u + sep + 'print=1&auto_print=1';
+      if (typeof window.gateOpenUrlSameOrigin === 'function') {
+        window.gateOpenUrlSameOrigin(printUrl);
+      } else {
+        window.open(printUrl, '_blank');
+      }
       $('#printEidModal').modal('hide');
     });
   }
@@ -1579,7 +1627,11 @@
       e.preventDefault();
       var href = buildEidZipDownloadUrl('png');
       if (!href || href === '#') return;
-      window.location.href = href;
+      if (typeof window.gateFetchDownload === 'function') {
+        window.gateFetchDownload(href, 'student-eids-png.zip');
+      } else {
+        window.location.href = href;
+      }
       $('#printEidModal').modal('hide');
     });
   }
@@ -1589,7 +1641,11 @@
       e.preventDefault();
       var href = buildEidZipDownloadUrl('jpg');
       if (!href || href === '#') return;
-      window.location.href = href;
+      if (typeof window.gateFetchDownload === 'function') {
+        window.gateFetchDownload(href, 'student-eids-jpg.zip');
+      } else {
+        window.location.href = href;
+      }
       $('#printEidModal').modal('hide');
     });
   }

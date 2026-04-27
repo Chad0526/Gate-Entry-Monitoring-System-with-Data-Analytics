@@ -71,7 +71,7 @@
   <div class="row mb-3">
     <div class="col-12 d-flex flex-wrap align-items-center gap-2">
       <a href="{% url 'gate-today-report' %}" class="btn btn-info btn-sm"><i class="fas fa-calendar-day mr-1"></i> Today's report</a>
-      <a href="{% url 'gate-today-report' %}?format=csv" class="btn btn-outline-success btn-sm"><i class="fas fa-download mr-1"></i> Download CSV</a>
+      <a href="{% url 'gate-today-report' %}?format=csv" class="btn btn-outline-success btn-sm gate-today-csv-download"><i class="fas fa-download mr-1"></i> Download CSV</a>
     </div>
   </div>
 
@@ -137,4 +137,9 @@
     </div>
   </div>
 
-{% endblock %}
+{% endblock content %}
+
+{% block extrascript_inner %}
+{% include 'snippets/eid_iframe_url_script.html' %}
+{% include 'snippets/gate_today_csv_download_bind.html' %}
+{% endblock extrascript_inner %}

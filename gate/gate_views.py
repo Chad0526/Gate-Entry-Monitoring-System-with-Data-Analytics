@@ -4563,18 +4563,37 @@ def student_qr_labels_pdf(request):
 @login_required(login_url='/login/')
 @role_required('admin', 'staff', 'student affairs')
 def visitor_pass_qr_image(request, code):
-    """Generate QR code image for a visitor pass code (e.g. VIS-001). Used for printing."""
+    """Generate QR code image for a visitor pass code (e.g. VIS-001).
+
+    Query params:
+    - format: png|jpg|jpeg (default: png)
+    - download: 1|true|yes -> force attachment filename
+    """
     pass_obj = get_object_or_404(VisitorPass, code=code)
     try:
+        image_format = (request.GET.get('format') or 'png').strip().lower()
+        if image_format == 'jpg':
+            image_format = 'jpeg'
+        if image_format not in ('png', 'jpeg'):
+            image_format = 'png'
+
         import qrcode
         qr = qrcode.QRCode(version=1, box_size=8, border=3)
         qr.add_data(pass_obj.code)
         qr.make(fit=True)
-        img = qr.make_image(fill_color='#1a1a2e', back_color='white')
+        img = qr.make_image(fill_color='#1a1a2e', back_color='white').convert('RGB')
         buffer = io.BytesIO()
-        img.save(buffer, format='PNG')
+        img.save(buffer, format='PNG' if image_format == 'png' else 'JPEG', quality=92)
         buffer.seek(0)
-        return HttpResponse(buffer.getvalue(), content_type='image/png')
+        response = HttpResponse(
+            buffer.getvalue(),
+            content_type='image/png' if image_format == 'png' else 'image/jpeg'
+        )
+        should_download = (request.GET.get('download') or '').strip().lower() in ('1', 'true', 'yes')
+        if should_download:
+            ext = 'png' if image_format == 'png' else 'jpg'
+            response['Content-Disposition'] = f'attachment; filename="visitor-qr-{pass_obj.code}.{ext}"'
+        return response
     except Exception:
         from django.http import HttpResponseServerError
         return HttpResponseServerError(b'QR generation failed')
@@ -4586,6 +4605,13 @@ def visitor_pass_qr_image(request, code):
 def visitor_pass_card(request, code):
     """Printable electronic ID card for a visitor pass (QR + code + branding)."""
     pass_obj = get_object_or_404(VisitorPass, code=code)
+    should_download = (request.GET.get('download') or '').strip().lower() in ('1', 'true', 'yes')
+    image_format = (request.GET.get('format') or 'png').strip().lower()
+    if image_format == 'jpg':
+        image_format = 'jpeg'
+    if image_format not in ('png', 'jpeg'):
+        image_format = 'png'
+
     qr_url = request.build_absolute_uri(
         reverse('visitor-qr-image', kwargs={'code': pass_obj.code})
     )
@@ -4603,6 +4629,53 @@ def visitor_pass_card(request, code):
             logo_url = request.build_absolute_uri(static('gate/images/university-logo.png'))
         except Exception:
             pass
+
+    if should_download:
+        # Render the same HTML card layout and capture it as image.
+        try:
+            qr_bytes = _visitor_pass_qr_png_bytes(pass_obj)
+            if qr_bytes:
+                qr_url = f'data:image/png;base64,{base64.b64encode(qr_bytes).decode("ascii")}'
+
+            html = render_to_string('gate/visitor_pass_card.html', {
+                'pass_obj': pass_obj,
+                'qr_url': qr_url,
+                'site_name': site_name,
+                'logo_url': logo_url,
+            }, request=request)
+            base_url = (request.build_absolute_uri('/') or '/').rstrip('/') + '/'
+            html = _make_card_html_absolute_urls(html, base_url)
+
+            shot = _screenshot_visitor_pass_card_html_bytes(html, image_format=image_format)
+            if image_format == 'png':
+                response = HttpResponse(shot, content_type='image/png')
+                response['Content-Disposition'] = f'attachment; filename="visitor-eid-{pass_obj.code}.png"'
+                return response
+            response = HttpResponse(shot, content_type='image/jpeg')
+            response['Content-Disposition'] = f'attachment; filename="visitor-eid-{pass_obj.code}.jpg"'
+            return response
+        except Exception:
+            # Fallback path when Playwright is unavailable.
+            card_png = _render_visitor_eid_card_png(pass_obj, site_name=site_name)
+            if card_png:
+                if image_format == 'png':
+                    response = HttpResponse(card_png, content_type='image/png')
+                    response['Content-Disposition'] = f'attachment; filename="visitor-eid-{pass_obj.code}.png"'
+                    return response
+                try:
+                    from PIL import Image
+                    source = Image.open(io.BytesIO(card_png)).convert('RGB')
+                    out = io.BytesIO()
+                    source.save(out, format='JPEG', quality=92)
+                    out.seek(0)
+                    response = HttpResponse(out.getvalue(), content_type='image/jpeg')
+                    response['Content-Disposition'] = f'attachment; filename="visitor-eid-{pass_obj.code}.jpg"'
+                    return response
+                except Exception:
+                    response = HttpResponse(card_png, content_type='image/png')
+                    response['Content-Disposition'] = f'attachment; filename="visitor-eid-{pass_obj.code}.png"'
+                    return response
+
     return render(request, 'gate/visitor_pass_card.html', {
         'pass_obj': pass_obj,
         'qr_url': qr_url,
@@ -4639,6 +4712,56 @@ def _make_card_html_absolute_urls(html, base_url):
     ):
         html = html.replace(old, new)
     return html
+
+
+def _playwright_context_for_screenshots(browser):
+    """Context whose requests skip ngrok's free-tier browser warning (logo/static via absolute tunnel URLs)."""
+    # https://ngrok.com/docs/secure-tunnels/ngrok-agent/http — header bypasses interstitial for subresource loads.
+    return browser.new_context(
+        viewport={'width': 420, 'height': 560},
+        extra_http_headers={'ngrok-skip-browser-warning': '1'},
+    )
+
+
+def _screenshot_visitor_pass_card_html_bytes(html, image_format='png'):
+    """Capture visitor_pass_card.html as PNG/JPEG using the same Playwright pattern as single download.
+
+    One browser per call — slower for batch, but matches modal layout reliably (esp. on Windows)
+    and avoids long-lived sync_playwright().start() issues.
+
+    Uses ngrok-skip-browser-warning on the Playwright context so when ``request.build_absolute_uri()``
+    points at an ngrok tunnel, images (logo) load as real images instead of the interstitial HTML.
+    """
+    if image_format == 'jpg':
+        image_format = 'jpeg'
+    if image_format not in ('png', 'jpeg'):
+        image_format = 'png'
+    from playwright.sync_api import sync_playwright
+
+    launch_args = [
+        '--no-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+    ]
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=launch_args)
+        context = None
+        try:
+            context = _playwright_context_for_screenshots(browser)
+            page = context.new_page()
+            page.set_content(html, wait_until='domcontentloaded')
+            page.wait_for_selector('.card-wrap', state='visible', timeout=15000)
+            card = page.locator('.card-wrap').first
+            if image_format == 'png':
+                return card.screenshot(type='png')
+            return card.screenshot(type='jpeg', quality=92)
+        finally:
+            try:
+                if context is not None:
+                    context.close()
+            except Exception:
+                pass
+            browser.close()
 
 
 def _render_card_html_to_pdf_with_page(page, html, height='4in', width='3in'):
@@ -4818,12 +4941,25 @@ def _render_visitor_eid_card_png(pass_obj, site_name='City College of Bayawan'):
 @login_required(login_url='/login/')
 @role_required('admin', 'staff', 'student affairs')
 def visitor_pass_print_all(request):
-    """Printable page with all e-ID cards, or ZIP of PDFs (one per pass, exact card layout) when download=1."""
+    """Printable page with all e-ID cards, or ZIP of card images when download=1."""
     passes = list(_visitor_pass_list_for_user(request))
     site_name = getattr(settings, 'SITE_NAME', 'City College of Bayawan')
 
     if request.GET.get('download'):
-        # ZIP of e-ID cards. Prefer PDF (exact card layout via WeasyPrint); fallback to PNG if PDF fails.
+        # ZIP of e-ID cards rendered from the same HTML layout shown in modal.
+        image_format = (request.GET.get('format') or 'png').strip().lower()
+        if image_format == 'jpg':
+            image_format = 'jpeg'
+        if image_format not in ('png', 'jpeg'):
+            image_format = 'png'
+
+        if not passes:
+            return HttpResponse(
+                'No visitor passes in this list to export. Generate slots or adjust filters, then try again.',
+                status=400,
+                content_type='text/plain; charset=utf-8',
+            )
+
         base_url = (request.build_absolute_uri('/') or '/').rstrip('/') + '/'
         logo_url = None
         try:
@@ -4838,101 +4974,60 @@ def visitor_pass_print_all(request):
             except Exception:
                 pass
 
-        use_pdf = True
-        # On Windows, WeasyPrint needs GTK libs (libgobject etc.) that are rarely installed — skip it and use Playwright
-        if platform.system() == 'Windows':
-            use_pdf = False
-        else:
-            try:
-                from weasyprint import HTML
-            except (ImportError, OSError):
-                use_pdf = False
-
-        if use_pdf:
-            zip_buffer = io.BytesIO()
-            try:
-                with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-                    for p in passes:
-                        qr_bytes = _visitor_pass_qr_png_bytes(p)
-                        if qr_bytes:
-                            qr_b64 = base64.b64encode(qr_bytes).decode('ascii')
-                            qr_url = f'data:image/png;base64,{qr_b64}'
-                        else:
-                            qr_url = request.build_absolute_uri(
-                                reverse('visitor-qr-image', kwargs={'code': p.code})
-                            )
-                        html = render_to_string('gate/visitor_pass_card.html', {
-                            'pass_obj': p,
-                            'qr_url': qr_url,
-                            'site_name': site_name,
-                            'logo_url': logo_url,
-                        }, request=request)
-                        pdf_bytes = HTML(string=html, base_url=base_url).write_pdf()
-                        safe_code = "".join(c if c.isalnum() or c in '-_' else '_' for c in p.code)
-                        zf.writestr(f'visitor-eid-{safe_code}.pdf', pdf_bytes)
-                zip_buffer.seek(0)
-                response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
-                response['Content-Disposition'] = 'attachment; filename="visitor-eids.zip"'
-                return response
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning('WeasyPrint PDF export failed, using Playwright or PNG fallback: %s', e)
-                use_pdf = False
-
-        # Try Playwright (Chromium) PDF when WeasyPrint failed or unavailable (e.g. Windows without GTK)
-        if not use_pdf:
-            try:
-                from playwright.sync_api import sync_playwright
-                zip_buffer = io.BytesIO()
-                count = 0
-                with sync_playwright() as p:
-                    browser = p.chromium.launch()
-                    page = browser.new_page(viewport={'width': 240, 'height': 320})
-                    try:
-                        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-                            for pass_obj in passes:
-                                qr_bytes = _visitor_pass_qr_png_bytes(pass_obj)
-                                if qr_bytes:
-                                    qr_b64 = base64.b64encode(qr_bytes).decode('ascii')
-                                    qr_url = f'data:image/png;base64,{qr_b64}'
-                                else:
-                                    qr_url = request.build_absolute_uri(
-                                        reverse('visitor-qr-image', kwargs={'code': pass_obj.code})
-                                    )
-                                html = render_to_string('gate/visitor_pass_card.html', {
-                                    'pass_obj': pass_obj,
-                                    'qr_url': qr_url,
-                                    'site_name': site_name,
-                                    'logo_url': logo_url,
-                                }, request=request)
-                                html = _make_card_html_absolute_urls(html, base_url)
-                                pdf_bytes = _render_card_html_to_pdf_with_page(page, html)
-                                if pdf_bytes:
-                                    safe_code = "".join(c if c.isalnum() or c in '-_' else '_' for c in pass_obj.code)
-                                    zf.writestr(f'visitor-eid-{safe_code}.pdf', pdf_bytes)
-                                    count += 1
-                    finally:
-                        browser.close()
-                if count > 0:
-                    zip_buffer.seek(0)
-                    response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
-                    response['Content-Disposition'] = 'attachment; filename="visitor-eids.zip"'
-                    return response
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning('Playwright PDF export failed, using PNG fallback: %s', e)
-
-        # PNG fallback when both WeasyPrint and Playwright fail
+        # Same Playwright path as modal single-card download: one full browser session per card.
         zip_buffer = io.BytesIO()
+        count = 0
+        failed_cards = []
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
             for p in passes:
-                png_bytes = _render_visitor_eid_card_png(p, site_name)
-                if png_bytes:
-                    safe_code = "".join(c if c.isalnum() or c in '-_' else '_' for c in p.code)
-                    zf.writestr(f'visitor-eid-{safe_code}.png', png_bytes)
+                safe_code = "".join(c if c.isalnum() or c in '-_' else '_' for c in p.code)
+                try:
+                    qr_bytes = _visitor_pass_qr_png_bytes(p)
+                    if qr_bytes:
+                        qr_url = f'data:image/png;base64,{base64.b64encode(qr_bytes).decode("ascii")}'
+                    else:
+                        qr_url = request.build_absolute_uri(
+                            reverse('visitor-qr-image', kwargs={'code': p.code})
+                        )
+                    html = render_to_string('gate/visitor_pass_card.html', {
+                        'pass_obj': p,
+                        'qr_url': qr_url,
+                        'site_name': site_name,
+                        'logo_url': logo_url,
+                    }, request=request)
+                    html = _make_card_html_absolute_urls(html, base_url)
+                    shot = _screenshot_visitor_pass_card_html_bytes(html, image_format=image_format)
+                    if image_format == 'png':
+                        zf.writestr(f'visitor-eid-{safe_code}.png', shot)
+                    else:
+                        zf.writestr(f'visitor-eid-{safe_code}.jpg', shot)
+                    count += 1
+                except Exception as e:
+                    logging.getLogger(__name__).warning(
+                        'Visitor batch Playwright card export failed for %s: %s',
+                        p.code, e
+                    )
+                    failed_cards.append(f'{p.code}: {str(e)}')
+            if failed_cards:
+                zf.writestr('failed-cards.txt', '\n'.join(failed_cards))
+
+        if count <= 0:
+            body = 'No visitor e-ID cards could be rendered.\n\n'
+            if failed_cards:
+                body += 'Details:\n' + '\n'.join(failed_cards[:20])
+            else:
+                body += 'Install browser automation if missing: pip install playwright && playwright install chromium'
+            return HttpResponse(
+                body,
+                status=503,
+                content_type='text/plain; charset=utf-8',
+            )
         zip_buffer.seek(0)
         response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
-        response['Content-Disposition'] = 'attachment; filename="visitor-eids.zip"'
+        suffix = 'png' if image_format == 'png' else 'jpg'
+        response['Content-Disposition'] = f'attachment; filename="visitor-eids-{suffix}.zip"'
+        response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response['Pragma'] = 'no-cache'
         return response
 
     # HTML print view
@@ -6631,7 +6726,8 @@ def _build_incident_list_context(request, embed_in_gate_entries=False):
             if sid:
                 inc.display_student = resolved_students.get(sid)
     role = get_user_role(request.user)
-    can_sas_review = role in ('student affairs', 'admin')
+    # SAS-only: mark checked, clear all, and related incident actions (not admins/staff on this workflow).
+    can_sas_review = role == 'student affairs'
 
     def _incident_chip_url(sas_val):
         qp = request.GET.copy()
@@ -6718,10 +6814,15 @@ def _pending_sibling_incidents(incident):
 
 @require_POST
 @login_required(login_url='/login/')
-@role_required('admin', 'student affairs')
 @transaction.atomic
 def incident_sas_verify(request, incident_id):
-    """SAS/Admin marks an incident as verified/checked."""
+    """Student Affairs (SAS) marks an incident as verified/checked. Admins can view the list but cannot confirm."""
+    if get_user_role(request.user) != 'student affairs':
+        messages.error(
+            request,
+            'Only Student Affairs (SAS) can mark incidents as checked. Students are verified in person at the office.',
+        )
+        return redirect(request.META.get('HTTP_REFERER') or 'gate-incident-list')
     incident = get_object_or_404(GateIncident, pk=incident_id)
     if incident.sas_review_status == 'verified':
         messages.info(request, 'Incident already verified.')
@@ -6771,9 +6872,9 @@ def incident_sas_verify(request, incident_id):
 
 @require_POST
 @login_required(login_url='/login/')
-@role_required('admin', 'student affairs')
+@role_required('student affairs')
 def incident_clear_all(request):
-    """Delete every gate incident row and clear office holds tied to those students."""
+    """Delete every gate incident row and clear office holds (Student Affairs only)."""
     qs = GateIncident.objects.exclude(student_id__isnull=True)
     student_ids = list(qs.values_list('student_id', flat=True).distinct())
     n = GateIncident.objects.count()
@@ -7400,21 +7501,18 @@ def event_attendance_report_export_csv(request, event_id):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = f'attachment; filename="attendance_report_{event.id}_{event.name[:30].replace(" ", "_")}.csv"'
     writer = csv.writer(response)
-    writer.writerow(['Student ID', 'Name', 'Program/Section/Year', 'Checked In', 'Checked Out', 'Recorded At'])
+    writer.writerow(['Student ID', 'Name', 'Program/Section/Year', 'Checked In', 'Checked Out'])
     for a in attendances:
         # Use 12-hour format; prefix with apostrophe so Excel displays as text (not military time)
         checked_in = _format_event_time_12h(a.checked_in_at)
         checked_out = _format_event_time_12h(a.checked_out_at)
-        recorded = _format_event_time_12h(a.recorded_at)
         if checked_in:
             checked_in = "'" + checked_in
         if checked_out:
             checked_out = "'" + checked_out
-        if recorded:
-            recorded = "'" + recorded
         name = name_family_first(a.student)
         course_section_year = get_course_section_year(a.student)
-        writer.writerow([a.student.student_id, name, course_section_year, checked_in, checked_out, recorded])
+        writer.writerow([a.student.student_id, name, course_section_year, checked_in, checked_out])
     return response
 
 
@@ -7484,14 +7582,13 @@ def event_attendance_report_export_xlsx(request, event_id):
     wb = Workbook()
     ws = wb.active
     ws.title = 'Attendance'
-    headers = ['Student ID', 'Name', 'Program/Section/Year', 'Checked In', 'Checked Out', 'Recorded At']
+    headers = ['Student ID', 'Name', 'Program/Section/Year', 'Checked In', 'Checked Out']
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=h)
         cell.font = Font(bold=True)
     for row, a in enumerate(attendances, 2):
         checked_in = _format_event_time_12h(a.checked_in_at)
         checked_out = _format_event_time_12h(a.checked_out_at)
-        recorded = _format_event_time_12h(a.recorded_at)
         name = name_family_first(a.student)
         course_section_year = get_course_section_year(a.student)
         ws.cell(row=row, column=1, value=a.student.student_id)
@@ -7499,10 +7596,8 @@ def event_attendance_report_export_xlsx(request, event_id):
         ws.cell(row=row, column=3, value=course_section_year)
         c4 = ws.cell(row=row, column=4, value=checked_in)
         c5 = ws.cell(row=row, column=5, value=checked_out)
-        c6 = ws.cell(row=row, column=6, value=recorded)
         c4.number_format = '@'
         c5.number_format = '@'
-        c6.number_format = '@'
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename="attendance_report_{event.id}_{event.name[:30].replace(" ", "_")}.xlsx"'
     wb.save(response)
@@ -7515,9 +7610,10 @@ def event_attendance_report_export_pdf(request, event_id):
     """Export event attendance summary as PDF."""
     try:
         from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT
         from reportlab.lib.pagesizes import A4
         from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
-        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import inch
     except ImportError:
         return HttpResponse('PDF export requires reportlab. Install: pip install reportlab', status=501)
@@ -7564,23 +7660,59 @@ def event_attendance_report_export_pdf(request, event_id):
     elements.append(Spacer(1, 12))
     elements.append(Paragraph(f'Event dates: {event.start_date} to {event.end_date}', styles['Normal']))
     elements.append(Spacer(1, 16))
-    data = [['Student ID', 'Name', 'Program/Section/Year', 'Checked In', 'Checked Out', 'Recorded At']]
+
+    def _pdf_cell_txt(val):
+        s = (val if val is not None else '') or ''
+        s = str(s)
+        return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+    # Header: Paragraphs wrap; body: Paragraphs with fixed width from colWidths so long text does not bleed.
+    th_style = ParagraphStyle(
+        'eath', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9,
+        textColor=colors.whitesmoke, alignment=TA_CENTER, spaceAfter=0, spaceBefore=0,
+    )
+    td_style = ParagraphStyle(
+        'eatd', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=9.5,
+        textColor=colors.black, alignment=TA_LEFT, spaceAfter=0, spaceBefore=0,
+    )
+    # Five columns: drop "Recorded at" (auto_now_add) — usually duplicates check-in and wasted space.
+    data = [[
+        Paragraph('Student ID', th_style),
+        Paragraph('Name', th_style),
+        Paragraph('Program / section / year', th_style),
+        Paragraph('Checked In', th_style),
+        Paragraph('Checked Out', th_style),
+    ]]
     for a in attendances:
-        checked_in = _format_event_time_12h(a.checked_in_at)
-        checked_out = _format_event_time_12h(a.checked_out_at)
-        recorded = _format_event_time_12h(a.recorded_at)
+        checked_in = _format_event_time_12h(a.checked_in_at) or '—'
+        checked_out = _format_event_time_12h(a.checked_out_at) or '—'
         name = name_family_first(a.student)
         course_section_year = get_course_section_year(a.student)
-        data.append([a.student.student_id, name, course_section_year, checked_in, checked_out, recorded])
-    t = Table(data, colWidths=[1.0*inch, 1.5*inch, 1.2*inch, 1.2*inch, 1.2*inch, 1.2*inch])
+        data.append([
+            Paragraph(_pdf_cell_txt(a.student.student_id), td_style),
+            Paragraph(_pdf_cell_txt(name), td_style),
+            Paragraph(_pdf_cell_txt(course_section_year), td_style),
+            Paragraph(_pdf_cell_txt(checked_in), td_style),
+            Paragraph(_pdf_cell_txt(checked_out), td_style),
+        ])
+    # ~7.27" content width: wider time columns for "MM/DD/YYYY h:mm AM"; program column matches typical data.
+    t = Table(
+        data,
+        colWidths=[0.8*inch, 1.55*inch, 1.5*inch, 1.38*inch, 1.38*inch],
+    )
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 9),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('TOPPADDING', (0, 0), (-1, 0), 4),
+        ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+        ('VALIGN', (0, 1), (-1, -1), 'TOP'),
         ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 1), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 3),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
     ]))
     elements.append(t)
@@ -7911,6 +8043,7 @@ def reports_daily_gate(request):
             'in_time': in_ts,
             'out_time': out_ts,
             'duration_min': duration,
+            'duration_hm': _format_duration_hm(duration),
             'status': status,
             'out_reason_code': getattr(out_e, 'out_reason_code', '') if out_e else '',
         })
@@ -8530,6 +8663,26 @@ def _reports_export_preview(
     return preview
 
 
+def _format_duration_hm(total_minutes):
+    """Format a stay length in minutes as e.g. '1h 45m', '38m', or '2h' (no seconds)."""
+    if total_minutes is None:
+        return ''
+    try:
+        m = int(round(float(total_minutes)))
+    except (TypeError, ValueError):
+        return ''
+    if m < 0:
+        m = 0
+    if m == 0:
+        return '0m'
+    h, rem = divmod(m, 60)
+    if h and rem:
+        return f'{h}h {rem}m'
+    if h:
+        return f'{h}h'
+    return f'{rem}m'
+
+
 def _reports_export_build_data(
     filter_date, day_start, day_end, template_type, search_q, event_id,
     program_course=None, event_io=None, year_level=None, section=None,
@@ -8558,7 +8711,7 @@ def _reports_export_build_data(
             )]
         if audience_filter != 'visitors':
             visits = _gate_entries_to_visits(entries)
-            headers = ['Student ID', 'Name', 'Gender', 'Program/Section', 'IN time', 'OUT time', 'Duration (min)', 'Status']
+            headers = ['Student ID', 'Name', 'Gender', 'Program/Section', 'IN time', 'OUT time', 'Duration', 'Status']
             for in_e, out_e in visits:
                 e = in_e or out_e
                 sid = e.student.student_id if e.student else ''
@@ -8580,7 +8733,8 @@ def _reports_export_build_data(
                 out_str = timezone.localtime(out_ts).strftime('%Y-%m-%d %I:%M %p') if out_ts else ''
                 duration = ''
                 if in_ts and out_ts:
-                    duration = str(int((out_ts - in_ts).total_seconds() / 60))
+                    mins = (out_ts - in_ts).total_seconds() / 60.0
+                    duration = _format_duration_hm(mins)
                 status = 'Completed' if (in_e and out_e) else ('Inside' if in_e else 'Forced OUT')
                 rows.append([sid, name, gender, cs, in_str, out_str, duration, status])
         # append visitors section
@@ -9003,7 +9157,7 @@ def reports_export_download(request):
             from reportlab.lib import colors
             from reportlab.lib.pagesizes import A4, landscape
             from reportlab.lib.styles import getSampleStyleSheet
-            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, KeepTogether
             from reportlab.lib.units import cm
             from reportlab.lib.utils import ImageReader
         except ImportError:
@@ -9176,9 +9330,6 @@ def reports_export_download(request):
             sig_n = styles['Normal']
             sig_n.fontSize = 9.5
             sig_n.textColor = colors.HexColor('#334155')
-            story.append(Spacer(1, 18))
-            story.append(Paragraph('Signatory', sig_h))
-            story.append(Spacer(1, 8))
             name, title = n1, t1
             img_path = None
             if export_theme:
@@ -9190,12 +9341,6 @@ def reports_export_download(request):
                             img_path = pth
                     except Exception:
                         pass
-            if img_path:
-                try:
-                    story.append(RLImage(img_path, width=3.4 * cm, height=1.5 * cm))
-                    story.append(Spacer(1, 6))
-                except Exception:
-                    pass
             nm = (name or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
             tl = (title or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
             if nm and tl:
@@ -9204,8 +9349,22 @@ def reports_export_download(request):
                 txt = f'<b>{nm}</b>'
             else:
                 txt = f'<font size="8" color="#64748b">{tl}</font>'
-            story.append(Paragraph(txt, sig_n))
-            story.append(Spacer(1, 14))
+
+            # Keep heading + image + name together so page breaks do not split "Signatory" from the name.
+            sig_flowables = [
+                Spacer(1, 18),
+                Paragraph('Signatory', sig_h),
+                Spacer(1, 8),
+            ]
+            if img_path:
+                try:
+                    sig_flowables.append(RLImage(img_path, width=3.4 * cm, height=1.5 * cm))
+                    sig_flowables.append(Spacer(1, 6))
+                except Exception:
+                    pass
+            sig_flowables.append(Paragraph(txt, sig_n))
+            sig_flowables.append(Spacer(1, 14))
+            story.append(KeepTogether(sig_flowables))
         doc.build(story, onFirstPage=_draw_header, onLaterPages=_draw_header)
         return response
 

@@ -13,5 +13,222 @@
       return raw;
     }
   };
+
+  function _gateAbsoluteUrl(u) {
+    if (!u || typeof u !== 'string') return u;
+    u = u.trim();
+    if (u.indexOf('http://') === 0 || u.indexOf('https://') === 0) return u;
+    if (u.charAt(0) === '/') return window.location.origin + u;
+    return u;
+  }
+
+  /**
+   * Full-screen preview shell (no window.open) — not blocked by pop-up blockers.
+   * Created synchronously in the same turn as the click; content loads after fetch.
+   */
+  function _gateEidCreatePreviewShell() {
+    var overlay = document.createElement('div');
+    overlay.setAttribute('style', [
+      'position:fixed', 'inset:0', 'z-index:200000', 'background:#e9ecef',
+      'display:flex', 'flex-direction:column', 'font-family:system-ui,Segoe UI,sans-serif'
+    ].join(';') + ';');
+    var bar = document.createElement('div');
+    bar.setAttribute('style', [
+      'flex:0 0 auto', 'display:flex', 'align-items:center', 'justify-content:space-between',
+      'gap:8px', 'padding:10px 14px', 'background:#1e5631', 'color:#fff'
+    ].join(';') + ';');
+    var title = document.createElement('span');
+    title.textContent = 'Print preview';
+    title.setAttribute('style', 'font-weight:600;font-size:14px;');
+    var btnGroup = document.createElement('div');
+    btnGroup.setAttribute('style', 'display:flex;gap:8px;align-items:center;');
+    var printBtn = document.createElement('button');
+    printBtn.type = 'button';
+    printBtn.textContent = 'Print';
+    printBtn.setAttribute('style', 'padding:6px 14px;border:0;border-radius:4px;background:#fff;color:#1e5631;font-weight:600;cursor:pointer;');
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.textContent = 'Close';
+    closeBtn.setAttribute('style', 'padding:6px 14px;border:1px solid rgba(255,255,255,0.55);border-radius:4px;background:transparent;color:#fff;cursor:pointer;');
+    var iframe = document.createElement('iframe');
+    iframe.setAttribute('title', 'Print preview');
+    iframe.setAttribute('style', 'flex:1 1 auto;border:0;width:100%;min-height:0;background:#fff;');
+    btnGroup.appendChild(printBtn);
+    btnGroup.appendChild(closeBtn);
+    bar.appendChild(title);
+    bar.appendChild(btnGroup);
+    overlay.appendChild(bar);
+    overlay.appendChild(iframe);
+    document.body.appendChild(overlay);
+
+    function remove() {
+      try { document.removeEventListener('keydown', onEsc); } catch (e) {}
+      try {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      } catch (e) {}
+    }
+    function onEsc(e) {
+      if (e.key === 'Escape' || e.keyCode === 27) remove();
+    }
+    document.addEventListener('keydown', onEsc);
+    closeBtn.addEventListener('click', remove);
+    printBtn.addEventListener('click', function() {
+      try {
+        var iw = iframe.contentWindow;
+        if (iw) {
+          iw.focus();
+          iw.print();
+        }
+      } catch (e) {}
+    });
+
+    return { overlay: overlay, iframe: iframe, remove: remove };
+  }
+
+  /**
+   * Open a same-origin URL with ngrok header: fetch, then show in a full-page iframe overlay
+   * (e-ID print HTML or QR label PDF). Avoids pop-up blockers entirely — no new browser window.
+   */
+  window.gateOpenUrlSameOrigin = function(url) {
+    var abs = _gateAbsoluteUrl(url);
+    if (!abs) {
+      return Promise.reject(new Error('No URL'));
+    }
+    var shell = _gateEidCreatePreviewShell();
+    var iframe = shell.iframe;
+    return fetch(abs, {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: {
+        'ngrok-skip-browser-warning': '1',
+        'Accept': '*/*'
+      }
+    }).then(function(res) {
+      if (!res.ok) {
+        throw new Error('Could not open page (HTTP ' + res.status + ').');
+      }
+      var ct = (res.headers.get('Content-Type') || '').toLowerCase();
+      if (ct.indexOf('application/pdf') !== -1) {
+        return res.blob().then(function(blob) {
+          var blobUrl = URL.createObjectURL(blob);
+          iframe.addEventListener('load', function onPdfLoad() {
+            iframe.removeEventListener('load', onPdfLoad);
+            setTimeout(function() {
+              try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+            }, 120000);
+          });
+          iframe.src = blobUrl;
+        });
+      }
+      return res.text().then(function(html) {
+        if (html && html.indexOf('ngrok-skip-browser-warning') !== -1 && html.indexOf('Browser Warning') !== -1) {
+          throw new Error('ngrok: click "Visit Site" on the warning page once, then try again.');
+        }
+        try {
+          iframe.srcdoc = html;
+        } catch (e1) {
+          try {
+            var d = iframe.contentWindow && iframe.contentWindow.document;
+            if (d) {
+              d.open();
+              d.write(html);
+              d.close();
+            } else {
+              throw new Error('no doc');
+            }
+          } catch (e2) {
+            throw new Error('Could not show print preview in this browser.');
+          }
+        }
+      });
+    }).catch(function(err) {
+      shell.remove();
+      if (err && err.message) {
+        try { window.alert(err.message); } catch (e) {}
+      }
+      try { window.open(abs, '_blank', 'noopener,noreferrer'); } catch (e2) {}
+    });
+  };
+
+  /**
+   * Download a same-origin file through ngrok without saving the interstitial HTML.
+   * Browsers cannot set custom headers on a normal <a href> navigation; free ngrok
+   * requires the ngrok-skip-browser-warning header (see https://ngrok.com/docs).
+   * options.allowHtml: if true, text/html responses are saved as a file (e.g. e-ID print page).
+   */
+  window.gateFetchDownload = function(url, defaultFilename, options) {
+    options = options || {};
+    if (!url || url === '#') {
+      return Promise.reject(new Error('No download URL'));
+    }
+    var abs = _gateAbsoluteUrl(url);
+    var defaultName = defaultFilename || 'download';
+    return fetch(abs, {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: {
+        'ngrok-skip-browser-warning': '1',
+        'Accept': '*/*'
+      }
+    }).then(function(res) {
+      var ct = (res.headers.get('Content-Type') || '').toLowerCase();
+      if (!res.ok) {
+        return res.text().then(function() {
+          throw new Error('Download failed (HTTP ' + res.status + ').');
+        });
+      }
+      if (ct.indexOf('text/html') !== -1) {
+        if (options.allowHtml) {
+          return res.text().then(function(text) {
+            if (text && text.indexOf('ngrok-skip-browser-warning') !== -1 && text.indexOf('Browser Warning') !== -1) {
+              throw new Error('ngrok: click "Visit Site" once, then try again.');
+            }
+            var name = defaultName;
+            return {
+              blob: new Blob([text], { type: 'text/html; charset=utf-8' }),
+              name: name
+            };
+          });
+        }
+        return res.text().then(function(body) {
+          if (body && body.indexOf('ngrok-skip-browser-warning') !== -1) {
+            throw new Error('ngrok block: open this page and click "Visit Site" once, then try download again.');
+          }
+          throw new Error('Server returned HTML instead of a file. Try refreshing the page or opening "Visit Site" on ngrok first.');
+        });
+      }
+      var name = defaultName;
+      var cd = res.headers.get('Content-Disposition');
+      if (cd) {
+        var m = /filename\*=UTF-8''([^;\n]+)/i.exec(cd);
+        if (m) {
+          try { name = decodeURIComponent(m[1].trim()); } catch (e) {}
+        } else {
+          m = /filename\s*=\s*"([^"]+)"/i.exec(cd);
+          if (!m) m = /filename\s*=\s*([^;\n]+)/i.exec(cd);
+          if (m) name = m[1].trim().replace(/^["']|["']$/g, '');
+        }
+      }
+      return res.blob().then(function(blob) {
+        return { blob: blob, name: name };
+      });
+    }).then(function(data) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(data.blob);
+      a.download = data.name;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function() {
+        try { URL.revokeObjectURL(a.href); } catch (e) {}
+        try { a.remove(); } catch (e) {}
+      }, 0);
+    }).catch(function(err) {
+      if (err && err.message) {
+        try { window.alert(err.message); } catch (e) {}
+      }
+      throw err;
+    });
+  };
 })();
 </script>

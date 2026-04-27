@@ -120,7 +120,7 @@
       {% if template_type == 'export_all' %}
       <div class="reports-export-toolbar ml-lg-auto">
         <div class="rf-export-actions">
-          <a href="{% url 'reports-export-download' %}?{{ request.GET.urlencode }}&template=export_all" class="btn btn-sm btn-primary">
+          <a href="{% url 'reports-export-download' %}?{{ request.GET.urlencode }}&template=export_all" class="btn btn-sm btn-primary rf-export-zip-link">
             <i class="fas fa-file-archive mr-1"></i> Download ZIP
           </a>
           <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print();" title="Print preview">

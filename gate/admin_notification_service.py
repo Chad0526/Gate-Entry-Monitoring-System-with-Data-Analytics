@@ -246,9 +246,10 @@ class AdminNotificationService:
             note = note[:200] + '…'
         if needs_activation:
             ntype = 'sas_inactive_ready_activation'
-            title = f'Activate account: {st_id}'
+            title = f'SAS verified — {st_id}'
             message = (
-                f'SAS ({sas_name}) cleared {st_name} ({st_id}). Account still inactive — activate in profile.\n'
+                f'SAS ({sas_name}) completed follow-up for {st_name} ({st_id}) after the gate incident. '
+                f'Open the student profile to set the account to Active if access should be enabled.\n'
                 f'Note: {note}\n'
                 f'{list_path}'
             )

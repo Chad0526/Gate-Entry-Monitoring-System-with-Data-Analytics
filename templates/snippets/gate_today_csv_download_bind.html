@@ -1,0 +1,20 @@
+{# Binds .gate-today-csv-download links to gateFetchDownload for ngrok-safe file download. Requires eid_iframe_url_script.html first. #}
+<script>
+(function() {
+  document.querySelectorAll('a.gate-today-csv-download').forEach(function(a) {
+    a.addEventListener('click', function(e) {
+      e.preventDefault();
+      var u = a.getAttribute('href');
+      if (!u) return;
+      if (typeof window.gateFetchDownload !== 'function') {
+        window.location.href = u;
+        return;
+      }
+      if (u.indexOf('http') !== 0) {
+        u = window.location.origin + (u.charAt(0) === '/' ? u : '/' + u);
+      }
+      window.gateFetchDownload(u, 'gate-today-report.csv');
+    });
+  });
+})();
+</script>

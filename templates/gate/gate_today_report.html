@@ -197,7 +197,7 @@
     </div>
     <div class="gtr-hero-actions">
       <a href="{% url 'dashboard' %}" class="gtr-btn-outline"><i class="fas fa-arrow-left"></i> Dashboard</a>
-      <a href="{% url 'gate-today-report' %}?format=csv" class="gtr-btn-primary"><i class="fas fa-download"></i> Download CSV</a>
+      <a href="{% url 'gate-today-report' %}?format=csv" class="gtr-btn-primary gate-today-csv-download"><i class="fas fa-download"></i> Download CSV</a>
     </div>
   </div>
 
@@ -285,3 +285,8 @@
   </div>
 </div>
 {% endblock content %}
+
+{% block extrascript_inner %}
+{% include 'snippets/eid_iframe_url_script.html' %}
+{% include 'snippets/gate_today_csv_download_bind.html' %}
+{% endblock extrascript_inner %}
