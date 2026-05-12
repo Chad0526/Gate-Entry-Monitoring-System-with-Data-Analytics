@@ -9,6 +9,7 @@ import datetime
 import json
 import logging
 import calendar
+import secrets
 
 logger = logging.getLogger(__name__)
 import re
@@ -28,7 +29,7 @@ from django.utils import timezone
 from django.contrib import messages
 from django.db.models import Count, Q, Case, When, IntegerField, Sum, F
 from django.db.models.functions import ExtractYear, ExtractMonth
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.core.cache import cache
 from django.core.files.storage import default_storage
 from django.contrib.staticfiles import finders
@@ -53,6 +54,7 @@ from .models import (
     VisitorEntry,
     VisitorPass,
     VisitorVisit,
+    VisitorPendingCheckin,
     CAMPUS_DEPARTMENT_CHOICES,
     SiteTheme,
     GateShift,
@@ -333,7 +335,7 @@ def _resolve_save_scan_actor(request):
         return None
     if request.user.is_authenticated:
         role = get_user_role(request.user)
-        if role in ('admin', 'staff', 'faculty'):
+        if role in ('admin', 'staff', 'faculty', 'student affairs'):
             return request.user
     return False
 
@@ -487,10 +489,12 @@ def _hydrate_gate_entry_students(entries):
 
 def _create_event_log_single_duplicate(event, student, scan_type, result, **extra_fields):
     """
-    Create an AttendanceLog row, but cap DUPLICATE entries to a single row per
-    (event, student, scan_type). Further duplicate scans still notify in UI but
-    do not spam the log table.
+    Create an AttendanceLog row for successful or duplicate scans only; rejected
+    scans are not persisted. DUPLICATE rows are capped to one per
+    (event, student, scan_type); further duplicates still notify in the UI.
     """
+    if result not in AttendanceLog.SCAN_RESULTS_LOGGED:
+        return None
     if result == 'DUPLICATE' and student is not None:
         if AttendanceLog.objects.filter(
             event=event,
@@ -507,6 +511,11 @@ def _create_event_log_single_duplicate(event, student, scan_type, result, **extr
         result=result,
         **extra_fields,
     )
+
+
+def _event_attendance_scan_logs_qs(qs):
+    """Restrict to rows that belong in event scan history (success + duplicate only)."""
+    return qs.filter(result__in=AttendanceLog.SCAN_RESULTS_LOGGED)
 
 
 def _granted_visits_count_for_date(date, daily_gate_only=False):
@@ -1217,6 +1226,23 @@ def _scan_event_schedule_allowed(event, scan_type, now_local, attendance, reg, i
 
 
 @login_required(login_url='/login/')
+@role_required('admin', 'staff', 'faculty', 'student affairs')
+@ensure_csrf_cookie
+def visitor_scanner(request):
+    """
+    Visitor registration tablet: collect name, purpose, department, and pass number only.
+    Check-in is completed when the visitor scans the physical pass at the main (/gate/) scanner.
+    """
+    from gate_analytics.roles import get_user_role
+    user_role = get_user_role(request.user)
+    return render(request, 'gate/visitor_scanner.html', {
+        'site_name': getattr(settings, 'SITE_NAME', 'City College of Bayawan'),
+        'campus_departments': CAMPUS_DEPARTMENT_CHOICES,
+        'user_role': user_role,
+    })
+
+
+@login_required(login_url='/login/')
 @role_required('admin', 'staff', 'faculty')
 @ensure_csrf_cookie
 def gate_scan(request):
@@ -1536,9 +1562,12 @@ def save_scan(request):
         elif student_id[:4].upper() == 'VIS-':
             student_id = 'VIS-' + student_id[4:]
 
-    # Reusable visitor pass (VIS-001 style): AVAILABLE → check-in modal; IN_USE → check-out
+    # Reusable visitor pass (VIS-001 style): AVAILABLE → tablet pending or check-in modal; IN_USE → check-out
     if student_id[:4].upper() == 'VIS-' and len(student_id) <= 16:
         now = timezone.now()
+        canon = _normalize_reusable_visitor_pass_code(student_id)
+        if canon:
+            student_id = canon
         pass_obj = VisitorPass.objects.filter(code=student_id).select_related('current_visit').first()
         if not pass_obj:
             return JsonResponse({
@@ -1553,12 +1582,41 @@ def save_scan(request):
                 'color': 'error',
             })
         if pass_obj.status == VisitorPass.STATUS_AVAILABLE:
+            VisitorPendingCheckin.objects.filter(pass_obj=pass_obj, expires_at__lt=now).delete()
+            pending = (
+                VisitorPendingCheckin.objects
+                .select_related('pass_obj')
+                .filter(pass_obj=pass_obj, expires_at__gte=now)
+                .first()
+            )
+            if pending:
+                fin = _finalize_visitor_checkin_from_pending(
+                    pending, actor=actor, request=request, device_id=device_id
+                )
+                if fin:
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'{fin["full_name"]} checked in ({fin["pass_code"]}).',
+                        'color': 'success',
+                        'status': 'IN',
+                        'student_name': fin['full_name'],
+                        'time': fin['time_str'],
+                    })
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Could not complete visitor check-in for this pass. Ask staff.',
+                    'color': 'error',
+                })
             return JsonResponse({
                 'success': False,
-                'need_visitor_checkin': True,
+                'visitor_register_first': True,
                 'pass_code': pass_obj.code,
-                'message': 'Visitor check-in: enter details below.',
-                'color': 'info',
+                'visitor_registration_url': request.build_absolute_uri(reverse('visitor-scanner')),
+                'message': (
+                    f'Pass {pass_obj.code}: register at the visitor station first, '
+                    'then scan this pass again at the gate.'
+                ),
+                'color': 'warning',
             })
         if pass_obj.status == VisitorPass.STATUS_IN_USE and pass_obj.current_visit_id:
             visit = pass_obj.current_visit
@@ -1593,10 +1651,13 @@ def save_scan(request):
         pass_obj.save(update_fields=['status', 'current_visit_id'])
         return JsonResponse({
             'success': False,
-            'need_visitor_checkin': True,
+            'visitor_register_first': True,
             'pass_code': pass_obj.code,
-            'message': 'Visitor check-in: enter details below.',
-            'color': 'info',
+            'visitor_registration_url': request.build_absolute_uri(reverse('visitor-scanner')),
+            'message': (
+                f'Pass {pass_obj.code}: use the visitor registration tablet, then scan here again.'
+            ),
+            'color': 'warning',
         })
 
     # Legacy one-time visitor pass (VISITOR-xxx)
@@ -2217,16 +2278,6 @@ def scan_event_qr(request):
         # TOKEN-BASED QR (for high-security events)
         parts = qr.split(':')
         if len(parts) != 3:
-            AttendanceLog.objects.create(
-                event=event,
-                scan_type=scan_type,
-                result='INVALID',
-                token='',
-                device_id=device_id,
-                recorded_by=recorded_by,
-                client_scan_time=client_scan_time,
-                remarks=f'Invalid token QR format: {qr[:255]}'
-            )
             return JsonResponse({
                 'ok': False,
                 'result': 'INVALID',
@@ -2239,16 +2290,6 @@ def scan_event_qr(request):
         
         # Validate QR is for correct event
         if str(event_id) != str(qr_event_id):
-            AttendanceLog.objects.create(
-                event=event,
-                scan_type=scan_type,
-                result='WRONG_EVENT',
-                token=token,
-                device_id=device_id,
-                recorded_by=recorded_by,
-                client_scan_time=client_scan_time,
-                remarks=f'Token QR is for event {qr_event_id}, not {event_id}. Raw: {qr[:255]}'
-            )
             return JsonResponse({
                 'ok': False,
                 'result': 'WRONG_EVENT',
@@ -2262,16 +2303,6 @@ def scan_event_qr(request):
         ).select_related('student', 'event').first()
         
         if not reg:
-            AttendanceLog.objects.create(
-                event=event,
-                scan_type=scan_type,
-                result='INVALID',
-                token=token,
-                device_id=device_id,
-                recorded_by=recorded_by,
-                client_scan_time=client_scan_time,
-                remarks=f'Token not found. Raw: {qr[:255]}'
-            )
             return JsonResponse({
                 'ok': False,
                 'result': 'INVALID',
@@ -2281,18 +2312,6 @@ def scan_event_qr(request):
         
         # CRITICAL: Verify token belongs to the selected event
         if reg.event_id != event.id:
-            AttendanceLog.objects.create(
-                event=event,
-                student=reg.student,
-                registration=reg,
-                scan_type=scan_type,
-                result='WRONG_EVENT',
-                token=token,
-                device_id=device_id,
-                recorded_by=recorded_by,
-                client_scan_time=client_scan_time,
-                remarks=f'Token belongs to event {reg.event_id}, selected {event.id}. Raw: {qr[:255]}'
-            )
             return JsonResponse({
                 'ok': False,
                 'result': 'WRONG_EVENT',
@@ -2302,18 +2321,6 @@ def scan_event_qr(request):
         
         # Check if token is revoked
         if reg.status != 'active':
-            AttendanceLog.objects.create(
-                event=event,
-                student=reg.student,
-                registration=reg,
-                scan_type=scan_type,
-                result='REVOKED',
-                token=token,
-                device_id=device_id,
-                recorded_by=recorded_by,
-                client_scan_time=client_scan_time,
-                remarks='Token has been revoked'
-            )
             return JsonResponse({
                 'ok': False,
                 'result': 'REVOKED',
@@ -2334,16 +2341,6 @@ def scan_event_qr(request):
         # Lookup student
         student = Student.objects.filter(student_id=student_id, is_active=True).first()
         if not student:
-            AttendanceLog.objects.create(
-                event=event,
-                scan_type=scan_type,
-                result='INVALID',
-                token='',
-                device_id=device_id,
-                recorded_by=recorded_by,
-                client_scan_time=client_scan_time,
-                remarks=f'Student not found or inactive: {student_id}. Raw: {qr[:255]}'
-            )
             return JsonResponse({
                 'ok': False,
                 'result': 'INVALID',
@@ -2358,18 +2355,6 @@ def scan_event_qr(request):
     # Inactive accounts cannot use event QR. Student-ID branch already filters is_active=True;
     # token-based flow must reject registrations tied to a frozen/inactive student.
     if not student.is_active or student.account_status != Student.ACCOUNT_STATUS_APPROVED:
-        AttendanceLog.objects.create(
-            event=event,
-            student=student,
-            registration=reg,
-            scan_type=scan_type,
-            result='INVALID',
-            token=reg.token if (is_token_based and reg) else '',
-            device_id=device_id,
-            recorded_by=recorded_by,
-            client_scan_time=client_scan_time,
-            remarks='Student account inactive; event QR not allowed.',
-        )
         return JsonResponse({
             'ok': False,
             'result': 'INVALID',
@@ -2382,18 +2367,6 @@ def scan_event_qr(request):
     # Audience eligibility validation (applies to token + student ID scans)
     if not _is_student_allowed_for_event(event, student):
         audience_summary = event.audience_summary() if hasattr(event, 'audience_summary') else event.get_audience_scope_display()
-        AttendanceLog.objects.create(
-            event=event,
-            student=student,
-            registration=reg,
-            scan_type=scan_type,
-            result='INVALID',
-            token=reg.token if (is_token_based and reg) else '',
-            device_id=device_id,
-            recorded_by=recorded_by,
-            client_scan_time=client_scan_time,
-            remarks=f'Not in target audience ({audience_summary}). Raw: {qr[:200]}'
-        )
         return JsonResponse({
             'ok': False,
             'result': 'INVALID',
@@ -2407,18 +2380,6 @@ def scan_event_qr(request):
     
     # Time window validation (applies to both types)
     if not _is_within_event_window(event, grace_minutes=30):
-        AttendanceLog.objects.create(
-            event=event,
-            student=student,
-            registration=reg,
-            scan_type=scan_type,
-            result='OUTSIDE_WINDOW',
-            token=reg.token if reg else '',
-            device_id=device_id,
-                recorded_by=recorded_by,
-            client_scan_time=client_scan_time,
-            remarks=f'Event: {event.start_date} to {event.end_date}. Raw: {qr[:200]}'
-        )
         return JsonResponse({
             'ok': False,
             'result': 'OUTSIDE_WINDOW',
@@ -2461,18 +2422,6 @@ def scan_event_qr(request):
         event, scan_type, now_local, attendance, reg, is_token_based
     )
     if not sched_ok:
-        AttendanceLog.objects.create(
-            event=event,
-            student=student,
-            registration=reg,
-            scan_type=scan_type,
-            result='OUTSIDE_WINDOW',
-            token=reg.token if reg else '',
-            device_id=device_id,
-            recorded_by=recorded_by,
-            client_scan_time=client_scan_time,
-            remarks=sched_msg[:255],
-        )
         return JsonResponse({
             'ok': False,
             'result': 'OUTSIDE_WINDOW',
@@ -2527,18 +2476,6 @@ def scan_event_qr(request):
 
         elif scan_type == 'OUT':
             if reg.checked_in_at is None:
-                AttendanceLog.objects.create(
-                    event=event,
-                    student=student,
-                    registration=reg,
-                    scan_type='OUT',
-                    result='NOT_CHECKED_IN',
-                    token=reg.token,
-                    device_id=device_id,
-                    recorded_by=recorded_by,
-                    client_scan_time=client_scan_time,
-                    remarks='Cannot check out before checking in'
-                )
                 return JsonResponse({
                     'ok': False,
                     'result': 'NOT_CHECKED_IN',
@@ -2626,17 +2563,6 @@ def scan_event_qr(request):
 
         elif scan_type == 'OUT':
             if attendance.checked_in_at is None:
-                AttendanceLog.objects.create(
-                    event=event,
-                    student=student,
-                    scan_type='OUT',
-                    result='NOT_CHECKED_IN',
-                    token='',
-                    device_id=device_id,
-                    recorded_by=recorded_by,
-                    client_scan_time=client_scan_time,
-                    remarks='Cannot check out before checking in'
-                )
                 return JsonResponse({
                     'ok': False,
                     'result': 'NOT_CHECKED_IN',
@@ -2997,45 +2923,99 @@ def record_early_out(request):
 
 # ---------- Reusable visitor pass: check-in / check-out lifecycle ----------
 
-@require_POST
-@transaction.atomic
-def visitor_checkin_submit(request):
-    """Submit visitor check-in form (reusable pass). Creates VisitorVisit, sets pass IN_USE, GateEntry(IN)."""
-    actor = _resolve_save_scan_actor(request)
-    if actor is False:
-        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
-    pass_code = (request.POST.get('pass_code') or '').strip()
-    full_name = (request.POST.get('full_name') or '').strip()
-    purpose = (request.POST.get('purpose') or '').strip()
-    department = (request.POST.get('department') or '').strip()
-    notes = (request.POST.get('notes') or '').strip()
 
-    if not pass_code or not full_name:
-        return JsonResponse({'success': False, 'message': 'Pass code and full name are required.'}, status=400)
-    if not purpose:
-        return JsonResponse({'success': False, 'message': 'Purpose is required.'}, status=400)
-    if not department:
-        return JsonResponse({'success': False, 'message': 'Department / office is required.'}, status=400)
+def _normalize_reusable_visitor_pass_code(raw: str) -> str:
+    """
+    Return canonical VIS-xxx for DB lookup. Must match VisitorPass.generate_reusable_code
+    (zero-padded to at least 3 digits, e.g. VIS-001). Plain int formatting would turn
+    VIS-001 into VIS-1 and break lookups.
+    """
+    s = (raw or '').strip()
+    m = re.search(r'VIS-(\d{1,6})', s, flags=re.IGNORECASE)
+    if not m:
+        return ''
+    num = int(m.group(1), 10)
+    return f'VIS-{num:03d}'
 
-    pass_obj = VisitorPass.objects.filter(code=pass_code).first()
-    if not pass_obj:
-        return JsonResponse({'success': False, 'message': 'Invalid pass code.'}, status=400)
-    if pass_obj.status != VisitorPass.STATUS_AVAILABLE:
-        return JsonResponse({'success': False, 'message': 'Pass is not available (in use or disabled).'}, status=400)
+
+def _finalize_visitor_checkin_from_pending(pending, *, actor, request, device_id):
+    """
+    Create VisitorVisit + GateEntry(IN), attach pass IN_USE, delete pending.
+    Must run inside transaction.atomic with caller holding appropriate locks if needed.
+    """
+    from django.core.files.base import ContentFile
+
+    pass_obj = VisitorPass.objects.select_for_update().filter(pk=pending.pass_obj_id).first()
+    if not pass_obj or pass_obj.status != VisitorPass.STATUS_AVAILABLE:
+        return None
 
     now = timezone.now()
     visit = VisitorVisit.objects.create(
         pass_obj=pass_obj,
-        full_name=full_name,
-        purpose=purpose,
-        department=department,
+        full_name=pending.full_name,
+        purpose=pending.purpose or '',
+        department=pending.department or '',
         checked_in_at=now,
         checked_in_by=actor,
         status=VisitorVisit.STATUS_INSIDE,
-        notes=notes,
+        notes=pending.notes or '',
     )
-    if request.FILES.get('photo_in'):
-        visit.photo_in = request.FILES['photo_in']
+    if pending.photo_in:
+        data = pending.photo_in.read()
+        base = os.path.basename(pending.photo_in.name) or 'photo_in.jpg'
+        visit.photo_in.save(base, ContentFile(data), save=True)
+
+    pass_obj.status = VisitorPass.STATUS_IN_USE
+    pass_obj.current_visit = visit
+    pass_obj.save(update_fields=['status', 'current_visit_id'])
+
+    GateEntry.objects.create(
+        student=None,
+        visitor_visit=visit,
+        granted=True,
+        result='SUCCESS',
+        scan_type='IN',
+        notes='IN',
+        recorded_by=actor,
+        **_audit_kwargs_for_gate_entry(request, device_id=device_id),
+    )
+
+    pending.delete()
+    time_str = timezone.localtime(now).strftime('%I:%M %p')
+    return {
+        'visit': visit,
+        'time_str': time_str,
+        'pass_code': pass_obj.code,
+        'full_name': visit.full_name,
+    }
+
+
+def _complete_reusable_visitor_checkin_immediate(
+    pass_obj,
+    *,
+    full_name,
+    purpose,
+    department,
+    notes,
+    photo_in_file,
+    actor,
+    request,
+    device_id=None,
+):
+    """Create VisitorVisit + GateEntry(IN) immediately (gate counter / walk-in, not tablet pre-reg)."""
+    now = timezone.now()
+    visit = VisitorVisit.objects.create(
+        pass_obj=pass_obj,
+        full_name=full_name,
+        purpose=purpose or '',
+        department=department or '',
+        checked_in_at=now,
+        checked_in_by=actor,
+        status=VisitorVisit.STATUS_INSIDE,
+        notes=notes or '',
+    )
+    if photo_in_file:
+        visit.photo_in = photo_in_file
         visit.save(update_fields=['photo_in'])
 
     pass_obj.status = VisitorPass.STATUS_IN_USE
@@ -3050,18 +3030,90 @@ def visitor_checkin_submit(request):
         scan_type='IN',
         notes='IN',
         recorded_by=actor,
-        **_audit_kwargs_for_gate_entry(request),
+        **_audit_kwargs_for_gate_entry(request, device_id=device_id or ''),
     )
 
     time_str = timezone.localtime(now).strftime('%I:%M %p')
+    return visit, time_str
+
+
+@require_POST
+@transaction.atomic
+def visitor_checkin_submit(request):
+    """Save visitor details for a reusable pass (tablet). Pass stays AVAILABLE until scanned at the gate."""
+    actor = _resolve_save_scan_actor(request)
+    if actor is False:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
+    pass_code = _normalize_reusable_visitor_pass_code(request.POST.get('pass_code') or '')
+    full_name = (request.POST.get('full_name') or '').strip()
+    purpose = (request.POST.get('purpose') or '').strip()
+    department = (request.POST.get('department') or '').strip()
+    notes = (request.POST.get('notes') or '').strip()
+
+    if not pass_code or not full_name:
+        return JsonResponse({'success': False, 'message': 'Enter a valid pass (e.g. VIS-001) and full name.'}, status=400)
+    if not purpose:
+        return JsonResponse({'success': False, 'message': 'Purpose is required.'}, status=400)
+    if not department:
+        return JsonResponse({'success': False, 'message': 'Department / office is required.'}, status=400)
+
+    pass_obj = VisitorPass.objects.select_for_update().filter(code=pass_code).first()
+    if not pass_obj:
+        return JsonResponse({'success': False, 'message': 'Invalid pass number.'}, status=400)
+    if not pass_obj.is_reusable():
+        return JsonResponse({
+            'success': False,
+            'message': 'Use a reusable campus pass (VIS-xxx) from the front desk.',
+        }, status=400)
+    if pass_obj.status != VisitorPass.STATUS_AVAILABLE:
+        return JsonResponse({'success': False, 'message': 'Pass is not available (in use or disabled).'}, status=400)
+
+    finalize_at_gate = (request.POST.get('finalize_at_gate') or '').strip().lower() in (
+        '1', 'true', 'yes', 'on',
+    )
+
+    if finalize_at_gate:
+        VisitorPendingCheckin.objects.filter(pass_obj=pass_obj).delete()
+        visit, time_str = _complete_reusable_visitor_checkin_immediate(
+            pass_obj,
+            full_name=full_name,
+            purpose=purpose,
+            department=department,
+            notes=notes,
+            photo_in_file=request.FILES.get('photo_in'),
+            actor=actor,
+            request=request,
+            device_id=(request.POST.get('device_id') or '').strip(),
+        )
+        return JsonResponse({
+            'success': True,
+            'message': f'{full_name} checked in ({pass_code}).',
+            'color': 'success',
+            'status': 'IN',
+            'visit_id': visit.id,
+            'pass_code': pass_code,
+            'time': time_str,
+        })
+
+    pending = VisitorPendingCheckin.objects.filter(pass_obj=pass_obj).first()
+    if not pending:
+        pending = VisitorPendingCheckin(pass_obj=pass_obj)
+    pending.full_name = full_name
+    pending.purpose = purpose
+    pending.department = department
+    pending.notes = notes
+    pending.created_by = actor
+    pending.expires_at = timezone.now() + datetime.timedelta(hours=6)
+    if request.FILES.get('photo_in'):
+        pending.photo_in = request.FILES['photo_in']
+    pending.save()
+
     return JsonResponse({
         'success': True,
-        'message': f'{full_name} checked in ({pass_code}).',
+        'message': f'Details saved for {full_name}. Scan {pass_code} at the gate scanner to enter.',
         'color': 'success',
-        'status': 'IN',
-        'visit_id': visit.id,
         'pass_code': pass_code,
-        'time': time_str,
+        'preregistered': True,
     })
 
 
@@ -3133,6 +3185,18 @@ def visitor_checkout_submit(request):
         'status': 'OUT',
         'time': time_str,
     })
+
+
+@require_POST
+@csrf_exempt
+@transaction.atomic
+def visitor_checkout_guard(request):
+    """Same as visitor_checkout_submit but CSRF-exempt; requires GATE_GUARD_DISPLAY_TOKEN in POST/header."""
+    token = (request.POST.get('guard_token') or request.headers.get('X-Gate-Guard-Token') or '').strip()
+    expected = getattr(settings, 'GATE_GUARD_DISPLAY_TOKEN', '') or ''
+    if not (token and expected and token == expected):
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
+    return visitor_checkout_submit(request)
 
 
 @require_POST
@@ -5792,7 +5856,7 @@ def import_staff_personnel_csv(request):
 @login_required(login_url='/login/')
 @role_required('admin')
 def staff_personnel_create(request):
-    """Add staff/faculty user + profile (in-app, same idea as Add student)."""
+    """Add staff, faculty, or SAS (Student Affairs) user; profile row only for staff/faculty."""
     from django.contrib.auth import get_user_model
     from django.contrib.auth.models import Group
 
@@ -5810,15 +5874,24 @@ def staff_personnel_create(request):
                 last_name=d['last_name'],
                 is_active=d.get('is_active', True),
             )
-            grp = Group.objects.filter(name__iexact=d['role']).first()
+            role_key = (d.get('role') or 'staff').strip().lower()
+            group_name_by_role = {
+                'staff': 'staff',
+                'faculty': 'faculty',
+                'student_affairs': 'Student Affairs',
+            }
+            gname = group_name_by_role.get(role_key, role_key)
+            grp = Group.objects.filter(name__iexact=gname).first()
             if grp:
                 user.groups.add(grp)
-            profile, _ = StaffPersonnelProfile.objects.get_or_create(user=user, defaults={})
-            profile.middle_name = (d.get('middle_name') or '')[:100]
-            profile.department = (d.get('department') or '')[:150]
-            profile.position = (d.get('position') or '')[:150]
-            profile.contact_number = (d.get('contact_number') or '')[:20]
-            profile.save()
+            # Staff/faculty: personnel profile; SAS uses Student Affairs group only (same as self-registration).
+            if role_key in ('staff', 'faculty'):
+                profile, _ = StaffPersonnelProfile.objects.get_or_create(user=user, defaults={})
+                profile.middle_name = (d.get('middle_name') or '')[:100]
+                profile.department = (d.get('department') or '')[:150]
+                profile.position = (d.get('position') or '')[:150]
+                profile.contact_number = (d.get('contact_number') or '')[:20]
+                profile.save()
         messages.success(request, f'Created account for {user.get_full_name() or user.username}.')
         if request.POST.get('from_modal') == '1':
             return redirect('gate-staff-personnel-create-modal-done')
@@ -5970,50 +6043,98 @@ def student_create(request):
         FormClass = StudentStudentAffairsForm
     else:
         FormClass = StudentForm
+
+    if request.method == 'GET':
+        request.session.pop('student_create_consumed', None)
+        request.session['student_create_nonce'] = secrets.token_urlsafe(16)
+
+    student_create_nonce = request.session.get('student_create_nonce', '')
+
     form = FormClass(request.POST or None, request.FILES or None)
-    if form.is_valid():
-        student = form.save()
-        try:
-            from .audit import log_action
-            log_action(
+
+    if request.method == 'POST':
+        posted_nonce = (request.POST.get('student_create_nonce') or '').strip()
+        if posted_nonce and posted_nonce == request.session.get('student_create_consumed'):
+            if request.POST.get('from_modal') == '1':
+                return redirect('gate-student-create-modal-done')
+            return redirect('gate-student-list')
+        if posted_nonce != student_create_nonce:
+            messages.error(
                 request,
-                'student_created',
-                'Student',
-                object_id=student.pk,
-                description=f'Student {student.student_id} created/updated by {get_user_role(request.user) or "user"}',
+                'This form expired or was already submitted. Please refresh the page and try again.',
             )
-        except Exception:
-            pass
-        # Sync is_active with status
-        if student.account_status == Student.ACCOUNT_STATUS_APPROVED:
-            student.is_active = True
-            if not student.approved_at:
-                student.approved_by = request.user
-                student.approved_at = timezone.now()
-            student.save(update_fields=['is_active', 'approved_by', 'approved_at'])
-        else:
-            student.is_active = False
-            student.save(update_fields=['is_active'])
-        # Always notify student about current status on creation (pending, approved, etc.).
-        try:
-            notify_student_status_change(student, new_status=student.account_status)
-        except Exception:
-            pass
-        if student.account_status == Student.ACCOUNT_STATUS_APPROVED:
+            request.session['student_create_nonce'] = secrets.token_urlsafe(16)
+            student_create_nonce = request.session['student_create_nonce']
+        elif form.is_valid():
+            lock_key = f'gate:student_create:{request.user.pk}:{posted_nonce}'
+            got_lock = cache.add(lock_key, 1, timeout=120)
+            if not got_lock:
+                if request.POST.get('from_modal') == '1':
+                    return redirect('gate-student-create-modal-done')
+                return redirect('gate-student-list')
             try:
-                from .audit import log_action
-                log_action(request, 'student_created_approved', 'Student', object_id=student.pk, description=f'Student {student.student_id} created (approved)')
-            except Exception:
-                pass
-        if request.POST.get('from_modal') == '1':
-            return redirect('gate-student-create-modal-done')
-        return redirect('gate-student-list')
+                try:
+                    with transaction.atomic():
+                        student = form.save()
+                except IntegrityError:
+                    sid = (form.cleaned_data.get('student_id') or '').strip()
+                    if sid and Student.objects.filter(student_id=sid).exists():
+                        messages.info(
+                            request,
+                            'A student with this ID already exists. If you clicked Save more than once, only one record is kept.',
+                        )
+                        if request.POST.get('from_modal') == '1':
+                            return redirect('gate-student-create-modal-done')
+                        return redirect('gate-student-list')
+                    raise
+                request.session['student_create_consumed'] = posted_nonce
+                request.session.pop('student_create_nonce', None)
+                try:
+                    from .audit import log_action
+                    log_action(
+                        request,
+                        'student_created',
+                        'Student',
+                        object_id=student.pk,
+                        description=f'Student {student.student_id} created/updated by {get_user_role(request.user) or "user"}',
+                    )
+                except Exception:
+                    pass
+                # Sync is_active with status
+                if student.account_status == Student.ACCOUNT_STATUS_APPROVED:
+                    student.is_active = True
+                    if not student.approved_at:
+                        student.approved_by = request.user
+                        student.approved_at = timezone.now()
+                    student.save(update_fields=['is_active', 'approved_by', 'approved_at'])
+                else:
+                    student.is_active = False
+                    student.save(update_fields=['is_active'])
+                # Always notify student about current status on creation (pending, approved, etc.).
+                try:
+                    notify_student_status_change(student, new_status=student.account_status)
+                except Exception:
+                    pass
+                if student.account_status == Student.ACCOUNT_STATUS_APPROVED:
+                    try:
+                        from .audit import log_action
+                        log_action(request, 'student_created_approved', 'Student', object_id=student.pk, description=f'Student {student.student_id} created (approved)')
+                    except Exception:
+                        pass
+                if request.POST.get('from_modal') == '1':
+                    return redirect('gate-student-create-modal-done')
+                return redirect('gate-student-list')
+            finally:
+                if got_lock:
+                    cache.delete(lock_key)
+
     return render(request, 'gate/student_form.html', {
         'site_name': 'City College of Bayawan',
         'form': form,
         'title': 'Add Student',
         'form_modal': form_modal,
         'layout_template': 'gate/student_form_modal_shell.html' if form_modal else 'base/base.html',
+        'student_create_nonce': student_create_nonce,
     })
 
 
@@ -7398,7 +7519,9 @@ def event_attendance_report(request, event_id):
     """View attendance logs and analytics for an event. Optional ?q= for quick search by student ID or name."""
     event = get_object_or_404(Event, id=event_id)
     
-    logs_qs = AttendanceLog.objects.filter(event=event, voided=False).select_related('student', 'registration').order_by('-scan_time')
+    logs_qs = _event_attendance_scan_logs_qs(
+        AttendanceLog.objects.filter(event=event, voided=False).select_related('student', 'registration').order_by('-scan_time')
+    )
     q = (request.GET.get('q') or '').strip()
     if q:
         from django.db.models import Q
@@ -7413,12 +7536,12 @@ def event_attendance_report(request, event_id):
     page_obj = paginator.get_page(request.GET.get('page', 1))
     logs = list(page_obj.object_list)
     
-    # Stats (on full set for this event, not filtered)
-    stats_qs = AttendanceLog.objects.filter(event=event, voided=False)
+    # Stats: only scan history rows (success + duplicate); rejected scans are not stored.
+    stats_qs = _event_attendance_scan_logs_qs(AttendanceLog.objects.filter(event=event, voided=False))
     total_scans = stats_qs.count()
     successful = stats_qs.filter(result='SUCCESS').count()
     duplicates = stats_qs.filter(result='DUPLICATE').count()
-    invalid = stats_qs.filter(result__in=['INVALID', 'REVOKED', 'WRONG_EVENT', 'OUTSIDE_WINDOW', 'SECURE_EVENT_REQUIRES_TOKEN']).count()
+    invalid = 0
     overrides = stats_qs.filter(remarks='AUDIENCE_OVERRIDE').count()
     
     # EventAttendance summary (covers both token and student-ID scans)
@@ -7521,7 +7644,9 @@ def event_attendance_report_export_csv(request, event_id):
 def event_scan_logs_export_csv(request, event_id):
     """Export event scan logs as CSV."""
     event = get_object_or_404(Event, id=event_id)
-    logs = AttendanceLog.objects.filter(event=event, voided=False).select_related('student').order_by('-scan_time')
+    logs = _event_attendance_scan_logs_qs(
+        AttendanceLog.objects.filter(event=event, voided=False).select_related('student').order_by('-scan_time')
+    )
     
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = f'attachment; filename="scan_logs_{event.id}_{event.name[:30].replace(" ", "_")}.csv"'
@@ -7730,7 +7855,9 @@ def event_scan_logs_export_xlsx(request, event_id):
     except ImportError:
         return HttpResponse('Excel export requires openpyxl. Install: pip install openpyxl', status=501)
     event = get_object_or_404(Event, id=event_id)
-    logs = AttendanceLog.objects.filter(event=event, voided=False).select_related('student', 'recorded_by').order_by('-scan_time')
+    logs = _event_attendance_scan_logs_qs(
+        AttendanceLog.objects.filter(event=event, voided=False).select_related('student', 'recorded_by').order_by('-scan_time')
+    )
     wb = Workbook()
     ws = wb.active
     ws.title = 'Scan logs'
@@ -7793,7 +7920,9 @@ def event_live_dashboard(request, event_id):
     checked_out = attendances.filter(checked_out_at__isnull=False).count()
     currently_inside = attendances.filter(checked_in_at__isnull=False, checked_out_at__isnull=True).count()
 
-    logs_qs = AttendanceLog.objects.filter(event=event, voided=False).select_related('student').order_by('-scan_time')
+    logs_qs = _event_attendance_scan_logs_qs(
+        AttendanceLog.objects.filter(event=event, voided=False).select_related('student').order_by('-scan_time')
+    )
     scan_type_filter = (request.GET.get('type') or '').strip().upper()
     if scan_type_filter in ('IN', 'OUT'):
         logs_qs = logs_qs.filter(scan_type=scan_type_filter)
@@ -9383,7 +9512,9 @@ def reports_hub(request):
     denied_entries_count = entries_today.filter(granted=False).count()
     denied_today = denied_entries_count  # Incidents feature removed
     # Today's event scans (AttendanceLog, non-voided)
-    scans_today = AttendanceLog.objects.filter(scan_time__gte=day_start, scan_time__lt=day_end, voided=False)
+    scans_today = _event_attendance_scan_logs_qs(
+        AttendanceLog.objects.filter(scan_time__gte=day_start, scan_time__lt=day_end, voided=False)
+    )
     success_today = scans_today.filter(result='SUCCESS').count()
     # Live occupancy: events active today with currently inside count
     active_events = Event.objects.filter(status='active', start_date__lte=today, end_date__gte=today)
@@ -9744,8 +9875,10 @@ def _build_on_demand_data(date_from, date_to, group_by, request):
     from django.db.models import Count
     date_from = timezone.make_aware(datetime.datetime.combine(date_from, datetime.time.min), timezone.get_current_timezone())
     date_to = timezone.make_aware(datetime.datetime.combine(date_to, datetime.time.max), timezone.get_current_timezone())
-    logs = AttendanceLog.objects.filter(
-        scan_time__gte=date_from, scan_time__lte=date_to, voided=False
+    logs = _event_attendance_scan_logs_qs(
+        AttendanceLog.objects.filter(
+            scan_time__gte=date_from, scan_time__lte=date_to, voided=False
+        )
     ).select_related('student', 'event')
     entries = GateEntry.objects.filter(
         timestamp__gte=date_from, timestamp__lte=date_to
@@ -10045,11 +10178,13 @@ def event_attendance_live_embed(request, event_id):
         filter_date = timezone.localdate()
     day_start, day_end = _local_day_bounds(filter_date)
     logs = (
-        AttendanceLog.objects.filter(
-            event=event,
-            voided=False,
-            scan_time__gte=day_start,
-            scan_time__lt=day_end,
+        _event_attendance_scan_logs_qs(
+            AttendanceLog.objects.filter(
+                event=event,
+                voided=False,
+                scan_time__gte=day_start,
+                scan_time__lt=day_end,
+            )
         )
         .select_related('student')
         .order_by('-scan_time')[:200]
@@ -10172,18 +10307,6 @@ def field_trip_event_scan(request, event_id):
 
         # OUT: require an existing check-in before allowing check-out
         if scan_type == 'OUT' and att.checked_in_at is None:
-            # Log as NOT_CHECKED_IN so report shows failed attempt
-            AttendanceLog.objects.create(
-                event=event,
-                student=student,
-                registration=None,
-                scan_type='OUT',
-                result='NOT_CHECKED_IN',
-                token='',
-                device_id=request.POST.get('device_id', '')[:64],
-                remarks='CHECKOUT_BEFORE_CHECKIN',
-                recorded_by=request.user if getattr(request, 'user', None) and request.user.is_authenticated else None,
-            )
             msg = f'{student.get_full_name()} has not checked in yet for this event.'
             if _http_request_wants_json(request):
                 return JsonResponse({
@@ -10631,7 +10754,9 @@ def api_attendance(request):
         {'student_id': e.student.student_id if e.student else None, 'timestamp': e.timestamp.isoformat(), 'granted': e.granted}
         for e in gate_qs
     ]
-    logs_qs = AttendanceLog.objects.filter(scan_time__gte=start, scan_time__lte=end, voided=False).order_by('-scan_time')[:500]
+    logs_qs = _event_attendance_scan_logs_qs(
+        AttendanceLog.objects.filter(scan_time__gte=start, scan_time__lte=end, voided=False)
+    ).order_by('-scan_time')[:500]
     event_scans = [
         {'event_id': l.event_id, 'student_id': l.student.student_id if l.student else None, 'scan_time': l.scan_time.isoformat(), 'result': l.result}
         for l in logs_qs.select_related('student', 'event')
@@ -10640,7 +10765,9 @@ def api_attendance(request):
         'date_from': date_from.isoformat(),
         'date_to': date_to.isoformat(),
         'gate_entries_count': GateEntry.objects.filter(timestamp__gte=start, timestamp__lte=end).count(),
-        'event_scans_count': AttendanceLog.objects.filter(scan_time__gte=start, scan_time__lte=end, voided=False).count(),
+        'event_scans_count': _event_attendance_scan_logs_qs(
+            AttendanceLog.objects.filter(scan_time__gte=start, scan_time__lte=end, voided=False)
+        ).count(),
         'gate_entries_sample': gate_entries,
         'event_scans_sample': event_scans,
     })

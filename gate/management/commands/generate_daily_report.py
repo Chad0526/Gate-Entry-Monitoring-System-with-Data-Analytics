@@ -53,7 +53,10 @@ class Command(BaseCommand):
         granted = entries.filter(granted=True).count()
         denied = entries.filter(granted=False).count()
         logs = AttendanceLog.objects.filter(
-            scan_time__gte=start, scan_time__lte=end, voided=False
+            scan_time__gte=start,
+            scan_time__lte=end,
+            voided=False,
+            result__in=AttendanceLog.SCAN_RESULTS_LOGGED,
         )
         success_scans = logs.filter(result='SUCCESS').count()
 

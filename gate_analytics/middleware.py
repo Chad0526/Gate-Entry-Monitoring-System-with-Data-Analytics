@@ -3,7 +3,9 @@ from django.conf import settings as django_settings
 from django.http import HttpResponseForbidden, HttpResponseRedirect
 from django.urls import reverse
 from django.utils.deprecation import MiddlewareMixin
-from django.utils.translation import LANGUAGE_SESSION_KEY, activate
+from django.utils.translation import activate
+
+from .django_i18n_compat import LANGUAGE_SESSION_KEY
 
 
 def _origin_from_request(request):
@@ -117,17 +119,29 @@ class NoCacheAuthMiddleware(MiddlewareMixin):
 
 
 class NgrokCsrfTrustMiddleware(MiddlewareMixin):
-    """When request comes via ngrok, add its Origin (or Host-derived URL) to CSRF_TRUSTED_ORIGINS so login and forms work."""
+    """Extend CSRF_TRUSTED_ORIGINS at runtime for ngrok and, in DEBUG, the current Host (LAN IP, etc.)."""
     def process_request(self, request):
-        origin = _origin_from_request(request)
-        if not origin or 'ngrok' not in origin.lower():
-            origin = _ngrok_origin_from_forwarded_host(request)
-        if not origin or 'ngrok' not in origin.lower():
-            return None
+        origins = []
+        o = _origin_from_request(request)
+        if o and 'ngrok' in o.lower():
+            origins.append(o)
+        o2 = _ngrok_origin_from_forwarded_host(request)
+        if o2 and 'ngrok' in o2.lower():
+            origins.append(o2)
+        if getattr(django_settings, 'DEBUG', False):
+            try:
+                host = request.get_host()
+                scheme = 'https' if request.is_secure() else 'http'
+                origins.append(f'{scheme}://{host}')
+            except Exception:
+                pass
         trusted = getattr(django_settings, 'CSRF_TRUSTED_ORIGINS', None) or []
-        if isinstance(trusted, list) and origin not in trusted:
-            trusted = list(trusted) + [origin]
-            setattr(django_settings, 'CSRF_TRUSTED_ORIGINS', trusted)
+        if not isinstance(trusted, list):
+            return None
+        for origin in origins:
+            if origin and origin not in trusted:
+                trusted = list(trusted) + [origin]
+                setattr(django_settings, 'CSRF_TRUSTED_ORIGINS', trusted)
         return None
 
 # One-time fix: add gate_gateentry.out_reason_code on MySQL if missing (so gate/entries and save_scan work).

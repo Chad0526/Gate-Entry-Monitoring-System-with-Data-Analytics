@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="760" viewBox="0 0 480 760">
+  <defs>
+    <style>
+      .box { fill: #fff; stroke: #00e676; stroke-width: 2.5; }
+      .diamond { fill: #fff; stroke: #00e676; stroke-width: 2.5; }
+      .term { fill: #fff; stroke: #00e676; stroke-width: 2.5; }
+      .txt { font-family: Segoe UI, Arial, sans-serif; font-size: 13px; fill: #111; text-anchor: middle; }
+      .txt-sm { font-family: Segoe UI, Arial, sans-serif; font-size: 12px; fill: #111; text-anchor: middle; }
+      .arrow { stroke: #111; stroke-width: 1.6; fill: none; marker-end: url(#ah); }
+      .lbl { font-family: Segoe UI, Arial, sans-serif; font-size: 11px; fill: #333; }
+    </style>
+    <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#111"/>
+    </marker>
+  </defs>
+
+  <ellipse cx="240" cy="32" rx="52" ry="20" class="term"/>
+  <text x="240" y="37" class="txt">Start</text>
+  <line x1="240" y1="52" x2="240" y2="72" class="arrow"/>
+
+  <rect x="70" y="72" width="340" height="44" rx="6" class="box"/>
+  <text x="240" y="92" class="txt-sm">Daily gate scanner - no event tracking</text>
+  <text x="240" y="108" class="txt-sm">(main dashboard / gate_scan)</text>
+  <line x1="240" y1="116" x2="240" y2="136" class="arrow"/>
+
+  <rect x="85" y="136" width="310" height="44" rx="6" class="box"/>
+  <text x="240" y="156" class="txt-sm">Scan QR or type ID / visitor pass</text>
+  <text x="240" y="172" class="txt-sm">(optional manual IN/OUT)</text>
+  <line x1="240" y1="180" x2="240" y2="200" class="arrow"/>
+
+  <!-- Match: resolve student or visitor; active/approved; StudentBlock; visitor pass rules -->
+  <path d="M240 200 L310 255 L240 310 L170 255 Z" class="diamond"/>
+  <text x="240" y="244" class="txt-sm">Identity OK</text>
+  <text x="240" y="260" class="txt-sm">&amp; gate access allowed?</text>
+  <text x="240" y="276" class="txt-sm">(active, not blocked, pass valid)</text>
+
+  <line x1="170" y1="255" x2="58" y2="255" class="arrow"/>
+  <text x="112" y="247" class="lbl">No</text>
+  <rect x="8" y="278" width="100" height="36" rx="6" class="box"/>
+  <text x="58" y="301" class="txt-sm">Show error</text>
+  <line x1="58" y1="314" x2="58" y2="334" class="arrow"/>
+  <ellipse cx="58" cy="356" rx="44" ry="18" class="term"/>
+  <text x="58" y="361" class="txt-sm">End</text>
+
+  <line x1="240" y1="310" x2="240" y2="332" class="arrow"/>
+  <text x="258" y="326" class="lbl">Yes</text>
+
+  <!-- Match: get_student_current_state, evaluate_scan daily_gate_only, cooldown, lunch, dup IN -->
+  <path d="M240 332 L320 402 L240 472 L160 402 Z" class="diamond"/>
+  <text x="240" y="386" class="txt-sm">IN/OUT permitted</text>
+  <text x="240" y="402" class="txt-sm">for daily gate now?</text>
+  <text x="240" y="418" class="txt-sm">(state, rules, cooldown)</text>
+
+  <line x1="160" y1="402" x2="58" y2="402" class="arrow"/>
+  <text x="104" y="394" class="lbl">No</text>
+  <line x1="58" y1="402" x2="58" y2="424" class="arrow"/>
+  <rect x="8" y="424" width="100" height="44" rx="6" class="box"/>
+  <text x="58" y="444" class="txt-sm">Show denied</text>
+  <text x="58" y="460" class="txt-sm">or hint</text>
+  <line x1="58" y1="468" x2="58" y2="488" class="arrow"/>
+  <ellipse cx="58" cy="510" rx="44" ry="18" class="term"/>
+  <text x="58" y="515" class="txt-sm">End</text>
+
+  <line x1="240" y1="472" x2="240" y2="494" class="arrow"/>
+  <text x="258" y="488" class="lbl">Yes</text>
+
+  <rect x="100" y="494" width="280" height="48" rx="6" class="box"/>
+  <text x="240" y="514" class="txt-sm">Save GateEntry (daily — no event)</text>
+  <text x="240" y="532" class="txt-sm">+ staff activity log if applicable</text>
+  <line x1="240" y1="542" x2="240" y2="564" class="arrow"/>
+
+  <rect x="125" y="564" width="230" height="40" rx="6" class="box"/>
+  <text x="240" y="590" class="txt">Show success</text>
+  <line x1="240" y1="604" x2="240" y2="624" class="arrow"/>
+
+  <ellipse cx="240" cy="648" rx="52" ry="20" class="term"/>
+  <text x="240" y="653" class="txt">End</text>
+</svg>

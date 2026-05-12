@@ -561,9 +561,7 @@ def dashboard_stats_api(request):
 
 def login_page(request):
     from django.contrib import messages
-    from gate.forms import StudentRegistrationForm
     forms = LoginForm()
-    reg_form = StudentRegistrationForm()
     next_url = request.GET.get('next', '')
     if request.method == 'POST':
         forms = LoginForm(request.POST)
@@ -579,7 +577,7 @@ def login_page(request):
                     if role is None:
                         messages.error(request, 'Your account has no role (Admin, Staff, Faculty, or Student Affairs). Contact the administrator.')
                         return render(request, 'auth/login.html', {
-                            'form': forms, 'next': next_url, 'reg_form': reg_form,
+                            'form': forms, 'next': next_url,
                             'staff_personnel_form': StaffPersonnelRegistrationForm(),
                             'site_name': 'City College of Bayawan',
                         })
@@ -627,7 +625,6 @@ def login_page(request):
     context = {
         'form': forms,
         'next': next_url,
-        'reg_form': reg_form,
         'staff_personnel_form': StaffPersonnelRegistrationForm(),
         'site_name': 'City College of Bayawan',
     }
@@ -835,27 +832,22 @@ def preferences_view(request):
 
 
 def register_page(request):
-    """Unified login and registration page."""
+    """Staff / faculty / Student Affairs registration (students are added by staff in Gate → Students)."""
     from django.contrib import messages
     from django.contrib.auth.models import Group
-    from gate.forms import StudentRegistrationForm
     from gate.models import StaffPersonnelProfile
     from .forms import LoginForm
-    import random
-    import string
 
-    # Initialize forms
     login_form = LoginForm()
-    reg_form = StudentRegistrationForm()
     staff_personnel_form = StaffPersonnelRegistrationForm()
 
     def _register_context(extra=None):
         ctx = {
             'form': login_form,
-            'reg_form': reg_form,
             'staff_personnel_form': staff_personnel_form,
             'site_name': 'City College of Bayawan',
             'default_panel': 'register',
+            'default_reg_type': 'staff_personnel',
         }
         if extra:
             ctx.update(extra)
@@ -915,170 +907,25 @@ def register_page(request):
                 return redirect('login')
             return render(request, 'auth/login.html', _register_context({'default_reg_type': 'staff_personnel'}))
 
-        # Login form
-        if 'username' in request.POST:  # Login form
+        # Login form (if something POSTs credentials to /register/)
+        if 'username' in request.POST:
             login_form = LoginForm(request.POST)
             if login_form.is_valid():
                 username = login_form.cleaned_data['username']
                 password = login_form.cleaned_data['password']
                 user = authenticate(request, username=username, password=password)
-                
+
                 if user is not None:
                     login(request, user)
                     return redirect('dashboard')
-                else:
-                    login_form.add_error(None, 'Invalid username or password.')
-        
-        elif 'last_name' in request.POST:  # Registration form
-            # Face registration on mobile sends base64 in POST; form expects a file. Inject photo into FILES before validation.
-            reg_files = request.FILES
-            face_base64_raw = (request.POST.get('face_photo_base64') or '').strip()
-            if face_base64_raw:
-                import base64
-                from io import BytesIO
-                from django.core.files.uploadedfile import InMemoryUploadedFile
-                from django.utils.datastructures import MultiValueDict
-                try:
-                    face_base64 = face_base64_raw.split(',', 1)[1] if ',' in face_base64_raw else face_base64_raw
-                    data = base64.b64decode(face_base64)
-                    photo_file = InMemoryUploadedFile(
-                        BytesIO(data), 'photo', 'face.jpg',
-                        'image/jpeg', len(data), None
-                    )
-                    reg_files = MultiValueDict(request.FILES)
-                    reg_files.setlist('photo', [photo_file])
-                except Exception:
-                    pass  # Let form validate; will show photo error if decode failed
-            reg_form = StudentRegistrationForm(request.POST, reg_files)
-            if reg_form.is_valid():
-                student_id = (reg_form.cleaned_data.get('student_id') or '').strip()
-                if not student_id:
-                    while True:
-                        candidate = 'REG-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-                        if not Student.objects.filter(student_id=candidate).exists():
-                            student_id = candidate
-                            break
-                else:
-                    if Student.objects.filter(student_id=student_id).exists():
-                        reg_form.add_error('student_id', 'This ID number is already registered.')
-                        return render(request, 'auth/login.html', _register_context())
+                login_form.add_error(None, 'Invalid username or password.')
+            return render(request, 'auth/login.html', _register_context())
 
-                import base64
-                from io import BytesIO
-                from django.core.files.uploadedfile import InMemoryUploadedFile
-
-                photo = reg_form.cleaned_data.get('photo')
-                face_base64 = (request.POST.get('face_photo_base64') or '').strip()
-                if face_base64:
-                    try:
-                        if ',' in face_base64:
-                            face_base64 = face_base64.split(',', 1)[1]
-                        data = base64.b64decode(face_base64)
-                        photo = InMemoryUploadedFile(
-                            BytesIO(data), 'photo', 'face.jpg',
-                            'image/jpeg', len(data), None
-                        )
-                    except Exception:
-                        reg_form.add_error('photo', 'Invalid face image. Please complete face registration again.')
-                        return render(request, 'auth/login.html', _register_context())
-                if not photo:
-                    reg_form.add_error('photo', 'Please complete face registration using your camera.')
-                    return render(request, 'auth/login.html', _register_context())
-
-                from django.core.exceptions import ValidationError
-                from gate.forms import validate_student_photo
-                from gate.utils import compress_student_photo
-                try:
-                    validate_student_photo(photo)
-                except ValidationError as e:
-                    msg = e.messages[0] if e.messages else str(e)
-                    reg_form.add_error('photo', msg)
-                    return render(request, 'auth/login.html', _register_context())
-                if hasattr(photo, 'seek'):
-                    photo.seek(0)
-                photo = compress_student_photo(photo)
-
-                try:
-                    import face_recognition
-                    img = face_recognition.load_image_file(photo)
-                    locations = face_recognition.face_locations(img)
-                    if not locations:
-                        reg_form.add_error('photo', 'No face detected. Please upload a clear face photo.')
-                        return render(request, 'auth/login.html', _register_context())
-                    if len(locations) > 1:
-                        reg_form.add_error('photo', 'Multiple faces detected. Please upload a photo with only one person.')
-                        return render(request, 'auth/login.html', _register_context())
-                except ImportError:
-                    pass
-                except Exception:
-                    reg_form.add_error('photo', 'Could not process the image. Please upload a different photo.')
-                    return render(request, 'auth/login.html', _register_context())
-
-                if hasattr(photo, 'seek'):
-                    photo.seek(0)
-
-                # Electronic signature (required)
-                signature_base64_raw = (request.POST.get('signature_base64') or '').strip()
-                sig_file = None
-                if signature_base64_raw:
-                    import base64
-                    from io import BytesIO
-                    from django.core.files.uploadedfile import InMemoryUploadedFile
-                    try:
-                        signature_base64 = signature_base64_raw.split(',', 1)[1] if ',' in signature_base64_raw else signature_base64_raw
-                        data = base64.b64decode(signature_base64)
-                        if len(data) < 100:
-                            raise ValueError('Signature too small')
-                        sig_file = InMemoryUploadedFile(
-                            BytesIO(data), 'signature', 'signature.png',
-                            'image/png', len(data), None
-                        )
-                    except Exception:
-                        sig_file = None
-                if not sig_file:
-                    reg_form.add_error(None, 'Please provide your electronic signature by drawing in the signature box.')
-                    return render(request, 'auth/login.html', _register_context())
-
-                email = (reg_form.cleaned_data.get('email') or '').strip().lower()
-                if Student.objects.filter(email__iexact=email).exists():
-                    reg_form.add_error('email', 'This email address is already registered.')
-                    return render(request, 'auth/login.html', _register_context())
-
-                first_name = (reg_form.cleaned_data.get('first_name') or '').strip()
-                middle_name = (reg_form.cleaned_data.get('middle_name') or '').strip()
-                last_name = (reg_form.cleaned_data.get('last_name') or '').strip()
-                sex = (reg_form.cleaned_data.get('sex') or '').strip()
-
-                student = Student.objects.create(
-                    student_id=student_id,
-                    first_name=first_name,
-                    middle_name=middle_name,
-                    last_name=last_name,
-                    email=email,
-                    photo=photo,
-                    signature=sig_file,
-                    address=(reg_form.cleaned_data.get('address') or '').strip(),
-                    birthdate=reg_form.cleaned_data.get('birthdate'),
-                    sex=sex or '',
-                    guardians_parents=(reg_form.cleaned_data.get('guardians_parents') or '').strip(),
-                    account_status=Student.ACCOUNT_STATUS_INACTIVE,
-                    is_active=False,
-                    course=(reg_form.cleaned_data.get('course') or '').strip() or None,
-                    year_level=(reg_form.cleaned_data.get('year_level') or '').strip() or None,
-                    section=(reg_form.cleaned_data.get('section') or '').strip() or None,
-                    contact_number=(reg_form.cleaned_data.get('contact_number') or '').strip() or None,
-                    guardian_contact=(reg_form.cleaned_data.get('guardian_contact') or '').strip() or None,
-                )
-                try:
-                    from gate.admin_notification_service import AdminNotificationService
-                    AdminNotificationService.notify_student_registration(student)
-                except Exception:
-                    pass
-                messages.success(
-                    request,
-                    f'Registration submitted. Pending administrator approval. (Ref: {student_id})'
-                )
-                return redirect('login')
+        messages.error(
+            request,
+            'Student self-registration is not available. Authorized staff add students under Gate → Students.',
+        )
+        return redirect('login')
 
     return render(request, 'auth/login.html', _register_context())
 

@@ -316,6 +316,27 @@
     border-color: transparent;
   }
   .action-primary .action-sub { display: none; }
+  /* Visitor registration (opens in new tab) — yellow */
+  .action-btn.action-btn--yellow {
+    background: linear-gradient(135deg, #fffde7 0%, #ffeb3b 40%, #fdd835 100%);
+    color: #3e2723;
+    border-color: transparent;
+    box-shadow: 0 4px 14px rgba(253, 216, 53, 0.45);
+  }
+  .action-btn.action-btn--yellow i {
+    color: #b45309;
+  }
+  .action-btn.action-btn--yellow:hover {
+    color: #292524;
+    border-color: transparent;
+    box-shadow: 0 6px 22px rgba(250, 204, 21, 0.5);
+  }
+  .action-btn.action-btn--yellow:hover i {
+    color: #92400e;
+  }
+  .action-btn.action-btn--yellow small {
+    color: rgba(62, 39, 35, 0.88);
+  }
   /* SAS dashboard — same green hero as rest of gate/SAS (matches Visitor QR, default dashboard) */
   .dash-hero--sas {
     background-image:
@@ -393,6 +414,23 @@
     font-weight: 500;
     color: #64748b;
     line-height: 1.35;
+  }
+  .sas-quick-tile--yellow {
+    border-color: rgba(250, 204, 21, 0.9);
+    background: linear-gradient(180deg, #fffef7 0%, #fff 100%);
+  }
+  .sas-quick-tile--yellow:hover {
+    border-color: #eab308;
+    box-shadow: 0 6px 20px rgba(234, 179, 8, 0.32);
+    color: #0f172a;
+  }
+  .sas-quick-tile--yellow .sas-quick-tile__icon {
+    background: linear-gradient(135deg, #fef9c3, #fde047);
+    color: #a16207;
+  }
+  .sas-quick-tile--yellow:hover .sas-quick-tile__icon {
+    background: linear-gradient(135deg, #fde047, #facc15);
+    color: #854d0e;
   }
   .sas-at-a-glance {
     display: flex;
@@ -647,10 +685,10 @@
                 <span class="sas-quick-tile__title">Students &amp; e-ID</span>
                 <span class="sas-quick-tile__desc">Records, activation, and ID cards</span>
               </a>
-              <a href="{% url 'visitor-pass-create' %}" class="sas-quick-tile ccb-spa-nav">
-                <span class="sas-quick-tile__icon"><i class="fas fa-user-tag"></i></span>
-                <span class="sas-quick-tile__title">Visitor passes</span>
-                <span class="sas-quick-tile__desc">Issue QR codes for guests</span>
+              <a href="{% url 'visitor-scanner' %}" target="_blank" rel="noopener noreferrer" class="sas-quick-tile sas-quick-tile--yellow" style="text-decoration:none;color:inherit;">
+                <span class="sas-quick-tile__icon"><i class="fas fa-clipboard-list"></i></span>
+                <span class="sas-quick-tile__title">Visitor registration</span>
+                <span class="sas-quick-tile__desc">Tablet form only — scan at gate (new tab)</span>
               </a>
               <a href="{% url 'gate-entry-list' %}?tab=incidents&amp;date={{ today|date:'Y-m-d' }}" class="sas-quick-tile ccb-spa-nav">
                 <span class="sas-quick-tile__icon"><i class="fas fa-exclamation-triangle"></i></span>
@@ -683,7 +721,8 @@
             {% endif %}
             <a href="{% url 'gate-scan' %}" class="btn btn-link btn-sm w-100 mt-1 p-0 small ccb-spa-nav" style="text-decoration: none; transition: all 0.2s ease;" onmouseover="this.style.textDecoration='underline'; this.style.color='#15803d';" onmouseout="this.style.textDecoration='none'; this.style.color='';">Open full staff scanner page (logged-in, camera + manual entry)</a>
           </div>
-          <a href="{% url 'visitor-pass-create' %}" class="btn action-btn w-100 ccb-spa-nav"><i class="fas fa-user-tag"></i> Visitor Pass</a>
+          <a href="{% url 'visitor-pass-create' %}" class="btn action-btn w-100 ccb-spa-nav"><i class="fas fa-user-tag"></i> Visitor passes</a>
+          <a href="{% url 'visitor-scanner' %}" target="_blank" rel="noopener noreferrer" class="btn action-btn w-100"><i class="fas fa-clipboard-list"></i> Visitor registration <small class="font-weight-normal">(new tab)</small></a>
           <a href="{% url 'gate-entry-list' %}" class="btn action-btn w-100 ccb-spa-nav"><i class="fas fa-list"></i> Gate Entries</a>
           <a href="{% url 'reports-overview' %}" class="btn action-btn w-100 ccb-spa-nav"><i class="fas fa-file-alt"></i> Reports</a>
           <a href="{% url 'gate-analytics' %}" class="btn action-btn w-100 ccb-spa-nav"><i class="fas fa-chart-line"></i> Analytics</a>

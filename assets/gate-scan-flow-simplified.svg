@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="660" viewBox="0 0 480 660">
+  <defs>
+    <style>
+      .box { fill: #fff; stroke: #00e676; stroke-width: 2.5; }
+      .diamond { fill: #fff; stroke: #00e676; stroke-width: 2.5; }
+      .term { fill: #fff; stroke: #00e676; stroke-width: 2.5; }
+      .txt { font-family: Segoe UI, Arial, sans-serif; font-size: 13px; fill: #111; text-anchor: middle; }
+      .txt-sm { font-family: Segoe UI, Arial, sans-serif; font-size: 12px; fill: #111; text-anchor: middle; }
+      .arrow { stroke: #111; stroke-width: 1.6; fill: none; marker-end: url(#ah); }
+      .lbl { font-family: Segoe UI, Arial, sans-serif; font-size: 11px; fill: #333; }
+    </style>
+    <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#111"/>
+    </marker>
+  </defs>
+
+  <ellipse cx="240" cy="32" rx="52" ry="20" class="term"/>
+  <text x="240" y="37" class="txt">Start</text>
+  <line x1="240" y1="52" x2="240" y2="72" class="arrow"/>
+
+  <rect x="100" y="72" width="280" height="40" rx="6" class="box"/>
+  <text x="240" y="98" class="txt-sm">Select event, open scanner</text>
+  <line x1="240" y1="112" x2="240" y2="132" class="arrow"/>
+
+  <rect x="90" y="132" width="300" height="40" rx="6" class="box"/>
+  <text x="240" y="158" class="txt-sm">Scan QR or enter student ID</text>
+  <line x1="240" y1="172" x2="240" y2="192" class="arrow"/>
+
+  <path d="M240 192 L310 247 L240 302 L170 247 Z" class="diamond"/>
+  <text x="240" y="240" class="txt-sm">Known and allowed</text>
+  <text x="240" y="256" class="txt-sm">for this event?</text>
+
+  <line x1="170" y1="247" x2="62" y2="247" class="arrow"/>
+  <text x="114" y="239" class="lbl">No</text>
+  <rect x="12" y="266" width="100" height="36" rx="6" class="box"/>
+  <text x="62" y="289" class="txt-sm">Show error</text>
+  <line x1="62" y1="302" x2="62" y2="322" class="arrow"/>
+  <ellipse cx="62" cy="344" rx="44" ry="18" class="term"/>
+  <text x="62" y="349" class="txt-sm">End</text>
+
+  <line x1="240" y1="302" x2="240" y2="324" class="arrow"/>
+  <text x="258" y="318" class="lbl">Yes</text>
+
+  <path d="M240 324 L310 384 L240 444 L170 384 Z" class="diamond"/>
+  <text x="240" y="380" class="txt-sm">Check-in or check-out</text>
+  <text x="240" y="396" class="txt-sm">allowed now?</text>
+
+  <line x1="170" y1="384" x2="62" y2="384" class="arrow"/>
+  <text x="114" y="376" class="lbl">No</text>
+  <line x1="62" y1="384" x2="62" y2="406" class="arrow"/>
+  <rect x="12" y="406" width="100" height="36" rx="6" class="box"/>
+  <text x="62" y="429" class="txt-sm">Not allowed</text>
+  <line x1="62" y1="442" x2="62" y2="462" class="arrow"/>
+  <ellipse cx="62" cy="484" rx="44" ry="18" class="term"/>
+  <text x="62" y="489" class="txt-sm">End</text>
+
+  <line x1="240" y1="444" x2="240" y2="466" class="arrow"/>
+  <text x="258" y="460" class="lbl">Yes</text>
+
+  <rect x="130" y="466" width="220" height="40" rx="6" class="box"/>
+  <text x="240" y="492" class="txt">Save attendance</text>
+  <line x1="240" y1="506" x2="240" y2="528" class="arrow"/>
+
+  <rect x="130" y="528" width="220" height="40" rx="6" class="box"/>
+  <text x="240" y="554" class="txt">Show success</text>
+  <line x1="240" y1="568" x2="240" y2="590" class="arrow"/>
+
+  <ellipse cx="240" cy="614" rx="52" ry="20" class="term"/>
+  <text x="240" y="619" class="txt">End</text>
+</svg>

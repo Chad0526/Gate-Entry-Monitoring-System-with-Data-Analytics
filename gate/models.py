@@ -836,7 +836,7 @@ class EventRegistration(models.Model):
 
 
 class AttendanceLog(models.Model):
-    """Detailed log of every scan attempt for events (success/failure/duplicate/invalid)."""
+    """Log of successful event scans and duplicate-scan notices (rejected scans are not stored)."""
     SCAN_TYPE_CHOICES = (
         ('IN', 'Check In'),
         ('OUT', 'Check Out'),
@@ -852,7 +852,9 @@ class AttendanceLog(models.Model):
         ('NOT_CHECKED_IN', 'Check-out Before Check-in'),
         ('SECURE_EVENT_REQUIRES_TOKEN', 'Secure Event (Token Required)'),
     )
-    
+    # Event scan history lists/APIs only include these (rejected scans are not saved; legacy rejected rows are hidden from UIs).
+    SCAN_RESULTS_LOGGED = ('SUCCESS', 'DUPLICATE')
+
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='attendance_logs')
     student = models.ForeignKey(Student, on_delete=models.SET_NULL, null=True, blank=True, related_name='attendance_logs')
     registration = models.ForeignKey(EventRegistration, on_delete=models.SET_NULL, null=True, blank=True, related_name='scan_logs')
@@ -1115,6 +1117,44 @@ class VisitorVisit(models.Model):
 
     def __str__(self):
         return f"{self.full_name} @ {self.pass_obj.code} ({self.status})"
+
+
+class VisitorPendingCheckin(models.Model):
+    """
+    Visitor filled the registration tablet (name, purpose, etc.) for a reusable VIS-xxx pass.
+    Pass stays AVAILABLE until this record is consumed at the main gate scanner (save_scan).
+    """
+    pass_obj = models.OneToOneField(
+        VisitorPass,
+        on_delete=models.CASCADE,
+        related_name='pending_checkin',
+        help_text='Physical pass the visitor will scan at the gate',
+    )
+    full_name = models.CharField(max_length=200)
+    purpose = models.CharField(max_length=255, blank=True)
+    department = models.CharField(max_length=255, blank=True)
+    notes = models.TextField(blank=True)
+    photo_in = models.ImageField(upload_to='visitor_pending/%Y/%m/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    expires_at = models.DateTimeField(
+        db_index=True,
+        help_text='After this time the gate treats the pass as needing manual check-in again.',
+    )
+    created_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='visitor_pending_checkins',
+    )
+
+    class Meta:
+        verbose_name = 'visitor pending check-in'
+        verbose_name_plural = 'visitor pending check-ins'
+
+    def __str__(self):
+        return f"{self.full_name} → {self.pass_obj.code} (pending)"
 
 
 class VisitorEntry(models.Model):
@@ -1529,3 +1569,40 @@ class AdminNotification(models.Model):
     def __str__(self):
         target = self.target_user.username if self.target_user else 'ALL ADMINS/STAFF'
         return f"{self.get_priority_display()}: {self.title} → {target}"
+
+class SystemProcessFlow(models.Model):
+    """Named process flow (onboarding, dashboards, data lifecycle). Lines live in SystemProcessFlowStep."""
+    slug = models.SlugField(max_length=64, unique=True, db_index=True)
+    title = models.CharField(max_length=200)
+    description = models.CharField(max_length=500, blank=True, default='')
+    display_order = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['display_order', 'slug']
+        verbose_name = 'System process flow'
+        verbose_name_plural = 'System process flows'
+
+    def __str__(self):
+        return self.title
+
+
+class SystemProcessFlowStep(models.Model):
+    flow = models.ForeignKey(
+        SystemProcessFlow,
+        on_delete=models.CASCADE,
+        related_name='steps',
+    )
+    sort_order = models.PositiveIntegerField(default=0)
+    line = models.TextField(help_text='One line of the flow (e.g. Start → [/Screen/] → {Decision?})')
+
+    class Meta:
+        ordering = ['sort_order', 'pk']
+        indexes = [
+            models.Index(fields=['flow', 'sort_order']),
+        ]
+
+    def __str__(self):
+        return f'{self.flow.slug}:{self.sort_order}'
+

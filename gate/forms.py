@@ -3,10 +3,27 @@ from django.forms import inlineformset_factory
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from django.utils.text import format_lazy
 from betterforms.multiform import MultiModelForm
 
 from .models import Event, EventImage, EventAgenda, Student, EventCategory, JobCategory, SiteTheme
 from .event_category_utils import get_or_create_custom_event_category
+
+
+def validate_student_birthdate_not_in_current_year(value):
+    if value is None:
+        return
+    today = timezone.now().date()
+    if value.year >= today.year:
+        month_year = value.strftime('%B %Y')
+        raise ValidationError(
+            format_lazy(
+                _(
+                    'You cannot choose this month and year ({month_year}): birthdates in the current calendar year are not allowed.'
+                ),
+                month_year=month_year,
+            )
+        )
 
 
 class EventStatusForm(forms.ModelForm):
@@ -307,6 +324,17 @@ class StudentForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['sex'].required = True
         self.fields['sex'].choices = list(Student.SEX_CHOICES)
+        if 'birthdate' in self.fields:
+            self.fields['birthdate'].widget.attrs['max'] = timezone.now().date().isoformat()
+
+    def clean_birthdate(self):
+        data = self.cleaned_data.get('birthdate')
+        if not data:
+            return data
+        if self.instance and self.instance.pk and data == self.instance.birthdate:
+            return data
+        validate_student_birthdate_not_in_current_year(data)
+        return data
 
     def clean_sex(self):
         v = (self.cleaned_data.get('sex') or '').strip()
@@ -378,6 +406,17 @@ class StudentAdminForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['sex'].required = True
         self.fields['sex'].choices = list(Student.SEX_CHOICES)
+        if 'birthdate' in self.fields:
+            self.fields['birthdate'].widget.attrs['max'] = timezone.now().date().isoformat()
+
+    def clean_birthdate(self):
+        data = self.cleaned_data.get('birthdate')
+        if not data:
+            return data
+        if self.instance and self.instance.pk and data == self.instance.birthdate:
+            return data
+        validate_student_birthdate_not_in_current_year(data)
+        return data
 
     def clean_sex(self):
         v = (self.cleaned_data.get('sex') or '').strip()
@@ -387,7 +426,7 @@ class StudentAdminForm(forms.ModelForm):
 
 
 class StudentRegistrationForm(forms.Form):
-    """Public form for students to self-register (pending admin approval)."""
+    """Legacy fields for student intake (no longer used on the public /register/ page)."""
     student_id = forms.CharField(
         max_length=8,
         required=False,
@@ -487,6 +526,10 @@ class StudentRegistrationForm(forms.Form):
         validators=[validate_student_photo],
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['birthdate'].widget.attrs['max'] = timezone.now().date().isoformat()
+
     def _name_ok(self, value):
         return (value or '').replace(' ', '').replace('-', '').replace("'", '').replace('.', '').isalpha()
 
@@ -518,8 +561,10 @@ class StudentRegistrationForm(forms.Form):
 
     def clean_birthdate(self):
         data = self.cleaned_data.get('birthdate')
-        if data and data > timezone.now().date():
-            raise ValidationError('Birthdate cannot be in the future.')
+        if data:
+            if data > timezone.now().date():
+                raise ValidationError('Birthdate cannot be in the future.')
+            validate_student_birthdate_not_in_current_year(data)
         return data
 
     def clean_email(self):
@@ -563,7 +608,7 @@ class StudentRegistrationForm(forms.Form):
 
 
 class StaffPersonnelCreateForm(forms.Form):
-    """Admin: create staff/faculty user + profile (mirrors Add student flow)."""
+    """Admin: create staff, faculty, or SAS (Student Affairs) user (+ profile for staff/faculty only)."""
     username = forms.CharField(max_length=150, widget=forms.TextInput(attrs={'class': 'form-control'}))
     email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control'}))
     first_name = forms.CharField(max_length=150, widget=forms.TextInput(attrs={'class': 'form-control'}))
@@ -577,7 +622,11 @@ class StaffPersonnelCreateForm(forms.Form):
     password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}))
     password_confirm = forms.CharField(label='Confirm password', widget=forms.PasswordInput(attrs={'class': 'form-control'}))
     role = forms.ChoiceField(
-        choices=(('staff', 'Staff'), ('faculty', 'Faculty')),
+        choices=(
+            ('staff', 'Staff'),
+            ('faculty', 'Faculty'),
+            ('student_affairs', 'SAS'),
+        ),
         widget=forms.Select(attrs={'class': 'form-control'}),
     )
     department = forms.CharField(max_length=150, required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))

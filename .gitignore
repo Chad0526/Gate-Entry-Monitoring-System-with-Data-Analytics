@@ -132,6 +132,7 @@ dmypy.json
 
 # Editor
 .vscode
+.kiro/
 
 # Media files
 media/

@@ -516,6 +516,7 @@
       {% endif %}
       <form id="student-main-form" method="post" enctype="multipart/form-data">
         {% csrf_token %}
+        {% if not student and student_create_nonce %}<input type="hidden" name="student_create_nonce" value="{{ student_create_nonce }}">{% endif %}
         {% if form_modal %}<input type="hidden" name="from_modal" value="1">{% endif %}
         <div class="card-body">
           {% if form.non_field_errors %}
@@ -828,7 +829,18 @@
               accountStatusWarnValue.textContent = 'Inactive';
             }
             accountStatusWarnBackdrop.classList.add('show');
+            return;
           }
+        }
+        if (window.__studentFormSubmitting) {
+          e.preventDefault();
+          return;
+        }
+        window.__studentFormSubmitting = true;
+        var submitBtn = document.getElementById('studentFormSubmitBtn');
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Saving...';
         }
       });
     }
@@ -865,6 +877,12 @@
       if (accountStatusWarnConfirm) {
         accountStatusWarnConfirm.addEventListener('click', function() {
           hideAccountStatusWarn();
+          window.__studentFormSubmitting = true;
+          var sbm = document.getElementById('studentFormSubmitBtn');
+          if (sbm) {
+            sbm.disabled = true;
+            sbm.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Saving...';
+          }
           form.submit();
         });
       }

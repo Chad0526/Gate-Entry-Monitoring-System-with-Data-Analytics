@@ -258,7 +258,7 @@
             <span class="rf-label">In / Out</span>
             {% with selected_io=request.GET.event_io|default:'' %}
             <select name="event_io" class="form-control form-control-sm" style="width:120px;">
-              <option value=""{% if selected_io == '' %} selected{% endif %}>Any</option>
+              <option value=""{% if selected_io == '' %} selected{% endif %}>All</option>
               <option value="IN"{% if selected_io == 'IN' %} selected{% endif %}>IN</option>
               <option value="OUT"{% if selected_io == 'OUT' %} selected{% endif %}>OUT</option>
             </select>
@@ -375,7 +375,7 @@
               <div class="report-type-group-label">Overview</div>
               <div class="report-type-option{% if template_type == 'overview_summary' %} selected{% endif %}" role="option" data-value="overview_summary" tabindex="0">Summary</div>
               <div class="report-type-option{% if template_type == 'recent_activity' %} selected{% endif %}" role="option" data-value="recent_activity" tabindex="0">Recent activity</div>
-              <div class="report-type-group-label">Daily Gate</div>
+              <div class="report-type-group-label">Daily Gate Entry</div>
               <div class="report-type-option{% if template_type == 'daily_gate_visits' %} selected{% endif %}" role="option" data-value="daily_gate_visits" tabindex="0">Visits</div>
               <div class="report-type-option{% if template_type == 'inside_now' %} selected{% endif %}" role="option" data-value="inside_now" tabindex="0">Inside now</div>
               <div class="report-type-option{% if template_type == 'raw_entries' %} selected{% endif %}" role="option" data-value="raw_entries" tabindex="0">Raw entries</div>
@@ -446,7 +446,7 @@
             <div class="rf-group">
               <span class="rf-label">Status</span>
               <select name="scan_type" class="form-control form-control-sm" style="width:100px;">
-                <option value="">Any</option>
+                <option value="">All</option>
                 <option value="IN" {% if request.GET.scan_type == 'IN' %}selected{% endif %}>IN</option>
                 <option value="OUT" {% if request.GET.scan_type == 'OUT' %}selected{% endif %}>OUT</option>
               </select>
@@ -454,7 +454,7 @@
             <div class="rf-group">
               <span class="rf-label">Granted</span>
               <select name="granted_filter" class="form-control form-control-sm" style="width:100px;">
-                <option value="">Any</option>
+                <option value="">All</option>
                 <option value="1" {% if request.GET.granted_filter == '1' %}selected{% endif %}>Granted</option>
                 <option value="0" {% if request.GET.granted_filter == '0' %}selected{% endif %}>Denied</option>
               </select>

@@ -13,7 +13,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _env_path = os.path.join(BASE_DIR, '.env')
 try:
     from dotenv import load_dotenv
-    load_dotenv(_env_path)
+    # override=True: values in `.env` win over OS / IDE run-config (e.g. stale NGROK_HTTPS_COOKIES=1
+    # leaves Secure CSRF cookies enabled on plain http:// LAN → "CSRF cookie not set").
+    load_dotenv(_env_path, override=True)
 except ImportError:
     # Fallback: simple .env parser so DB/email config still works even without python-dotenv.
     if os.path.exists(_env_path):
@@ -29,8 +31,8 @@ except ImportError:
                 # Skip empty keys
                 if not key:
                     continue
-                # Do not overwrite existing environment variables.
-                os.environ.setdefault(key, value)
+                # Match load_dotenv(override=True): last value from .env wins over the environment.
+                os.environ[key] = value
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 
@@ -44,41 +46,40 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'gvv(&d^k0f5^xgqa+#ct4sxcg5%&5q
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-# ngrok / reverse-proxy support (needed so Django sees the public host+https).
-# Fixes CSRF cookie domain + referer checks on HTTPS tunnels.
+# Reverse-proxy / tunnel: trust X-Forwarded-Proto only when explicitly enabled.
+# If this is always on, a stray X-Forwarded-Proto: https over plain HTTP makes request.is_secure() True
+# and breaks CSRF Origin/Referer checks for LAN/dev.
+# Use TRUST_X_FORWARDED_PROTO=1 behind nginx/IIS; NGROK_HTTPS_COOKIES=1 also enables it for ngrok.
 USE_X_FORWARDED_HOST = True
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+_trust_forwarded_proto = (
+    os.environ.get('TRUST_X_FORWARDED_PROTO', '').lower() in ('1', 'true', 'yes')
+    or os.environ.get('NGROK_HTTPS_COOKIES', '').lower() in ('1', 'true', 'yes')
+)
+if _trust_forwarded_proto:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+else:
+    SECURE_PROXY_SSL_HEADER = None
 
-# CSRF Trusted Origins (for AJAX requests)
+# CSRF trusted origins (full URLs with scheme; '*' is not valid).
 CSRF_TRUSTED_ORIGINS = [
-    # ngrok tunnel URLs change often (trial/subdomain). Trust any ngrok host via wildcard.
-    # Django expects full origins with scheme for CSRF trusted origins.
     'https://*.ngrok-free.dev',
     'https://*.ngrok-free.app',
     'https://*.ngrok.io',
 ]
+_extra_csrf = os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').strip()
+if _extra_csrf:
+    CSRF_TRUSTED_ORIGINS = CSRF_TRUSTED_ORIGINS + [
+        x.strip() for x in _extra_csrf.split(',') if x.strip()
+    ]
 
 # Host header validation. For local dev + LAN + ngrok/tunnels, use '*' (only safe with DEBUG=True).
 # Production: set DJANGO_ALLOWED_HOSTS=example.com,www.example.com (comma-separated, no spaces needed)
 # or rely on the non-DEBUG list below. Never use '*' when DEBUG=False.
 
 ALLOWED_HOSTS = [
-        'localhost',
-        '127.0.0.1',
-        '0.0.0.0',
-        '192.168.44.45',
-        '192.168.180.160',
-        '192.168.1.81',
-        '192.168.181.146',
-        '192.168.254.105',
-        '192.168.181.120',
-        '172.20.10.2',
-        '192.168.254.125',
-        '10.0.1.186',
-        '192.168.180.135',
-        '.ngrok-free.app',
-        '.ngrok-free.dev',
-        '.ngrok.io',
+             '*',
+             '192.168.180.138:8000',
+             '192.168.254.132:8000',
     ]
 
 
@@ -168,9 +169,14 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_COOKIE_NAME = 'sessionid'
 SESSION_COOKIE_HTTPONLY = True
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+# Default for local HTTP; overridden when NGROK_HTTPS_COOKIES=1 (HTTPS tunnels).
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
 
 # When using ngrok HTTPS (or any HTTPS reverse proxy), set NGROK_HTTPS_COOKIES=1 in .env so
 # session/csrf cookies are marked Secure (some browsers require this on https://*.ngrok URLs).
+# Do NOT set this for plain HTTP (localhost, 127.0.0.1, or LAN IP like 192.168.x.x): browsers reject
+# Secure cookies on HTTP, so the CSRF cookie is never stored and every POST fails with 403.
 if os.environ.get('NGROK_HTTPS_COOKIES', '').lower() in ('1', 'true', 'yes'):
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True

@@ -1,0 +1,694 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visitor registration — {{ site_name|default:"Gate" }}</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+:root{
+  --bg-start: #e8f5e9;
+  --bg-end:   #fffde7;
+  --card-bg: rgba(255,255,255,0.98);
+  --muted: #495057;
+  --accent: #28a745;
+  --accent-dark: #1e7e34;
+  --yellow: #ffc107;
+  --shadow-1: 0 10px 30px rgba(30,94,32,0.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%}
+body{
+  font-family:'Source Sans 3',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:linear-gradient(135deg,var(--bg-start) 0%,var(--bg-end) 100%);
+  -webkit-font-smoothing:antialiased;
+  color:#222;
+}
+body.staff-gate-scan:not(.guard-embed-mode){
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  min-height:100vh;
+  min-height:100dvh;
+  overflow-x:hidden;
+}
+body.staff-gate-scan:not(.guard-embed-mode) .container{
+  max-width:none !important;
+  width:100%;
+  margin:0 !important;
+  border-radius:0;
+  box-shadow:none;
+  flex:1 1 auto;
+  min-height:100vh;
+  min-height:100dvh;
+  display:flex;
+  flex-direction:column;
+}
+.container{background:var(--card-bg);overflow:hidden;display:flex;flex-direction:column;flex:1}
+header{
+  background:linear-gradient(90deg,var(--accent) 0%,var(--accent-dark) 100%);
+  color:#fff;
+  padding:18px 22px;
+}
+.header-content{display:flex;align-items:center;gap:16px;width:100%;flex-wrap:wrap;justify-content:space-between}
+h1{font-size:clamp(18px,2.5vw,22px);font-weight:600;display:flex;gap:10px;align-items:center}
+.header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dashboard-link-btn{
+  background:rgba(255,255,255,0.2);
+  color:#fff;
+  font-weight:600;
+  padding:9px 16px;
+  border-radius:999px;
+  text-decoration:none;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  border:1px solid rgba(255,255,255,0.25);
+  font-size:14px;
+  transition:all .18s ease;
+}
+.dashboard-link-btn:hover{transform:translateY(-2px);background:rgba(255,255,255,0.3);color:#fff}
+.logout-btn{
+  background:var(--yellow);
+  color:#1b5e20;
+  font-weight:600;
+  padding:9px 16px;
+  border-radius:999px;
+  text-decoration:none;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  border:1px solid rgba(0,0,0,0.08);
+  font-size:14px;
+}
+.logout-btn:hover{background:#e0a800;color:#1b5e20}
+.scan-stats-bar{
+  display:flex;align-items:center;gap:12px;padding:10px 22px;
+  background:linear-gradient(180deg,#f0faf3,#f8fcf9);
+  border-bottom:1px solid rgba(40,167,69,0.12);
+  font-size:13px;color:#2e5e3e;flex-wrap:wrap;
+}
+.ssb-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ssb-item{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 12px;border-radius:8px;
+  background:rgba(255,255,255,0.85);border:1px solid rgba(40,167,69,0.1);
+  font-weight:600;font-size:13px;
+}
+.ssb-item i{font-size:12px;opacity:.75}
+.ssb-clock{font-variant-numeric:tabular-nums;font-weight:600;color:#555}
+.main-inner{
+  flex:1;
+  padding:clamp(16px,3vw,28px);
+  max-width:720px;
+  width:100%;
+  margin:0 auto;
+}
+.manual-input{
+  background:linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,250,250,0.98));
+  border-radius:12px;
+  padding:18px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.06);
+}
+.manual-input > h2{color:var(--accent);font-size:20px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.visitor-lead{color:var(--muted);font-size:15px;line-height:1.55;margin-bottom:14px}
+.visitor-notice{
+  font-size:14px;color:#1b5e20;
+  background:rgba(40,167,69,0.08);
+  border-radius:10px;
+  padding:12px 14px;margin-bottom:16px;
+  border:1px solid rgba(40,167,69,0.2);
+}
+.visitor-notice strong{display:block;margin-bottom:6px}
+.visitor-notice a{color:var(--accent-dark);font-weight:600}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:6px}
+.field input[type="text"],.field textarea,.field select{
+  width:100%;padding:11px 14px;border-radius:8px;border:1px solid #ddd;font-size:15px;
+  background:#f0f8f0;font-family:inherit;
+}
+.field input:focus,.field textarea:focus,.field select:focus{
+  outline:none;box-shadow:0 0 0 3px rgba(40,167,69,0.15);border-color:var(--accent);
+}
+.field textarea{min-height:72px;resize:vertical}
+.optional-tag{font-weight:500;color:var(--muted);font-size:12px}
+.visitor-face-field .face-hint{font-size:13px;color:var(--muted);margin:0 0 10px;line-height:1.45}
+.face-capture-box{
+  position:relative;
+  width:100%;
+  max-width:360px;
+  aspect-ratio:4/3;
+  border-radius:12px;
+  overflow:hidden;
+  background:#1a1d21;
+  border:2px solid rgba(40,167,69,0.25);
+}
+.face-capture-box video,.face-capture-box img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:none;
+}
+.face-capture-box video.is-active,.face-capture-box img.is-active{display:block}
+.face-capture-box video.face-preview-live{transform:scaleX(-1)}
+.face-placeholder{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#adb5bd;
+  font-size:14px;
+  text-align:center;
+  padding:16px;
+}
+.face-placeholder.hidden{display:none !important}
+.face-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
+.face-status{font-size:13px;color:var(--muted);margin-top:8px;min-height:1.2em}
+.face-status.face-status-err{color:#842029}
+.face-hint-intro{font-size:13px;color:var(--muted);margin:0 0 10px;line-height:1.45}
+.visitor-take-picture-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:11px 18px;border-radius:8px;border:1px solid #ced4da;background:#fff;
+  color:#1b5e20;font-weight:600;cursor:pointer;font-family:inherit;font-size:15px;
+}
+.visitor-take-picture-btn:hover{background:#f0f8f0;border-color:var(--accent)}
+.face-capture-expanded{margin-top:12px}
+.face-capture-expanded[hidden]{display:none !important}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;align-items:center}
+.btn-submit{
+  padding:12px 22px;border-radius:8px;border:none;background:var(--accent);color:#fff;
+  font-weight:700;font-size:15px;cursor:pointer;font-family:inherit;
+  display:inline-flex;align-items:center;gap:8px;
+  white-space:normal;text-align:center;max-width:100%;
+}
+.btn-submit:hover{background:var(--accent-dark)}
+.btn-submit:disabled{opacity:0.65;cursor:not-allowed}
+.btn-ghost{
+  padding:10px 16px;border-radius:8px;border:1px solid #ced4da;background:#fff;
+  color:#495057;font-weight:600;cursor:pointer;font-family:inherit;font-size:14px;
+}
+.instructions{
+  margin-top:18px;
+  padding:16px;
+  border-radius:12px;
+  background:linear-gradient(180deg,rgba(255,255,255,0.96),rgba(250,250,250,0.97));
+  box-shadow:0 6px 18px rgba(0,0,0,0.04);
+}
+.instructions h3{color:var(--accent);font-size:16px;margin-bottom:10px;display:flex;gap:8px;align-items:center}
+.instructions ol{margin:0 0 0 1.2rem;padding:0;color:var(--muted);line-height:1.65;font-size:14px}
+.reg-success-overlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  z-index:5000;
+  align-items:center;
+  justify-content:center;
+  padding:max(16px,env(safe-area-inset-bottom));
+  background:rgba(33,37,41,0.5);
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.reg-success-overlay.is-open{display:flex}
+.reg-success-modal{
+  position:relative;
+  width:100%;
+  max-width:440px;
+  margin:auto;
+  background:#fff;
+  border-radius:16px;
+  box-shadow:0 24px 64px rgba(0,0,0,0.22);
+  overflow:hidden;
+  border:1px solid rgba(40,167,69,0.2);
+  animation:regPopIn .22s ease-out;
+}
+@keyframes regPopIn{
+  from{opacity:0;transform:scale(0.96) translateY(8px)}
+  to{opacity:1;transform:scale(1) translateY(0)}
+}
+.reg-success-close{
+  position:absolute;
+  top:10px;
+  right:10px;
+  z-index:2;
+  width:40px;
+  height:40px;
+  border:none;
+  border-radius:10px;
+  background:rgba(255,255,255,0.95);
+  color:#495057;
+  font-size:22px;
+  line-height:1;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 2px 8px rgba(0,0,0,0.08);
+}
+.reg-success-close:hover{background:#f8f9fa;color:#212529}
+.scan-result-head{
+  padding:14px 48px 14px 16px;
+  background:linear-gradient(90deg,#eef9ef 0%,#fff 100%);
+  border-bottom:1px solid rgba(40,167,69,0.2);
+  color:var(--accent-dark);
+  font-weight:700;
+  display:flex;align-items:center;gap:10px;
+  font-size:17px;
+}
+.scan-result-body{padding:18px 18px 22px;text-align:center}
+#visitorPassQrDisplay{display:inline-block;margin-top:8px;padding:10px;background:#fff;border-radius:10px;border:1px solid rgba(0,0,0,0.08)}
+.checkin-pass-label{font-size:15px;font-weight:600;color:var(--accent-dark);margin-top:12px}
+.success-hint{color:var(--muted);font-size:14px;line-height:1.5;margin-top:12px;max-width:36rem;margin-left:auto;margin-right:auto}
+.hidden-form{display:none !important}
+.toast{
+  position:fixed;bottom:1.25rem;left:50%;transform:translateX(-50%) translateY(140%);
+  max-width:min(92vw,400px);padding:14px 18px;border-radius:12px;
+  font-size:15px;z-index:4000;box-shadow:0 12px 40px rgba(0,0,0,0.2);
+  transition:transform .25s ease;
+}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.ok{background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7}
+.toast.err{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+  </style>
+</head>
+<body class="staff-gate-scan visitor-scanner-page">
+<div class="container">
+  <header>
+    <div class="header-content">
+      <h1><i class="fas fa-clipboard-list" aria-hidden="true"></i> Visitor registration</h1>
+    </div>
+  </header>
+
+  <div class="scan-stats-bar">
+    <div class="ssb-group">
+      <div class="ssb-item"><i class="fas fa-tablet-alt" aria-hidden="true"></i> Registration tablet</div>
+      <div class="ssb-item"><i class="fas fa-clock" aria-hidden="true"></i> <span class="ssb-clock" id="vsClock"></span></div>
+    </div>
+  </div>
+
+  <div class="main-inner">
+    <div class="manual-input">
+      <h2><i class="fas fa-user-edit" aria-hidden="true"></i> Register before entry</h2>
+      <p class="visitor-lead">Use the pass number on the physical card from the front desk (<strong>VIS-001</strong>, etc.). Submit this form <em>before</em> going to the gate. Entry is recorded when you <strong>scan the same pass at the gate scanner</strong>.</p>
+      <div class="visitor-notice">
+        <strong><i class="fas fa-walking" aria-hidden="true"></i> Next step</strong>
+        After you see “saved”, take the card to the <a href="{% url 'gate-scan' %}">main gate scanner</a> and scan the QR (or use manual entry there). Do not skip this step — your visit is not active until the gate scan succeeds.
+      </div>
+
+      <form id="visitorRegForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="field">
+          <label for="passCode">Visitor pass number *</label>
+          <input type="text" id="passCode" name="pass_code" required autocomplete="off" placeholder="e.g. VIS-001" inputmode="text">
+        </div>
+        <div class="field">
+          <label for="fullName">Full name *</label>
+          <input type="text" id="fullName" name="full_name" required autocomplete="name" placeholder="e.g. Juan Dela Cruz">
+        </div>
+        <div class="field">
+          <label for="purpose">Purpose *</label>
+          <input type="text" id="purpose" name="purpose" required placeholder="e.g. Meeting, enrollment inquiry">
+        </div>
+        <div class="field">
+          <label for="department">Department / office *</label>
+          <select id="department" name="department" required>
+            <option value="">— Select —</option>
+            {% for value, label in campus_departments %}{% if value %}<option value="{{ value }}">{{ label }}</option>{% endif %}{% endfor %}
+          </select>
+        </div>
+        <div class="field visitor-face-field">
+          <label id="faceFieldLabel">Visitor photo <span class="optional-tag">(optional — face capture)</span></label>
+          <p class="face-hint-intro">You can skip this. <strong>Take a picture</strong> below.</p>
+          <button type="button" class="visitor-take-picture-btn" id="btnTakePictureReveal" aria-expanded="false" aria-controls="faceCaptureExpanded">
+            <i class="fas fa-camera" aria-hidden="true"></i> Take a picture
+          </button>
+          <div class="face-capture-expanded" id="faceCaptureExpanded" hidden aria-hidden="true">
+            <p class="face-hint">Use the tablet camera for a quick portrait, then submit the form. Tap <strong>Remove photo</strong> to close this section.</p>
+            <div class="face-capture-box" id="faceCaptureBox">
+              <div class="face-placeholder" id="facePlaceholder">Tap &ldquo;Open camera&rdquo; for a live preview, then &ldquo;Take photo&rdquo;.</div>
+              <video id="faceVideo" class="face-preview-live" playsinline muted autoplay></video>
+              <canvas id="faceCanvas" hidden aria-hidden="true"></canvas>
+              <img id="facePreview" alt="Captured visitor photo">
+            </div>
+            <div class="face-actions">
+              <button type="button" class="btn-ghost" id="btnFaceStart"><i class="fas fa-video" aria-hidden="true"></i> Open camera</button>
+              <button type="button" class="btn-submit" id="btnFaceCapture" style="display:none;padding:10px 16px;font-size:14px"><i class="fas fa-camera" aria-hidden="true"></i> Take photo</button>
+              <button type="button" class="btn-ghost" id="btnFaceRetake" style="display:none">Retake</button>
+              <button type="button" class="btn-ghost" id="btnFaceClear" style="display:none">Remove photo</button>
+            </div>
+            <p class="face-status" id="faceStatus" aria-live="polite"></p>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn-submit" id="btnSubmit"><i class="fas fa-paper-plane" aria-hidden="true"></i> Save registration</button>
+          <button type="button" class="btn-ghost" id="btnResetForm">Clear form</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="instructions">
+      <h3><i class="fas fa-list-ol" aria-hidden="true"></i> How it works</h3>
+      <ol>
+        <li>Pick up a visitor pass card from staff.</li>
+        <li>Complete this form with the pass number.</li>
+        <li>Walk to the gate and scan the card at the gate scanner.</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<div class="reg-success-overlay" id="regSuccessOverlay" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="regSuccessHeading">
+  <div class="reg-success-modal" id="regSuccessModal">
+    <button type="button" class="reg-success-close" id="regSuccessCloseBtn" aria-label="Close dialog" title="Close">&times;</button>
+    <div class="scan-result-head" id="regSuccessHeading"><i class="fas fa-check-circle" aria-hidden="true"></i> Saved — you can now scan the visitor pass </div>
+    <div class="scan-result-body">
+      <p id="regSuccessMsg" style="font-size:17px;color:#126033;font-weight:600;margin:0;line-height:1.4"></p>
+      <p class="success-hint">This QR is only valid today. Please scan it at the gate scanner.</p>
+      <div id="visitorPassQrDisplay"></div>
+      <p class="checkin-pass-label" id="passLabel"></p>
+      <div class="actions" style="justify-content:center;margin-top:16px;margin-bottom:0">
+        <button type="button" class="btn-submit" id="btnAnother"><i class="fas fa-plus" aria-hidden="true"></i> Register another visitor</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function() {
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  var form = document.getElementById('visitorRegForm');
+  var overlay = document.getElementById('regSuccessOverlay');
+  var modal = document.getElementById('regSuccessModal');
+  var URL_CHECKIN = '{% url "visitor-checkin-submit" %}';
+
+  var faceVideo = document.getElementById('faceVideo');
+  var faceCanvas = document.getElementById('faceCanvas');
+  var facePreview = document.getElementById('facePreview');
+  var facePlaceholder = document.getElementById('facePlaceholder');
+  var faceStatus = document.getElementById('faceStatus');
+  var btnFaceStart = document.getElementById('btnFaceStart');
+  var btnFaceCapture = document.getElementById('btnFaceCapture');
+  var btnFaceRetake = document.getElementById('btnFaceRetake');
+  var btnFaceClear = document.getElementById('btnFaceClear');
+  var faceCaptureExpanded = document.getElementById('faceCaptureExpanded');
+  var btnTakePictureReveal = document.getElementById('btnTakePictureReveal');
+
+  var faceStream = null;
+  var capturedFaceBlob = null;
+  var facePreviewObjectUrl = null;
+
+  function openFaceCapturePanel() {
+    if (!faceCaptureExpanded || !btnTakePictureReveal) return;
+    faceCaptureExpanded.hidden = false;
+    faceCaptureExpanded.setAttribute('aria-hidden', 'false');
+    btnTakePictureReveal.hidden = true;
+    btnTakePictureReveal.setAttribute('aria-expanded', 'true');
+    try {
+      if (btnFaceStart) btnFaceStart.focus();
+    } catch (_e) {}
+  }
+
+  function setFaceStatus(msg, isErr) {
+    faceStatus.textContent = msg || '';
+    faceStatus.classList.toggle('face-status-err', !!isErr);
+  }
+
+  function stopFaceCamera() {
+    if (faceStream) {
+      faceStream.getTracks().forEach(function(t) { t.stop(); });
+      faceStream = null;
+    }
+    faceVideo.srcObject = null;
+    faceVideo.classList.remove('is-active');
+  }
+
+  function revokePreviewUrl() {
+    if (facePreviewObjectUrl) {
+      URL.revokeObjectURL(facePreviewObjectUrl);
+      facePreviewObjectUrl = null;
+    }
+  }
+
+  function resetFaceCaptureUi() {
+    stopFaceCamera();
+    revokePreviewUrl();
+    capturedFaceBlob = null;
+    facePreview.removeAttribute('src');
+    facePreview.classList.remove('is-active');
+    facePlaceholder.classList.remove('hidden');
+    btnFaceStart.style.display = '';
+    btnFaceCapture.style.display = 'none';
+    btnFaceRetake.style.display = 'none';
+    btnFaceClear.style.display = 'none';
+    setFaceStatus('');
+    if (faceCaptureExpanded) {
+      faceCaptureExpanded.hidden = true;
+      faceCaptureExpanded.setAttribute('aria-hidden', 'true');
+    }
+    if (btnTakePictureReveal) {
+      btnTakePictureReveal.hidden = false;
+      btnTakePictureReveal.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function showCapturedPreview(blob) {
+    openFaceCapturePanel();
+    revokePreviewUrl();
+    facePreviewObjectUrl = URL.createObjectURL(blob);
+    facePreview.src = facePreviewObjectUrl;
+    facePreview.classList.add('is-active');
+    facePlaceholder.classList.add('hidden');
+    faceVideo.classList.remove('is-active');
+    btnFaceStart.style.display = 'none';
+    btnFaceCapture.style.display = 'none';
+    btnFaceRetake.style.display = '';
+    btnFaceClear.style.display = '';
+  }
+
+  btnTakePictureReveal.addEventListener('click', function() {
+    openFaceCapturePanel();
+    setFaceStatus('');
+  });
+
+  btnFaceStart.addEventListener('click', function() {
+    setFaceStatus('');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setFaceStatus('Camera not supported in this browser.', true);
+      return;
+    }
+    var constraints = { video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false };
+    navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
+      stopFaceCamera();
+      faceStream = stream;
+      faceVideo.srcObject = stream;
+      faceVideo.classList.add('is-active');
+      facePlaceholder.classList.add('hidden');
+      facePreview.classList.remove('is-active');
+      facePreview.removeAttribute('src');
+      revokePreviewUrl();
+      capturedFaceBlob = null;
+      btnFaceStart.style.display = 'none';
+      btnFaceCapture.style.display = '';
+      btnFaceRetake.style.display = 'none';
+      btnFaceClear.style.display = 'none';
+      return faceVideo.play();
+    }).catch(function(err) {
+      setFaceStatus('Could not open camera. Check permissions or try another browser.', true);
+    });
+  });
+
+  btnFaceCapture.addEventListener('click', function() {
+    if (!faceStream || !faceVideo.videoWidth) {
+      setFaceStatus('Wait for the camera preview, then try again.', true);
+      return;
+    }
+    var vw = faceVideo.videoWidth;
+    var vh = faceVideo.videoHeight;
+    var maxW = 1280;
+    var outW = vw;
+    var outH = vh;
+    if (vw > maxW) {
+      outH = Math.round(vh * (maxW / vw));
+      outW = maxW;
+    }
+    faceCanvas.width = outW;
+    faceCanvas.height = outH;
+    var ctx = faceCanvas.getContext('2d');
+    ctx.drawImage(faceVideo, 0, 0, vw, vh, 0, 0, outW, outH);
+    stopFaceCamera();
+    faceCanvas.toBlob(function(blob) {
+      if (!blob) {
+        setFaceStatus('Could not save photo. Try again.', true);
+        btnFaceStart.style.display = '';
+        facePlaceholder.classList.remove('hidden');
+        return;
+      }
+      capturedFaceBlob = blob;
+      showCapturedPreview(blob);
+      setFaceStatus('Photo attached. You can submit the form or retake.');
+    }, 'image/jpeg', 0.88);
+  });
+
+  btnFaceRetake.addEventListener('click', function() {
+    capturedFaceBlob = null;
+    revokePreviewUrl();
+    facePreview.removeAttribute('src');
+    facePreview.classList.remove('is-active');
+    facePlaceholder.classList.remove('hidden');
+    btnFaceRetake.style.display = 'none';
+    btnFaceClear.style.display = 'none';
+    btnFaceStart.style.display = '';
+    setFaceStatus('');
+  });
+
+  btnFaceClear.addEventListener('click', function() {
+    resetFaceCaptureUi();
+  });
+
+  function buildRegistrationFormData() {
+    var fd = new FormData();
+    fd.append('csrfmiddlewaretoken', getCsrf());
+    fd.append('pass_code', (document.getElementById('passCode').value || '').trim());
+    fd.append('full_name', (document.getElementById('fullName').value || '').trim());
+    fd.append('purpose', (document.getElementById('purpose').value || '').trim());
+    fd.append('department', (document.getElementById('department').value || '').trim());
+    var notesEl = document.getElementById('notes');
+    fd.append('notes', notesEl ? (notesEl.value || '').trim() : '');
+    if (capturedFaceBlob) {
+      fd.append('photo_in', capturedFaceBlob, 'visitor-face.jpg');
+    }
+    return fd;
+  }
+
+  function openSuccessModal() {
+    overlay.classList.add('is-open');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    stopFaceCamera();
+    var closeBtn = document.getElementById('regSuccessCloseBtn');
+    if (closeBtn) closeBtn.focus();
+    else {
+      var ba = document.getElementById('btnAnother');
+      if (ba) ba.focus();
+    }
+  }
+
+  function closeSuccessModal() {
+    overlay.classList.remove('is-open');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    document.getElementById('visitorPassQrDisplay').innerHTML = '';
+    document.getElementById('regSuccessMsg').textContent = '';
+    document.getElementById('passLabel').textContent = '';
+    form.reset();
+    resetFaceCaptureUi();
+    var pc = document.getElementById('passCode');
+    if (pc) pc.focus();
+  }
+
+  function toast(msg, kind) {
+    toastEl.textContent = msg;
+    toastEl.className = 'toast show ' + (kind || 'info');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function() { toastEl.classList.remove('show'); }, 5000);
+  }
+
+  function getCsrf() {
+    var m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? decodeURIComponent(m[1].trim()) : '{{ csrf_token }}';
+  }
+
+  function tickClock() {
+    var el = document.getElementById('vsClock');
+    if (!el) return;
+    var d = new Date();
+    el.textContent = d.toLocaleString(undefined, {
+      weekday: 'short', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', second: '2-digit'
+    });
+  }
+
+  function showQr(passCode) {
+    var host = document.getElementById('visitorPassQrDisplay');
+    host.innerHTML = '';
+    if (typeof QRCode !== 'undefined') {
+      try {
+        new QRCode(host, { text: passCode, width: 200, height: 200 });
+      } catch (e) {
+        host.textContent = passCode;
+      }
+    } else {
+      host.textContent = passCode;
+    }
+    document.getElementById('passLabel').textContent = 'Pass: ' + passCode;
+  }
+
+  form.addEventListener('submit', function(ev) {
+    ev.preventDefault();
+    var btn = document.getElementById('btnSubmit');
+    if (faceStream) {
+      toast('Stop the live camera first: take a photo or close the camera, then submit.', 'err');
+      return;
+    }
+    var fd = buildRegistrationFormData();
+    btn.disabled = true;
+
+    fetch(URL_CHECKIN, { method: 'POST', body: fd, credentials: 'same-origin' })
+      .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+      .then(function(res) {
+        if (res.j.success) {
+          document.getElementById('regSuccessMsg').textContent = res.j.message || 'Saved.';
+          showQr(res.j.pass_code || (document.getElementById('passCode').value || '').trim());
+          openSuccessModal();
+        } else {
+          toast(res.j.message || 'Could not save.', 'err');
+        }
+      })
+      .catch(function() {
+        toast('Network error. Try again.', 'err');
+      })
+      .finally(function() {
+        btn.disabled = false;
+      });
+  });
+
+  document.getElementById('btnResetForm').addEventListener('click', function() {
+    form.reset();
+    resetFaceCaptureUi();
+  });
+
+  document.getElementById('btnAnother').addEventListener('click', function() {
+    closeSuccessModal();
+  });
+
+  document.getElementById('regSuccessCloseBtn').addEventListener('click', function() {
+    closeSuccessModal();
+  });
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) closeSuccessModal();
+  });
+
+  modal.addEventListener('click', function(e) {
+    e.stopPropagation();
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && overlay.classList.contains('is-open')) {
+      closeSuccessModal();
+    }
+  });
+
+  setInterval(tickClock, 1000);
+  tickClock();
+})();
+</script>
+</body>
+</html>

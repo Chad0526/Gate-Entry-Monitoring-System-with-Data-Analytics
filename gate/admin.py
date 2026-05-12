@@ -28,6 +28,7 @@ from .models import (
     AuditLog,
     VisitorPass,
     VisitorVisit,
+    VisitorPendingCheckin,
     VisitorEntry,
     StudentBlock,
     EventWaitlist,
@@ -320,6 +321,15 @@ class VisitorVisitAdmin(PerPageListMixin, admin.ModelAdmin):
     date_hierarchy = 'checked_in_at'
     search_fields = ('full_name', 'purpose', 'department')
     readonly_fields = ('checked_in_at', 'checked_out_at')
+
+
+@admin.register(VisitorPendingCheckin)
+class VisitorPendingCheckinAdmin(PerPageListMixin, admin.ModelAdmin):
+    list_per_page = 20
+    list_display = ('full_name', 'pass_obj', 'department', 'expires_at', 'created_at', 'created_by')
+    list_filter = ('department',)
+    search_fields = ('full_name', 'pass_obj__code', 'purpose')
+    readonly_fields = ('created_at', 'updated_at')
 
 
 @admin.register(VisitorEntry)

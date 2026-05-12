@@ -650,6 +650,10 @@ select.gate-input-mode-select{
 .student-popup-body{ padding:12px 14px; }
 .student-popup-top{ display:flex; gap:12px; align-items:flex-start; margin-bottom:10px; }
 .student-popup-photo-wrap{ flex-shrink:0; width:72px; }
+.student-popup-photo-frame{
+  display:block;
+  width:100%;
+}
 .student-popup-photo{
   width:72px; height:72px; border-radius:10px;
   object-fit:cover; display:block;
@@ -865,8 +869,8 @@ body.event-scanner-dashboard-mode .student-popup-header{
 }
 body.guard-wall-mode .student-popup-header h2,
 body.event-scanner-dashboard-mode .student-popup-header h2{
-  font-size: clamp(1.05rem, 2.8vmin, 1.5rem);
-  gap: 10px;
+  font-size: clamp(1.55rem, 4.2vmin, 2.45rem);
+  gap: 12px;
 }
 body.guard-wall-mode .student-popup-close,
 body.event-scanner-dashboard-mode .student-popup-close{
@@ -878,9 +882,9 @@ body.guard-wall-mode .student-popup-status,
 body.event-scanner-dashboard-mode .student-popup-status{
   flex-shrink: 0;
   margin-top: 0;
-  padding: 12px 16px;
-  font-size: clamp(1rem, 2.6vmin, 1.35rem);
-  line-height: 1.35;
+  padding: clamp(16px, 2.4vmin, 26px) clamp(20px, 3vmin, 32px);
+  font-size: clamp(1.35rem, 3.8vmin, 2.2rem);
+  line-height: 1.4;
   border-radius: 12px;
 }
 body.guard-wall-mode .popup-schedule-status,
@@ -936,7 +940,7 @@ body.guard-wall-mode.student-popup-style--split .student-popup, body.event-scann
 body.guard-wall-mode.student-popup-style--split .student-popup-body, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-body{
   flex: 1 1 auto;
   min-height: 0;
-  padding: clamp(14px, 2.2vmin, 22px) clamp(18px, 2.8vmin, 28px) clamp(16px, 2vmin, 24px);
+  padding: clamp(14px, 2.2vmin, 22px) clamp(18px, 2.8vmin, 28px) clamp(16px, 2vmin, 24px) clamp(12px, 2vmin, 20px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -946,23 +950,30 @@ body.guard-wall-mode.student-popup-style--split .student-popup-top, body.event-s
   flex: 1 1 auto;
   min-height: 0;
   flex-direction: row;
-  align-items: stretch;
+  align-items: flex-start;
   justify-content: flex-start;
-  gap: clamp(18px, 3vw, 40px);
+  gap: clamp(10px, 1.6vw, 24px);
   margin-bottom: 0;
 }
 body.guard-wall-mode.student-popup-style--split .student-popup-photo-wrap, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-photo-wrap{
-  flex: 0 1 44%;
+  flex: 0 0 auto;
   width: auto;
-  max-width: 46%;
+  max-width: min(300px, 30vw);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
+  text-align: left;
   box-sizing: border-box;
   min-height: 0;
-  align-self: stretch;
-  justify-content: center;
+  align-self: flex-start;
+  justify-content: flex-start;
+}
+body.guard-wall-mode.student-popup-style--split .student-popup-photo-frame, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-photo-frame{
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
+  line-height: 0;
 }
 body.guard-wall-mode.student-popup-style--split .student-popup-photo, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-photo{
   flex: 0 1 auto;
@@ -980,58 +991,73 @@ body.guard-wall-mode.student-popup-style--split .student-popup-photo, body.event
   box-sizing: border-box;
 }
 body.guard-wall-mode.student-popup-style--split .student-popup-badge, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-badge{
-  font-size: clamp(0.8rem, 2vmin, 1.15rem);
-  padding: clamp(6px, 1vmin, 10px) clamp(12px, 2vmin, 18px);
-  margin-top: clamp(8px, 1.2vmin, 14px);
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: clamp(12px, 2.2vmin, 26px);
+  margin: 0;
+  z-index: 3;
+  font-size: clamp(1.05rem, 2.85vmin, 1.6rem);
+  padding: clamp(9px, 1.4vmin, 14px) clamp(16px, 2.6vmin, 26px);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.28);
+  border-radius: 999px;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 body.guard-wall-mode.student-popup-style--split .student-popup-name, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-name{
-  font-size: clamp(1.35rem, 3.6vmin, 2.35rem);
-  line-height: 1.2;
-  margin-bottom: 8px;
+  font-size: clamp(2.25rem, 6.8vmin, 4.75rem);
+  font-weight: 800;
+  line-height: 1.12;
+  margin-bottom: clamp(10px, 1.6vmin, 18px);
   overflow-wrap: anywhere;
   word-wrap: break-word;
 }
 body.guard-wall-mode.student-popup-style--split .student-popup-info, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-info{
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   text-align: left;
   align-self: stretch;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: clamp(4px, 0.8vmin, 8px);
-  padding: clamp(12px, 2vmin, 18px) clamp(14px, 2.2vmin, 22px);
+  gap: clamp(10px, 1.8vmin, 20px);
+  padding: clamp(16px, 2.6vmin, 26px) clamp(18px, 2.8vmin, 30px) clamp(16px, 2.6vmin, 26px) clamp(10px, 1.6vmin, 18px);
   border-radius: clamp(10px, 1.2vmin, 14px);
   background: rgba(0,0,0,0.035);
   border: 1px solid rgba(0,0,0,0.06);
 }
 body.guard-wall-mode.student-popup-style--split .student-popup-id, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-id{
-  font-size: clamp(0.95rem, 2.4vmin, 1.25rem);
+  font-size: clamp(1.45rem, 4vmin, 2.45rem);
+  font-weight: 600;
+  line-height: 1.28;
 }
 body.guard-wall-mode.student-popup-style--split .student-popup-course, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-course{
-  font-size: clamp(0.88rem, 2.1vmin, 1.1rem);
+  font-size: clamp(1.3rem, 3.6vmin, 2.1rem);
+  line-height: 1.32;
 }
 body.guard-wall-mode.student-popup-style--split .student-popup-details, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-details{
-  padding-top: clamp(8px, 1.2vmin, 12px);
-  margin-top: clamp(4px, 0.8vmin, 8px);
+  padding-top: clamp(12px, 1.8vmin, 20px);
+  margin-top: clamp(8px, 1.2vmin, 12px);
 }
 body.guard-wall-mode.student-popup-style--split .student-popup-details li, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-details li{
   align-items: flex-start;
-  font-size: clamp(0.95rem, 2.3vmin, 1.2rem);
-  padding: clamp(3px, 0.5vmin, 6px) 0;
-  line-height: 1.4;
-  gap: clamp(8px, 1.2vmin, 12px);
+  font-size: clamp(1.35rem, 3.6vmin, 2.15rem);
+  padding: clamp(6px, 1vmin, 12px) 0;
+  line-height: 1.42;
+  gap: clamp(12px, 1.8vmin, 20px);
 }
 body.guard-wall-mode.student-popup-style--split .student-popup-details li i, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-details li i{
-  margin-top: 4px;
-  width: clamp(16px, 2vmin, 22px);
-  font-size: clamp(0.95em, 2vmin, 1.1em);
+  margin-top: 8px;
+  width: clamp(26px, 3.5vmin, 36px);
+  font-size: clamp(1.2rem, 3.2vmin, 1.75rem);
 }
 body.guard-wall-mode.student-popup-style--split .student-popup-status, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup-status{
-  font-size: clamp(0.95rem, 2.3vmin, 1.2rem);
+  font-size: clamp(1.3rem, 3.6vmin, 2.1rem);
+  padding: clamp(16px, 2.4vmin, 26px) clamp(20px, 3vmin, 32px);
+  line-height: 1.4;
 }
 body.guard-wall-mode.student-popup-style--split .popup-schedule-status, body.event-scanner-dashboard-mode.student-popup-style--split .popup-schedule-status{
-  font-size: clamp(0.88rem, 2vmin, 1.05rem);
+  font-size: clamp(1.15rem, 3.2vmin, 1.65rem);
 }
 @media (max-height: 560px){
   body.guard-wall-mode.student-popup-style--split .student-popup, body.event-scanner-dashboard-mode.student-popup-style--split .student-popup{
@@ -1132,26 +1158,33 @@ body.guard-embed-mode.student-popup-style--split .student-popup-body{
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 10px 14px 12px;
+  padding: 10px 14px 12px 10px;
 }
 body.guard-embed-mode.student-popup-style--split .student-popup-top{
   flex: 1 1 auto;
   min-height: 0;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-start;
-  gap: clamp(10px, 2.2vw, 22px);
+  gap: clamp(8px, 1.6vw, 18px);
   text-align: left;
   margin-bottom: 0;
 }
 body.guard-embed-mode.student-popup-style--split .student-popup-photo-wrap{
   flex: 0 0 auto;
   width: auto;
-  max-width: 42%;
+  max-width: min(280px, 32vw);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
+  text-align: left;
+}
+body.guard-embed-mode.student-popup-style--split .student-popup-photo-frame{
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
+  line-height: 0;
 }
 body.guard-embed-mode.student-popup-style--split .student-popup-photo{
   width: min(34vmin, 38vh, 240px);
@@ -1160,49 +1193,60 @@ body.guard-embed-mode.student-popup-style--split .student-popup-photo{
   border-width: 3px;
 }
 body.guard-embed-mode.student-popup-style--split .student-popup-badge{
-  font-size: clamp(0.7rem, 1.8vmin, 0.95rem);
-  padding: 5px 12px;
-  margin-top: 6px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: clamp(10px, 2vmin, 18px);
+  margin: 0;
+  z-index: 3;
+  font-size: clamp(0.9rem, 2.5vmin, 1.25rem);
+  padding: 7px 16px;
   border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+  line-height: 1.2;
 }
 body.guard-embed-mode.student-popup-style--split .student-popup-info{
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   text-align: left;
   align-self: stretch;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  gap: clamp(8px, 1.5vmin, 14px);
 }
 body.guard-embed-mode.student-popup-style--split .student-popup-name{
-  font-size: clamp(1.1rem, 3.2vmin, 1.65rem);
-  line-height: 1.2;
-  margin-bottom: 4px;
+  font-size: clamp(1.65rem, 4.8vmin, 2.85rem);
+  font-weight: 800;
+  line-height: 1.12;
+  margin-bottom: 8px;
   overflow-wrap: anywhere;
   word-wrap: break-word;
 }
 body.guard-embed-mode.student-popup-style--split .student-popup-id{
-  font-size: clamp(0.9rem, 2.2vmin, 1.15rem);
-  margin-bottom: 3px;
+  font-size: clamp(1.2rem, 3.4vmin, 1.75rem);
+  font-weight: 600;
+  margin-bottom: 4px;
 }
 body.guard-embed-mode.student-popup-style--split .student-popup-course{
-  font-size: clamp(0.85rem, 2vmin, 1.05rem);
-  margin-bottom: 6px;
+  font-size: clamp(1.12rem, 3.1vmin, 1.6rem);
+  margin-bottom: 8px;
 }
 body.guard-embed-mode.student-popup-style--split .student-popup-details{
-  padding-top: 8px;
-  margin-top: 4px;
+  padding-top: 12px;
+  margin-top: 6px;
   border-top-width: 1px;
 }
 body.guard-embed-mode.student-popup-style--split .student-popup-details li{
-  font-size: clamp(0.88rem, 2.1vmin, 1.12rem);
-  padding: 2px 0;
-  line-height: 1.35;
-  gap: 8px;
+  font-size: clamp(1.08rem, 3vmin, 1.65rem);
+  padding: 5px 0;
+  line-height: 1.4;
+  gap: 11px;
 }
 body.guard-embed-mode.student-popup-style--split .student-popup-details li i{
-  width: 18px;
-  font-size: 0.95em;
+  width: 24px;
+  font-size: 1.08em;
 }
 @media (max-height: 520px){
   body.guard-embed-mode.student-popup-style--split .student-popup-photo{
@@ -1239,6 +1283,12 @@ body.guard-embed-mode.student-popup-style--poster .student-popup-photo-wrap{
   position: relative;
   width: 100%;
   max-width: none;
+}
+body.guard-embed-mode.student-popup-style--poster .student-popup-photo-frame{
+  display: block;
+  width: 100%;
+  position: relative;
+  line-height: 0;
 }
 body.guard-embed-mode.student-popup-style--poster .student-popup-photo{
   display: block;
@@ -1577,8 +1627,8 @@ body.guard-embed-mode .student-popup.student-popup--unknown-id .student-popup-st
   .main-content .scan-column,
   .main-content .info-column{ max-width:none }
   .scan-column{ padding:0 4px; box-sizing:border-box; max-width:100%; overflow-x:hidden; min-width:0 }
-  /* Scanner first on mobile; stable height so QR frame isn’t clipped (staff page — not guard wall) */
-  body:not(.guard-embed-mode) #reader{
+  /* Scanner first on mobile; stable height so QR frame isn’t clipped (staff /gate/ only — not guard wall / event kiosk) */
+  body:not(.guard-embed-mode):not(.guard-wall-mode):not(.event-scanner-dashboard-mode) #reader{
     width:100% !important;
     max-width:100% !important;
     min-width:0 !important;
@@ -1598,7 +1648,13 @@ body.guard-embed-mode .student-popup.student-popup--unknown-id .student-popup-st
     min-height:0;
   }
   #reader *{ max-width:100% !important; box-sizing:border-box }
-  #reader__scan_region #qr-shaded-region{ max-width:100%; box-sizing:border-box }
+  /* html5-qrcode sets explicit qrbox px widths; max-width:100% on ancestors can squash the hole into a tall strip */
+  #reader__scan_region #qr-shaded-region,
+  #reader__scan_region #qr-shaded-region *{
+    max-width:none !important;
+    box-sizing:border-box;
+  }
+  #reader__scan_region #qr-shaded-region{ box-sizing:border-box }
   #reader video,
   #reader__scan_region video{
     width:100% !important;
@@ -1638,7 +1694,7 @@ body.guard-embed-mode .student-popup.student-popup--unknown-id .student-popup-st
 @media (max-width:480px){
   .main-content{ padding:10px }
   .scan-column{ padding:0 2px }
-  body:not(.guard-embed-mode) #reader{ height:clamp(220px, 42vh, 320px) !important }
+  body:not(.guard-embed-mode):not(.guard-wall-mode):not(.event-scanner-dashboard-mode) #reader{ height:clamp(220px, 42vh, 320px) !important }
   .live-entries-frame{ min-height:200px; height:240px }
 }
 
@@ -2507,11 +2563,57 @@ body.guard-wall-mode .guard-scanner-frame-wrap{
   display:block;
 }
 body.guard-wall-mode .guard-scanner-frame-wrap #reader{
-  width:100% !important;
+  box-sizing:border-box;
+  width:min(92vw, 78vmin, 820px) !important;
   max-width:100% !important;
-  /* Keep controls + preview visible without scrolling */
-  height:clamp(320px, 56vh, 620px);
-  min-height:320px;
+  margin:0 auto;
+  aspect-ratio:1 / 1;
+  height:auto !important;
+  min-height:0 !important;
+  overflow:hidden;
+  border-radius:12px;
+}
+body.guard-wall-mode #reader__dashboard{
+  width:100% !important;
+  height:100% !important;
+  min-height:100% !important;
+  position:relative !important;
+  box-sizing:border-box !important;
+}
+body.guard-wall-mode #reader__scan_region{
+  width:100% !important;
+  height:100% !important;
+  min-width:0 !important;
+  min-height:0 !important;
+  max-width:none !important;
+  max-height:none !important;
+  box-sizing:border-box !important;
+  position:relative !important;
+  overflow:hidden !important;
+}
+body.guard-wall-mode #reader__scan_region > div{
+  width:100% !important;
+  height:100% !important;
+  min-height:100% !important;
+  max-width:none !important;
+  box-sizing:border-box !important;
+}
+body.guard-wall-mode #reader video{
+  width:100% !important;
+  height:100% !important;
+  min-width:100% !important;
+  min-height:100% !important;
+  object-fit:cover !important;
+  object-position:center center !important;
+  transform:scaleX(-1);
+}
+body.guard-wall-mode #reader canvas{
+  max-width:100% !important;
+}
+@media (max-width:768px){
+  body.guard-wall-mode .guard-scanner-frame-wrap #reader{
+    width:min(94vw, 88vmin, 720px) !important;
+  }
 }
 body.guard-wall-mode .guard-scanner-instruction{
   flex-shrink:0;
@@ -2626,10 +2728,57 @@ body.event-scanner-dashboard-mode .event-scanner-frame-wrap{
   display:block;
 }
 body.event-scanner-dashboard-mode .event-scanner-frame-wrap #reader{
-  width:100% !important;
+  box-sizing:border-box;
+  width:min(92vw, 78vmin, 820px) !important;
   max-width:100% !important;
-  height:clamp(320px, 52vh, 620px);
-  min-height:320px;
+  margin:0 auto;
+  aspect-ratio:1 / 1;
+  height:auto !important;
+  min-height:0 !important;
+  overflow:hidden;
+  border-radius:12px;
+}
+body.event-scanner-dashboard-mode #reader__dashboard{
+  width:100% !important;
+  height:100% !important;
+  min-height:100% !important;
+  position:relative !important;
+  box-sizing:border-box !important;
+}
+body.event-scanner-dashboard-mode #reader__scan_region{
+  width:100% !important;
+  height:100% !important;
+  min-width:0 !important;
+  min-height:0 !important;
+  max-width:none !important;
+  max-height:none !important;
+  box-sizing:border-box !important;
+  position:relative !important;
+  overflow:hidden !important;
+}
+body.event-scanner-dashboard-mode #reader__scan_region > div{
+  width:100% !important;
+  height:100% !important;
+  min-height:100% !important;
+  max-width:none !important;
+  box-sizing:border-box !important;
+}
+body.event-scanner-dashboard-mode #reader video{
+  width:100% !important;
+  height:100% !important;
+  min-width:100% !important;
+  min-height:100% !important;
+  object-fit:cover !important;
+  object-position:center center !important;
+  transform:scaleX(-1);
+}
+body.event-scanner-dashboard-mode #reader canvas{
+  max-width:100% !important;
+}
+@media (max-width:768px){
+  body.event-scanner-dashboard-mode .event-scanner-frame-wrap #reader{
+    width:min(94vw, 88vmin, 720px) !important;
+  }
 }
 .kiosk-topbar{
   display:flex; align-items:center; gap:12px; flex-wrap:wrap;
@@ -2672,8 +2821,10 @@ body.event-scanner-dashboard-mode .event-scanner-frame-wrap #reader{
             <div class="student-popup-body">
                 <div class="student-popup-top">
                     <div class="student-popup-photo-wrap">
-                        <img class="student-popup-photo" id="studentPopupPhoto" src="" alt="Student photo" style="display:none;">
-                        <div class="student-popup-badge" id="studentPopupBadge">ALLOWED</div>
+                        <div class="student-popup-photo-frame">
+                            <img class="student-popup-photo" id="studentPopupPhoto" src="" alt="Student photo" style="display:none;">
+                            <div class="student-popup-badge" id="studentPopupBadge">ALLOWED</div>
+                        </div>
                     </div>
                     <div class="student-popup-info">
                         <div class="student-popup-name" id="studentPopupName"></div>
@@ -3721,24 +3872,42 @@ body.event-scanner-dashboard-mode .event-scanner-frame-wrap #reader{
                             if (resultDiv) { resultDiv.innerHTML = resp.message || 'Scan recorded'; resultDiv.className = 'success'; }
                             _gwNotify(resp.message || 'Scan recorded (note optional)', 'in', resp.student_name, resp.time || currentTime);
                             _gwShowPopup(resp);
+                        } else if (resp.visitor_register_first) {
+                            _gwBeepError();
+                            var vregMsg = resp.message || 'Register at the visitor station first, then scan this pass again.';
+                            if (resultDiv) { resultDiv.innerHTML = vregMsg; resultDiv.className = 'warning'; }
+                            _gwNotify(vregMsg, 'warning', '', currentTime);
                         } else if (resp.need_visitor_checkin || resp.need_visitor_checkout) {
-                            _gwBeepSuccess();
-                            if (resultDiv) { resultDiv.innerHTML = resp.message || 'Visitor'; resultDiv.className = 'info'; }
-                            _gwNotify(resp.message || 'Visitor pass scanned', 'info', '', currentTime);
-                            try {
-                                if (resp.need_visitor_checkin && typeof openVisitorCheckinModal === 'function') {
-                                    openVisitorCheckinModal(resp.pass_code);
-                                } else if (resp.need_visitor_checkout && typeof openVisitorCheckoutModal === 'function') {
-                                    openVisitorCheckoutModal(resp.pass_code, resp.visit_id, resp.visit || {});
+                            if (resp.need_visitor_checkin) {
+                                _gwBeepSuccess();
+                                if (resultDiv) { resultDiv.innerHTML = resp.message || 'Visitor'; resultDiv.className = 'info'; }
+                                _gwNotify(resp.message || 'Visitor pass scanned', 'info', '', currentTime);
+                                try {
+                                    if (typeof openVisitorCheckinModal === 'function') {
+                                        openVisitorCheckinModal(resp.pass_code);
+                                    }
+                                } catch (e) {
+                                    console.error('[Guard Wall Scan] Visitor check-in modal failed:', e);
                                 }
-                            } catch (e) {
-                                console.error('[Guard Wall Scan] Visitor modal failed:', e);
+                                try {
+                                    if (typeof refreshLiveEntriesPanel === 'function') {
+                                        refreshLiveEntriesPanel(true, 'visitors');
+                                    }
+                                } catch (_eLe) {}
+                            } else {
+                                _gwBeepSuccess();
+                                if (resultDiv) { resultDiv.innerHTML = resp.message || 'Visitor check-out'; resultDiv.className = 'info'; }
+                                try {
+                                    if (typeof runVisitorCheckoutFromScan === 'function') {
+                                        runVisitorCheckoutFromScan(resp);
+                                    } else if (typeof openVisitorCheckoutModal === 'function') {
+                                        openVisitorCheckoutModal(resp.pass_code, resp.visit_id, resp.visit || {});
+                                        _gwNotify(resp.message || 'Visitor check-out', 'info', '', currentTime);
+                                    }
+                                } catch (e) {
+                                    console.error('[Guard Wall Scan] Visitor check-out failed:', e);
+                                }
                             }
-                            try {
-                                if (typeof refreshLiveEntriesPanel === 'function') {
-                                    refreshLiveEntriesPanel(true, 'visitors');
-                                }
-                            } catch (_eLe) {}
                         } else {
                             _gwBeepError();
                             if (resultDiv) { resultDiv.innerHTML = resp.message || 'Scan failed'; resultDiv.className = 'error'; }
@@ -3942,6 +4111,10 @@ body.event-scanner-dashboard-mode .event-scanner-frame-wrap #reader{
                         }
                     } catch (_eCand) {}
                     removeTapButton();
+                    try {
+                        if (typeof guardEmbedFillVideoLayout === 'function') guardEmbedFillVideoLayout();
+                        if (typeof scheduleFitScanRegionToReader === 'function') scheduleFitScanRegionToReader();
+                    } catch (_lay) {}
                 }).catch(function(err) {
                     console.warn('[Guard Inline Poll] Candidate', idx, 'failed:', err);
                     tryStartCameraCandidate(instance, candidates, config, onSuccess, idx + 1);
@@ -3960,7 +4133,7 @@ body.event-scanner-dashboard-mode .event-scanner-frame-wrap #reader{
                     }
                     var qrbox = function(vw, vh) {
                         var m = Math.min(vw, vh);
-                        var size = Math.max(150, Math.floor(m * 0.8));
+                        var size = Math.max(150, Math.floor(m * 0.9));
                         return { width: size, height: size };
                     };
                     var onSuccess = function(decoded) {
@@ -4070,7 +4243,8 @@ body.event-scanner-dashboard-mode .event-scanner-frame-wrap #reader{
                 }
                 var qrbox = function(vw, vh) {
                     var m = Math.min(vw, vh);
-                    return { width: Math.floor(m * 0.8), height: Math.floor(m * 0.8) };
+                    var size = Math.max(150, Math.floor(m * 0.9));
+                    return { width: size, height: size };
                 };
                 var onSuccess = function(decoded) {
                     _gwHandleScan(decoded);
@@ -4087,6 +4261,10 @@ body.event-scanner-dashboard-mode .event-scanner-frame-wrap #reader{
                                 if (_allCameras[i] && _allCameras[i].id === camId) { _currentCamIdx = i; break; }
                             }
                         } catch (_eIdx) {}
+                        try {
+                            if (typeof guardEmbedFillVideoLayout === 'function') guardEmbedFillVideoLayout();
+                            if (typeof scheduleFitScanRegionToReader === 'function') scheduleFitScanRegionToReader();
+                        } catch (_lay2) {}
                         if (cb) cb(true);
                     })
                     .catch(function(err) {
@@ -4765,6 +4943,7 @@ body.event-scanner-dashboard-mode .event-scanner-frame-wrap #reader{
                         <li>Ensure the QR code is clearly visible within the scanner frame</li>
                         <li>Hold your device steady for accurate scanning</li>
                         <li>The system will automatically process valid student ID QR codes</li>
+                        <li><strong>Visitor passes (VIS-…):</strong> visitors must complete the <strong>visitor registration</strong> form on the designated tablet first, then scan the same pass here to enter</li>
                         <li>Results will be displayed in the scan area after scanning</li>
                         <li>Use manual entry if QR code is not scanning properly</li>
                     </ol>
@@ -4805,6 +4984,10 @@ if (window.location.pathname.indexOf('/guard-display/') !== -1) {
       '/gate/api/guard-dashboard/?token=' + encodeURIComponent(_gdtok) + '&minimal=1';
   }
 }
+
+window.VISITOR_CHECKOUT_SUBMIT_URL = (window.GUARD_EMBED_TOKEN && (window.GATE_GUARD_WALL || window.GATE_GUARD_EMBED))
+  ? "{% url 'visitor-checkout-guard' %}"
+  : "{% url 'visitor-checkout-submit' %}";
 
 window.EVENT_ATTENDANCE_FIELD_TRIP_MODE = {% if event_attendance_field_trip %}true{% else %}false{% endif %};
 window.EVENT_ATTENDANCE_SCANNER_EVENT_ID = {% if event_attendance_scanner_event %}{{ event_attendance_scanner_event.id }}{% else %}null{% endif %};
@@ -6037,10 +6220,22 @@ if (typeof window.formatGatePopupCourseLine !== 'function') {
       badgeEl.style.display = (response.not_registered || response.inactive) ? 'none' : 'inline-block';
     }
     document.getElementById('studentPopupName').textContent = response.student_name || (student.first_name + ' ' + student.last_name).trim() || '—';
-    document.getElementById('studentPopupId').textContent = 'ID: ' + (student.student_id || '—');
-    var courseEl = document.getElementById('studentPopupCourse');
-    if (courseEl) courseEl.textContent = (typeof window.formatGatePopupCourseLine === 'function') ? window.formatGatePopupCourseLine(student) : '';
-    document.getElementById('studentPopupEmail').textContent = student.email || 'No email';
+    if (response.visitor_pass_out) {
+      var vPassCode = response.visitor_pass_code || '';
+      document.getElementById('studentPopupId').textContent = vPassCode ? ('Pass: ' + vPassCode) : '—';
+      var courseElVis = document.getElementById('studentPopupCourse');
+      if (courseElVis) courseElVis.textContent = response.visitor_department || '';
+      document.getElementById('studentPopupEmail').textContent = '—';
+      var peVis = document.getElementById('studentPopupPhoto');
+      if (peVis) { peVis.style.display = 'none'; peVis.removeAttribute('src'); }
+      var pwVis = document.querySelector('#studentPopupOverlay .student-popup-photo-wrap');
+      if (pwVis) pwVis.style.display = 'none';
+    } else {
+      document.getElementById('studentPopupId').textContent = 'ID: ' + (student.student_id || '—');
+      var courseEl = document.getElementById('studentPopupCourse');
+      if (courseEl) courseEl.textContent = (typeof window.formatGatePopupCourseLine === 'function') ? window.formatGatePopupCourseLine(student) : '';
+      document.getElementById('studentPopupEmail').textContent = student.email || 'No email';
+    }
     var scanTypeEl = document.getElementById('studentPopupScanType');
     if (scanTypeEl) scanTypeEl.textContent = (response.status === 'OUT' ? 'OUT' : 'IN');
     document.getElementById('studentPopupTime').textContent = response.time || new Date().toLocaleTimeString();
@@ -6253,7 +6448,7 @@ if (typeof window.formatGatePopupCourseLine !== 'function') {
     if (response.not_registered) {
       var pe = document.getElementById('studentPopupPhoto');
       if (pe) { pe.style.display = 'none'; pe.removeAttribute('src'); }
-    } else if (typeof window.applyGateScanPopupPhoto === 'function') {
+    } else if (!response.visitor_pass_out && typeof window.applyGateScanPopupPhoto === 'function') {
       window.applyGateScanPopupPhoto(student, response);
     }
       overlay.classList.add('show');
@@ -6562,6 +6757,74 @@ if (typeof window.formatGatePopupCourseLine !== 'function') {
   // -------------------------
   var visitorCheckoutAutoCloseTimer = null;
 
+  function submitVisitorCheckout(passCode, visitId, successCallback, errorCallback) {
+    var formData = new FormData();
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    formData.append('pass_code', passCode || '');
+    formData.append('visit_id', (visitId != null && visitId !== '') ? String(visitId) : '');
+    if (typeof window.GUARD_EMBED_TOKEN === 'string' && window.GUARD_EMBED_TOKEN) {
+      formData.append('guard_token', window.GUARD_EMBED_TOKEN);
+    }
+    var vcoUrl = (typeof window.VISITOR_CHECKOUT_SUBMIT_URL === 'string' && window.VISITOR_CHECKOUT_SUBMIT_URL)
+      ? window.VISITOR_CHECKOUT_SUBMIT_URL
+      : "{% url 'visitor-checkout-submit' %}";
+    $.ajax({
+      url: vcoUrl,
+      type: 'POST',
+      data: formData,
+      dataType: 'json',
+      processData: false,
+      contentType: false,
+      success: function(response) {
+        var ok = response && (response.success === true || response.success === 'true');
+        if (ok) successCallback && successCallback(response);
+        else errorCallback && errorCallback((response && response.message) || 'Check-out failed.');
+      },
+      error: function(xhr) {
+        var msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Check-out failed.';
+        errorCallback && errorCallback(msg);
+      }
+    });
+  }
+
+  function runVisitorCheckoutFromScan(scanResp) {
+    var visit = (scanResp && scanResp.visit) || {};
+    var passCode = (scanResp && scanResp.pass_code) || '';
+    var visitId = scanResp && scanResp.visit_id;
+    submitVisitorCheckout(passCode, visitId, function(response) {
+      playSuccessBeep && playSuccessBeep();
+      var resultDiv = document.getElementById('result');
+      if (resultDiv) {
+        resultDiv.innerHTML = escapeHtml(response.message || 'Visitor checked out.');
+        resultDiv.className = 'success';
+      }
+      showStudentPopup({
+        success: true,
+        result: 'ALLOWED',
+        visitor_pass_out: true,
+        visitor_pass_code: passCode,
+        visitor_department: visit.department || '',
+        student_name: visit.full_name || 'Visitor',
+        student: { student_id: passCode, first_name: '', last_name: '', email: '' },
+        status: 'OUT',
+        time: response.time || new Date().toLocaleTimeString(),
+        message: response.message
+      });
+      showNotification(response.message || 'Visitor checked out.', 'out', visit.full_name || 'Visitor', response.time || '');
+      try { refreshLiveEntriesPanel(true, 'visitors'); } catch (_e) {}
+    }, function(errMsg) {
+      playErrorBeep && playErrorBeep();
+      showNotification(errMsg, 'error');
+      var resultDiv = document.getElementById('result');
+      if (resultDiv) {
+        resultDiv.innerHTML = escapeHtml(errMsg);
+        resultDiv.className = 'warning';
+      }
+    });
+  }
+  window.submitVisitorCheckout = submitVisitorCheckout;
+  window.runVisitorCheckoutFromScan = runVisitorCheckoutFromScan;
+
   function openVisitorCheckinModal(passCode) {
     document.getElementById('visitorCheckinPassCode').textContent = passCode || '';
     document.getElementById('visitorCheckinPassCodeInput').value = passCode || '';
@@ -6699,6 +6962,7 @@ if (typeof window.formatGatePopupCourseLine !== 'function') {
     formData.append('purpose', purpose);
     formData.append('department', department);
     formData.append('notes', document.getElementById('visitorCheckinNotes').value);
+    formData.append('finalize_at_gate', '1');
     if (typeof window.GUARD_EMBED_TOKEN === 'string' && window.GUARD_EMBED_TOKEN) {
       formData.append('guard_token', window.GUARD_EMBED_TOKEN);
     }
@@ -6733,49 +6997,41 @@ if (typeof window.formatGatePopupCourseLine !== 'function') {
   document.getElementById('visitorCheckoutSubmit').addEventListener('click', function() {
     var passCode = document.getElementById('visitorCheckoutPassCodeInput').value;
     var visitId = document.getElementById('visitorCheckoutVisitId').value;
-    var formData = new FormData();
-    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-    formData.append('pass_code', passCode);
-    formData.append('visit_id', visitId);
-    if (typeof window.GUARD_EMBED_TOKEN === 'string' && window.GUARD_EMBED_TOKEN) {
-      formData.append('guard_token', window.GUARD_EMBED_TOKEN);
-    }
+    var visit = {
+      full_name: (document.getElementById('visitorCheckoutName') && document.getElementById('visitorCheckoutName').textContent) || '',
+      department: (document.getElementById('visitorCheckoutDepartment') && document.getElementById('visitorCheckoutDepartment').textContent) || ''
+    };
     var btn = this;
     btn.disabled = true;
-    $.ajax({
-      url: "{% url 'visitor-checkout-submit' %}",
-      type: 'POST',
-      data: formData,
-      dataType: 'json',
-      processData: false,
-      contentType: false,
-      success: function(response) {
-        var ok = response && (response.success === true || response.success === 'true');
-        if (ok) {
-          /* Schedule close first so nothing below can prevent the 3s auto-close */
-          visitorCheckoutAutoCloseTimer = setTimeout(function() {
-            visitorCheckoutAutoCloseTimer = null;
-            closeVisitorCheckoutModal();
-            btn.disabled = false;
-          }, 3000);
-          try {
-            playSuccessBeep();
-            document.getElementById('result').innerHTML = (response.message || 'Visitor checked out.');
-            document.getElementById('result').className = 'success';
-            showNotification(response.message || 'Visitor checked out.', 'success', '', response.time);
-            refreshLiveEntriesPanel(true, 'visitors');
-          } catch (e) {}
-        } else {
-          closeVisitorCheckoutModal();
-          showNotification((response && response.message) || 'Check-out failed.', 'error');
-          btn.disabled = false;
-        }
-      },
-      error: function(xhr) {
-        var msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Check-out failed.';
-        showNotification(msg, 'error');
+    submitVisitorCheckout(passCode, visitId, function(response) {
+      visitorCheckoutAutoCloseTimer = setTimeout(function() {
+        visitorCheckoutAutoCloseTimer = null;
+        closeVisitorCheckoutModal();
         btn.disabled = false;
-      }
+      }, 3000);
+      try {
+        playSuccessBeep();
+        document.getElementById('result').innerHTML = (response.message || 'Visitor checked out.');
+        document.getElementById('result').className = 'success';
+        showStudentPopup({
+          success: true,
+          result: 'ALLOWED',
+          visitor_pass_out: true,
+          visitor_pass_code: passCode,
+          visitor_department: visit.department || '',
+          student_name: (visit.full_name && visit.full_name !== '—') ? visit.full_name : 'Visitor',
+          student: { student_id: passCode, first_name: '', last_name: '', email: '' },
+          status: 'OUT',
+          time: response.time || new Date().toLocaleTimeString(),
+          message: response.message
+        });
+        showNotification(response.message || 'Visitor checked out.', 'out', visit.full_name || 'Visitor', response.time);
+        refreshLiveEntriesPanel(true, 'visitors');
+      } catch (e) {}
+    }, function(msg) {
+      closeVisitorCheckoutModal();
+      showNotification(msg, 'error');
+      btn.disabled = false;
     });
   });
 
@@ -7283,6 +7539,20 @@ if (typeof window.formatGatePopupCourseLine !== 'function') {
         }
       }
 
+      if (response.visitor_register_first) {
+        playErrorBeep();
+        var vregMsgScan = response.message || 'Register at the visitor station first, then scan again.';
+        resultDiv.innerHTML = escapeHtml(vregMsgScan);
+        resultDiv.className = 'warning';
+        showNotification(vregMsgScan, 'warning');
+        setTimeout(function() {
+          statusIndicator.classList.remove('scanning');
+          statusIndicator.querySelector('span').textContent = 'Scanner ready';
+          isProcessingScan = false;
+        }, 500);
+        setTimeout(function() { scanProcessingStartedAt = 0; }, 510);
+        return;
+      }
       if (response.need_visitor_checkin) {
         // play sound to acknowledge visitor code scan
         playSuccessBeep && playSuccessBeep();
@@ -7295,12 +7565,10 @@ if (typeof window.formatGatePopupCourseLine !== 'function') {
         return;
       }
       if (response.need_visitor_checkout) {
-        // beep when scanning visitor code for checkout as well
         playSuccessBeep && playSuccessBeep();
         resultDiv.innerHTML = escapeHtml(response.message || 'Visitor check-out');
         resultDiv.className = 'info';
-        openVisitorCheckoutModal(response.pass_code, response.visit_id, response.visit || {});
-        refreshLiveEntriesPanel(true, 'visitors');
+        runVisitorCheckoutFromScan(response);
         setTimeout(function() { statusIndicator.classList.remove('scanning'); statusIndicator.querySelector('span').textContent = 'Scanner ready'; isProcessingScan = false; }, 500);
         setTimeout(function() { scanProcessingStartedAt = 0; }, 510);
         return;
@@ -7519,7 +7787,7 @@ if (typeof window.formatGatePopupCourseLine !== 'function') {
   }
   function qrBoxByViewport(viewfinderWidth, viewfinderHeight) {
     var isMobile = window.innerWidth <= 768 || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
-    var ratio = isMobile ? 0.78 : 0.7;
+    var ratio = isMobile ? 0.85 : 0.78;
     var size = Math.min(viewfinderWidth, viewfinderHeight) * ratio;
     if (isMobile) size = Math.max(168, Math.round(size));
     return { width: Math.round(size), height: Math.round(size) };
@@ -7582,7 +7850,10 @@ if (typeof window.formatGatePopupCourseLine !== 'function') {
   }
   /** Guard embed: stretch library internals to fill the square #reader (fixes black strip / letterboxing). */
   function guardEmbedFillVideoLayout() {
-    if (typeof window.GATE_GUARD_EMBED === 'undefined' || !window.GATE_GUARD_EMBED) return;
+    var _gEmb = typeof window.GATE_GUARD_EMBED !== 'undefined' && window.GATE_GUARD_EMBED;
+    var _gWall = typeof window.GATE_GUARD_WALL !== 'undefined' && window.GATE_GUARD_WALL;
+    var _eventK = document.body && document.body.classList.contains('event-scanner-dashboard-mode');
+    if (!_gEmb && !_gWall && !_eventK) return;
     var reader = document.getElementById('reader');
     var scanRegion = document.getElementById('reader__scan_region');
     if (!reader || !scanRegion) return;
@@ -7618,7 +7889,10 @@ if (typeof window.formatGatePopupCourseLine !== 'function') {
     var reader = document.getElementById('reader');
     var scanRegion = document.getElementById('reader__scan_region');
     if (!reader || !scanRegion) return;
-    if (typeof window.GATE_GUARD_EMBED !== 'undefined' && window.GATE_GUARD_EMBED) {
+    var _eventK = document.body && document.body.classList.contains('event-scanner-dashboard-mode');
+    if ((typeof window.GATE_GUARD_EMBED !== 'undefined' && window.GATE_GUARD_EMBED) ||
+        (typeof window.GATE_GUARD_WALL !== 'undefined' && window.GATE_GUARD_WALL) ||
+        _eventK) {
       guardEmbedFillVideoLayout();
       return;
     }
@@ -7652,7 +7926,9 @@ if (typeof window.formatGatePopupCourseLine !== 'function') {
       clearTimeout(window._fitScanRegionResize);
       window._fitScanRegionResize = setTimeout(run, 150);
     });
-    if (typeof window.GATE_GUARD_EMBED !== 'undefined' && window.GATE_GUARD_EMBED && !window._guardEmbedFsBound) {
+    if (((typeof window.GATE_GUARD_EMBED !== 'undefined' && window.GATE_GUARD_EMBED) ||
+        (typeof window.GATE_GUARD_WALL !== 'undefined' && window.GATE_GUARD_WALL) ||
+        (document.body && document.body.classList.contains('event-scanner-dashboard-mode'))) && !window._guardEmbedFsBound) {
       window._guardEmbedFsBound = true;
       var fsReflow = function() {
         setTimeout(function() {
@@ -8609,6 +8885,17 @@ if (typeof window.formatGatePopupCourseLine !== 'function') {
         }
       }
 
+      if (response.visitor_register_first) {
+        playErrorBeep();
+        var vregMsgManual = response.message || 'Register at the visitor station first, then scan again.';
+        resultDiv.innerHTML = escapeHtml(vregMsgManual);
+        resultDiv.className = 'warning';
+        showNotification(vregMsgManual, 'warning');
+        statusIndicator.classList.remove('scanning');
+        statusIndicator.querySelector('span').textContent = 'Scanner ready';
+        manualProcessing = false;
+        return;
+      }
       if (response.need_visitor_checkin) {
         // beep to acknowledge offline-synced visitor code
         playSuccessBeep && playSuccessBeep();
@@ -8625,8 +8912,7 @@ if (typeof window.formatGatePopupCourseLine !== 'function') {
         playSuccessBeep && playSuccessBeep();
         resultDiv.innerHTML = escapeHtml(response.message || 'Visitor check-out');
         resultDiv.className = 'info';
-        openVisitorCheckoutModal(response.pass_code, response.visit_id, response.visit || {});
-        refreshLiveEntriesPanel(true, 'visitors');
+        runVisitorCheckoutFromScan(response);
         statusIndicator.classList.remove('scanning');
         statusIndicator.querySelector('span').textContent = 'Scanner ready';
         manualProcessing = false;
